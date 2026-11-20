@@ -1,0 +1,79 @@
+# Increase ROAS CI on GitHub-hosted runners. Runs Paperclip's own commands
+# from package.json / doc/DEVELOPING.md: install, build, typecheck, tests.
+# (Upstream's pr.yml needs Paperclip's private runner fleet, so ir-guard keeps
+# it switched off here.)
+name: IR CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: ir-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CI: "1"
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+  NODE_OPTIONS: --max-old-space-size=6144
+
+jobs:
+  build:
+    name: build + typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/ir-setup
+      - name: Build
+        run: pnpm build
+      - name: Typecheck
+        run: pnpm typecheck
+
+  test:
+    name: test (${{ matrix.mode }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [general, serialized]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/ir-setup
+      - name: Test
+        run: pnpm test:run:${{ matrix.mode }}
+
+  ir-scripts:
+    name: IR files
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shell and workflow lint
+        run: |
+          shellcheck scripts/ir/*.sh docker/increase-roas/*.sh
+          pip install --quiet yamllint
+          yamllint -d '{extends: relaxed, rules: {line-length: disable}}' .github/workflows/ir-*.yml .github/actions/ir-setup/action.yml
+      - name: Upstream sync dry run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          DRY_RUN: "1"
+        run: |
+          git fetch --quiet origin master
+          bash scripts/ir/upstream-sync.sh
+
+  ci-passed:
+    name: IR CI passed
+    if: always()
+    needs: [build, test, ir-scripts]
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          [ "${{ needs.build.result }}" = success ] && [ "${{ needs.test.result }}" = success ] && [ "${{ needs.ir-scripts.result }}" = success ]

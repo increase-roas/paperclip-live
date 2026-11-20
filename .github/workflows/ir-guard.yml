@@ -1,0 +1,34 @@
+# Upstream Paperclip's workflows target Paperclip's own runner fleet, release
+# secrets and npm/GHCR publishing. In this private copy they must not run.
+# Keeping their files unchanged avoids merge conflicts on every upstream sync;
+# this job switches them off in repo settings instead. Only ir-* workflows stay on.
+name: IR guard
+
+on:
+  push:
+    branches: [master]
+  schedule:
+    - cron: "41 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  disable-upstream-workflows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Disable every active workflow that is not ir-*
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh api "repos/$REPO/actions/workflows" --paginate \
+            --jq '.workflows[] | select(.state=="active") | select(.path | startswith(".github/workflows/")) | select(.path | test("^\\.github/workflows/ir-") | not) | "\(.id) \(.path)"' |
+          while read -r id path; do
+            gh api -X PUT "repos/$REPO/actions/workflows/$id/disable" && echo "disabled $path"
+          done
+          echo "Active workflows now:"
+          gh api "repos/$REPO/actions/workflows" --paginate --jq '.workflows[] | select(.state=="active") | .path'

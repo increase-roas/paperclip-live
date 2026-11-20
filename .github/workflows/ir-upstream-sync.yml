@@ -1,0 +1,54 @@
+# Daily check for new upstream Paperclip releases. For each one, opens a PR
+# merging it into master (scripts/ir/upstream-sync.sh); IR CI runs on it.
+# Clashes with our changes are listed in the PR and the PR is a draft.
+#
+# Token: secrets.IR_SYNC_TOKEN, a fine-grained token for this repo only with
+# Contents, Pull requests, Workflows and Actions = read/write. Upstream
+# releases change .github/workflows files, and the built-in GITHUB_TOKEN may
+# not push workflow-file changes, so the secret is required for real merges.
+name: IR upstream sync
+
+on:
+  schedule:
+    - cron: "23 11 * * *"   # every day 11:23 UTC (6:23 am Detroit)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only report what would be opened"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: ir-upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check token
+        id: tok
+        env:
+          HAS: ${{ secrets.IR_SYNC_TOKEN != '' }}
+        run: |
+          if [ "$HAS" = "true" ]; then echo "dispatch=0" >> "$GITHUB_OUTPUT"; else
+            echo "dispatch=1" >> "$GITHUB_OUTPUT"
+            echo "::warning::IR_SYNC_TOKEN is not set. Using GITHUB_TOKEN: pushes that change workflow files will be refused."
+          fi
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.IR_SYNC_TOKEN || github.token }}
+      - name: Open PRs for new upstream releases
+        env:
+          GH_TOKEN: ${{ secrets.IR_SYNC_TOKEN || github.token }}
+          REPO: ${{ github.repository }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+          DISPATCH_CI: ${{ steps.tok.outputs.dispatch }}
+        run: bash scripts/ir/upstream-sync.sh
