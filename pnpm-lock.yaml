@@ -1277,8 +1277,8 @@ importers:
         specifier: ^0.5.20
         version: 0.5.20(tailwindcss@4.3.3)
       '@tanstack/react-query':
-        specifier: ^5.102.8
-        version: 5.102.8(react@19.2.8)
+        specifier: ^5.108.0
+        version: 5.108.0(@types/react@19.2.18)(react@19.2.8)
       '@xterm/addon-fit':
         specifier: ^0.11.0
         version: 0.11.0
@@ -4961,6 +4961,7 @@ packages:
   '@sapphire/shapeshift@4.0.0':
     resolution: {integrity: sha512-d9dUmWVA7MMiKobL3VpLF8P2aeanRTu6ypG2OIaEv/ZHH/SUQ2iHOVyi5wAPjQ+HmnMuL0whK9ez8I/raWbtIg==}
     engines: {node: '>=v16'}
+    deprecated: Shapeshift was created when other validation libraries had significant limitations in performance and error reporting. Those advantages have diminished as libraries such as Zod have become faster and improved their error messages, while also gaining broader environment support, a larger community, and custom error printers.
 
   '@sapphire/snowflake@3.5.5':
     resolution: {integrity: sha512-xzvBr1Q1c4lCe7i6sRnrofxeO1QTP/LKQ6A6qy0iB4x5yfiSfARMEQEghojzTNALDTcv8En04qYNIco9/K9eZQ==}
@@ -5293,13 +5294,17 @@ packages:
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7 || ^8
 
-  '@tanstack/query-core@5.102.8':
-    resolution: {integrity: sha512-ZNjkJ33CqvPNec/6lZBnHqLc3EVGPZ9ySLhYahU9TcuRFdmwXewuj0c4hwSWcGHqEUwcSrKeZ+oGcvPBqXcQcg==}
+  '@tanstack/query-core@5.108.0':
+    resolution: {integrity: sha512-X9zJUtEV/0D2q9pmGS/Bza8S4bNovSBhZOtdhtu0fzsHwizC6C+Eh/q5CX3MQBchsRMrirWVQmv7Fp4OStzV9g==}
 
-  '@tanstack/react-query@5.102.8':
-    resolution: {integrity: sha512-TYBea4OuXWD7MhaSHq069TWbFe7rcwWN6kzT7JF0OKi1K6c1gTv2IzD6A6ExJsCMozdkqBWeuIUZmu4KQg0O5A==}
+  '@tanstack/react-query@5.108.0':
+    resolution: {integrity: sha512-DpMbB8pVorEZcsHRa0Z13KQGfmndqvJbuLy9h+xfP8XpuEZBOxzq+QfXGonQ0fAgRSWhc+QsfoRETSTWxAEAVw==}
     peerDependencies:
+      '@types/react': ^18 || ^19
       react: ^19.2.8
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
 
   '@testing-library/dom@10.4.2':
     resolution: {integrity: sha512-yzr2S9HyAIdhz2/6qHgbs665Q7PKVcDF05vsOlHPxG1mo36gKVesdYVeDLnXgfjJ03CrKRk08knc6+E/9m8v2Q==}
@@ -13365,12 +13370,14 @@ snapshots:
       tailwindcss: 4.3.3
       vite: 8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
 
-  '@tanstack/query-core@5.102.8': {}
+  '@tanstack/query-core@5.108.0': {}
 
-  '@tanstack/react-query@5.102.8(react@19.2.8)':
+  '@tanstack/react-query@5.108.0(@types/react@19.2.18)(react@19.2.8)':
     dependencies:
-      '@tanstack/query-core': 5.102.8
+      '@tanstack/query-core': 5.108.0
       react: 19.2.8
+    optionalDependencies:
+      '@types/react': 19.2.18
 
   '@testing-library/dom@10.4.2':
     dependencies:
