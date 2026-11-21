@@ -1,0 +1,76 @@
+groups:
+  - name: paperclip-api
+    rules:
+      - alert: PaperclipApiDown
+        expr: up{job="paperclip-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: paperclip-api
+        annotations:
+          summary: "Paperclip API is not scrapeable"
+          runbook: "doc/DEPLOYMENT-OBSERVABILITY.md#server-server"
+
+      - alert: PaperclipApiHigh5xxRate
+        expr: |
+          sum(rate(paperclip_http_requests_total{status=~"5.."}[5m]))
+            /
+          clamp_min(sum(rate(paperclip_http_requests_total[5m])), 0.001)
+            > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          service: paperclip-api
+        annotations:
+          summary: "Paperclip API 5xx ratio is above 5%"
+          runbook: "doc/DEPLOYMENT-OBSERVABILITY.md#server-server"
+
+      - alert: PaperclipApiLatencyP95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(paperclip_http_request_duration_ms_bucket[5m])) by (le)
+          ) > 2000
+        for: 10m
+        labels:
+          severity: warning
+          service: paperclip-api
+        annotations:
+          summary: "Paperclip API p95 latency is above 2s"
+          runbook: "doc/DEPLOYMENT-OBSERVABILITY.md#server-server"
+
+      - alert: PaperclipApiNoTraffic
+        expr: sum(rate(paperclip_http_requests_total[10m])) == 0
+        for: 15m
+        labels:
+          severity: warning
+          service: paperclip-api
+        annotations:
+          summary: "Paperclip API has received no requests for 15 minutes"
+          runbook: "doc/DEPLOYMENT-OBSERVABILITY.md#server-server"
+
+  - name: paperclip-google-sheets
+    rules:
+      - alert: GoogleSheetsMcpDown
+        expr: up{job="google-sheets"} == 0
+        for: 2m
+        labels:
+          severity: warning
+          service: google-sheets-mcp
+        annotations:
+          summary: "Google Sheets MCP server is not scrapeable"
+          runbook: "doc/DEPLOYMENT-OBSERVABILITY.md#google-sheets-mcp-server-packagesgoogle-sheets-mcp-server"
+
+      - alert: GoogleSheetsMcpHighErrorRate
+        expr: |
+          sum(rate(paperclip_google_sheets_api_requests_total{outcome="error"}[10m]))
+            /
+          clamp_min(sum(rate(paperclip_google_sheets_api_requests_total[10m])), 0.001)
+            > 0.25
+        for: 10m
+        labels:
+          severity: warning
+          service: google-sheets-mcp
+        annotations:
+          summary: "Google Sheets API calls are failing above 25%"
+          runbook: "doc/DEPLOYMENT-OBSERVABILITY.md#google-sheets-mcp-server-packagesgoogle-sheets-mcp-server"

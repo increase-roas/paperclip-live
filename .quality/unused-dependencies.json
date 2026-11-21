@@ -8,6 +8,8 @@
     "cross-env",
     "esbuild",
     "oxc-parser",
+    "oxlint",
+    "@vitest/coverage-v8",
     "yaml",
     "@playwright/test"
   ],

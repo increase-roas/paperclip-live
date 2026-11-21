@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { readConfigFromEnv, type GoogleSheetsMcpConfig } from "./config.js";
 import { createGoogleSheetsClient, type GoogleSheetsClient } from "./google-client.js";
+import { guardGoogleSheetsClient } from "./observability.js";
 import { createToolDefinitions } from "./tools.js";
 
 export interface CreateGoogleSheetsMcpServerOptions {
@@ -17,7 +18,9 @@ export function createGoogleSheetsMcpServer(
     version: "0.1.0",
   });
 
-  const client = options.client ?? createGoogleSheetsClient(config.serviceAccount);
+  const client = guardGoogleSheetsClient(
+    options.client ?? createGoogleSheetsClient(config.serviceAccount),
+  );
   const tools = createToolDefinitions({
     client,
     allowedSpreadsheetIds: config.allowedSpreadsheetIds,

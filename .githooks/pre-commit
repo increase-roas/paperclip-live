@@ -16,6 +16,7 @@ fi
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
+node scripts/check-lint.mjs --staged
 node scripts/check-secrets.mjs --staged
 node scripts/check-source-format.mjs --staged
 node scripts/check-large-files.mjs --staged

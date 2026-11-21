@@ -1,4 +1,5 @@
 import type { CallToolResult, ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
+import { redactText } from "@paperclipai/shared/observability";
 import { z } from "zod";
 import type { GoogleSheetsClient } from "./google-client.js";
 
@@ -94,7 +95,7 @@ function redact(value: string, secretRedactions: string[]): string {
   for (const secret of secretRedactions) {
     if (secret.length >= 8) output = output.split(secret).join("[REDACTED]");
   }
-  return output.replace(/-----BEGIN PRIVATE KEY-----[\s\S]*?-----END PRIVATE KEY-----/g, "[REDACTED_PRIVATE_KEY]");
+  return redactText(output);
 }
 
 function formatErrorResponse(error: unknown, secretRedactions: string[]): ToolResult {

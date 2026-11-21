@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 import { readHttpConfigFromEnv } from "./config.js";
 import { createGoogleSheetsMcpHttpServer } from "./http.js";
+import { createSheetsLogger } from "./observability.js";
 
 async function main(): Promise<void> {
+  const logger = createSheetsLogger();
   const config = readHttpConfigFromEnv();
   const { listen } = createGoogleSheetsMcpHttpServer({
     config: config.mcpConfig,
@@ -11,16 +13,18 @@ async function main(): Promise<void> {
   const port = await listen(config.port, config.host);
   const base = `http://${config.host}:${port}`;
 
-  console.error(`Google Sheets MCP HTTP server listening on ${base}`);
-  console.error(`  MCP endpoint: ${base}/mcp`);
-  if (config.token) {
-    console.error("  Auth:         GOOGLE_SHEETS_MCP_TOKEN required (Authorization: Bearer header).");
-  } else {
-    console.error("  Auth:         none (loopback-only local testing mode).");
-  }
+  logger.info("Google Sheets MCP HTTP server listening", {
+    base,
+    mcpEndpoint: `${base}/mcp`,
+    healthEndpoint: `${base}/healthz`,
+    metricsEndpoint: `${base}/metrics`,
+    tokenRequired: Boolean(config.token),
+  });
 }
 
 void main().catch((error) => {
-  console.error("Failed to start Google Sheets MCP HTTP server:", error instanceof Error ? error.message : error);
+  createSheetsLogger().error("Failed to start Google Sheets MCP HTTP server", {
+    error: error instanceof Error ? error.message : String(error),
+  });
   process.exit(1);
 });

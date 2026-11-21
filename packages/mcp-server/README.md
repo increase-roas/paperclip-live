@@ -88,3 +88,13 @@ Escape hatch:
 
 `paperclipApiRequest` is limited to paths under `/api` and JSON bodies. It is
 meant for endpoints that do not yet have a dedicated MCP tool.
+
+## Health and metrics
+
+```sh
+node packages/mcp-server/dist/stdio.js --health    # config + circuit snapshot
+node packages/mcp-server/dist/stdio.js --metrics   # Prometheus text
+```
+
+stdout carries the MCP protocol during normal operation; diagnostics use
+stderr. Privacy and retention rules are in [docs/privacy.md](docs/privacy.md).

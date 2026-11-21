@@ -44,6 +44,7 @@ export function formatAuditLine(event: AuditEvent): string {
     runtimeId: event.runtimeId ? sanitizeField(event.runtimeId) : null,
     ports: event.ports.filter((p) => Number.isInteger(p)).slice(0, 8),
     requestId: event.requestId ? sanitizeField(event.requestId) : null,
+    traceId: event.requestId ? sanitizeField(event.requestId) : null,
     decision: event.decision,
     reasonCode: event.reasonCode,
     reason: sanitizeField(event.reason),

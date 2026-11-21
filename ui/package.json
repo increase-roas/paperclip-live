@@ -14,6 +14,8 @@
   },
   "type": "module",
   "scripts": {
+    "profile": "vite --profile",
+    "test:coverage": "vitest run --coverage",
     "dev": "vite",
     "build": "vite build",
     "build:preview": "vite build --config vite.preview.config.mjs",

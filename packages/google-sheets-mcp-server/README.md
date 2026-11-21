@@ -112,3 +112,25 @@ test a different spreadsheet set.
 Every tool that accepts a spreadsheet ID rejects IDs outside the configured
 allowlist before calling Google. `list_spreadsheets` lists only the allowlisted
 IDs.
+
+## Local QA without Google credentials
+
+The real Streamable HTTP transport and tool surface can be exercised with an
+in-memory client. No service account, spreadsheet or network access is needed:
+
+```sh
+pnpm --filter @paperclipai/google-sheets-mcp-server qa:local
+```
+
+The harness starts the HTTP server, reads `/healthz` and `/metrics`, connects an
+MCP client, lists the tools and calls `list_spreadsheets`. It is the fastest way
+to verify a transport or tool-registration change.
+
+## Health and metrics
+
+HTTP mode exposes `GET /healthz` (service status, uptime and circuit state) and
+`GET /metrics` (Prometheus text). The metrics route requires the bearer token
+when `GOOGLE_SHEETS_MCP_TOKEN` is set. stdio mode exposes the same snapshots
+with `--health` and `--metrics`.
+
+Privacy and retention rules are in [docs/privacy.md](docs/privacy.md).

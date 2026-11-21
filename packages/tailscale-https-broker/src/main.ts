@@ -8,6 +8,7 @@
  * Usage:
  *   paperclip-tailscale-https-broker            # run the broker
  *   paperclip-tailscale-https-broker --doctor   # read-only preflight, no mutation
+ *   paperclip-tailscale-https-broker --health   # machine-readable health probe
  */
 import { FileAuditSink } from "./audit.js";
 import { BrokerCore } from "./broker-core.js";
@@ -20,6 +21,7 @@ import { startSocketServer } from "./socket-server.js";
 import { buildStatusArgv } from "./argv.js";
 import { assertPrimaryIntact, parseServeStatus } from "./serve-config.js";
 import { createTailscaleRunner, isSupportedTailscaleVersion } from "./tailscale-cli.js";
+import { brokerMetrics, brokerTailscaleCircuit, createBrokerLogger } from "./observability.js";
 
 function runDoctor(): number {
   const config = loadHostConfig(process.env);
@@ -43,16 +45,53 @@ function runDoctor(): number {
     // Echo the parsed protected set so an operator can confirm the preservation
     // list actually took effect before trusting it (PAP-17285).
     protectedPorts: config.protectedPorts,
+    circuit: brokerTailscaleCircuit.snapshot(),
+    metrics: brokerMetrics.snapshot(),
   };
   process.stdout.write(`${JSON.stringify(checks, null, 2)}\n`);
   return versionOk && status.code === 0 && primaryOk ? 0 : 1;
+}
+
+function runHealth(): number {
+  const logger = createBrokerLogger();
+  try {
+    const config = loadHostConfig(process.env);
+    const runner = createTailscaleRunner();
+    const version = runner([config.tailscaleBinPath, "version"]);
+    const versionOk = version.code === 0 && isSupportedTailscaleVersion(version.stdout);
+    const health = {
+      status: versionOk ? "ok" : "degraded",
+      service: "paperclip-tailscale-https-broker",
+      tailscaleVersionSupported: versionOk,
+      socketPath: config.socketPath,
+      registryPathSafe: true,
+      circuit: brokerTailscaleCircuit.snapshot(),
+      metrics: brokerMetrics.snapshot(),
+    };
+    process.stdout.write(`${JSON.stringify(health, null, 2)}\n`);
+    logger.info("broker health check", { status: health.status });
+    return versionOk ? 0 : 1;
+  } catch (error) {
+    process.stdout.write(
+      `${JSON.stringify({
+        status: "unhealthy",
+        service: "paperclip-tailscale-https-broker",
+        error: error instanceof Error ? error.message : String(error),
+      }, null, 2)}\n`,
+    );
+    return 1;
+  }
 }
 
 function main(): void {
   if (process.argv.includes("--doctor")) {
     process.exit(runDoctor());
   }
+  if (process.argv.includes("--health")) {
+    process.exit(runHealth());
+  }
 
+  const logger = createBrokerLogger();
   const config = loadHostConfig(process.env);
   const core = new BrokerCore({
     tailscaleBinPath: config.tailscaleBinPath,
@@ -84,6 +123,7 @@ function main(): void {
   });
 
   const shutdown = () => {
+    logger.info("broker shutting down", { socketPath: config.socketPath });
     server.close(() => process.exit(0));
   };
   process.on("SIGINT", shutdown);

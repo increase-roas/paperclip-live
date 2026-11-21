@@ -1,5 +1,14 @@
 import { URL } from "node:url";
 
+import {
+  cliApiCircuit,
+  cliApiDuration,
+  cliApiRequests,
+  createCliLogger,
+  newTraceContext,
+  traceHeaders,
+} from "../observability.js";
+
 export class ApiRequestError extends Error {
   status: number;
   details?: unknown;
@@ -131,20 +140,36 @@ export class PaperclipApiClient {
       headers["x-paperclip-run-id"] = this.runId;
     }
 
+    const trace = newTraceContext();
+    Object.assign(headers, traceHeaders(trace));
+    const startedAt = Date.now();
+
     let response: Response;
     try {
-      response = await fetch(url, {
-        ...init,
-        headers,
-      });
+      response = await cliApiCircuit.execute(() =>
+        fetch(url, {
+          ...init,
+          headers,
+        }),
+      );
     } catch (error) {
+      cliApiRequests.inc({ method, outcome: "network_error" });
+      createCliLogger(trace).warn("API request failed", {
+        method,
+        path,
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw new ApiConnectionError({
         apiBase: this.apiBase,
         path,
         method,
         cause: error,
       });
+    } finally {
+      cliApiDuration.observe({ method }, Date.now() - startedAt);
     }
+
+    cliApiRequests.inc({ method, outcome: String(response.status) });
 
     if (opts?.ignoreNotFound && response.status === 404) {
       return null;

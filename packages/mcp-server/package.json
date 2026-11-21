@@ -37,6 +37,9 @@
     "README.md"
   ],
   "scripts": {
+    "qa:health": "node dist/stdio.js --health",
+    "qa:metrics": "node dist/stdio.js --metrics",
+    "test:coverage": "vitest run --coverage",
     "build": "tsc",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",

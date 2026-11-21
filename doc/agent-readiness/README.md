@@ -16,6 +16,8 @@ Individual checks:
 
 | Criterion | Command | Rules |
 | --- | --- | --- |
+| Lint | `pnpm lint` / `pnpm lint:fix` | oxlint correctness rules with a reviewed baseline |
+| AGENTS.md | `pnpm check:agents-md` | documented paths and pnpm scripts exist |
 | Formatter | `pnpm format:check` / `pnpm format` | LF, UTF-8, no trailing whitespace, one final newline |
 | Pre-commit hooks | `pnpm hooks:install` | formats/secrets/size/debt on staged files |
 | Naming | `pnpm check:naming` | kebab-case backend files, `useThing` hooks, PascalCase types/components |

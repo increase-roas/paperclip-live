@@ -5,6 +5,12 @@
   "scripts": {
     "perf:workspace-admission": "node --import ./server/node_modules/tsx/dist/loader.mjs server/scripts/benchmark-workspace-admission.ts",
     "profile:server": "node scripts/profile-server.mjs",
+    "profile:cli": "node scripts/profile-app.mjs --name cli --entry cli/dist/index.js -- --help",
+    "profile:mcp-server": "node scripts/profile-app.mjs --name mcp-server --entry packages/mcp-server/dist/stdio.js -- --metrics",
+    "profile:google-sheets": "node scripts/profile-app.mjs --name google-sheets --entry packages/google-sheets-mcp-server/dist/stdio.js -- --metrics",
+    "profile:broker": "node scripts/profile-app.mjs --name broker --entry packages/tailscale-https-broker/dist/index.js",
+    "profile:runner": "node scripts/profile-app.mjs --name runner --entry packages/paperclip-runner/dist/index.js",
+    "profile:ui": "pnpm --filter @paperclipai/ui profile",
     "postinstall": "node scripts/link-plugin-dev-sdk.mjs",
     "preflight:workspace-links": "node cli/node_modules/tsx/dist/cli.mjs scripts/ensure-workspace-package-links.ts",
     "dev": "pnpm --filter @paperclipai/server exec tsx ../scripts/dev-runner.ts watch",
@@ -27,6 +33,7 @@
     "test": "pnpm run test:run",
     "test:watch": "pnpm run preflight:workspace-links && vitest",
     "test:run": "pnpm run preflight:workspace-links && node scripts/run-vitest-stable.mjs",
+    "test:coverage": "node scripts/run-vitest-stable.mjs --coverage",
     "test:runner-acceptance": "vitest run --config tests/runner-acceptance/vitest.config.ts",
     "test:runner-acceptance:typecheck": "tsc -p tests/runner-acceptance/tsconfig.json",
     "test:run:general": "pnpm run preflight:workspace-links && pnpm --filter @paperclipai/plugin-sdk ensure-build-deps && node scripts/run-vitest-stable.mjs --mode general",
@@ -44,6 +51,10 @@
     "release:github": "./scripts/create-github-release.sh",
     "release:rollback": "./scripts/rollback-latest.sh",
     "release:bootstrap-package": "node scripts/bootstrap-npm-package.mjs",
+    "lint": "node scripts/check-lint.mjs",
+    "lint:fix": "oxlint --config .oxlintrc.json --fix .",
+    "check:lint": "node scripts/check-lint.mjs",
+    "check:agents-md": "node scripts/check-agents-md.mjs",
     "check:tokens": "node scripts/check-forbidden-tokens.mjs",
     "check:token-gates": "node scripts/check-token-gates.mjs && node scripts/sync-agent-palette-tokens.mjs --check && node scripts/sync-cliplab-character.mjs --check",
     "check:node-version": "node scripts/check-node-version-policy.mjs",
@@ -122,14 +133,16 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
+    "@vitest/coverage-v8": "5.0.3",
     "agentmail": "^0.5.31",
     "cross-env": "^10.1.0",
     "esbuild": "^0.28.2",
     "oxc-parser": "0.127.0",
+    "oxlint": "^1.0.0",
+    "turbo": "2.11.10",
     "typescript": "^7.0.2",
     "vitest": "^5.0.3",
-    "yaml": "^2.8.1",
-    "turbo": "2.11.10"
+    "yaml": "^2.8.1"
   },
   "engines": {
     "node": ">=24.11.0"

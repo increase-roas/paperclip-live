@@ -16,6 +16,8 @@ import { repoRoot } from "./readiness/lib/files.mjs";
  */
 
 const checks = [
+  { name: "lint", script: "scripts/check-lint.mjs" },
+  { name: "agents-md", script: "scripts/check-agents-md.mjs" },
   { name: "format", script: "scripts/check-source-format.mjs" },
   { name: "naming", script: "scripts/check-naming-conventions.mjs" },
   { name: "complexity", script: "scripts/check-code-complexity.mjs" },

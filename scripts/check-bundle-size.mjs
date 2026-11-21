@@ -5,20 +5,20 @@ import { extname, join } from "node:path";
 import { gzipSync } from "node:zlib";
 
 import { repoPath, repoRoot } from "./readiness/lib/files.mjs";
-import { parseArgs, readJsonFile, settle, writeJsonArtifact } from "./readiness/lib/report.mjs";
+import { parseArgs, printTitle, readJsonFile, settle, writeJsonArtifact } from "./readiness/lib/report.mjs";
 
 /**
- * Bundle budget check for the Vite UI.
+ * Bundle budgets for every bundled Paperclip surface.
  *
- * Reads the production build (ui/dist), measures every emitted JS/CSS asset,
- * and compares raw and gzip sizes against .quality/bundle-budget.json. The
- * report ranks the heaviest assets, which is how a large new dependency
- * becomes visible in review.
+ * `ui/dist` is the production board bundle, `cli/dist` is the esbuild CLI,
+ * `packages/paperclip-runner/dist-browser` is the Runner browser SDK, and
+ * `server/dist-runtime` is the bundled server runtime. Each target is measured
+ * independently so a heavy dependency is attributed to the app that carries it.
  *
  * Usage:
- *   pnpm --filter @paperclipai/ui build && node scripts/check-bundle-size.mjs
- * The check treats a missing build as skipped unless --require-build is given
- * (CI passes it after building).
+ *   pnpm build && node scripts/check-bundle-size.mjs
+ *   node scripts/check-bundle-size.mjs --require-build   # CI: UI required
+ *   node scripts/check-bundle-size.mjs --only cli
  */
 
 const MEASURED_EXTENSIONS = new Set([".js", ".mjs", ".css"]);
@@ -39,85 +39,121 @@ function formatBytes(bytes) {
   return `${bytes} B`;
 }
 
+function resolveTargets(config) {
+  if (Array.isArray(config.targets) && config.targets.length > 0) return config.targets;
+  return [
+    {
+      name: "ui",
+      distDir: config.distDir ?? "ui/dist",
+      requiredInCi: true,
+      perChunkGzipBytes: config.perChunkGzipBytes,
+      perChunkRawBytes: config.perChunkRawBytes,
+      totalGzipBytes: config.totalGzipBytes,
+      totalRawBytes: config.totalRawBytes,
+    },
+  ];
+}
+
 function main() {
   const args = parseArgs();
   const config = readJsonFile(".quality/bundle-budget.json", {});
-  const distDirectory = join(repoRoot, config.distDir ?? "ui/dist");
   const requireBuild = args.flags.has("require-build");
-  const assets = walkAssets(distDirectory);
+  const only = args.values.get("only");
+  const allTargets = resolveTargets(config);
+  const targets = only ? allTargets.filter((target) => target.name === only) : allTargets;
+  const findings = [];
+  const notes = [];
+  const report = { generatedAt: new Date().toISOString(), targets: [] };
 
-  if (assets.length === 0) {
-    const message = `No built assets found in ${repoPath(distDirectory)}. Build the UI first.`;
-    if (requireBuild) {
-      settle({ title: "Bundle size", newFindings: [{ message, key: "missing-build" }] });
-    } else {
-      process.stdout.write(`Bundle size\n------------\n  ⚠ ${message} (skipped)\n`);
-    }
+  if (targets.length === 0) {
+    process.stderr.write(`Unknown bundle target "${only}".\n`);
+    process.exitCode = 2;
     return;
   }
 
-  const measurements = assets.map((asset) => {
-    const stats = statSync(asset);
-    const raw = stats.size;
-    const gzip = gzipSync(readFileSync(asset)).length;
-    return { file: repoPath(asset), raw, gzip };
-  });
-  measurements.sort((left, right) => right.gzip - left.gzip);
+  for (const target of targets) {
+    const distDirectory = join(repoRoot, target.distDir);
+    const assets = walkAssets(distDirectory);
+    if (assets.length === 0) {
+      const message = `${target.name}: no built assets in ${repoPath(distDirectory)}`;
+      const required = target.requiredInCi ?? false;
+      if (requireBuild && required) {
+        findings.push({ key: `${target.name}::missing-build`, message: `${message}; build it before this check.` });
+      } else {
+        notes.push(`⚠ ${message} (skipped)`);
+      }
+      continue;
+    }
 
-  const totalRaw = measurements.reduce((sum, entry) => sum + entry.raw, 0);
-  const totalGzip = measurements.reduce((sum, entry) => sum + entry.gzip, 0);
-  const perChunkGzip = config.perChunkGzipBytes ?? 1_500_000;
-  const perChunkRaw = config.perChunkRawBytes ?? 4_000_000;
-  const totalGzipBudget = config.totalGzipBytes ?? 8_000_000;
-  const totalRawBudget = config.totalRawBytes ?? 30_000_000;
+    const measurements = assets.map((asset) => {
+      const stats = statSync(asset);
+      const raw = stats.size;
+      const gzip = gzipSync(readFileSync(asset)).length;
+      return { file: `${target.name}:${repoPath(asset)}`, raw, gzip };
+    });
+    measurements.sort((left, right) => right.gzip - left.gzip);
 
-  const findings = [];
-  for (const entry of measurements) {
-    if (entry.gzip > perChunkGzip) {
+    const totalRaw = measurements.reduce((sum, entry) => sum + entry.raw, 0);
+    const totalGzip = measurements.reduce((sum, entry) => sum + entry.gzip, 0);
+    const perChunkGzip = target.perChunkGzipBytes ?? 1_500_000;
+    const perChunkRaw = target.perChunkRawBytes ?? 4_000_000;
+    const totalGzipBudget = target.totalGzipBytes ?? 8_000_000;
+    const totalRawBudget = target.totalRawBytes ?? 30_000_000;
+
+    for (const entry of measurements) {
+      if (entry.gzip > perChunkGzip) {
+        findings.push({
+          file: entry.file,
+          key: `${entry.file}::gzip`,
+          message: `asset gzip size ${formatBytes(entry.gzip)} exceeds ${target.name} per-asset budget ${formatBytes(perChunkGzip)}`,
+        });
+      }
+      if (entry.raw > perChunkRaw) {
+        findings.push({
+          file: entry.file,
+          key: `${entry.file}::raw`,
+          message: `asset raw size ${formatBytes(entry.raw)} exceeds ${target.name} per-asset budget ${formatBytes(perChunkRaw)}`,
+        });
+      }
+    }
+    if (totalGzip > totalGzipBudget) {
       findings.push({
-        file: entry.file,
-        key: `${entry.file}::gzip`,
-        message: `asset gzip size ${formatBytes(entry.gzip)} exceeds per-asset budget ${formatBytes(perChunkGzip)}`,
+        key: `${target.name}::total::gzip`,
+        message: `${target.name} total gzip size ${formatBytes(totalGzip)} exceeds budget ${formatBytes(totalGzipBudget)}`,
       });
     }
-    if (entry.raw > perChunkRaw) {
+    if (totalRaw > totalRawBudget) {
       findings.push({
-        file: entry.file,
-        key: `${entry.file}::raw`,
-        message: `asset raw size ${formatBytes(entry.raw)} exceeds per-asset budget ${formatBytes(perChunkRaw)}`,
+        key: `${target.name}::total::raw`,
+        message: `${target.name} total raw size ${formatBytes(totalRaw)} exceeds budget ${formatBytes(totalRawBudget)}`,
       });
     }
-  }
-  if (totalGzip > totalGzipBudget) {
-    findings.push({
-      key: "total::gzip",
-      message: `total gzip size ${formatBytes(totalGzip)} exceeds budget ${formatBytes(totalGzipBudget)}`,
-    });
-  }
-  if (totalRaw > totalRawBudget) {
-    findings.push({
-      key: "total::raw",
-      message: `total raw size ${formatBytes(totalRaw)} exceeds budget ${formatBytes(totalRawBudget)}`,
+
+    notes.push(
+      `${target.name}: ${measurements.length} assets, ${formatBytes(totalRaw)} raw / ${formatBytes(totalGzip)} gzip; top ${measurements[0].file} (${formatBytes(measurements[0].gzip)} gzip).`,
+    );
+    report.targets.push({
+      name: target.name,
+      distDir: target.distDir,
+      assets: measurements.length,
+      totalRaw,
+      totalGzip,
+      top: measurements.slice(0, 20),
     });
   }
 
-  const report = {
-    generatedAt: new Date().toISOString(),
-    assets: measurements.length,
-    totalRaw,
-    totalGzip,
-    top: measurements.slice(0, 20),
-  };
   writeJsonArtifact(".quality/reports/bundle-size.json", report);
+
+  if (report.targets.length === 0 && findings.length === 0) {
+    printTitle("Bundle size");
+    process.stdout.write(`  ⚠ No bundle builds found.\n${notes.map((note) => `  ${note}\n`).join("")}`);
+    return;
+  }
 
   settle({
     title: "Bundle size",
     newFindings: findings,
-    notes: [
-      `${measurements.length} assets: ${formatBytes(totalRaw)} raw, ${formatBytes(totalGzip)} gzip.`,
-      `Top asset: ${measurements[0].file} (${formatBytes(measurements[0].gzip)} gzip).`,
-      "Report: .quality/reports/bundle-size.json",
-    ],
+    notes: [...notes, "Report: .quality/reports/bundle-size.json"],
   });
 }
 

@@ -126,6 +126,8 @@ describe("paperclip MCP tools", () => {
       workMode: "standard",
       priority: "medium",
       assigneeAgentId: "22222222-2222-2222-2222-222222222222",
+      allowDuplicate: false,
+      visibility: "open",
       requestDepth: 0,
     });
   });
