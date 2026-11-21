@@ -106,7 +106,7 @@ describe("issueRecoveryActionService", () => {
     await expect(issueRecoveryActionService(fakeDb as never).upsertSourceScoped({ companyId: "company", sourceIssueId: "issue",
       kind: "missing_disposition", cause: "saved-debt", fingerprint: "same-source", nextAction: "Restore existing work." }))
       .rejects.toBe(error);
-    expect(fakeDb.select).toHaveBeenCalledOnce();
+    expect(fakeDb.select).toHaveBeenCalledTimes(2);
     expect(fakeDb.insert).toHaveBeenCalledOnce();
   });
   it("does not reactivate an action resolved between the active read and update", async () => {
@@ -2050,6 +2050,153 @@ describeEmbeddedPostgres("issue recovery actions", () => {
         evidence: { runId, automaticRecovery: { replay: "blocked", actionOutcome: "unknown" } },
       }),
     ]);
+  });
+
+  it("reuses one settled no-replay hold for repeated scans of the same run", async () => {
+    const { companyId, coderId, sourceIssueId } = await seedCompany();
+    const runId = randomUUID();
+    const [settled] = await db.insert(issueRecoveryActions).values({
+      companyId,
+      sourceIssueId,
+      kind: "active_run_watchdog",
+      status: "resolved",
+      outcome: "blocked",
+      ownerType: "board",
+      returnOwnerAgentId: coderId,
+      cause: "legacy_execution_requires_reconciliation",
+      fingerprint: `legacy-execution:${runId}`,
+      nextAction: "Preserve recorded work without replay.",
+      evidence: { runId, automaticRecovery: { replay: "blocked", actionOutcome: "unknown" } },
+    }).returning();
+
+    const result = await issueRecoveryActionService(db).upsertSourceScoped({
+      companyId,
+      sourceIssueId,
+      kind: "active_run_watchdog",
+      ownerType: "board",
+      returnOwnerAgentId: coderId,
+      cause: "legacy_execution_requires_reconciliation",
+      fingerprint: `legacy-execution:${runId}`,
+      evidence: { runId, automaticRecovery: { replay: "blocked", actionOutcome: "unknown" } },
+      nextAction: "Preserve recorded work without replay.",
+    });
+
+    expect(result.id).toBe(settled!.id);
+    const rows = await db.select().from(issueRecoveryActions)
+      .where(eq(issueRecoveryActions.sourceIssueId, sourceIssueId));
+    expect(rows).toHaveLength(1);
+  });
+
+  it("clears a settled hold whose run never started and resumes the task", async () => {
+    const { companyId, coderId, sourceIssueId } = await seedCompany();
+    const runId = randomUUID();
+    await db.insert(heartbeatRuns).values({
+      id: runId,
+      companyId,
+      agentId: coderId,
+      invocationSource: "manual",
+      status: "cancelled",
+      startedAt: null,
+      contextSnapshot: { issueId: sourceIssueId },
+    });
+    const [action] = await db.insert(issueRecoveryActions).values({
+      companyId,
+      sourceIssueId,
+      kind: "active_run_watchdog",
+      status: "resolved",
+      outcome: "blocked",
+      ownerType: "board",
+      returnOwnerAgentId: coderId,
+      cause: "legacy_execution_requires_reconciliation",
+      fingerprint: `legacy-execution:${runId}`,
+      nextAction: "Preserve recorded work without replay.",
+      evidence: { runId, automaticRecovery: { replay: "blocked", actionOutcome: "unknown" } },
+    }).returning();
+
+    const response = await request(createApp())
+      .post(`/api/issues/${sourceIssueId}/recovery-actions/clear-hold`)
+      .send({ actionId: action!.id, note: "Provider never started." })
+      .expect(200);
+
+    expect(response.body.recoveryAction).toMatchObject({
+      id: action!.id,
+      status: "resolved",
+      outcome: "restored",
+    });
+    const [saved] = await db.select().from(issueRecoveryActions)
+      .where(eq(issueRecoveryActions.id, action!.id));
+    expect(saved!.evidence.automaticRecovery).toBeUndefined();
+    const reconciliation = saved!.evidence.executionReconciliation as {
+      runId: string;
+      providerStopped: boolean;
+      actionOutcome: string;
+      outcomeEvidence: string;
+    };
+    expect(reconciliation).toMatchObject({
+      runId,
+      providerStopped: true,
+      actionOutcome: "not_performed",
+    });
+    expect(reconciliation.outcomeEvidence).toContain("never started");
+  });
+
+  it("refuses to clear a hold whose run may have performed work", async () => {
+    const { companyId, coderId, sourceIssueId } = await seedCompany();
+    const runId = randomUUID();
+    await db.insert(heartbeatRuns).values({
+      id: runId,
+      companyId,
+      agentId: coderId,
+      invocationSource: "manual",
+      status: "failed",
+      startedAt: new Date("2026-05-13T18:00:00.000Z"),
+      contextSnapshot: { issueId: sourceIssueId },
+    });
+    const [action] = await db.insert(issueRecoveryActions).values({
+      companyId,
+      sourceIssueId,
+      kind: "active_run_watchdog",
+      status: "resolved",
+      outcome: "blocked",
+      ownerType: "board",
+      returnOwnerAgentId: coderId,
+      cause: "legacy_execution_requires_reconciliation",
+      fingerprint: `legacy-execution:${runId}`,
+      nextAction: "Preserve recorded work without replay.",
+      evidence: { runId, automaticRecovery: { replay: "blocked", actionOutcome: "unknown" } },
+    }).returning();
+
+    const response = await request(createApp())
+      .post(`/api/issues/${sourceIssueId}/recovery-actions/clear-hold`)
+      .send({ actionId: action!.id })
+      .expect(409);
+
+    expect(response.body.code).toBe("execution_hold_requires_reconciliation");
+    const [saved] = await db.select().from(issueRecoveryActions)
+      .where(eq(issueRecoveryActions.id, action!.id));
+    expect(saved!.evidence.automaticRecovery).toMatchObject({ replay: "blocked" });
+  });
+
+  it("exposes the real skip reason in wake diagnostics", async () => {
+    const { companyId, coderId, sourceIssueId } = await seedCompany();
+    await db.insert(agentWakeupRequests).values({
+      companyId,
+      agentId: coderId,
+      source: "assignment",
+      reason: "execution_reconciliation_required",
+      status: "skipped",
+      payload: { issueId: sourceIssueId },
+      error: "The previous execution has not released its environment lease.",
+    });
+
+    const response = await request(createApp())
+      .get(`/api/issues/${sourceIssueId}/diagnostics/wakes`)
+      .expect(200);
+    const wake = response.body.events.find((event: { kind: string }) => event.kind === "wake_request");
+    expect(wake).toMatchObject({
+      reason: "execution_reconciliation_required",
+      detail: "The previous execution has not released its environment lease.",
+    });
   });
 
   it("projects recovery action metadata into the structured wake payload", async () => {

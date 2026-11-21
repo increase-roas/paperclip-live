@@ -29,6 +29,7 @@ import { clearLegacyChatMessageRequests } from "@/lib/chat-message-request";
 import { agentChatDraft } from "@/lib/agent-chat-draft";
 import { trackRecentProject } from "@/lib/recent-projects";
 import { ExecutionBlockerNotice } from "../components/ExecutionBlockerNotice";
+import { ExecutionHoldNotice } from "../components/ExecutionHoldNotice";
 import type { TaskComposerPause } from "../components/task-chat/TaskChatPausedTakeover";
 import { TaskDetailTasksPanel } from "@/components/task-detail/TaskDetailTasksPanel";
 import { IssueCreatedFromNote } from "@/components/task-detail/IssueCreatedFromNote";
@@ -4615,6 +4616,27 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
       }
     },
   });
+  const clearExecutionHold = useMutation({
+    mutationFn: () =>
+      issuesApi.clearRecoveryHold(issueId!, {
+        actionId: issue?.executionBlocker?.recoveryActionId ?? undefined,
+      }),
+    onSuccess: ({ issue: nextIssue }) => {
+      const issueRefs = new Set<string>([issueId!, nextIssue.id]);
+      if (nextIssue.identifier) issueRefs.add(nextIssue.identifier);
+      mergeIssueResponseIntoCaches(issueRefs, nextIssue);
+      pushToast({
+        title: "Execution hold cleared",
+        body: "The task is queued to continue.",
+        tone: "success",
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.issues.detail(issueId!) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.issues.activity(issueId!) });
+      invalidateIssueCollections();
+    },
+  });
   // The inline notice owns feedback; do not also emit a global error toast.
   const retryDispositionRecovery = useMutation({
     mutationFn: async (actionId: string) => {
@@ -8189,6 +8211,18 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
               showStatus={!issue.interruption && !issue.executionBlocker?.workspaceRecovery}
               onRecoveryControlChange={setRetainedRecoveryOwnsRetry}
               action={issue.activeRecoveryAction ?? null} />
+          )}
+          {resolvedDetailTab === "chat" && (
+            <ExecutionHoldNotice
+              className={shellSectionClass}
+              hold={issue.executionBlocker ?? null}
+              canClearHold={canResolveBoardRecoveryAction}
+              clearHoldPending={clearExecutionHold.isPending}
+              onClearHold={() => clearExecutionHold.mutate()}
+              onRetry={canResolveBoardRecoveryAction ? taskRetry.retry : undefined}
+              retryPending={taskRetry.optimistic}
+              error={clearExecutionHold.error instanceof Error ? clearExecutionHold.error.message : null}
+            />
           )}
           {resolvedDetailTab === "chat" && (
             <ExecutionBlockerNotice className={shellSectionClass} presentation={issue.interruption} blockers={issue.blockedBy}

@@ -261,7 +261,7 @@ export async function terminalizeLegacyExecution(input: {
         .from(issueRecoveryActions).where(and(
           eq(issueRecoveryActions.companyId, run.companyId),
           eq(issueRecoveryActions.sourceIssueId, task.id),
-          eq(issueRecoveryActions.status, "resolved"),
+          inArray(issueRecoveryActions.status, ["resolved", "cancelled"]),
           ...(hasRequiredWorkspaceRecovery(updated.resultJson) ? [
             sql`${issueRecoveryActions.evidence}->'workspaceRestoreRecovery'->>'schema' = ${LEGACY_WORKSPACE_RECOVERY_SCHEMA}`,
           ] : []),

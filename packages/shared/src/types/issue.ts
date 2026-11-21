@@ -363,6 +363,8 @@ export interface IssueWakeDiagnosticWakeRequest {
   claimedAt: string | null;
   finishedAt: string | null;
   failureClass: IssueWakeDiagnosticWakeFailureClass | null;
+  /** Server-recorded wait or skip reason, so diagnostics do not show only "other". */
+  detail: string | null;
 }
 
 export interface IssueWakeDiagnosticActivityRecord {

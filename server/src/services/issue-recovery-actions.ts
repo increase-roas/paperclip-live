@@ -573,6 +573,26 @@ export function issueRecoveryActionService(db: DbOrTransaction) {
       return toReadModel(updated!);
     }
 
+    // A settled no-replay hold stays authoritative for its own execution
+    // identity. Repeated watchdog or finalizer scans must reuse it instead of
+    // minting another row the operator then has to clear one at a time.
+    const [settledNoReplay] = await db
+      .select()
+      .from(issueRecoveryActions)
+      .where(
+        and(
+          eq(issueRecoveryActions.companyId, input.companyId),
+          eq(issueRecoveryActions.sourceIssueId, input.sourceIssueId),
+          eq(issueRecoveryActions.cause, input.cause),
+          eq(issueRecoveryActions.fingerprint, input.fingerprint),
+          inArray(issueRecoveryActions.status, ["resolved", "cancelled"]),
+          sql`${issueRecoveryActions.evidence}->'automaticRecovery'->>'replay' = 'blocked'`,
+        ),
+      )
+      .orderBy(desc(issueRecoveryActions.updatedAt))
+      .limit(1);
+    if (settledNoReplay) return toReadModel(settledNoReplay);
+
     try {
       const [created] = await writeExecutionControl(db, [DELIVERY_QUEUES.executionDisposition, DELIVERY_QUEUES.executionContinuation], async tx => {
         await notifyIssueRecovery(tx, { companyId: input.companyId });
