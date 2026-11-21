@@ -179,6 +179,29 @@ Notes:
 - `packages/db/drizzle.config.ts` reads compiled schema from `dist/schema/*.js`
 - `pnpm db:generate` compiles `packages/db` first
 
+## Database copies (Neon)
+
+Paperclip is moving to hosted Postgres on Neon. Read
+[`doc/increase-roas/neon-database.md`](doc/increase-roas/neon-database.md)
+before using a database copy. Use the helper for the branch lifecycle:
+`scripts/ir/neon-branch.sh create|url|delete <task>`.
+Until the Neon project is live, use the embedded database.
+
+1. Never connect to the production branch (`main`); always work on your own
+   branch.
+2. Name branches `agent/<task-or-issue>-<yyyymmdd>`.
+3. Delete your branch when the task ends, pass or fail.
+4. Never print, log or commit a connection string or key. Use `--no-secrets`
+   and pass the URL through an environment variable; `NEON_API_KEY` and
+   `NEON_PROJECT_ID` live only in the environment.
+5. Never restore over production yourself. Time-travel copies are for
+   inspection; restoring is Alex's call.
+6. If Neon is not set up, say so and use the embedded database (`pnpm dev`)
+   instead.
+
+`url` writes the connection string to a private state file and prints only the
+safe command that loads it; it never echoes the URL.
+
 ## 7. Verification Before Hand-off
 
 [maps/feature-map/README.md](maps/feature-map/README.md) is an optional reference for user
