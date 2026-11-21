@@ -208,6 +208,22 @@ describe("Sidebar", () => {
     });
   });
 
+  it("offers Bots from the main navigation next to Readiness", async () => {
+    mockInstanceSettingsApi.getExperimental.mockResolvedValue({
+      enableIsolatedWorkspaces: false,
+      enableStreamlinedLeftNavigation: true,
+    });
+    const root = await renderSidebar();
+
+    const botsLink = [...container.querySelectorAll("nav a")]
+      .find((anchor) => anchor.textContent?.trim() === "Bots");
+    expect(botsLink?.getAttribute("href")).toBe("/bots");
+
+    flushSync(() => {
+      root.unmount();
+    });
+  });
+
   it("renders plugin sidebar launchers inside the Work section", async () => {
     mockInstanceSettingsApi.getExperimental.mockResolvedValue({
       enableIsolatedWorkspaces: false,
@@ -522,7 +538,7 @@ describe("Sidebar", () => {
       .map((anchor) => anchor.textContent?.trim());
 
     expect(labels(workSection)).toEqual(["Chat", "Tasks", "Projects", "Routines", "Artifacts"]);
-    expect(labels(orgSection)).toEqual(["Agents", "Skills", "Connectors", "Audit"]);
+    expect(labels(orgSection)).toEqual(["Agents", "Skills", "Connectors", "Readiness", "Bots", "Audit"]);
     expect(sections.indexOf(workSection!)).toBeLessThan(sections.indexOf(orgSection!));
     expect(
       workSection?.querySelector('a[href="/issues"] svg')?.classList.contains("lucide-circle-check"),

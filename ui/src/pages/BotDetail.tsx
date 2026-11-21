@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import type { CompanyBotDetail } from "@paperclipai/shared";
 import { ArrowLeft, Bot, CircleAlert, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,38 @@ function formatTimestamp(value: string | null): string {
   if (!value) return "Never";
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? "Never" : formatDateTime(parsed);
+}
+
+function RegisterPanel({ bot }: { bot: CompanyBotDetail }) {
+  const registered = bot.registered && bot.agentId;
+  return (
+    <Section title={registered ? "Link a gateway key" : "How to register"}>
+      <ol className="list-decimal space-y-2 pl-4">
+        <li>
+          Tag the agent as a bot in its metadata: <code className="font-mono text-xs">grokBotTwin: true</code> for a
+          Hermes twin, or <code className="font-mono text-xs">agentKind: &quot;bot&quot;</code> for any other bot.
+        </li>
+        <li>
+          Record the gateway link in the same metadata: <code className="font-mono text-xs">bot.gateway.keyId</code>{" "}
+          and <code className="font-mono text-xs">bot.gateway.policy</code>. The key itself stays in the gateway.
+        </li>
+      </ol>
+      <pre className="mt-3 overflow-x-auto rounded-md bg-muted/50 p-3 font-mono text-xs leading-5 text-foreground">
+{`{
+  "grokBotTwin": true,
+  "bot": {
+    "purpose": "What this bot does.",
+    "gateway": { "keyId": "gk_live_...", "policy": "website-builder" }
+  }
+}`}
+      </pre>
+      <Button asChild variant="outline" className="mt-3">
+        <Link to={registered ? `/agents/${bot.agentId}` : "/agents/new"}>
+          {registered ? "Open the agent to add the key" : "Create the bot agent"}
+        </Link>
+      </Button>
+    </Section>
+  );
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -102,6 +135,12 @@ export function BotDetail() {
           </Button>
         ) : null}
       </div>
+
+      {!bot.gateway ? (
+        <div>
+          <RegisterPanel bot={bot} />
+        </div>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Section title="What it does">

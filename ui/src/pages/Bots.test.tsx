@@ -190,4 +190,34 @@ describe("Bots", () => {
     expect(text).toContain("No recorded activity.");
     expect(text).not.toContain("Open agent");
   });
+
+  it("tells an unregistered bot exactly which metadata fields to fill in", async () => {
+    params.botId = "catalog:funnel-builder";
+    getMock.mockResolvedValue({ ...funnelCatalogBot, routines: [], recentActivity: [] });
+
+    await render(<BotDetail />);
+
+    const text = container.textContent ?? "";
+    expect(text).toContain("How to register");
+    expect(text).toContain("grokBotTwin");
+    expect(text).toContain("agentKind");
+    expect(text).toContain("bot.gateway.keyId");
+    expect(text).toContain("bot.gateway.policy");
+    const link = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent?.includes("Create the bot agent"));
+    expect(link?.getAttribute("href")).toBe("/agents/new");
+  });
+
+  it("points a registered bot without a key at its agent page", async () => {
+    params.botId = "agent-1";
+    const { gateway: _gateway, ...withoutGateway } = researchBot;
+    getMock.mockResolvedValue({ ...withoutGateway, gateway: null, routines: [], recentActivity: [] });
+
+    await render(<BotDetail />);
+
+    const text = container.textContent ?? "";
+    expect(text).toContain("Link a gateway key");
+    expect(text).toContain("bot.gateway.keyId");
+    const link = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent?.includes("Open the agent to add the key"));
+    expect(link?.getAttribute("href")).toBe("/agents/agent-1");
+  });
 });
