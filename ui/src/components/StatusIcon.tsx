@@ -163,7 +163,7 @@ export function StatusPickerMenu({
               type="button"
               size="sm"
               className="w-full"
-              disabled={!stagedStatus}
+              disabled={!stagedStatus || (commentRequired && !trimmedComment)}
               onClick={submitStagedStatus}
               data-testid="status-change-submit"
             >

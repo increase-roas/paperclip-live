@@ -153,6 +153,43 @@ describe("StatusPickerMenu", () => {
     expect(onRequestChanges).not.toHaveBeenCalled();
   });
 
+  it("requires a comment before submitting a status decision", () => {
+    const onSelect = vi.fn();
+    rendered = renderMenu(
+      <StatusPickerMenu
+        {...baseProps()}
+        commentable
+        reviewActions={{
+          stageType: "review",
+          onApprove: vi.fn(),
+          onRequestChanges: vi.fn(),
+        }}
+        onSelect={onSelect}
+      />,
+    );
+
+    click(
+      Array.from(rendered.container.querySelectorAll("button")).find(
+        (button) => button.textContent?.includes("Todo"),
+      ),
+    );
+    const submit = rendered.container.querySelector<HTMLButtonElement>(
+      '[data-testid="status-change-submit"]',
+    );
+    expect(submit?.disabled).toBe(true);
+
+    typeInto(
+      rendered.container.querySelector<HTMLTextAreaElement>(
+        '[data-testid="status-change-comment"]',
+      ),
+      "Moving back to the queue",
+    );
+    expect(submit?.disabled).toBe(false);
+    click(submit);
+
+    expect(onSelect).toHaveBeenCalledWith("todo", "Moving back to the queue");
+  });
+
   it("routes Request changes with the comment and calls the approver stage by name", () => {
     const onApprove = vi.fn();
     const onRequestChanges = vi.fn();
