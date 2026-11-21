@@ -77,6 +77,8 @@ export interface ReadinessSubject {
   subjectId: string;
   name: string;
   provider: string | null;
+  /** A Hermes agent hired from the grok-bot-twin plugin. Always false for a company. */
+  grokBotTwin: boolean;
   agent: AgentRow | null;
 }
 
@@ -124,7 +126,7 @@ function scorable(finding: AgentReadinessFinding) {
  * disagree about what a level means.
  */
 export function summarizeReadinessCollection(
-  subjects: ReadonlyArray<Pick<ReadinessSubject, "subjectType" | "subjectId" | "name" | "provider">>,
+  subjects: ReadonlyArray<Pick<ReadinessSubject, "subjectType" | "subjectId" | "name" | "provider" | "grokBotTwin">>,
   findings: readonly AgentReadinessFinding[],
 ): AgentReadinessCollection {
   const subjectSummaries = subjects.map((subject) => {
@@ -139,6 +141,7 @@ export function summarizeReadinessCollection(
         subjectId: subject.subjectId,
         name: subject.name,
         provider: subject.provider,
+        grokBotTwin: subject.grokBotTwin === true,
       },
       subjectFindings.map(scorable),
     );
@@ -274,6 +277,7 @@ export function createAgentReadinessCatalog(db: Db) {
       subjectId: companyId,
       name: company.name,
       provider: null,
+      grokBotTwin: false,
       agent: null,
     }];
     for (const agent of agentRows) {
@@ -284,6 +288,7 @@ export function createAgentReadinessCatalog(db: Db) {
         subjectId: agent.id,
         name: agent.name,
         provider: subjectType === "bot" ? "grok_bot_twin" : null,
+        grokBotTwin: isGrokBotTwin(agent),
         agent,
       });
     }

@@ -757,6 +757,8 @@ export interface AgentReadinessSubjectSummary {
   subjectId: string;
   name: string;
   provider: string | null;
+  /** True for a Hermes agent hired from the grok-bot-twin plugin. */
+  grokBotTwin: boolean;
   status: AgentReadinessSubjectStatus;
   levels: AgentReadinessLevelResult[];
 }
@@ -874,12 +876,13 @@ export function scoreReadinessSubjectStatus(
 }
 
 export function scoreReadinessSubject(
-  subject: Pick<AgentReadinessSubjectSummary, "subjectType" | "subjectId" | "name" | "provider">,
+  subject: Omit<Pick<AgentReadinessSubjectSummary, "subjectType" | "subjectId" | "name" | "provider" | "grokBotTwin">, "grokBotTwin"> & { grokBotTwin?: boolean },
   checks: readonly ScorableReadinessCheck[],
 ): AgentReadinessSubjectSummary {
   const levels = AGENT_READINESS_LEVELS.map(({ level }) => scoreReadinessLevel(level, checks));
   return {
     ...subject,
+    grokBotTwin: subject.grokBotTwin === true,
     status: scoreReadinessSubjectStatus(levels),
     levels,
   };

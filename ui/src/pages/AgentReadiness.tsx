@@ -165,10 +165,14 @@ function SubjectTable({
                   <span className="flex min-w-0 items-center gap-2">
                     <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
                     <span className="truncate font-medium text-foreground">{subject.name}</span>
-                    {subjectProviderLabel(subject.provider) ? <Badge variant="outline">{subjectProviderLabel(subject.provider)}</Badge> : null}
+                    {subject.grokBotTwin
+                      ? <Badge variant="outline">Grok twin</Badge>
+                      : subjectProviderLabel(subject.provider)
+                        ? <Badge variant="outline">{subjectProviderLabel(subject.provider)}</Badge>
+                        : null}
                   </span>
                 </td>
-                <td className="py-2 pr-4 text-muted-foreground">{subject.subjectType}</td>
+                <td className="py-2 pr-4 text-muted-foreground">{subject.subjectType === "bot" ? "Bot" : subject.subjectType === "company" ? "Company" : "Agent"}</td>
                 <td className="py-2 pr-4"><StatusBadge status={subject.status} /></td>
                 <td className="py-2 pr-4 font-mono text-xs text-muted-foreground">
                   {passedLevels}/{applicableLevels}
@@ -184,6 +188,28 @@ function SubjectTable({
         </tbody>
       </table>
     </div>
+  );
+}
+
+function SubjectSection({
+  title,
+  subjects,
+  selectedKey,
+  onSelect,
+}: {
+  title: string;
+  subjects: AgentReadinessSubjectSummary[];
+  selectedKey: string | null;
+  onSelect: (subject: AgentReadinessSubjectSummary) => void;
+}) {
+  if (subjects.length === 0) return null;
+  return (
+    <section aria-label={title} data-readiness-section={title.toLowerCase()}>
+      <h3 className="mb-2 text-sm font-semibold text-foreground">
+        {title} <span className="font-normal text-muted-foreground">({subjects.length})</span>
+      </h3>
+      <SubjectTable subjects={subjects} selectedKey={selectedKey} onSelect={onSelect} />
+    </section>
   );
 }
 
@@ -402,8 +428,14 @@ export function AgentReadiness() {
     const needle = query.trim().toLowerCase();
     if (!needle) return subjects;
     return subjects.filter((subject) =>
-      `${subject.name} ${subject.subjectType} ${subject.provider ?? ""} ${subjectProviderLabel(subject.provider) ?? ""}`.toLowerCase().includes(needle));
+      `${subject.name} ${subject.subjectType} ${subject.provider ?? ""} ${subjectProviderLabel(subject.provider) ?? ""} ${subject.grokBotTwin ? "grok twin" : ""}`.toLowerCase().includes(needle));
   }, [query, subjects]);
+  // Bots and agents are one taxonomy but different operating concerns: a twin is
+  // a chat bot with a Hermes profile, not a paperclip-native agent. The company is
+  // its own row and stays visible in every split.
+  const companySubjects = useMemo(() => filteredSubjects.filter((subject) => subject.subjectType === "company"), [filteredSubjects]);
+  const botSubjects = useMemo(() => filteredSubjects.filter((subject) => subject.subjectType === "bot"), [filteredSubjects]);
+  const agentSubjects = useMemo(() => filteredSubjects.filter((subject) => subject.subjectType === "agent"), [filteredSubjects]);
   const selected = selectedKey === null
     ? null
     : selectedKey !== undefined
@@ -602,11 +634,26 @@ export function AgentReadiness() {
               {filteredSubjects.length === 0 ? (
                 <p className="py-6 text-center text-sm text-muted-foreground">No subject matches this search.</p>
               ) : (
-                <SubjectTable
-                  subjects={filteredSubjects}
-                  selectedKey={selected ? subjectKey(selected) : null}
-                  onSelect={(subject) => setSelectedKey(subjectKey(subject))}
-                />
+                <div className="space-y-6">
+                  <SubjectSection
+                    title="Company"
+                    subjects={companySubjects}
+                    selectedKey={selected ? subjectKey(selected) : null}
+                    onSelect={(subject) => setSelectedKey(subjectKey(subject))}
+                  />
+                  <SubjectSection
+                    title="Bots"
+                    subjects={botSubjects}
+                    selectedKey={selected ? subjectKey(selected) : null}
+                    onSelect={(subject) => setSelectedKey(subjectKey(subject))}
+                  />
+                  <SubjectSection
+                    title="Agents"
+                    subjects={agentSubjects}
+                    selectedKey={selected ? subjectKey(selected) : null}
+                    onSelect={(subject) => setSelectedKey(subjectKey(subject))}
+                  />
+                </div>
               )}
             </CardContent>
           </Card>

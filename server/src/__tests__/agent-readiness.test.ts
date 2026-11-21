@@ -211,6 +211,11 @@ describePostgres("agent readiness", () => {
     expect(twinFinding("bot.twin_profile")?.status).toBe("pass");
     expect(twinFinding("bot.twin_verified")?.status).toBe("not_checked");
     expect(twinFinding("runtime.hermes_profile")?.status).toBe("pass");
+    // The summary carries the tag so a client can group bots without re-reading
+    // agent metadata.
+    const twinSummary = collection.summary.subjects.find((entry) => entry.subjectId === twin.id);
+    expect(twinSummary?.grokBotTwin).toBe(true);
+    expect(collection.summary.subjects.find((entry) => entry.subjectType === "company")?.grokBotTwin).toBe(false);
   });
 
   it("applies only allowlisted fixes, logs activity and re-evaluates the check", async () => {
