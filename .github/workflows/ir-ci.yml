@@ -1,11 +1,12 @@
 # Increase ROAS CI on GitHub-hosted runners. Runs Paperclip's own commands
 # from package.json / doc/DEVELOPING.md: install, build, typecheck, tests.
-# (Upstream's pr.yml needs Paperclip's private runner fleet, so ir-guard keeps
-# it switched off here.)
+# (Upstream's pr.yml calls Paperclip's pr-trusted.yml, which needs Paperclip's
+# private runner fleet and secrets, so ir-guard keeps it switched off here.
+# ir-pr.yml is the fork's PR entry point and calls this workflow.)
 name: IR CI
 
 on:
-  pull_request:
+  workflow_call:
   push:
     branches: [master]
   workflow_dispatch:
