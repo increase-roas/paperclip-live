@@ -110,3 +110,8 @@ test-results/
 
 # Local agent session notes
 .supermatt/
+
+# Local session scratch (prompt dumps, one-off capture helper, dev screenshot)
+attachments/
+readiness-dev.png
+shot-readiness.cjs
