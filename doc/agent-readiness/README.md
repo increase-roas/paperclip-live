@@ -1,9 +1,22 @@
 # Agent Readiness checks
 
-This directory documents the repository checks that make autonomous agent work
-safer and more predictable. The checks are plain Node scripts (no additional
-service or dependency), run in CI and in the pre-commit hook, and each one has
-a committed baseline of acknowledged debt.
+The rubric source for the in-app **Readiness** page (`/readiness`) is
+[AGENT-READINESS-CHECKLIST.md](./AGENT-READINESS-CHECKLIST.md). That document
+defines the per-agent and per-bot levels, the must-pass rules and the manual
+attestations. The check catalog in `packages/shared/src/agent-readiness.ts` must
+stay aligned with it.
+
+This directory also documents the repository checks that make autonomous agent
+work safer and more predictable. The checks are plain Node scripts (no
+additional service or dependency), run in CI and in the pre-commit hook, and
+each one has a committed baseline of acknowledged debt.
+
+**v1.4 scope.** Readiness scores the company, Hermes-profile agents
+(`hermes_local` / `hermes_gateway`) and Hermes bots hired from the
+grok-bot-twin plugin. Dot, Muse and Paperclip's native `grok_bot` provider are
+out of scope: those subjects are not scored and cannot block a level. Each
+checklist box names its catalog id, and a shared test fails if the checklist
+and `packages/shared/src/agent-readiness.ts` drift apart.
 
 ## Run everything
 
