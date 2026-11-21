@@ -262,6 +262,21 @@ If memory is limited, use `node scripts/typecheck-low-memory.mjs` instead of `pn
 
 If anything cannot be run, explicitly report what was not run and why.
 
+### Readiness checks
+
+Run `pnpm check:readiness` for the static quality suite (format, naming,
+complexity, large files, dead code, duplicates, boundaries, debt markers,
+N+1 patterns, unused dependencies, version drift, secrets and the security
+report). Baselines live in `.quality/baselines/`; fix new findings rather than
+adding baseline entries. `pnpm hooks:install` enables the checked-in
+`.githooks/pre-commit` hook. The full policy is in
+`doc/agent-readiness/`.
+
+Test files use the `.test.ts`/`.test.tsx` suffix next to the source they cover.
+Browser and end-to-end suites use `.spec.ts` under `tests/`. Each workspace
+package declares its `include` pattern in `vitest.config.ts`; do not rely on
+Vitest defaults for new packages.
+
 ## 8. API and Auth Expectations
 
 - Base path: `/api`

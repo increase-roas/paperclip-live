@@ -1,0 +1,17 @@
+{
+  "$comment": "Thresholds for scripts/check-large-files.mjs. Existing offenders are listed in .quality/baselines/large-files.json; the check fails only when a file grows past a threshold without being acknowledged.",
+  "maxLines": 2500,
+  "maxBytes": 750000,
+  "ignore": [
+    "**/__snapshots__/**",
+    "**/dist/**",
+    "**/fixtures/**",
+    "**/generated/**",
+    "**/*.snapshot.json",
+    ".quality/baselines/**",
+    "docs/api/openapi.json",
+    "packages/db/src/migrations/**",
+    "pnpm-lock.yaml",
+    "releases/**"
+  ]
+}

@@ -11,6 +11,9 @@ export default defineConfig({
   test: {
     environment: "node",
     css: { include: [/motion-tokens\.css/] },
+    // Explicit naming contract: unit tests live next to their source and use
+    // the .test suffix. Browser/e2e suites under tests/ use .spec instead.
+    include: ["src/**/*.test.{ts,tsx}", "storybook/**/*.test.{ts,tsx}"],
     setupFiles: ["./vitest.setup.ts"],
   },
 });

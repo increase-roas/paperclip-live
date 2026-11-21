@@ -104,3 +104,6 @@ test-results/
 
 # Content-addressed CI task results
 .turbo/
+
+# Agent Readiness reports (baselines are committed, generated reports are not)
+.quality/reports/

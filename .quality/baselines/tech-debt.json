@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "description": "Unlinked debt markers that predate the policy. Rewrite them as TODO(PAP-1234) when touching the code.",
+  "generatedAt": "2026-11-21",
+  "entries": [
+    {
+      "key": "cli/src/commands/client/company.ts#137ad6bc70b2",
+      "note": "// TODO: replace this temporary claude_local fallback with adapter selection in the import TUI.",
+      "file": "cli/src/commands/client/company.ts",
+      "line": 399
+    },
+    {
+      "key": "packages/paperclip-runner/runner/crates/runner-core/src/provider_events.rs#ad56d27a20a3",
+      "note": "/// reads as its query: `\"TODO\" in src`.",
+      "file": "packages/paperclip-runner/runner/crates/runner-core/src/provider_events.rs",
+      "line": 2270
+    },
+    {
+      "key": "packages/plugins/sandbox-providers/kubernetes/src/plugin.ts#28fc777c8735",
+      "note": "// TODO: tighten once the agent runtime shim (companion images PR) lands its",
+      "file": "packages/plugins/sandbox-providers/kubernetes/src/plugin.ts",
+      "line": 81
+    },
+    {
+      "key": "packages/plugins/sandbox-providers/kubernetes/src/plugin.ts#3883e0ddb2c3",
+      "note": "// TODO: future versions could thread companyName through AcquireLeaseParams",
+      "file": "packages/plugins/sandbox-providers/kubernetes/src/plugin.ts",
+      "line": 74
+    },
+    {
+      "key": "packages/plugins/sandbox-providers/kubernetes/src/plugin.ts#a53e4aee1703",
+      "note": "// TODO: use params.runId as stand-in for agentId in labels; future",
+      "file": "packages/plugins/sandbox-providers/kubernetes/src/plugin.ts",
+      "line": 353
+    },
+    {
+      "key": "packages/plugins/sandbox-providers/kubernetes/src/sandbox-orchestrator.ts#0cfd52abdc04",
+      "note": "// TODO: requires custom in-cluster controller for k8s — kubelet does not",
+      "file": "packages/plugins/sandbox-providers/kubernetes/src/sandbox-orchestrator.ts",
+      "line": 64
+    },
+    {
+      "key": "ui/src/adapters/runtime-json-fields.tsx#27d35e0834f5",
+      "note": "// TODO(issue-worktree-support): re-enable this UI once the workflow is ready to ship.",
+      "file": "ui/src/adapters/runtime-json-fields.tsx",
+      "line": 5
+    },
+    {
+      "key": "ui/src/pages/AgentDetail.production.tsx#6d53a5fc5ebf",
+      "note": "// } else if (activeView === \"skills\") { // TODO: bring back later",
+      "file": "ui/src/pages/AgentDetail.production.tsx",
+      "line": 617
+    }
+  ]
+}

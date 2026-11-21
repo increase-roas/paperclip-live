@@ -1,0 +1,99 @@
+name: Agent readiness
+
+# Additive quality gate for agent-maintained code. It runs the checks documented
+# in doc/agent-readiness/ and does not replace the main PR pipeline.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ir-readiness-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+  CI: "1"
+
+jobs:
+  static:
+    name: Static readiness checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9.15.4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run static readiness checks
+        run: pnpm check:readiness
+
+      - name: Verify the committed OpenAPI artifact
+        run: pnpm docs:openapi:check
+
+      - name: Test the readiness analyzers
+        run: pnpm test:readiness
+
+      - name: Upload readiness reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: readiness-reports
+          path: .quality/reports/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  bundle-budget:
+    name: Bundle budget
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9.15.4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the UI
+        run: pnpm --filter @paperclipai/ui build
+
+      - name: Check bundle budgets
+        run: pnpm check:bundle-size --require-build
+
+      - name: Upload bundle report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-size
+          path: .quality/reports/bundle-size.json
+          if-no-files-found: ignore
+          retention-days: 14

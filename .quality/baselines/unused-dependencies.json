@@ -1,0 +1,187 @@
+{
+  "version": 1,
+  "description": "Declarations that predate the check. Remove them when touching the package; new unused declarations fail.",
+  "generatedAt": "2026-11-21",
+  "entries": [
+    {
+      "key": "cli::@paperclipai/server",
+      "file": "cli/package.json"
+    },
+    {
+      "key": "packages/adapter-utils::tsx",
+      "file": "packages/adapter-utils/package.json"
+    },
+    {
+      "key": "packages/adapters/claude-local::@agentclientprotocol/claude-agent-acp",
+      "file": "packages/adapters/claude-local/package.json"
+    },
+    {
+      "key": "packages/adapters/claude-local::@anthropic-ai/sdk",
+      "file": "packages/adapters/claude-local/package.json"
+    },
+    {
+      "key": "packages/adapters/codex-local::@agentclientprotocol/codex-acp",
+      "file": "packages/adapters/codex-local/package.json"
+    },
+    {
+      "key": "packages/paperclip-runner::@agentclientprotocol/codex-acp",
+      "file": "packages/paperclip-runner/package.json"
+    },
+    {
+      "key": "packages/paperclip-runner::@github/copilot-darwin-arm64",
+      "file": "packages/paperclip-runner/package.json"
+    },
+    {
+      "key": "packages/paperclip-runner::@github/copilot-darwin-x64",
+      "file": "packages/paperclip-runner/package.json"
+    },
+    {
+      "key": "packages/paperclip-runner::@github/copilot-linux-x64",
+      "file": "packages/paperclip-runner/package.json"
+    },
+    {
+      "key": "packages/paperclip-runner::@openai/codex",
+      "file": "packages/paperclip-runner/package.json"
+    },
+    {
+      "key": "packages/paperclip-runner::axe-core",
+      "file": "packages/paperclip-runner/package.json"
+    },
+    {
+      "key": "packages/paperclip-runner::opencode-ai",
+      "file": "packages/paperclip-runner/package.json"
+    },
+    {
+      "key": "packages/plugins/examples/plugin-authoring-smoke-example::@types/react",
+      "file": "packages/plugins/examples/plugin-authoring-smoke-example/package.json"
+    },
+    {
+      "key": "packages/plugins/examples/plugin-authoring-smoke-example::tslib",
+      "file": "packages/plugins/examples/plugin-authoring-smoke-example/package.json"
+    },
+    {
+      "key": "packages/plugins/examples/plugin-file-browser-example::@codemirror/state",
+      "file": "packages/plugins/examples/plugin-file-browser-example/package.json"
+    },
+    {
+      "key": "packages/plugins/examples/plugin-file-browser-example::@types/react-dom",
+      "file": "packages/plugins/examples/plugin-file-browser-example/package.json"
+    },
+    {
+      "key": "packages/plugins/examples/plugin-file-browser-example::react-dom",
+      "file": "packages/plugins/examples/plugin-file-browser-example/package.json"
+    },
+    {
+      "key": "packages/plugins/examples/plugin-hello-world-example::@types/react",
+      "file": "packages/plugins/examples/plugin-hello-world-example/package.json"
+    },
+    {
+      "key": "packages/plugins/examples/plugin-hello-world-example::@types/react-dom",
+      "file": "packages/plugins/examples/plugin-hello-world-example/package.json"
+    },
+    {
+      "key": "packages/plugins/examples/plugin-hello-world-example::react",
+      "file": "packages/plugins/examples/plugin-hello-world-example/package.json"
+    },
+    {
+      "key": "packages/plugins/examples/plugin-hello-world-example::react-dom",
+      "file": "packages/plugins/examples/plugin-hello-world-example/package.json"
+    },
+    {
+      "key": "packages/plugins/examples/plugin-kitchen-sink-example::@types/react-dom",
+      "file": "packages/plugins/examples/plugin-kitchen-sink-example/package.json"
+    },
+    {
+      "key": "packages/plugins/examples/plugin-kitchen-sink-example::react-dom",
+      "file": "packages/plugins/examples/plugin-kitchen-sink-example/package.json"
+    },
+    {
+      "key": "packages/plugins/plugin-llm-wiki::tslib",
+      "file": "packages/plugins/plugin-llm-wiki/package.json"
+    },
+    {
+      "key": "server::@agentclientprotocol/claude-agent-acp",
+      "file": "server/package.json"
+    },
+    {
+      "key": "server::@agentclientprotocol/codex-acp",
+      "file": "server/package.json"
+    },
+    {
+      "key": "server::@discordjs/ws",
+      "file": "server/package.json"
+    },
+    {
+      "key": "server::@github/copilot-darwin-arm64",
+      "file": "server/package.json"
+    },
+    {
+      "key": "server::@github/copilot-darwin-x64",
+      "file": "server/package.json"
+    },
+    {
+      "key": "server::@github/copilot-linux-x64",
+      "file": "server/package.json"
+    },
+    {
+      "key": "server::@paperclipai/skills-catalog",
+      "file": "server/package.json"
+    },
+    {
+      "key": "server::@types/express-serve-static-core",
+      "file": "server/package.json"
+    },
+    {
+      "key": "server::acpx",
+      "file": "server/package.json"
+    },
+    {
+      "key": "server::embedded-postgres",
+      "file": "server/package.json"
+    },
+    {
+      "key": "server::heif2jpeg",
+      "file": "server/package.json"
+    },
+    {
+      "key": "server::nice-grpc",
+      "file": "server/package.json"
+    },
+    {
+      "key": "server::nice-grpc-common",
+      "file": "server/package.json"
+    },
+    {
+      "key": "server::opencode-ai",
+      "file": "server/package.json"
+    },
+    {
+      "key": "server::pino-pretty",
+      "file": "server/package.json"
+    },
+    {
+      "key": "ui::@radix-ui/react-slot",
+      "file": "ui/package.json"
+    },
+    {
+      "key": "ui::@storybook/addon-a11y",
+      "file": "ui/package.json"
+    },
+    {
+      "key": "ui::@storybook/addon-docs",
+      "file": "ui/package.json"
+    },
+    {
+      "key": "ui::@tailwindcss/typography",
+      "file": "ui/package.json"
+    },
+    {
+      "key": "ui::tailwindcss",
+      "file": "ui/package.json"
+    },
+    {
+      "key": "ui::yjs",
+      "file": "ui/package.json"
+    }
+  ]
+}

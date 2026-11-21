@@ -1,0 +1,707 @@
+{
+  "version": 1,
+  "description": "Files already over the size budget when the check was introduced. New or growing files fail the check.",
+  "generatedAt": "2026-11-21",
+  "entries": [
+    {
+      "key": "cli/src/__tests__/worktree.test.ts#lines:5#bytes:0",
+      "file": "cli/src/__tests__/worktree.test.ts"
+    },
+    {
+      "key": "cli/src/commands/worktree.ts#lines:9#bytes:0",
+      "file": "cli/src/commands/worktree.ts"
+    },
+    {
+      "key": "doc/connections/CONNECTOR-PLAYBOOK.md#lines:5#bytes:0",
+      "file": "doc/connections/CONNECTOR-PLAYBOOK.md"
+    },
+    {
+      "key": "doc/connections/tool-method-permission-reviews.json#lines:5#bytes:0",
+      "file": "doc/connections/tool-method-permission-reviews.json"
+    },
+    {
+      "key": "doc/DEVELOPING.md#lines:10#bytes:1",
+      "file": "doc/DEVELOPING.md"
+    },
+    {
+      "key": "doc/execution-semantics.md#lines:9#bytes:1",
+      "file": "doc/execution-semantics.md"
+    },
+    {
+      "key": "doc/plans/2026-05-23-cli-api-parity-openapi-reference.ts#lines:7#bytes:0",
+      "file": "doc/plans/2026-05-23-cli-api-parity-openapi-reference.ts"
+    },
+    {
+      "key": "doc/plans/2026-10-02-pi-production-readiness.md#lines:5#bytes:0",
+      "file": "doc/plans/2026-10-02-pi-production-readiness.md"
+    },
+    {
+      "key": "doc/plans/2026-10-05-native-procedure-comparison.json#lines:10#bytes:0",
+      "file": "doc/plans/2026-10-05-native-procedure-comparison.json"
+    },
+    {
+      "key": "doc/plans/2026-10-12-heartbeat-disposition-test-audit-evidence.json#lines:11#bytes:0",
+      "file": "doc/plans/2026-10-12-heartbeat-disposition-test-audit-evidence.json"
+    },
+    {
+      "key": "doc/plans/2026-10-19-sidebar-apps-startup-evidence.json#lines:6#bytes:0",
+      "file": "doc/plans/2026-10-19-sidebar-apps-startup-evidence.json"
+    },
+    {
+      "key": "doc/plans/2026-10-24-recurring-server-sleep-stack.md#lines:7#bytes:0",
+      "file": "doc/plans/2026-10-24-recurring-server-sleep-stack.md"
+    },
+    {
+      "key": "doc/plans/2026-10-28-skill-package-performance-results.json#lines:19#bytes:1",
+      "file": "doc/plans/2026-10-28-skill-package-performance-results.json"
+    },
+    {
+      "key": "doc/plans/2026-10-30-native-controller-qualification-evidence.json#lines:7#bytes:0",
+      "file": "doc/plans/2026-10-30-native-controller-qualification-evidence.json"
+    },
+    {
+      "key": "doc/plans/chat-adapters/2026-09-08-chat-queue-and-webhook-repair.md#lines:16#bytes:2",
+      "file": "doc/plans/chat-adapters/2026-09-08-chat-queue-and-webhook-repair.md"
+    },
+    {
+      "key": "doc/SPEC-implementation.md#lines:5#bytes:0",
+      "file": "doc/SPEC-implementation.md"
+    },
+    {
+      "key": "packages/adapter-utils/src/acpx-engine/execute.test.ts#lines:18#bytes:1",
+      "file": "packages/adapter-utils/src/acpx-engine/execute.test.ts"
+    },
+    {
+      "key": "packages/adapter-utils/src/acpx-engine/execute.ts#lines:11#bytes:1",
+      "file": "packages/adapter-utils/src/acpx-engine/execute.ts"
+    },
+    {
+      "key": "packages/adapter-utils/src/execution-target-sandbox.test.ts#lines:12#bytes:1",
+      "file": "packages/adapter-utils/src/execution-target-sandbox.test.ts"
+    },
+    {
+      "key": "packages/adapter-utils/src/execution-target.ts#lines:10#bytes:0",
+      "file": "packages/adapter-utils/src/execution-target.ts"
+    },
+    {
+      "key": "packages/adapter-utils/src/sandbox-callback-bridge.test.ts#lines:7#bytes:0",
+      "file": "packages/adapter-utils/src/sandbox-callback-bridge.test.ts"
+    },
+    {
+      "key": "packages/adapter-utils/src/sandbox-callback-bridge.ts#lines:5#bytes:0",
+      "file": "packages/adapter-utils/src/sandbox-callback-bridge.ts"
+    },
+    {
+      "key": "packages/adapter-utils/src/sandbox-managed-runtime.test.ts#lines:8#bytes:0",
+      "file": "packages/adapter-utils/src/sandbox-managed-runtime.test.ts"
+    },
+    {
+      "key": "packages/adapter-utils/src/server-utils.test.ts#lines:8#bytes:0",
+      "file": "packages/adapter-utils/src/server-utils.test.ts"
+    },
+    {
+      "key": "packages/adapter-utils/src/server-utils.ts#lines:10#bytes:0",
+      "file": "packages/adapter-utils/src/server-utils.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/devtools/issue-thread/src/issue-thread.css#lines:5#bytes:0",
+      "file": "packages/paperclip-runner/devtools/issue-thread/src/issue-thread.css"
+    },
+    {
+      "key": "packages/paperclip-runner/runner/crates/runner-core/src/acpx_provider_backend.rs#lines:13#bytes:1",
+      "file": "packages/paperclip-runner/runner/crates/runner-core/src/acpx_provider_backend.rs"
+    },
+    {
+      "key": "packages/paperclip-runner/runner/crates/runner-core/src/acpx_provider_session.rs#lines:5#bytes:0",
+      "file": "packages/paperclip-runner/runner/crates/runner-core/src/acpx_provider_session.rs"
+    },
+    {
+      "key": "packages/paperclip-runner/runner/crates/runner-core/src/aws_agentcore_provider.rs#lines:7#bytes:0",
+      "file": "packages/paperclip-runner/runner/crates/runner-core/src/aws_agentcore_provider.rs"
+    },
+    {
+      "key": "packages/paperclip-runner/runner/crates/runner-core/src/bin/fake-codex-app-server.rs#lines:5#bytes:0",
+      "file": "packages/paperclip-runner/runner/crates/runner-core/src/bin/fake-codex-app-server.rs"
+    },
+    {
+      "key": "packages/paperclip-runner/runner/crates/runner-core/src/claude_managed_provider.rs#lines:8#bytes:0",
+      "file": "packages/paperclip-runner/runner/crates/runner-core/src/claude_managed_provider.rs"
+    },
+    {
+      "key": "packages/paperclip-runner/runner/crates/runner-core/src/codex_provider.rs#lines:13#bytes:1",
+      "file": "packages/paperclip-runner/runner/crates/runner-core/src/codex_provider.rs"
+    },
+    {
+      "key": "packages/paperclip-runner/runner/crates/runner-core/src/durable/runner.rs#lines:12#bytes:1",
+      "file": "packages/paperclip-runner/runner/crates/runner-core/src/durable/runner.rs"
+    },
+    {
+      "key": "packages/paperclip-runner/runner/crates/runner-core/src/durable/state.rs#lines:9#bytes:0",
+      "file": "packages/paperclip-runner/runner/crates/runner-core/src/durable/state.rs"
+    },
+    {
+      "key": "packages/paperclip-runner/runner/crates/runner-core/src/durable/transport.rs#lines:5#bytes:0",
+      "file": "packages/paperclip-runner/runner/crates/runner-core/src/durable/transport.rs"
+    },
+    {
+      "key": "packages/paperclip-runner/runner/crates/runner-core/src/managed_provider_backend.rs#lines:7#bytes:0",
+      "file": "packages/paperclip-runner/runner/crates/runner-core/src/managed_provider_backend.rs"
+    },
+    {
+      "key": "packages/paperclip-runner/runner/crates/runner-core/src/provider_backend.rs#lines:18#bytes:1",
+      "file": "packages/paperclip-runner/runner/crates/runner-core/src/provider_backend.rs"
+    },
+    {
+      "key": "packages/paperclip-runner/runner/crates/runner-core/src/provider_events.rs#lines:7#bytes:0",
+      "file": "packages/paperclip-runner/runner/crates/runner-core/src/provider_events.rs"
+    },
+    {
+      "key": "packages/paperclip-runner/runner/crates/runner-core/tests/codex_provider.rs#lines:17#bytes:1",
+      "file": "packages/paperclip-runner/runner/crates/runner-core/tests/codex_provider.rs"
+    },
+    {
+      "key": "packages/paperclip-runner/runner/crates/runner-core/tests/native_provider_backend.rs#lines:6#bytes:0",
+      "file": "packages/paperclip-runner/runner/crates/runner-core/tests/native_provider_backend.rs"
+    },
+    {
+      "key": "packages/paperclip-runner/spec/capability/capabilities.yaml#lines:5#bytes:0",
+      "file": "packages/paperclip-runner/spec/capability/capabilities.yaml"
+    },
+    {
+      "key": "packages/paperclip-runner/spec/capability/eval-traceability.yaml#lines:7#bytes:0",
+      "file": "packages/paperclip-runner/spec/capability/eval-traceability.yaml"
+    },
+    {
+      "key": "packages/paperclip-runner/spec/capability/protocol-coverage.json#lines:8#bytes:0",
+      "file": "packages/paperclip-runner/spec/capability/protocol-coverage.json"
+    },
+    {
+      "key": "packages/paperclip-runner/src/control-plane/durable-prp-control-plane.test.ts#lines:10#bytes:0",
+      "file": "packages/paperclip-runner/src/control-plane/durable-prp-control-plane.test.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/src/control-plane/durable-prp-control-plane.ts#lines:9#bytes:0",
+      "file": "packages/paperclip-runner/src/control-plane/durable-prp-control-plane.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/src/drivers/acpx/codex-acpx-driver.test.ts#lines:6#bytes:0",
+      "file": "packages/paperclip-runner/src/drivers/acpx/codex-acpx-driver.test.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/src/drivers/acpx/codex-acpx-driver.ts#lines:5#bytes:0",
+      "file": "packages/paperclip-runner/src/drivers/acpx/codex-acpx-driver.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/src/drivers/acpx/codex-runtime-adapter.test.ts#lines:7#bytes:0",
+      "file": "packages/paperclip-runner/src/drivers/acpx/codex-runtime-adapter.test.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/src/drivers/opencode/opencode-server-driver.test.ts#lines:6#bytes:0",
+      "file": "packages/paperclip-runner/src/drivers/opencode/opencode-server-driver.test.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/src/drivers/opencode/opencode-server-driver.ts#lines:6#bytes:0",
+      "file": "packages/paperclip-runner/src/drivers/opencode/opencode-server-driver.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/src/live/live-session.ts#lines:6#bytes:0",
+      "file": "packages/paperclip-runner/src/live/live-session.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/src/live/runnerd-codex-transport.test.ts#lines:13#bytes:1",
+      "file": "packages/paperclip-runner/src/live/runnerd-codex-transport.test.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/src/live/runnerd-codex-transport.ts#lines:18#bytes:1",
+      "file": "packages/paperclip-runner/src/live/runnerd-codex-transport.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/src/native-session-runtime.test.ts#lines:20#bytes:1",
+      "file": "packages/paperclip-runner/src/native-session-runtime.test.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/src/native-session-runtime.ts#lines:7#bytes:0",
+      "file": "packages/paperclip-runner/src/native-session-runtime.ts"
+    },
+    {
+      "key": "packages/plugins/plugin-llm-wiki/src/ui/app.tsx#lines:14#bytes:1",
+      "file": "packages/plugins/plugin-llm-wiki/src/ui/app.tsx"
+    },
+    {
+      "key": "packages/plugins/plugin-llm-wiki/src/wiki/core.ts#lines:9#bytes:0",
+      "file": "packages/plugins/plugin-llm-wiki/src/wiki/core.ts"
+    },
+    {
+      "key": "packages/plugins/plugin-llm-wiki/tests/plugin.spec.ts#lines:7#bytes:0",
+      "file": "packages/plugins/plugin-llm-wiki/tests/plugin.spec.ts"
+    },
+    {
+      "key": "packages/plugins/sandbox-providers/daytona/src/plugin.test.ts#lines:15#bytes:1",
+      "file": "packages/plugins/sandbox-providers/daytona/src/plugin.test.ts"
+    },
+    {
+      "key": "packages/plugins/sandbox-providers/daytona/src/plugin.ts#lines:8#bytes:0",
+      "file": "packages/plugins/sandbox-providers/daytona/src/plugin.ts"
+    },
+    {
+      "key": "packages/plugins/sdk/src/protocol.ts#lines:5#bytes:0",
+      "file": "packages/plugins/sdk/src/protocol.ts"
+    },
+    {
+      "key": "packages/plugins/sdk/src/testing.ts#lines:5#bytes:0",
+      "file": "packages/plugins/sdk/src/testing.ts"
+    },
+    {
+      "key": "packages/plugins/sdk/src/worker-rpc-host.ts#lines:5#bytes:0",
+      "file": "packages/plugins/sdk/src/worker-rpc-host.ts"
+    },
+    {
+      "key": "packages/shared/src/app-definitions.ingestion-report.json#lines:5#bytes:0",
+      "file": "packages/shared/src/app-definitions.ingestion-report.json"
+    },
+    {
+      "key": "packages/shared/src/index.ts#lines:5#bytes:0",
+      "file": "packages/shared/src/index.ts"
+    },
+    {
+      "key": "scripts/typecheck-sandbox-providers/pnpm-lock.yaml#lines:5#bytes:0",
+      "file": "scripts/typecheck-sandbox-providers/pnpm-lock.yaml"
+    },
+    {
+      "key": "server/src/__tests__/agent-permissions-routes.test.ts#lines:5#bytes:0",
+      "file": "server/src/__tests__/agent-permissions-routes.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/ai-connections.test.ts#lines:5#bytes:0",
+      "file": "server/src/__tests__/ai-connections.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/attention-service.test.ts#lines:5#bytes:0",
+      "file": "server/src/__tests__/attention-service.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/authorization-service.test.ts#lines:6#bytes:0",
+      "file": "server/src/__tests__/authorization-service.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/chat-channels.integration.test.ts#lines:170#bytes:14",
+      "file": "server/src/__tests__/chat-channels.integration.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/company-portability.test.ts#lines:12#bytes:0",
+      "file": "server/src/__tests__/company-portability.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/company-skills-service.test.ts#lines:7#bytes:0",
+      "file": "server/src/__tests__/company-skills-service.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/environment-routes.test.ts#lines:6#bytes:0",
+      "file": "server/src/__tests__/environment-routes.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/environment-runtime.test.ts#lines:13#bytes:1",
+      "file": "server/src/__tests__/environment-runtime.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/execution-workspaces-service.test.ts#lines:10#bytes:0",
+      "file": "server/src/__tests__/execution-workspaces-service.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/generic-mcp-connection.test.ts#lines:6#bytes:0",
+      "file": "server/src/__tests__/generic-mcp-connection.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/heartbeat-comment-wake-batching.test.ts#lines:7#bytes:0",
+      "file": "server/src/__tests__/heartbeat-comment-wake-batching.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/heartbeat-process-recovery.test.ts#lines:33#bytes:2",
+      "file": "server/src/__tests__/heartbeat-process-recovery.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/heartbeat-retry-scheduling.test.ts#lines:5#bytes:0",
+      "file": "server/src/__tests__/heartbeat-retry-scheduling.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/heartbeat-workspace-session.test.ts#lines:6#bytes:0",
+      "file": "server/src/__tests__/heartbeat-workspace-session.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/issue-agent-mutation-ownership-routes.test.ts#lines:7#bytes:0",
+      "file": "server/src/__tests__/issue-agent-mutation-ownership-routes.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/issue-comment-reopen-routes.test.ts#lines:7#bytes:0",
+      "file": "server/src/__tests__/issue-comment-reopen-routes.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/issue-recovery-actions.test.ts#lines:7#bytes:0",
+      "file": "server/src/__tests__/issue-recovery-actions.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/issue-thread-interaction-routes.test.ts#lines:7#bytes:0",
+      "file": "server/src/__tests__/issue-thread-interaction-routes.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/issue-thread-interactions-service.test.ts#lines:9#bytes:0",
+      "file": "server/src/__tests__/issue-thread-interactions-service.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/issues-service.test.ts#lines:14#bytes:0",
+      "file": "server/src/__tests__/issues-service.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/muse-control.test.ts#lines:6#bytes:1",
+      "file": "server/src/__tests__/muse-control.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/native-status-arbiter-corpus.test.ts#lines:7#bytes:0",
+      "file": "server/src/__tests__/native-status-arbiter-corpus.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/plugin-worker-manager.test.ts#lines:5#bytes:0",
+      "file": "server/src/__tests__/plugin-worker-manager.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/routines-service.test.ts#lines:6#bytes:0",
+      "file": "server/src/__tests__/routines-service.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/secrets-service.test.ts#lines:8#bytes:0",
+      "file": "server/src/__tests__/secrets-service.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/tool-access-service.test.ts#lines:42#bytes:3",
+      "file": "server/src/__tests__/tool-access-service.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/tool-gateway-service.test.ts#lines:7#bytes:0",
+      "file": "server/src/__tests__/tool-gateway-service.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/tool-gateway.test.ts#lines:12#bytes:1",
+      "file": "server/src/__tests__/tool-gateway.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/workspace-runtime.test.ts#lines:20#bytes:1",
+      "file": "server/src/__tests__/workspace-runtime.test.ts"
+    },
+    {
+      "key": "server/src/routes/access.ts#lines:9#bytes:0",
+      "file": "server/src/routes/access.ts"
+    },
+    {
+      "key": "server/src/routes/agents.ts#lines:15#bytes:1",
+      "file": "server/src/routes/agents.ts"
+    },
+    {
+      "key": "server/src/routes/issues.ts#lines:41#bytes:3",
+      "file": "server/src/routes/issues.ts"
+    },
+    {
+      "key": "server/src/routes/openapi.ts#lines:26#bytes:1",
+      "file": "server/src/routes/openapi.ts"
+    },
+    {
+      "key": "server/src/routes/plugins.ts#lines:6#bytes:0",
+      "file": "server/src/routes/plugins.ts"
+    },
+    {
+      "key": "server/src/routes/tool-access.ts#lines:5#bytes:0",
+      "file": "server/src/routes/tool-access.ts"
+    },
+    {
+      "key": "server/src/services/authorization.ts#lines:6#bytes:0",
+      "file": "server/src/services/authorization.ts"
+    },
+    {
+      "key": "server/src/services/chat-channels.ts#lines:7#bytes:0",
+      "file": "server/src/services/chat-channels.ts"
+    },
+    {
+      "key": "server/src/services/chat-sdk-runtime.adapters.test.ts#lines:7#bytes:0",
+      "file": "server/src/services/chat-sdk-runtime.adapters.test.ts"
+    },
+    {
+      "key": "server/src/services/chat-sdk-runtime.ts#lines:6#bytes:0",
+      "file": "server/src/services/chat-sdk-runtime.ts"
+    },
+    {
+      "key": "server/src/services/company-portability.ts#lines:13#bytes:1",
+      "file": "server/src/services/company-portability.ts"
+    },
+    {
+      "key": "server/src/services/company-skills.ts#lines:15#bytes:1",
+      "file": "server/src/services/company-skills.ts"
+    },
+    {
+      "key": "server/src/services/connectors/unikraft/operations.generated.json#lines:23#bytes:1",
+      "file": "server/src/services/connectors/unikraft/operations.generated.json"
+    },
+    {
+      "key": "server/src/services/daytona/operations.generated.json#lines:31#bytes:1",
+      "file": "server/src/services/daytona/operations.generated.json"
+    },
+    {
+      "key": "server/src/services/email-channels.ts#lines:5#bytes:0",
+      "file": "server/src/services/email-channels.ts"
+    },
+    {
+      "key": "server/src/services/environment-runtime.ts#lines:9#bytes:0",
+      "file": "server/src/services/environment-runtime.ts"
+    },
+    {
+      "key": "server/src/services/execution-workspaces.ts#lines:11#bytes:1",
+      "file": "server/src/services/execution-workspaces.ts"
+    },
+    {
+      "key": "server/src/services/explicit-native-continuation.test.ts#lines:6#bytes:0",
+      "file": "server/src/services/explicit-native-continuation.test.ts"
+    },
+    {
+      "key": "server/src/services/heartbeat.ts#lines:9#bytes:0",
+      "file": "server/src/services/heartbeat.ts"
+    },
+    {
+      "key": "server/src/services/heartbeat/queue.ts#lines:10#bytes:0",
+      "file": "server/src/services/heartbeat/queue.ts"
+    },
+    {
+      "key": "server/src/services/heartbeat/recovery.ts#lines:5#bytes:0",
+      "file": "server/src/services/heartbeat/recovery.ts"
+    },
+    {
+      "key": "server/src/services/heartbeat/run-lifecycle.ts#lines:6#bytes:0",
+      "file": "server/src/services/heartbeat/run-lifecycle.ts"
+    },
+    {
+      "key": "server/src/services/heartbeat/run-preparation.ts#lines:6#bytes:0",
+      "file": "server/src/services/heartbeat/run-preparation.ts"
+    },
+    {
+      "key": "server/src/services/heartbeat/workspaces.ts#lines:7#bytes:0",
+      "file": "server/src/services/heartbeat/workspaces.ts"
+    },
+    {
+      "key": "server/src/services/issue-thread-interactions.ts#lines:11#bytes:0",
+      "file": "server/src/services/issue-thread-interactions.ts"
+    },
+    {
+      "key": "server/src/services/issues.ts#lines:28#bytes:2",
+      "file": "server/src/services/issues.ts"
+    },
+    {
+      "key": "server/src/services/native-runtime/external-chat-wait.integration.test.ts#lines:11#bytes:1",
+      "file": "server/src/services/native-runtime/external-chat-wait.integration.test.ts"
+    },
+    {
+      "key": "server/src/services/native-runtime/native-runner-restart-recovery.integration.test.ts#lines:6#bytes:0",
+      "file": "server/src/services/native-runtime/native-runner-restart-recovery.integration.test.ts"
+    },
+    {
+      "key": "server/src/services/native-runtime/native-session-executor.test.ts#lines:41#bytes:4",
+      "file": "server/src/services/native-runtime/native-session-executor.test.ts"
+    },
+    {
+      "key": "server/src/services/native-runtime/native-session-executor.ts#lines:34#bytes:3",
+      "file": "server/src/services/native-runtime/native-session-executor.ts"
+    },
+    {
+      "key": "server/src/services/native-runtime/native-session-resume.test.ts#lines:5#bytes:0",
+      "file": "server/src/services/native-runtime/native-session-resume.test.ts"
+    },
+    {
+      "key": "server/src/services/native-runtime/paperclip-control-plane-port.test.ts#lines:6#bytes:0",
+      "file": "server/src/services/native-runtime/paperclip-control-plane-port.test.ts"
+    },
+    {
+      "key": "server/src/services/native-runtime/paperclip-runner-tool-authority.ts#lines:6#bytes:0",
+      "file": "server/src/services/native-runtime/paperclip-runner-tool-authority.ts"
+    },
+    {
+      "key": "server/src/services/native-runtime/status-decision-committer.ts#lines:5#bytes:0",
+      "file": "server/src/services/native-runtime/status-decision-committer.ts"
+    },
+    {
+      "key": "server/src/services/plugin-host-services.ts#lines:7#bytes:0",
+      "file": "server/src/services/plugin-host-services.ts"
+    },
+    {
+      "key": "server/src/services/plugin-loader.ts#lines:5#bytes:0",
+      "file": "server/src/services/plugin-loader.ts"
+    },
+    {
+      "key": "server/src/services/plugin-worker-manager.ts#lines:8#bytes:0",
+      "file": "server/src/services/plugin-worker-manager.ts"
+    },
+    {
+      "key": "server/src/services/recovery/service.ts#lines:13#bytes:1",
+      "file": "server/src/services/recovery/service.ts"
+    },
+    {
+      "key": "server/src/services/routines.ts#lines:6#bytes:0",
+      "file": "server/src/services/routines.ts"
+    },
+    {
+      "key": "server/src/services/secrets.ts#lines:11#bytes:0",
+      "file": "server/src/services/secrets.ts"
+    },
+    {
+      "key": "server/src/services/tool-access.ts#lines:9#bytes:0",
+      "file": "server/src/services/tool-access.ts"
+    },
+    {
+      "key": "server/src/services/tool-gateway.ts#lines:23#bytes:1",
+      "file": "server/src/services/tool-gateway.ts"
+    },
+    {
+      "key": "server/src/services/workspace-runtime.ts#lines:18#bytes:1",
+      "file": "server/src/services/workspace-runtime.ts"
+    },
+    {
+      "key": "tests/runner-e2e/chat-full-catalog-testops-manifest.json#lines:27#bytes:2",
+      "file": "tests/runner-e2e/chat-full-catalog-testops-manifest.json"
+    },
+    {
+      "key": "tests/runner-e2e/README.md#lines:7#bytes:0",
+      "file": "tests/runner-e2e/README.md"
+    },
+    {
+      "key": "tests/runner-e2e/runner.spec.ts#lines:6#bytes:0",
+      "file": "tests/runner-e2e/runner.spec.ts"
+    },
+    {
+      "key": "ui/src/components/AgentConfigForm.render.test.tsx#lines:9#bytes:0",
+      "file": "ui/src/components/AgentConfigForm.render.test.tsx"
+    },
+    {
+      "key": "ui/src/components/AgentConfigForm.tsx#lines:8#bytes:0",
+      "file": "ui/src/components/AgentConfigForm.tsx"
+    },
+    {
+      "key": "ui/src/components/issue-properties/IssueProperties.tsx#lines:6#bytes:0",
+      "file": "ui/src/components/issue-properties/IssueProperties.tsx"
+    },
+    {
+      "key": "ui/src/components/IssueChatThread.test.tsx#lines:9#bytes:0",
+      "file": "ui/src/components/IssueChatThread.test.tsx"
+    },
+    {
+      "key": "ui/src/components/IssueChatThread.tsx#lines:13#bytes:0",
+      "file": "ui/src/components/IssueChatThread.tsx"
+    },
+    {
+      "key": "ui/src/components/IssueProperties.test.tsx#lines:7#bytes:0",
+      "file": "ui/src/components/IssueProperties.test.tsx"
+    },
+    {
+      "key": "ui/src/components/IssuesList.test.tsx#lines:5#bytes:0",
+      "file": "ui/src/components/IssuesList.test.tsx"
+    },
+    {
+      "key": "ui/src/components/IssuesList.tsx#lines:5#bytes:0",
+      "file": "ui/src/components/IssuesList.tsx"
+    },
+    {
+      "key": "ui/src/components/IssueThreadInteractionCard.tsx#lines:8#bytes:0",
+      "file": "ui/src/components/IssueThreadInteractionCard.tsx"
+    },
+    {
+      "key": "ui/src/components/NewIssueDialog.test.tsx#lines:5#bytes:0",
+      "file": "ui/src/components/NewIssueDialog.test.tsx"
+    },
+    {
+      "key": "ui/src/components/OnboardingWizard.test.tsx#lines:9#bytes:1",
+      "file": "ui/src/components/OnboardingWizard.test.tsx"
+    },
+    {
+      "key": "ui/src/components/OnboardingWizard.tsx#lines:7#bytes:0",
+      "file": "ui/src/components/OnboardingWizard.tsx"
+    },
+    {
+      "key": "ui/src/components/task-chat/TaskChatComposer.test.tsx#lines:6#bytes:0",
+      "file": "ui/src/components/task-chat/TaskChatComposer.test.tsx"
+    },
+    {
+      "key": "ui/src/components/task-chat/transcript-adapter.test.ts#lines:6#bytes:0",
+      "file": "ui/src/components/task-chat/transcript-adapter.test.ts"
+    },
+    {
+      "key": "ui/src/components/task-chat/transcript-adapter.ts#lines:5#bytes:0",
+      "file": "ui/src/components/task-chat/transcript-adapter.ts"
+    },
+    {
+      "key": "ui/src/components/TaskChatThread.test.tsx#lines:11#bytes:1",
+      "file": "ui/src/components/TaskChatThread.test.tsx"
+    },
+    {
+      "key": "ui/src/components/TaskChatThread.tsx#lines:7#bytes:0",
+      "file": "ui/src/components/TaskChatThread.tsx"
+    },
+    {
+      "key": "ui/src/features/connections/ConnectionSetupFlow.tsx#lines:9#bytes:0",
+      "file": "ui/src/features/connections/ConnectionSetupFlow.tsx"
+    },
+    {
+      "key": "ui/src/index.css#lines:10#bytes:1",
+      "file": "ui/src/index.css"
+    },
+    {
+      "key": "ui/src/pages/AgentDetail.production.tsx#lines:6#bytes:0",
+      "file": "ui/src/pages/AgentDetail.production.tsx"
+    },
+    {
+      "key": "ui/src/pages/AgentDetail.tsx#lines:7#bytes:0",
+      "file": "ui/src/pages/AgentDetail.tsx"
+    },
+    {
+      "key": "ui/src/pages/apps/AppsConnect.test.tsx#lines:9#bytes:0",
+      "file": "ui/src/pages/apps/AppsConnect.test.tsx"
+    },
+    {
+      "key": "ui/src/pages/CompanyEnvironments.tsx#lines:5#bytes:0",
+      "file": "ui/src/pages/CompanyEnvironments.tsx"
+    },
+    {
+      "key": "ui/src/pages/CompanySkills.production.tsx#lines:11#bytes:0",
+      "file": "ui/src/pages/CompanySkills.production.tsx"
+    },
+    {
+      "key": "ui/src/pages/CompanySkills.tsx#lines:11#bytes:0",
+      "file": "ui/src/pages/CompanySkills.tsx"
+    },
+    {
+      "key": "ui/src/pages/DesignGuide.tsx#lines:5#bytes:0",
+      "file": "ui/src/pages/DesignGuide.tsx"
+    },
+    {
+      "key": "ui/src/pages/Inbox.tsx#lines:7#bytes:0",
+      "file": "ui/src/pages/Inbox.tsx"
+    },
+    {
+      "key": "ui/src/pages/IssueDetail.test.tsx#lines:15#bytes:1",
+      "file": "ui/src/pages/IssueDetail.test.tsx"
+    },
+    {
+      "key": "ui/src/pages/IssueDetail.tsx#lines:18#bytes:1",
+      "file": "ui/src/pages/IssueDetail.tsx"
+    },
+    {
+      "key": "ui/src/pages/LegacyInbox.tsx#lines:6#bytes:0",
+      "file": "ui/src/pages/LegacyInbox.tsx"
+    },
+    {
+      "key": "ui/src/pages/Secrets.tsx#lines:9#bytes:0",
+      "file": "ui/src/pages/Secrets.tsx"
+    },
+    {
+      "key": "ui/src/pages/SkillStudio.tsx#lines:7#bytes:0",
+      "file": "ui/src/pages/SkillStudio.tsx"
+    },
+    {
+      "key": "ui/src/pages/TeamCatalog.tsx#lines:5#bytes:0",
+      "file": "ui/src/pages/TeamCatalog.tsx"
+    }
+  ]
+}

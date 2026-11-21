@@ -1,0 +1,45 @@
+{
+  "$comment": "Modules under these roots are expected to be reachable from an entry point, a test, a config file or another module. Entry points and barrels are excluded from reporting.",
+  "roots": [
+    "server/src",
+    "cli/src",
+    "ui/src",
+    "packages/*/src",
+    "packages/adapters/*/src",
+    "packages/plugins/*/src"
+  ],
+  "entryPoints": [
+    "**/index.ts",
+    "**/index.tsx",
+    "**/index.mts",
+    "**/main.ts",
+    "**/main.tsx",
+    "**/App.tsx",
+    "**/*.d.ts",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.test.mts",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "**/*.stories.ts",
+    "**/*.stories.tsx",
+    "**/*.config.*",
+    "**/__tests__/**",
+    "**/__mocks__/**",
+    "**/fixtures/**",
+    "**/migrations/**",
+    "**/generated/**",
+    "server/src/scripts/**",
+    "ui/storybook/**",
+    "tests/**"
+  ],
+  "referenceFiles": [
+    "**/*.html",
+    "**/package.json",
+    "**/*.yml",
+    "**/*.yaml",
+    "**/Dockerfile*",
+    "**/*.sh",
+    "**/*.json"
+  ]
+}

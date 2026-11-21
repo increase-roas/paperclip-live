@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "description": "Deprecated or already-dead flags retained for compatibility. Remove them in a dedicated change.",
+  "generatedAt": "2026-11-21",
+  "entries": [
+    {
+      "key": "deprecated::enableApps",
+      "file": "packages/shared/src/types/instance.ts"
+    },
+    {
+      "key": "deprecated::enableMcpAggregators",
+      "file": "packages/shared/src/types/instance.ts"
+    },
+    {
+      "key": "deprecated::enableRunnerPreviewIngress",
+      "file": "packages/shared/src/types/instance.ts"
+    }
+  ]
+}

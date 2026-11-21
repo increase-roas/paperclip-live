@@ -12,6 +12,15 @@ updates:
     # let each major land on its own. The limit holds the initial burst
     # of pending majors plus the regular minor and patch updates.
     open-pull-requests-limit: 20
+    # Do not adopt a release on publication day. The cooldown gives the
+    # ecosystem time to publish a broken or compromised release and lets
+    # advisories surface first. Security fixes that must land sooner are opened
+    # manually with an advisory link. See doc/agent-readiness/DEPENDENCIES.md.
+    cooldown:
+      default-days: 7
+      semver-major-days: 30
+      semver-minor-days: 7
+      semver-patch-days: 3
     labels:
       - "dependencies"
     # Dependabot's npm parser reads only dependencies, devDependencies, and
@@ -60,6 +69,12 @@ updates:
       day: monday
       time: "06:00"
     open-pull-requests-limit: 10
+    # Same release-age policy as the root workspace.
+    cooldown:
+      default-days: 7
+      semver-major-days: 30
+      semver-minor-days: 7
+      semver-patch-days: 3
     labels:
       - "dependencies"
     ignore:
@@ -80,6 +95,12 @@ updates:
       day: monday
       time: "06:00"
     open-pull-requests-limit: 5
+    # Same release-age policy as the root workspace.
+    cooldown:
+      default-days: 7
+      semver-major-days: 30
+      semver-minor-days: 7
+      semver-patch-days: 3
     labels:
       - "dependencies"
     ignore:

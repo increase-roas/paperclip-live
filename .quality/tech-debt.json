@@ -1,0 +1,15 @@
+{
+  "$comment": "Debt markers must link to an issue (TODO(PAP-1234)) or a URL. Generated, vendored and fixture content is excluded.",
+  "tags": ["TODO", "FIXME", "HACK", "XXX"],
+  "exclude": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/generated/**",
+    "**/__fixtures__/**",
+    "**/fixtures/**",
+    "**/*.snapshot.json",
+    "docs/api/openapi.json",
+    "pnpm-lock.yaml",
+    "releases/**"
+  ]
+}

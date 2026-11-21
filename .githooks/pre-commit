@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Repository pre-commit hook.
+#
+# Installed by `pnpm hooks:install`, which sets `core.hooksPath` to .githooks.
+# Keep this hook fast: it checks only staged files and preserves the exit code
+# so a failed check blocks the commit.
+#
+# Bypass for an emergency with: SKIP_READINESS_HOOKS=1 git commit ...
+set -euo pipefail
+
+if [ "${SKIP_READINESS_HOOKS:-0}" = "1" ]; then
+  echo "readiness: pre-commit checks skipped (SKIP_READINESS_HOOKS=1)"
+  exit 0
+fi
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+node scripts/check-secrets.mjs --staged
+node scripts/check-source-format.mjs --staged
+node scripts/check-large-files.mjs --staged
+node scripts/check-tech-debt.mjs --staged
+
+# Existing repository guard: reject commits that would push from an agent.
+node scripts/check-no-git-push.mjs

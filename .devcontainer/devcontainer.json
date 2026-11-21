@@ -1,0 +1,36 @@
+{
+  "name": "Paperclip",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "containerEnv": {
+    "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0",
+    "PAPERCLIP_UI_DEV_MIDDLEWARE": "true"
+  },
+  "postCreateCommand": "corepack enable && corepack pnpm install --frozen-lockfile",
+  "forwardPorts": [3100, 5173, 6006],
+  "portsAttributes": {
+    "3100": { "label": "Paperclip API + UI", "onAutoForward": "notify" },
+    "5173": { "label": "Vite dev server", "onAutoForward": "silent" },
+    "6006": { "label": "Storybook", "onAutoForward": "silent" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "EditorConfig.EditorConfig",
+        "vitest.explorer",
+        "ms-azuretools.vscode-docker",
+        "GitHub.vscode-pull-request-github"
+      ],
+      "settings": {
+        "editor.formatOnSave": false,
+        "files.eol": "\n",
+        "files.insertFinalNewline": true,
+        "files.trimTrailingWhitespace": true,
+        "typescript.tsdk": "node_modules/typescript/lib"
+      }
+    }
+  },
+  "remoteUser": "node"
+}

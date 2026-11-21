@@ -1,0 +1,8 @@
+{
+  "$comment": "Production UI bundle budgets for scripts/check-bundle-size.mjs. Budgets are deliberately generous headroom over the current build; tighten them when the build is consistently smaller.",
+  "distDir": "ui/dist",
+  "perChunkGzipBytes": 1500000,
+  "perChunkRawBytes": 4000000,
+  "totalGzipBytes": 8000000,
+  "totalRawBytes": 30000000
+}

@@ -1,0 +1,235 @@
+{
+  "version": 1,
+  "description": "Boundary crossings that predate the check. Fix the dependency direction before adding new ones.",
+  "generatedAt": "2026-11-21",
+  "entries": [
+    {
+      "key": "server/src/__tests__/agent-identity.test.ts->cli/src/commands/worktree-lib.ts",
+      "file": "server/src/__tests__/agent-identity.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/issue-execution-policy-persistence.test.ts->ui/src/lib/issue-execution-policy.ts",
+      "file": "server/src/__tests__/issue-execution-policy-persistence.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/issue-execution-policy.test.ts->ui/src/lib/issue-execution-policy.ts",
+      "file": "server/src/__tests__/issue-execution-policy.test.ts"
+    },
+    {
+      "key": "server/src/__tests__/worktree-seed-server-spawn.test.ts->cli/src/commands/worktree.ts",
+      "file": "server/src/__tests__/worktree-seed-server-spawn.test.ts"
+    },
+    {
+      "key": "ui/src/components/actions/ActionCard.tsx->ui/src/pages/tools/shared.tsx",
+      "file": "ui/src/components/actions/ActionCard.tsx"
+    },
+    {
+      "key": "ui/src/components/AgentConfigForm.render.test.tsx->ui/src/pages/AgentDetail.tsx",
+      "file": "ui/src/components/AgentConfigForm.render.test.tsx"
+    },
+    {
+      "key": "ui/src/components/AgentConfigForm.tsx->ui/src/pages/secrets/proposal-review.tsx",
+      "file": "ui/src/components/AgentConfigForm.tsx"
+    },
+    {
+      "key": "ui/src/components/AgentContextualSidebar.tsx->ui/src/pages/agent-detail-navigation.ts",
+      "file": "ui/src/components/AgentContextualSidebar.tsx"
+    },
+    {
+      "key": "ui/src/components/AgentSecretAccessEditor.tsx->ui/src/pages/secrets/proposal-review.tsx",
+      "file": "ui/src/components/AgentSecretAccessEditor.tsx"
+    },
+    {
+      "key": "ui/src/components/ai-connections/AiConnectionAccountControls.tsx->ui/src/pages/apps/app-detail/IdentitiesSection.tsx",
+      "file": "ui/src/components/ai-connections/AiConnectionAccountControls.tsx"
+    },
+    {
+      "key": "ui/src/components/ai-connections/AiConnectionIdentity.tsx->ui/src/pages/apps/AppLogo.tsx",
+      "file": "ui/src/components/ai-connections/AiConnectionIdentity.tsx"
+    },
+    {
+      "key": "ui/src/components/ai-connections/AiConnectionPicker.tsx->ui/src/pages/apps/AppLogo.tsx",
+      "file": "ui/src/components/ai-connections/AiConnectionPicker.tsx"
+    },
+    {
+      "key": "ui/src/components/ai-connections/AiConnectionPoolConnector.tsx->ui/src/pages/apps/AppDetail.tsx",
+      "file": "ui/src/components/ai-connections/AiConnectionPoolConnector.tsx"
+    },
+    {
+      "key": "ui/src/components/ai-connections/AiConnectionPoolConnector.tsx->ui/src/pages/apps/AppLogo.tsx",
+      "file": "ui/src/components/ai-connections/AiConnectionPoolConnector.tsx"
+    },
+    {
+      "key": "ui/src/components/ai-connections/AiConnectionSelect.tsx->ui/src/pages/apps/AppLogo.tsx",
+      "file": "ui/src/components/ai-connections/AiConnectionSelect.tsx"
+    },
+    {
+      "key": "ui/src/components/ai-connections/AiProviderSetup.tsx->ui/src/pages/apps/AppLogo.tsx",
+      "file": "ui/src/components/ai-connections/AiProviderSetup.tsx"
+    },
+    {
+      "key": "ui/src/components/AppConnectionSidebar.production.tsx->ui/src/pages/apps/app-definition-display.ts",
+      "file": "ui/src/components/AppConnectionSidebar.production.tsx"
+    },
+    {
+      "key": "ui/src/components/AppConnectionSidebar.production.tsx->ui/src/pages/apps/app-tabs.ts",
+      "file": "ui/src/components/AppConnectionSidebar.production.tsx"
+    },
+    {
+      "key": "ui/src/components/AppConnectionSidebar.production.tsx->ui/src/pages/apps/AppLogo.tsx",
+      "file": "ui/src/components/AppConnectionSidebar.production.tsx"
+    },
+    {
+      "key": "ui/src/components/AppConnectionSidebar.tsx->ui/src/pages/apps/app-definition-display.ts",
+      "file": "ui/src/components/AppConnectionSidebar.tsx"
+    },
+    {
+      "key": "ui/src/components/AppConnectionSidebar.tsx->ui/src/pages/apps/app-tabs.ts",
+      "file": "ui/src/components/AppConnectionSidebar.tsx"
+    },
+    {
+      "key": "ui/src/components/AppConnectionSidebar.tsx->ui/src/pages/apps/AppLogo.tsx",
+      "file": "ui/src/components/AppConnectionSidebar.tsx"
+    },
+    {
+      "key": "ui/src/components/AppsSidebar.production.tsx->ui/src/pages/apps/useReviewCount.ts",
+      "file": "ui/src/components/AppsSidebar.production.tsx"
+    },
+    {
+      "key": "ui/src/components/AppsSidebar.production.tsx->ui/src/pages/tools/tool-tabs.ts",
+      "file": "ui/src/components/AppsSidebar.production.tsx"
+    },
+    {
+      "key": "ui/src/components/AppsSidebar.tsx->ui/src/pages/apps/useReviewCount.ts",
+      "file": "ui/src/components/AppsSidebar.tsx"
+    },
+    {
+      "key": "ui/src/components/AppsSidebar.tsx->ui/src/pages/tools/tool-tabs.ts",
+      "file": "ui/src/components/AppsSidebar.tsx"
+    },
+    {
+      "key": "ui/src/components/decision-models/DecisionModelSettings.tsx->ui/src/pages/apps/AppLogo.tsx",
+      "file": "ui/src/components/decision-models/DecisionModelSettings.tsx"
+    },
+    {
+      "key": "ui/src/components/fast-responses/FastResponseSettings.tsx->ui/src/pages/apps/AppLogo.tsx",
+      "file": "ui/src/components/fast-responses/FastResponseSettings.tsx"
+    },
+    {
+      "key": "ui/src/components/IssueThreadInteractionCard.tsx->ui/src/pages/apps/app-tabs.ts",
+      "file": "ui/src/components/IssueThreadInteractionCard.tsx"
+    },
+    {
+      "key": "ui/src/components/IssueThreadInteractionCard.tsx->ui/src/pages/apps/AppLogo.tsx",
+      "file": "ui/src/components/IssueThreadInteractionCard.tsx"
+    },
+    {
+      "key": "ui/src/components/IssueThreadInteractionCard.tsx->ui/src/pages/secrets/proposal-review.tsx",
+      "file": "ui/src/components/IssueThreadInteractionCard.tsx"
+    },
+    {
+      "key": "ui/src/components/Layout.production.tsx->ui/src/pages/NotFound.tsx",
+      "file": "ui/src/components/Layout.production.tsx"
+    },
+    {
+      "key": "ui/src/components/Layout.tsx->ui/src/pages/NotFound.tsx",
+      "file": "ui/src/components/Layout.tsx"
+    },
+    {
+      "key": "ui/src/components/NewIssueDialog.tsx->ui/src/pages/secrets/MissingUserSecretsBanner.tsx",
+      "file": "ui/src/components/NewIssueDialog.tsx"
+    },
+    {
+      "key": "ui/src/components/prompt-injection-prevention/PromptInjectionPreventionSettings.tsx->ui/src/pages/apps/AppLogo.tsx",
+      "file": "ui/src/components/prompt-injection-prevention/PromptInjectionPreventionSettings.tsx"
+    },
+    {
+      "key": "ui/src/components/skill-studio/SkillsNavigationTabs.tsx->ui/src/pages/skills/skills-navigation.ts",
+      "file": "ui/src/components/skill-studio/SkillsNavigationTabs.tsx"
+    },
+    {
+      "key": "ui/src/components/SkillsContextualSidebar.tsx->ui/src/pages/skills/skills-navigation.ts",
+      "file": "ui/src/components/SkillsContextualSidebar.tsx"
+    },
+    {
+      "key": "ui/src/components/SmokeLabDashboardCard.tsx->ui/src/pages/tools/smoke-lab-matrix.ts",
+      "file": "ui/src/components/SmokeLabDashboardCard.tsx"
+    },
+    {
+      "key": "ui/src/components/SmokeLabDashboardCard.tsx->ui/src/pages/tools/tool-tabs.ts",
+      "file": "ui/src/components/SmokeLabDashboardCard.tsx"
+    },
+    {
+      "key": "ui/src/components/task-chat/TaskChatBubble.tsx->ui/src/pages/agent-detail-navigation.ts",
+      "file": "ui/src/components/task-chat/TaskChatBubble.tsx"
+    },
+    {
+      "key": "ui/src/components/task-chat/TaskChatInteractionCard.tsx->ui/src/pages/apps/AppLogo.tsx",
+      "file": "ui/src/components/task-chat/TaskChatInteractionCard.tsx"
+    },
+    {
+      "key": "ui/src/components/UnprefixedExecutionWorkspaceRedirect.tsx->ui/src/pages/NotFound.tsx",
+      "file": "ui/src/components/UnprefixedExecutionWorkspaceRedirect.tsx"
+    },
+    {
+      "key": "ui/src/lib/company-members.ts->ui/src/components/InlineEntitySelector.tsx",
+      "file": "ui/src/lib/company-members.ts"
+    },
+    {
+      "key": "ui/src/lib/company-members.ts->ui/src/components/MarkdownEditor.tsx",
+      "file": "ui/src/lib/company-members.ts"
+    },
+    {
+      "key": "ui/src/lib/credential-access-notice.ts->ui/src/components/task-chat/task-chat-model.ts",
+      "file": "ui/src/lib/credential-access-notice.ts"
+    },
+    {
+      "key": "ui/src/lib/external-objects.ts->ui/src/components/icons/github-icon.tsx",
+      "file": "ui/src/lib/external-objects.ts"
+    },
+    {
+      "key": "ui/src/lib/issueChatTranscriptRuns.ts->ui/src/components/transcript/useLiveRunTranscripts.ts",
+      "file": "ui/src/lib/issueChatTranscriptRuns.ts"
+    },
+    {
+      "key": "ui/src/lib/new-agent-hire-payload.test.ts->ui/src/components/agent-config-defaults.ts",
+      "file": "ui/src/lib/new-agent-hire-payload.test.ts"
+    },
+    {
+      "key": "ui/src/lib/new-agent-hire-payload.ts->ui/src/components/AgentConfigForm.tsx",
+      "file": "ui/src/lib/new-agent-hire-payload.ts"
+    },
+    {
+      "key": "ui/src/lib/new-agent-runtime-config.ts->ui/src/components/agent-config-defaults.ts",
+      "file": "ui/src/lib/new-agent-runtime-config.ts"
+    },
+    {
+      "key": "ui/src/lib/persisted-query-cache.test.ts->ui/src/components/task-chat/composer-run-settings.ts",
+      "file": "ui/src/lib/persisted-query-cache.test.ts"
+    },
+    {
+      "key": "ui/src/lib/recent-agent-chats.test.ts->ui/src/components/task-chat/task-chat-adapter.ts",
+      "file": "ui/src/lib/recent-agent-chats.test.ts"
+    },
+    {
+      "key": "ui/src/lib/router.tsx->ui/src/components/IssueLinkQuicklook.tsx",
+      "file": "ui/src/lib/router.tsx"
+    },
+    {
+      "key": "ui/src/lib/system-notice-comment.ts->ui/src/components/SystemNotice.tsx",
+      "file": "ui/src/lib/system-notice-comment.ts"
+    },
+    {
+      "key": "ui/src/lib/system-notice-humanizer.ts->ui/src/components/SystemNotice.tsx",
+      "file": "ui/src/lib/system-notice-humanizer.ts"
+    },
+    {
+      "key": "ui/src/lib/task-side-panel-state.ts->ui/src/components/side-panel/index.ts",
+      "file": "ui/src/lib/task-side-panel-state.ts"
+    },
+    {
+      "key": "ui/src/lib/voice-session-controller.ts->ui/src/components/voice/VoiceControls.tsx",
+      "file": "ui/src/lib/voice-session-controller.ts"
+    }
+  ]
+}
