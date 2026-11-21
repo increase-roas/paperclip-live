@@ -32,12 +32,24 @@ ENV PAPERCLIP_BIND=lan \
 
 # `paperclipai` CLI on the PATH (live used it for `paperclipai run`, doctor,
 # db:backup). Built from this repo's cli package with its own esbuild config.
+# The bundle externalizes its npm dependencies, but the production image
+# ships only the runtime dependency tree, so link the two packages the CLI
+# must resolve at run time (zod via the server, postgres via @paperclipai/db).
 RUN cd /app/cli && pnpm run build \
+  && ln -s /app/server/node_modules/zod /app/cli/node_modules/zod \
+  && ln -s /app/packages/db/node_modules/postgres /app/cli/node_modules/postgres \
   && ln -sf /app/cli/dist/index.js /usr/local/bin/paperclipai \
   && paperclipai --version
 
 COPY docker/increase-roas/ir-entrypoint.sh /usr/local/bin/ir-entrypoint.sh
 RUN chmod +x /usr/local/bin/ir-entrypoint.sh
+
+# Increase ROAS 87% app layer (commit e83b7aa109): the UI bundle and the
+# bundled server runtime built from this checkout, laid over the exact paths
+# the upstream production image serves (/app/ui/dist) and starts
+# (/app/server/dist-runtime/index.mjs).
+COPY --chown=node:node ui/dist/ /app/ui/dist/
+COPY --chown=node:node server/dist-runtime/ /app/server/dist-runtime/
 
 ENTRYPOINT ["/usr/bin/tini", "-s", "--", "ir-entrypoint.sh"]
 CMD ["node", "server/dist-runtime/index.mjs"]
