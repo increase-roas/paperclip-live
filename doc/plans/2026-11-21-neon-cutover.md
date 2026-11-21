@@ -42,10 +42,17 @@ The dump lives in `/docker/paperclip-wze4/backups/readiness-20261121/` with
    They were installed as a sidecar on the staging host because this checkout's
    pnpm store does not match the lockfile; **add them to the workspace and
    rebuild the image**, or the OTel switch below does nothing.
-2. **1Password item for the GBrain token.** Service account `factory`
-   (Integration ID `UBHCMQPAWFA3LLTPHYQLN2COHU`) can **read** vault
-   `JAVAR AGENT` but not create items. Either grant it "Can edit" on that vault
-   or have the operator create `gbrain-mcp-token` (password field).
+2. **1Password item for the GBrain token.** Item `gbrain-mcp-token` exists in
+   vault `JAVAR AGENT` (API credential; reference field `credential`, not
+   `password`). The service account `factory`
+   (Integration ID `UBHCMQPAWFA3LLTPHYQLN2COHU`) can read it and `op run`
+   resolves it on both hosts. Hermes expands `${GBRAIN_TOKEN}` in
+   `mcp_servers` only from each profile's `.env`, so the token is rendered
+   there from 1Password at refresh time by
+   `/root/.hermes/render-gbrain-token.sh`, run as
+   `op run --env-file=/root/.hermes/op.env -- /root/.hermes/render-gbrain-token.sh`
+   followed by `systemctl --user restart hermes-gateway`. Verified: rendered
+   value hash matches the item, gateway starts with zero GBrain MCP failures.
 3. **Never restore through the pooler.** `pg_restore` ends with
    `set_config('search_path', '', false)`; through the pooler that leaks an
    empty `search_path` into later pooled sessions (observed on staging, cleared
@@ -117,7 +124,7 @@ DATABASE_URL=op://Paperclip/neon-app-database-url/password
 DATABASE_MIGRATION_URL=op://Paperclip/neon-app-migration-url/password
 DATABASE_PREPARED_STATEMENTS=op://Paperclip/database-prepared-statements/password
 NEON_ADS_RO=op://Paperclip/neon-ads-dashboard-ro/password
-GBRAIN_TOKEN=op://JAVAR AGENT/gbrain-mcp-token/password
+GBRAIN_TOKEN=op://JAVAR AGENT/gbrain-mcp-token/credential
 OTEL_EXPORTER_OTLP_ENDPOINT=op://Paperclip/otel-collector-endpoint/password
 ```
 
