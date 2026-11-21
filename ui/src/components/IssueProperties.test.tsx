@@ -145,8 +145,34 @@ vi.mock("../lib/assignees", () => ({
 
 vi.mock("./StatusIcon", async importOriginal => ({
   ...await importOriginal<typeof import("./StatusIcon")>(),
-  StatusIcon: ({ status, blockerAttention, className, glyphContainerClassName, size }: { status: string; blockerAttention?: Issue["blockerAttention"]; className?: string; glyphContainerClassName?: string; size?: string }) => (
-    <span className={className} data-glyph-container-class={glyphContainerClassName} data-testid="status-icon" data-size={size} data-status-icon-state={blockerAttention?.state}>{status}</span>
+  StatusIcon: ({
+    status,
+    blockerAttention,
+    className,
+    glyphContainerClassName,
+    size,
+    commentable,
+    reviewActions,
+  }: {
+    status: string;
+    blockerAttention?: Issue["blockerAttention"];
+    className?: string;
+    glyphContainerClassName?: string;
+    size?: string;
+    commentable?: boolean;
+    reviewActions?: { stageType: "review" | "approval" } | null;
+  }) => (
+    <span
+      className={className}
+      data-glyph-container-class={glyphContainerClassName}
+      data-testid="status-icon"
+      data-size={size}
+      data-status-icon-state={blockerAttention?.state}
+      data-commentable={commentable || undefined}
+      data-review-stage={reviewActions?.stageType}
+    >
+      {status}
+    </span>
   ),
 }));
 
@@ -2950,6 +2976,88 @@ describe("IssueProperties", () => {
 
     expect(container.textContent).not.toContain("Run review now");
     expect(container.textContent).not.toContain("Run approval now");
+
+    act(() => root.unmount());
+  });
+
+  const statusIcon = () => container.querySelector('[data-testid="status-icon"]');
+
+  it("offers Approve and Request changes to the pending user participant", async () => {
+    const root = renderProperties(container, {
+      issue: createIssue({
+        status: "in_review",
+        executionPolicy: createExecutionPolicy({
+          stages: [{
+            id: "00000000-0000-4000-8000-000000000010",
+            type: "review",
+            approvalsNeeded: 1,
+            participants: [{
+              id: "00000000-0000-4000-8000-000000000012",
+              type: "user",
+              agentId: null,
+              userId: "user-1",
+            }],
+          }],
+        }),
+        executionState: createExecutionState({
+          status: "pending",
+          currentStageType: "review",
+          currentParticipant: {
+            type: "user",
+            agentId: null,
+            userId: "user-1",
+          },
+        }),
+      }),
+      childIssues: [],
+      onUpdate: vi.fn(),
+    });
+    await flush();
+
+    await waitForAssertion(() => {
+      expect(statusIcon()?.getAttribute("data-commentable")).toBe("true");
+      expect(statusIcon()?.getAttribute("data-review-stage")).toBe("review");
+    });
+
+    act(() => root.unmount());
+  });
+
+  it("does not offer stage verdicts to a board user who is not the participant", async () => {
+    const root = renderProperties(container, {
+      issue: createIssue({
+        status: "in_review",
+        executionPolicy: createExecutionPolicy({
+          stages: [{
+            id: "00000000-0000-4000-8000-000000000010",
+            type: "review",
+            approvalsNeeded: 1,
+            participants: [{
+              id: "00000000-0000-4000-8000-000000000015",
+              type: "user",
+              agentId: null,
+              userId: "user-2",
+            }],
+          }],
+        }),
+        executionState: createExecutionState({
+          status: "pending",
+          currentStageType: "review",
+          currentParticipant: {
+            type: "user",
+            agentId: null,
+            userId: "user-2",
+          },
+        }),
+      }),
+      childIssues: [],
+      onUpdate: vi.fn(),
+    });
+    await flush();
+
+    await waitForAssertion(() => {
+      expect(statusIcon()?.getAttribute("data-commentable")).toBe("true");
+      expect(statusIcon()?.getAttribute("data-review-stage")).toBeNull();
+    });
 
     act(() => root.unmount());
   });
