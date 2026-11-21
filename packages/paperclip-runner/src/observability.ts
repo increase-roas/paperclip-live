@@ -69,6 +69,155 @@ export function createRunnerLogger(trace?: RunnerTraceContext) {
   };
 }
 
+/**
+ * Contextual error tracking for Runner CLIs and harnesses.
+ *
+ * Sentry is optional: the tracker dynamically loads `@sentry/node` when a DSN
+ * is configured. The structured runner logger always receives the stack, tags
+ * and redacted context.
+ */
+export interface RunnerErrorTracker {
+  capture(error: unknown, context?: Record<string, unknown>): void;
+  flush(timeoutMs?: number): Promise<boolean>;
+}
+
+export function createRunnerErrorTracker(): RunnerErrorTracker {
+  const logger = createRunnerLogger();
+  let sentry: {
+    captureException?: (error: unknown, options?: Record<string, unknown>) => unknown;
+    flush?: (timeout?: number) => Promise<boolean>;
+  } | null = null;
+
+  const ready = (async () => {
+    const dsn = process.env.SENTRY_DSN_RUNNER ?? process.env.SENTRY_DSN;
+    if (!dsn) return;
+    try {
+      const moduleName = "@sentry/node";
+      const loaded = (await import(/* @vite-ignore */ moduleName)) as {
+        default?: Record<string, unknown>;
+      } & Record<string, unknown>;
+      const client = (loaded.default ?? loaded) as {
+        init?: (options: Record<string, unknown>) => void;
+        captureException?: (error: unknown, options?: Record<string, unknown>) => unknown;
+        flush?: (timeout?: number) => Promise<boolean>;
+      };
+      if (typeof client.init !== "function") return;
+      client.init({
+        dsn,
+        environment: process.env.PAPERCLIP_ENVIRONMENT,
+        release: process.env.SENTRY_RELEASE,
+        serverName: "paperclip-runner",
+        sendDefaultPii: false,
+        tracesSampleRate: 0,
+      });
+      sentry = client;
+    } catch {
+      // Optional dependency. The structured logger remains the record.
+    }
+  })();
+
+  return {
+    capture(error, context = {}) {
+      const name = error instanceof Error ? error.name : "NonError";
+      const message = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : undefined;
+      logger.error("captured error", {
+        error: name,
+        message,
+        ...(stack ? { stack } : {}),
+        ...context,
+      });
+      void ready.then(() => {
+        try {
+          sentry?.captureException?.(error, {
+            tags: { service: "paperclip-runner" },
+            extra: context,
+          });
+        } catch {
+          // Never let observability break the caller.
+        }
+      });
+    },
+    async flush(timeoutMs = 2_000) {
+      await ready;
+      try {
+        return sentry?.flush ? await sentry.flush(timeoutMs) : true;
+      } catch {
+        return false;
+      }
+    },
+  };
+}
+
+export const runnerErrorTracker = createRunnerErrorTracker();
+
+/**
+ * Opt-in product analytics for Runner CLIs and harnesses.
+ *
+ * Disabled unless `PAPERCLIP_POSTHOG_KEY` (or `POSTHOG_API_KEY`) is set. Only
+ * command and tool names leave the process, never prompts, paths, workspace
+ * content, provider output, or credentials.
+ */
+export interface RunnerProductAnalytics {
+  readonly enabled: boolean;
+  capture(event: string, properties?: Record<string, unknown>): void;
+  flush(): Promise<boolean>;
+}
+
+export function createRunnerProductAnalytics(): RunnerProductAnalytics {
+  const apiKey = process.env.PAPERCLIP_POSTHOG_KEY ?? process.env.POSTHOG_API_KEY;
+  const host = (process.env.PAPERCLIP_POSTHOG_HOST ?? "https://us.i.posthog.com").replace(/\/$/, "");
+  const enabled =
+    Boolean(apiKey) &&
+    process.env.PAPERCLIP_TELEMETRY_DISABLED !== "1" &&
+    process.env.PAPERCLIP_PRODUCT_ANALYTICS_DISABLED !== "1";
+  const queue: Array<{ event: string; properties: Record<string, unknown>; timestamp: string }> = [];
+  let flushing: Promise<boolean> | null = null;
+
+  const flush = async (): Promise<boolean> => {
+    if (flushing) return flushing;
+    const batch = queue.splice(0, queue.length);
+    if (!enabled || batch.length === 0) return true;
+    flushing = fetch(`${host}/capture/`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        api_key: apiKey,
+        batch: batch.map((entry) => ({
+          event: entry.event,
+          timestamp: entry.timestamp,
+          properties: { ...entry.properties, app: "paperclip-runner" },
+        })),
+      }),
+    })
+      .then((response) => response.ok)
+      .catch(() => false)
+      .finally(() => {
+        flushing = null;
+      });
+    return flushing;
+  };
+
+  if (enabled) {
+    const timer = setInterval(() => {
+      void flush();
+    }, 15_000);
+    timer.unref?.();
+  }
+
+  return {
+    enabled,
+    capture(event, properties = {}) {
+      if (!enabled) return;
+      queue.push({ event, properties: redact(properties) as Record<string, unknown>, timestamp: new Date().toISOString() });
+      if (queue.length >= 20) void flush();
+    },
+    flush,
+  };
+}
+
+export const runnerProductAnalytics = createRunnerProductAnalytics();
+
 export class RunnerMetrics {
   private readonly counters = new Map<string, number>();
   private readonly durations = new Map<string, { count: number; totalMs: number }>();

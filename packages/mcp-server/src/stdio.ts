@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { readConfigFromEnv } from "./config.js";
 import { runServer } from "./index.js";
-import { mcpApiCircuit, mcpMetrics } from "./observability.js";
+import { mcpApiCircuit, mcpErrorTracker, mcpMetrics } from "./observability.js";
 
 if (process.argv.includes("--metrics")) {
   process.stdout.write(mcpMetrics.render() || "# no metrics recorded\n");
@@ -22,6 +22,7 @@ if (process.argv.includes("--health")) {
     );
     process.exit(0);
   } catch (error) {
+    mcpErrorTracker.capture(error, { tags: { surface: "mcp-server", phase: "health" } });
     process.stdout.write(
       `${JSON.stringify({
         status: "unhealthy",
@@ -33,7 +34,9 @@ if (process.argv.includes("--health")) {
   }
 }
 
-void runServer().catch((error) => {
+void runServer().catch(async (error) => {
+  mcpErrorTracker.capture(error, { tags: { surface: "mcp-server", phase: "startup" } });
+  await mcpErrorTracker.flush(2_000);
   console.error("Failed to start Paperclip MCP server:", error);
   process.exit(1);
 });

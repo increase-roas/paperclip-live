@@ -10,6 +10,8 @@ import { SentryGate } from "./SentryGate";
 const getSessionMock = vi.hoisted(() => vi.fn());
 const initBrowserErrorMonitoringMock = vi.hoisted(() => vi.fn(async (_dsn: string, _environment?: string) => {}));
 const teardownBrowserErrorMonitoringMock = vi.hoisted(() => vi.fn(async () => {}));
+const setBrowserUserMock = vi.hoisted(() => vi.fn());
+const addBrowserBreadcrumbMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/api/auth", () => ({
   authApi: { getSession: () => getSessionMock() },
@@ -18,6 +20,8 @@ vi.mock("@/api/auth", () => ({
 vi.mock("@/lib/sentry", () => ({
   initBrowserErrorMonitoring: (dsn: string, environment?: string) => initBrowserErrorMonitoringMock(dsn, environment),
   teardownBrowserErrorMonitoring: () => teardownBrowserErrorMonitoringMock(),
+  setBrowserUser: (user: unknown) => setBrowserUserMock(user),
+  addBrowserBreadcrumb: (breadcrumb: unknown) => addBrowserBreadcrumbMock(breadcrumb),
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -94,6 +98,11 @@ describe("SentryGate", () => {
 
     expect(initBrowserErrorMonitoringMock).toHaveBeenCalledTimes(1);
     expect(initBrowserErrorMonitoringMock).toHaveBeenCalledWith("https://public@o0.ingest.sentry.io/1", undefined);
+    expect(setBrowserUserMock).toHaveBeenCalledWith({ id: "u1", username: "Jane" });
+    expect(addBrowserBreadcrumbMock).toHaveBeenCalledWith({
+      category: "auth",
+      message: "browser error monitoring started",
+    });
     root.unmount();
   });
 

@@ -33,6 +33,38 @@
       "perChunkRawBytes": 8000000,
       "totalGzipBytes": 8000000,
       "totalRawBytes": 30000000
+    },
+    {
+      "name": "mcp-server",
+      "distDir": "packages/mcp-server/dist",
+      "perChunkGzipBytes": 2000000,
+      "perChunkRawBytes": 8000000,
+      "totalGzipBytes": 4000000,
+      "totalRawBytes": 16000000
+    },
+    {
+      "name": "google-sheets-mcp-server",
+      "distDir": "packages/google-sheets-mcp-server/dist",
+      "perChunkGzipBytes": 2000000,
+      "perChunkRawBytes": 8000000,
+      "totalGzipBytes": 4000000,
+      "totalRawBytes": 16000000
+    },
+    {
+      "name": "tailscale-https-broker",
+      "distDir": "packages/tailscale-https-broker/dist",
+      "perChunkGzipBytes": 2000000,
+      "perChunkRawBytes": 8000000,
+      "totalGzipBytes": 4000000,
+      "totalRawBytes": 16000000
+    },
+    {
+      "name": "runner-node",
+      "distDir": "packages/paperclip-runner/dist",
+      "perChunkGzipBytes": 2000000,
+      "perChunkRawBytes": 8000000,
+      "totalGzipBytes": 12000000,
+      "totalRawBytes": 45000000
     }
   ]
 }

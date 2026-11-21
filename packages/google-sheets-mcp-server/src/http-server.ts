@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { readHttpConfigFromEnv } from "./config.js";
 import { createGoogleSheetsMcpHttpServer } from "./http.js";
-import { createSheetsLogger } from "./observability.js";
+import { createSheetsLogger, sheetsErrorTracker } from "./observability.js";
 
 async function main(): Promise<void> {
   const logger = createSheetsLogger();
@@ -22,7 +22,9 @@ async function main(): Promise<void> {
   });
 }
 
-void main().catch((error) => {
+void main().catch(async (error) => {
+  sheetsErrorTracker.capture(error, { tags: { surface: "google-sheets-mcp", transport: "http" } });
+  await sheetsErrorTracker.flush(2_000);
   createSheetsLogger().error("Failed to start Google Sheets MCP HTTP server", {
     error: error instanceof Error ? error.message : String(error),
   });

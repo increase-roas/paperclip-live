@@ -6,7 +6,7 @@ import { mkdir, readFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { eq } from "drizzle-orm";
 import { environmentLeases, environments, heartbeatRuns, nativeRunFinalizations } from "@paperclipai/db";
-import { beforeAll, expect, vi } from "vitest";
+import { beforeAll, expect, it, vi } from "vitest";
 import {
   createRunnerdCodexTransport,
   defaultCapabilityRunnerdBinary,
@@ -29,6 +29,10 @@ import {
   waitForCondition,
   stopOwnedProcessGroup,
 } from "../../__tests__/helpers/native-restart.js";
+
+it("keeps the diskless restart suite discoverable", () => {
+  expect(typeof describeEmbeddedPostgres).toBe("function");
+});
 
 describeEmbeddedPostgres("native runner restart recovery: diskless", () => {
   const environment = nativeRestartFixture();

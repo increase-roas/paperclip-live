@@ -17,6 +17,20 @@ export default defineConfig({
           new URL("../packages/paperclip-runner/src/index.ts", import.meta.url),
         ),
       },
+      {
+        // The SDK publishes only dist. Resolve source in tests so `vitest list`
+        // and test files work in a fresh checkout before `ensure-build-deps`.
+        find: /^@paperclipai\/plugin-sdk\/testing$/,
+        replacement: fileURLToPath(
+          new URL("../packages/plugins/sdk/src/testing.ts", import.meta.url),
+        ),
+      },
+      {
+        find: /^@paperclipai\/plugin-sdk$/,
+        replacement: fileURLToPath(
+          new URL("../packages/plugins/sdk/src/index.ts", import.meta.url),
+        ),
+      },
     ],
   },
   test: {

@@ -49,6 +49,157 @@ export function createBrokerLogger(service = "paperclip-tailscale-https-broker")
   };
 }
 
+/**
+ * Contextual error tracking for the standalone broker.
+ *
+ * Uses Sentry when `@sentry/node` is installed and `SENTRY_DSN_BROKER` (or
+ * `SENTRY_DSN`) is set. The structured logger always receives the stack, tags
+ * and context, so an operator can trace a failure without Sentry.
+ */
+export interface BrokerErrorTracker {
+  capture(error: unknown, context?: Record<string, unknown>): void;
+  flush(timeoutMs?: number): Promise<boolean>;
+}
+
+export function createBrokerErrorTracker(): BrokerErrorTracker {
+  const logger = createBrokerLogger();
+  let sentry: {
+    captureException?: (error: unknown, options?: Record<string, unknown>) => unknown;
+    flush?: (timeout?: number) => Promise<boolean>;
+  } | null = null;
+
+  const ready = (async () => {
+    const dsn = process.env.SENTRY_DSN_BROKER ?? process.env.SENTRY_DSN;
+    if (!dsn) return;
+    try {
+      const moduleName = "@sentry/node";
+      const loaded = (await import(/* @vite-ignore */ moduleName)) as {
+        default?: Record<string, unknown>;
+      } & Record<string, unknown>;
+      const client = (loaded.default ?? loaded) as {
+        init?: (options: Record<string, unknown>) => void;
+        captureException?: (error: unknown, options?: Record<string, unknown>) => unknown;
+        flush?: (timeout?: number) => Promise<boolean>;
+      };
+      if (typeof client.init !== "function") return;
+      client.init({
+        dsn,
+        environment: process.env.PAPERCLIP_ENVIRONMENT,
+        release: process.env.SENTRY_RELEASE,
+        serverName: "paperclip-tailscale-https-broker",
+        sendDefaultPii: false,
+        tracesSampleRate: 0,
+      });
+      sentry = client;
+    } catch {
+      // Optional dependency. The structured logger remains the record.
+    }
+  })();
+
+  return {
+    capture(error, context = {}) {
+      const name = error instanceof Error ? error.name : "NonError";
+      const message = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : undefined;
+      logger.error("captured error", {
+        error: name,
+        message,
+        ...(stack ? { stack } : {}),
+        ...context,
+      });
+      void ready.then(() => {
+        try {
+          sentry?.captureException?.(error, {
+            tags: { service: "paperclip-tailscale-https-broker" },
+            extra: context,
+          });
+        } catch {
+          // Never let observability break the broker.
+        }
+      });
+    },
+    async flush(timeoutMs = 2_000) {
+      await ready;
+      try {
+        return sentry?.flush ? await sentry.flush(timeoutMs) : true;
+      } catch {
+        return false;
+      }
+    },
+  };
+}
+
+export const brokerErrorTracker = createBrokerErrorTracker();
+
+/**
+ * Opt-in product analytics for the standalone broker.
+ *
+ * Disabled unless `PAPERCLIP_POSTHOG_KEY` (or `POSTHOG_API_KEY`) is set. Only
+ * operation names and outcomes leave the process, never paths, ports, peer
+ * ids, lease handles, or CLI output.
+ */
+export interface BrokerProductAnalytics {
+  readonly enabled: boolean;
+  capture(event: string, properties?: Record<string, unknown>): void;
+  flush(): Promise<boolean>;
+}
+
+export function createBrokerProductAnalytics(): BrokerProductAnalytics {
+  const apiKey = process.env.PAPERCLIP_POSTHOG_KEY ?? process.env.POSTHOG_API_KEY;
+  const host = (process.env.PAPERCLIP_POSTHOG_HOST ?? "https://us.i.posthog.com").replace(/\/$/, "");
+  const enabled =
+    Boolean(apiKey) &&
+    process.env.PAPERCLIP_TELEMETRY_DISABLED !== "1" &&
+    process.env.PAPERCLIP_PRODUCT_ANALYTICS_DISABLED !== "1";
+  const queue: Array<{ event: string; properties: Record<string, unknown>; timestamp: string }> = [];
+  let flushing: Promise<boolean> | null = null;
+
+  const flush = async (): Promise<boolean> => {
+    if (flushing) return flushing;
+    const batch = queue.splice(0, queue.length);
+    if (!enabled || batch.length === 0) return true;
+    flushing = fetch(`${host}/capture/`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        api_key: apiKey,
+        batch: batch.map((entry) => ({
+          event: entry.event,
+          timestamp: entry.timestamp,
+          properties: { ...entry.properties, app: "paperclip-tailscale-https-broker" },
+        })),
+      }),
+    })
+      .then((response) => response.ok)
+      .catch(() => false)
+      .finally(() => {
+        flushing = null;
+      });
+    return flushing;
+  };
+
+  if (enabled) {
+    const timer = setInterval(() => {
+      void flush();
+    }, 15_000);
+    timer.unref?.();
+  }
+
+  return {
+    enabled,
+    capture(event, properties = {}) {
+      if (!enabled) return;
+      // Round-trip through the broker's key-aware scrubber.
+      const redacted = JSON.parse(safeJson(properties)) as Record<string, unknown>;
+      queue.push({ event, properties: redacted, timestamp: new Date().toISOString() });
+      if (queue.length >= 20) void flush();
+    },
+    flush,
+  };
+}
+
+export const brokerProductAnalytics = createBrokerProductAnalytics();
+
 export class BrokerMetrics {
   private readonly counters = new Map<string, number>();
 

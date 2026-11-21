@@ -1,6 +1,8 @@
 {
-  "$comment": "Duplicate-code scope for scripts/check-duplicate-code.mjs. Generated code, fixtures, browser suites and declarations are excluded because their repetition is intentional or machine-produced.",
+  "$comment": "Duplicate-code scope for scripts/check-duplicate-code.mjs. Generated code, fixtures, browser suites and declarations are excluded because their repetition is intentional or machine-produced. The broker and native Runner are standalone packages that cannot import the workspace observability runtime at run time; their dependency-free observability modules intentionally mirror the shared Sentry/analytics adapters and are reviewed as a pair.",
   "exclude": [
+    "packages/tailscale-https-broker/src/observability.ts",
+    "packages/paperclip-runner/src/observability.ts",
     "**/*.d.ts",
     "**/*.test.ts",
     "**/*.test.tsx",

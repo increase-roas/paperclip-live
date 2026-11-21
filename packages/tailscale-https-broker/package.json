@@ -13,6 +13,7 @@
     "paperclip-tailscale-https-broker": "./dist/main.js"
   },
   "scripts": {
+    "check:size": "node ../../scripts/check-bundle-size.mjs --only tailscale-https-broker",
     "qa:local": "node --import ../../cli/node_modules/tsx/dist/loader.mjs scripts/qa-local.ts",
     "test:coverage": "node scripts/build-native.mjs && vitest run --coverage",
     "build": "tsc && node scripts/build-native.mjs",

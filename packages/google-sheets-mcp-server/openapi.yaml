@@ -1,0 +1,188 @@
+openapi: 3.1.0
+info:
+  title: Paperclip Google Sheets MCP server
+  version: 0.1.0
+  description: |
+    HTTP surface of the first-party Google Sheets MCP server. The server runs
+    the MCP Streamable HTTP transport at `/mcp` and exposes health and
+    Prometheus metrics endpoints for operators. The stdio entrypoint
+    (`dist/stdio.js`) has the same MCP tool surface and equals these endpoints
+    through `--health` and `--metrics`.
+
+    Tool schemas are defined by the MCP server itself and are discoverable
+    through `tools/list`; this document covers the HTTP transport and the
+    operational endpoints around it.
+servers:
+  - url: http://127.0.0.1:8849
+    description: Default loopback listener (`GOOGLE_SHEETS_MCP_PORT`, default 8849)
+security:
+  - bearerAuth: []
+  - {}
+paths:
+  /healthz:
+    get:
+      operationId: getHealth
+      summary: Service health, uptime and circuit state
+      security: []
+      responses:
+        "200":
+          description: The server is accepting requests.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /metrics:
+    get:
+      operationId: getMetrics
+      summary: Prometheus text exposition
+      description: Requires the bearer token when `GOOGLE_SHEETS_MCP_TOKEN` is set.
+      responses:
+        "200":
+          description: Prometheus text exposition format (`text/plain; version=0.0.4`).
+          content:
+            text/plain:
+              schema:
+                type: string
+        "401":
+          description: A token is configured and the request did not present it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /mcp:
+    post:
+      operationId: postMcp
+      summary: MCP JSON-RPC request
+      description: |
+        Streamable HTTP transport for MCP. The body is a JSON-RPC 2.0 request or
+        notification. The server advertises its tools through `tools/list` and
+        executes them through `tools/call`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JsonRpcRequest"
+      responses:
+        "200":
+          description: JSON-RPC response, or an SSE stream for a streaming request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JsonRpcResponse"
+            text/event-stream:
+              schema:
+                type: string
+        "401":
+          description: A token is configured and the request did not present it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      operationId: getMcpStream
+      summary: Open the MCP server-sent event stream
+      responses:
+        "200":
+          description: Server-sent events for the session.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "401":
+          description: A token is configured and the request did not present it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deleteMcpSession
+      summary: Close an MCP session
+      responses:
+        "200":
+          description: Session closed.
+        "401":
+          description: A token is configured and the request did not present it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Required for non-loopback binds and for `/metrics` when `GOOGLE_SHEETS_MCP_TOKEN` is set.
+  schemas:
+    Health:
+      type: object
+      additionalProperties: false
+      required: [status, service, uptimeMs, circuit]
+      properties:
+        status:
+          type: string
+          const: ok
+        service:
+          type: string
+          const: paperclip-google-sheets-mcp
+        uptimeMs:
+          type: integer
+          minimum: 0
+        circuit:
+          $ref: "#/components/schemas/Circuit"
+    Circuit:
+      type: object
+      additionalProperties: true
+      required: [name, state, failures, successes, openedAt]
+      properties:
+        name:
+          type: string
+        state:
+          type: string
+          enum: [closed, open, half-open]
+        failures:
+          type: integer
+          minimum: 0
+        successes:
+          type: integer
+          minimum: 0
+        openedAt:
+          type: [integer, "null"]
+    JsonRpcRequest:
+      type: object
+      additionalProperties: true
+      required: [jsonrpc, method]
+      properties:
+        jsonrpc:
+          type: string
+          const: "2.0"
+        id:
+          type: [string, integer, "null"]
+        method:
+          type: string
+        params:
+          type: object
+          additionalProperties: true
+    JsonRpcResponse:
+      type: object
+      additionalProperties: true
+      required: [jsonrpc]
+      properties:
+        jsonrpc:
+          type: string
+          const: "2.0"
+        id:
+          type: [string, integer, "null"]
+        result:
+          type: object
+          additionalProperties: true
+        error:
+          type: object
+          additionalProperties: true
+    Error:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: string

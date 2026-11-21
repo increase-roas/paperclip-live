@@ -1,4 +1,5 @@
 import type { IdleDeadlineOwners } from "./services/idle-deadline-types.js";
+import { serverProductAnalytics } from "./product-analytics.js";
 import { closeProcessRunAdmission } from "./services/heartbeat/run-admission.js";
 import { registerOwnershipReconciliationWork } from "./services/native-runtime/native-finalization-reconciler.js";
 import { bindIdleDeadlineOwner } from "./services/idle-deadline-owner.js";
@@ -1090,6 +1091,10 @@ async function startServerWithDatabaseTeardown(
   // The factory publishes the verified numeric endpoint on listening. Native
   // recovery must never fall back to a configured/public URL if it is absent.
   resolveLocalRuntimeApiUrl();
+  serverProductAnalytics.capture("server_started", {
+    node: process.version,
+    platform: process.platform,
+  });
 
   try {
     const result = await workspaceOperationService(db as any)

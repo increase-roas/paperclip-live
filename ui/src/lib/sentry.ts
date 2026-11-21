@@ -47,6 +47,7 @@ import {
   takeRejectionEventSnapshot,
   type BrowserErrorDetails,
 } from "./browser-error-context";
+import { redactSensitive } from "@paperclipai/shared/observability";
 
 let queue: Promise<void> = Promise.resolve();
 
@@ -141,6 +142,46 @@ export function teardownBrowserErrorMonitoring(): Promise<void> {
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error("[paperclip] Sentry teardownBrowserErrorMonitoring failed", err);
+    }
+  });
+}
+
+/**
+ * Attach the signed-in user id and display name to later error events.
+ *
+ * Only opaque ids and a display name leave the browser. Automatic breadcrumbs
+ * and default PII stay off; callers add explicit breadcrumbs with
+ * `addBrowserBreadcrumb` when the action is safe to describe.
+ */
+export function setBrowserUser(user: { id?: string; username?: string } | null): void {
+  void enqueue(async () => {
+    try {
+      sentry?.setUser(user ? { id: user.id, username: user.username } : null);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[paperclip] Sentry setBrowserUser failed", err);
+    }
+  });
+}
+
+/** Add an explicit, redacted breadcrumb to later error events. */
+export function addBrowserBreadcrumb(breadcrumb: {
+  category: string;
+  message: string;
+  level?: "fatal" | "error" | "warning" | "info" | "debug";
+  data?: Record<string, unknown>;
+}): void {
+  void enqueue(async () => {
+    try {
+      sentry?.addBreadcrumb({
+        category: breadcrumb.category,
+        message: breadcrumb.message,
+        level: breadcrumb.level ?? "info",
+        ...(breadcrumb.data ? { data: redactSensitive(breadcrumb.data) as Record<string, unknown> } : {}),
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[paperclip] Sentry addBrowserBreadcrumb failed", err);
     }
   });
 }

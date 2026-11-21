@@ -21,6 +21,7 @@ import {
   type PeerPolicy,
 } from "./authorization.js";
 import { buildExposeArgv, buildRemoveArgv, buildStatusArgv } from "./argv.js";
+import { brokerProductAnalytics } from "./observability.js";
 import type { AuditSink } from "./audit.js";
 import {
   ParsedServe,
@@ -157,10 +158,17 @@ export class BrokerCore {
 
   /** Public entry point. Serializes all requests through one mutation queue. */
   async handle(request: BrokerRequest, peer: PeerCredentials): Promise<BrokerResponse> {
+    const startedAt = Date.now();
     const run = this.queue.then(() => this.dispatch(request, peer));
     // Keep the chain alive even if this request rejects.
     this.queue = run.catch(() => undefined);
-    return run;
+    const response = await run;
+    brokerProductAnalytics.capture("broker_operation", {
+      operation: request.op,
+      outcome: response.ok ? "ok" : "error",
+      duration_ms: Date.now() - startedAt,
+    });
+    return response;
   }
 
   private async dispatch(request: BrokerRequest, peer: PeerCredentials): Promise<BrokerResponse> {

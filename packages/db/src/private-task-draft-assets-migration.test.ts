@@ -8,6 +8,18 @@ import { getEmbeddedPostgresTestSupport, startEmbeddedPostgresTestDatabase } fro
 const embeddedPostgresSupport = await getEmbeddedPostgresTestSupport();
 const itEmbeddedPostgres = embeddedPostgresSupport.supported ? it : it.skip;
 
+it("ships the private task draft migration with the ownership predicate", async () => {
+  const migration = await fs.readFile(
+    new URL("./migrations/0314_private_task_draft_assets.sql", import.meta.url),
+    "utf8",
+  );
+  // Unbound drafts must stay uploader-only: the backfill only binds an image
+  // when the task and the asset share the same uploader identity.
+  expect(migration).toContain("assets/issues/drafts/%");
+  expect(migration).toContain("created_by_user_id = a.created_by_user_id");
+  expect(migration).toContain("ON CONFLICT DO NOTHING");
+});
+
 itEmbeddedPostgres("backfills owned draft images without attaching another uploader's images", async () => {
   const database = await startEmbeddedPostgresTestDatabase("paperclip-draft-privacy-");
   const sql = postgres(database.connectionString, { max: 1, onnotice: () => {} });

@@ -90,3 +90,34 @@ Prometheus rules and a scrape example live in
 [`docker/prometheus/`](../docker/prometheus/). See
 [`doc/observability/ALERTS.md`](./observability/ALERTS.md) for the intended
 routing and runbook links.
+
+## Error tracking
+
+The server and UI use Sentry directly. The CLI, MCP servers, broker and Runner
+use `createErrorTracker` from `@paperclipai/shared/observability` (or the
+equivalent local adapter in the standalone broker and Runner). A tracker loads
+`@sentry/node` when a surface-specific DSN is set:
+
+| Surface | DSN |
+| --- | --- |
+| Server | `SENTRY_DSN_BACKEND` or `SENTRY_DSN` |
+| UI | `SENTRY_DSN_FRONTEND` or `SENTRY_DSN` (from the session) |
+| CLI | `SENTRY_DSN_CLI` or `SENTRY_DSN` |
+| MCP server | `SENTRY_DSN_MCP` or `SENTRY_DSN` |
+| Google Sheets MCP | `SENTRY_DSN_SHEETS` or `SENTRY_DSN` |
+| Broker | `SENTRY_DSN_BROKER` or `SENTRY_DSN` |
+| Runner | `SENTRY_DSN_RUNNER` or `SENTRY_DSN` |
+
+Every tracker sends `sendDefaultPii: false` and redacts context. The structured
+logger always receives the stack, tags, opaque user id and breadcrumbs, so an
+operator can trace a failure without Sentry. The UI adds explicit breadcrumbs
+and the opaque user id only; automatic breadcrumbs and page URLs stay off.
+
+## Component health export
+
+`pnpm health:export` probes the API, UI, MCP servers, broker and Runner and
+writes `paperclip_component_up`, probe duration, probe freshness and circuit
+state for node_exporter's textfile collector. Point `PAPERCLIP_HEALTH_TEXTFILE`
+at the collector directory and run the command from a timer. The shipped rules
+page on a failed probe, an open circuit, and a stale exporter. See
+[`doc/observability/ALERTS.md`](./observability/ALERTS.md#component-health).

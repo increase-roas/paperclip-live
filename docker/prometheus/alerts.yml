@@ -74,3 +74,39 @@ groups:
         annotations:
           summary: "Google Sheets API calls are failing above 25%"
           runbook: "doc/DEPLOYMENT-OBSERVABILITY.md#google-sheets-mcp-server-packagesgoogle-sheets-mcp-server"
+
+  # Normalized health for every shipped component, including the ones without
+  # a Prometheus endpoint of their own. `pnpm health:export` writes the
+  # paperclip_component_* series to a node_exporter textfile; see
+  # doc/observability/ALERTS.md.
+  - name: paperclip-components
+    rules:
+      - alert: PaperclipComponentDown
+        expr: paperclip_component_up == 0
+        for: 5m
+        labels:
+          severity: critical
+          service: "{{ $labels.component }}"
+        annotations:
+          summary: "{{ $labels.component }} health probe is failing"
+          runbook: "doc/observability/ALERTS.md#component-health"
+
+      - alert: PaperclipComponentCircuitOpen
+        expr: paperclip_component_circuit_open == 1
+        for: 10m
+        labels:
+          severity: warning
+          service: "{{ $labels.component }}"
+        annotations:
+          summary: "{{ $labels.component }} reports an open circuit"
+          runbook: "doc/observability/ALERTS.md#component-health"
+
+      - alert: PaperclipComponentProbeStale
+        expr: time() - paperclip_component_last_probe_timestamp_seconds > 300
+        for: 5m
+        labels:
+          severity: warning
+          service: "{{ $labels.component }}"
+        annotations:
+          summary: "{{ $labels.component }} health probe has not run for 5 minutes"
+          runbook: "doc/observability/ALERTS.md#component-health"

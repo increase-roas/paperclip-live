@@ -1,5 +1,8 @@
 # Database
 
+The full map of persisted state (PostgreSQL tables, the broker registry, and the
+native Runner checkpoint) is in [`data-model.md`](./data-model.md).
+
 ### Durable native provider backups
 
 `native_harness_backups` journals encrypted provider-session archives in object

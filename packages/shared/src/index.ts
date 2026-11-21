@@ -2906,3 +2906,4 @@ export {
 } from "./issue-activity-identity.js";
 
 export * from "./observability/index.js";
+export * from "./analytics.js";
