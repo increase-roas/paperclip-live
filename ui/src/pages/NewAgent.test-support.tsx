@@ -53,6 +53,8 @@ vi.mock("@/api/instanceSettings", () => ({ instanceSettingsApi: settings }));
 vi.mock("@/api/secrets", () => ({ secretsApi: secrets }));
 const adapterApi = vi.hoisted(() => ({ list: vi.fn() }));
 vi.mock("@/api/adapters", () => ({ adaptersApi: adapterApi }));
+const projectsApi = vi.hoisted(() => ({ list: vi.fn() }));
+vi.mock("@/api/projects", () => ({ projectsApi }));
 vi.mock("@/context/CompanyContext", () => ({
   useCompany: () => ({ selectedCompanyId: "company-1" }),
 }));
@@ -193,6 +195,7 @@ beforeEach(() => {
     return record;
   });
   api.list.mockResolvedValue([{ id: "ceo", role: "ceo", status: "idle" }]);
+  projectsApi.list.mockResolvedValue([{ id: "project-1", companyId: "company-1", name: "Company workspace" }]);
   api.getAdapterAuthSignal.mockResolvedValue({ status: "present" });
   api.getClaudeOAuthTokenStatus.mockRejectedValue(new ApiError("Not found", 404, null));
   api.testEnvironment.mockResolvedValue(pass);
@@ -222,4 +225,4 @@ afterEach(async () => {
   container.remove();
 });
 
-export { api, envApi, settings, secrets, state, managedApi, adapterApi, root, container, cache, settle, click, fill, render, connect, pass, renderCurrentParams };
+export { api, envApi, settings, secrets, state, managedApi, adapterApi, projectsApi, root, container, cache, settle, click, fill, render, connect, pass, renderCurrentParams };

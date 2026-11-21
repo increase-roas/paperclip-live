@@ -38,6 +38,14 @@ Example: A CEO agent's adapter config tells it to "review what your executives a
 
 Then you define who reports to the CEO: a CTO managing programmers, a CMO managing the marketing team, and so on. Every agent in the tree gets their own adapter configuration.
 
+The New agent setup asks the operator to choose a workspace project and offers a
+small starter instruction kit (role, goals, and guardrails) that becomes the
+agent's managed `AGENTS.md`. Both are editable before the hire finishes. Timer
+heartbeats are on by default in this flow with a five-minute interval, and the
+operator can change the interval or turn them off. Agents created through the API
+keep their explicit `runtimeConfig`; when it omits `heartbeat.enabled`, the server
+still leaves timer heartbeats off.
+
 Each person also has a personal primary agent per company. Their first human-created
 agent becomes primary automatically; they can choose another from its profile.
 An existing primary is replaced only after confirmation. The crown appears on the
