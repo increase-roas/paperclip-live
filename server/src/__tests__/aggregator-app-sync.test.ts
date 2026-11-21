@@ -90,6 +90,29 @@ if (!support.supported) console.warn(`Managed-account database tests unavailable
     expect(calls).toHaveLength(0);
   });
 
+  it("keeps a successful account list usable after the display window without calling upstream", async () => {
+    const f = await fixture();
+    await sync(f);
+    // Age every observation well past the shared freshness window. This is the
+    // state that used to render as "need attention" and (wrongly) looked like a
+    // block on agents.
+    const stale = new Date(Date.now() - 6 * 60_000);
+    await db.update(toolConnectionAppSnapshots).set({ checkedAt: stale })
+      .where(eq(toolConnectionAppSnapshots.connectionId, f.connection.id));
+    await db.update(toolConnectionAppSyncs).set({ lastCompletedAt: stale, updatedAt: stale })
+      .where(eq(toolConnectionAppSyncs.connectionId, f.connection.id));
+    const callsBefore = f.calls.length;
+
+    const result = await f.access.listAggregatorApps(f.connection.id, f.actor);
+    // Age alone is not a failure: the last check succeeded, so the list is fresh
+    // and the accounts are still resolved.
+    expect(result.apps[0].freshness).toBe("fresh");
+    expect(result.apps[0].accounts).toHaveLength(1);
+    expect(result.sync.status).not.toBe("error");
+    // Listing observations must not wait on or trigger an upstream refresh.
+    expect(f.calls.length).toBe(callsBefore);
+  });
+
   it("replays the account migrations without losing observations or weakening company boundaries", async () => {
     const f = await fixture();
     await sync(f);
