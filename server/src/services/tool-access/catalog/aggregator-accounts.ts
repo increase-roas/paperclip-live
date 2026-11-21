@@ -9,7 +9,7 @@ import { COMPOSIO_APP_TOOLKITS, findComposioCatalogApp } from "@paperclipai/shar
 import type { ComposioAppAccount, ComposioAppAccountInput, ComposioAppSetupInput, ComposioAppSetupResult, ComposioAppSnapshot, ComposioAppsResponse } from "@paperclipai/shared";
 import { composioAppAccounts, composioAppSetupResult } from "../../composio-app-setup.js";
 import { createHash, randomUUID } from "node:crypto";
-import { and, asc, desc, eq, inArray, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lt, lte, ne, notInArray, or, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { companySecrets, toolAccessAuditEvents, toolCatalogEntries, toolConnectionAppSnapshots, toolConnectionAppSyncs, toolConnections } from "@paperclipai/db";
 import { conflict, forbidden, HttpError, notFound, unprocessable } from "../../../errors.js";
@@ -232,44 +232,102 @@ export function createAggregatorAccounts(db: Db, { options, secrets, audit, cred
   // is refreshed on behalf of the user who connected the gateway. Rows whose
   // last check failed are left for an explicit Refresh: the UI reports them as
   // needing attention, and retrying a broken gateway on a timer adds no value.
-  async function sweepComposioAppSyncs(input: { staleAfterMs?: number; limit?: number } = {}) {
+  /**
+   * Refreshes the oldest due account lists.
+   *
+   * A tick works through batches until nothing is due, the row budget is spent
+   * or the time budget runs out, so a backlog larger than one batch still clears
+   * instead of trickling ten rows per tick.
+   */
+  async function sweepComposioAppSyncs(input: {
+    staleAfterMs?: number;
+    limit?: number;
+    maxRows?: number;
+    timeBudgetMs?: number;
+  } = {}) {
     const staleAfterMs = input.staleAfterMs ?? composioSyncTtlMs;
     const cutoff = new Date(Date.now() - staleAfterMs);
-    const due = await db.select({
-      companyId: toolConnectionAppSyncs.companyId,
-      connectionId: toolConnectionAppSyncs.connectionId,
-      userId: toolConnectionAppSyncs.userId,
-      credentialKey: toolConnectionAppSyncs.credentialKey,
-      connection: toolConnections,
-    }).from(toolConnectionAppSyncs)
-      .innerJoin(toolConnections, and(
-        eq(toolConnections.id, toolConnectionAppSyncs.connectionId),
-        eq(toolConnections.companyId, toolConnectionAppSyncs.companyId),
-      ))
-      .where(and(
-        eq(toolConnectionAppSyncs.status, "ready"),
-        lt(toolConnectionAppSyncs.lastCompletedAt, cutoff),
-        eq(toolConnections.enabled, true),
-        eq(toolConnections.status, "active"),
-        sql`${toolConnections.config}->>'sourceTemplateKey' = 'composio'`,
-      ))
-      .orderBy(asc(toolConnectionAppSyncs.lastCompletedAt))
-      .limit(input.limit ?? 10);
+    const batchSize = Math.max(1, input.limit ?? 25);
+    const maxRows = Math.max(1, input.maxRows ?? 200);
+    const deadline = Date.now() + Math.max(0, input.timeBudgetMs ?? 20_000);
+    let checked = 0;
     let refreshed = 0;
+    let skipped = 0;
+    let batches = 0;
     const failedConnectionIds: string[] = [];
-    for (const row of due) {
-      const actor = { actorType: "user" as const, actorId: row.userId };
-      try {
-        // A row whose stored credential key no longer matches belongs to a
-        // rotated credential; the current key refreshes on demand instead.
-        if (await composioCredentialKey(row.connection, actor) !== row.credentialKey) continue;
-        await startComposioAppSync(row.connectionId, false, actor);
-        refreshed += 1;
-      } catch {
-        failedConnectionIds.push(row.connectionId);
+    const seen: string[] = [];
+    while (checked < maxRows && Date.now() < deadline) {
+      const due = await db.select({
+        id: toolConnectionAppSyncs.id,
+        companyId: toolConnectionAppSyncs.companyId,
+        connectionId: toolConnectionAppSyncs.connectionId,
+        userId: toolConnectionAppSyncs.userId,
+        credentialKey: toolConnectionAppSyncs.credentialKey,
+        connection: toolConnections,
+      }).from(toolConnectionAppSyncs)
+        .innerJoin(toolConnections, and(
+          eq(toolConnections.id, toolConnectionAppSyncs.connectionId),
+          eq(toolConnections.companyId, toolConnectionAppSyncs.companyId),
+        ))
+        .where(and(
+          eq(toolConnectionAppSyncs.status, "ready"),
+          lt(toolConnectionAppSyncs.lastCompletedAt, cutoff),
+          eq(toolConnections.enabled, true),
+          eq(toolConnections.status, "active"),
+          sql`${toolConnections.config}->>'sourceTemplateKey' = 'composio'`,
+          seen.length > 0 ? notInArray(toolConnectionAppSyncs.id, seen) : undefined,
+        ))
+        .orderBy(asc(toolConnectionAppSyncs.lastCompletedAt))
+        .limit(Math.min(batchSize, maxRows - checked));
+      if (due.length === 0) break;
+      batches += 1;
+      for (const row of due) {
+        checked += 1;
+        seen.push(row.id);
+        const actor = { actorType: "user" as const, actorId: row.userId };
+        let currentCredentialKey: string;
+        try {
+          currentCredentialKey = await composioCredentialKey(row.connection, actor);
+        } catch {
+          // A rotated or unreadable credential is a per-row condition; the row
+          // is retired below so it cannot starve the rest of the sweep.
+          failedConnectionIds.push(row.connectionId);
+          await markStartFailure(row.id);
+          continue;
+        }
+        if (currentCredentialKey !== row.credentialKey) {
+          // This row belongs to a credential that has been rotated away. Reads
+          // select by the current key, so it is already invisible; retiring it
+          // from the due set stops it from occupying every future batch.
+          skipped += 1;
+          await retireRotatedRow(row.id);
+          continue;
+        }
+        try {
+          await startComposioAppSync(row.connectionId, false, actor);
+          refreshed += 1;
+        } catch {
+          failedConnectionIds.push(row.connectionId);
+          await markStartFailure(row.id);
+        }
       }
     }
-    return { checked: due.length, refreshed, failedConnectionIds };
+    return { checked, refreshed, skipped, batches, failedConnectionIds };
+  }
+
+  async function retireRotatedRow(id: string) {
+    await db.update(toolConnectionAppSyncs)
+      .set({ lastCompletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(toolConnectionAppSyncs.id, id));
+  }
+
+  async function markStartFailure(id: string) {
+    // A refresh that cannot start is a failed check, not a healthy one. The
+    // row leaves the ready set so the app shows "Last check failed", and an
+    // explicit Refresh takes over from the timer.
+    await db.update(toolConnectionAppSyncs)
+      .set({ status: "error", updatedAt: new Date() })
+      .where(and(eq(toolConnectionAppSyncs.id, id), eq(toolConnectionAppSyncs.status, "ready")));
   }
 
   function aggregatorProvider(connection: typeof toolConnections.$inferSelect): AppCatalogAggregator {

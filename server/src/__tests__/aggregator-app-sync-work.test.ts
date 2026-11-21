@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { AGGREGATOR_APP_SYNC_SWEEP_MS, AGGREGATOR_APP_SYNC_TTL_MS } from "@paperclipai/shared/aggregator-apps";
 import { registerAggregatorAppSyncWork } from "../services/aggregator-app-sync-work.js";
+import { logger } from "../middleware/logger.js";
 import { DELIVERY_QUEUES } from "../services/delivery-work-notifications.js";
 import type { createDeliveryWorkCoordinator } from "../services/delivery-work-coordinator.js";
 
@@ -25,6 +26,19 @@ describe("scheduled aggregator app refresh", () => {
     // The sweep never reports pending work; the next pass is a timer.
     expect(await task.hasPending()).toBe(false);
     expect(task.nextRunAt()).toBeGreaterThan(Date.now() + AGGREGATOR_APP_SYNC_SWEEP_MS - 5_000);
+  });
+
+  it("names a gateway whose refresh could not start instead of staying silent", async () => {
+    const fake = coordinator();
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined as never);
+    const sweep = vi.fn(async () => ({ checked: 1, refreshed: 0, failedConnectionIds: ["connection-1"] }));
+    registerAggregatorAppSyncWork(fake, { sweep }, () => true);
+    await fake.registrations[0].task.run(new AbortController().signal);
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ failed: 1, connectionIds: ["connection-1"] }),
+      expect.stringContaining("could not start"),
+    );
+    warn.mockRestore();
   });
 
   it("does no upstream work while the scheduler is paused or idle-draining", async () => {

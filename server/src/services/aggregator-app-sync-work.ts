@@ -1,4 +1,5 @@
 import { AGGREGATOR_APP_SYNC_SWEEP_MS, AGGREGATOR_APP_SYNC_TTL_MS } from "@paperclipai/shared/aggregator-apps";
+import { logger } from "../middleware/logger.js";
 import { DELIVERY_QUEUES } from "./delivery-work-notifications.js";
 import type { createDeliveryWorkCoordinator } from "./delivery-work-coordinator.js";
 
@@ -10,7 +11,9 @@ import type { createDeliveryWorkCoordinator } from "./delivery-work-coordinator.
  */
 export function registerAggregatorAppSyncWork(
   coordinator: ReturnType<typeof createDeliveryWorkCoordinator>,
-  service: { sweep(staleAfterMs?: number): Promise<unknown> },
+  service: {
+    sweep(staleAfterMs?: number): Promise<{ failedConnectionIds?: string[]; refreshed?: number; skipped?: number } | void>;
+  },
   canRun: () => boolean,
   intervalMs: number = AGGREGATOR_APP_SYNC_SWEEP_MS,
 ) {
@@ -20,7 +23,17 @@ export function registerAggregatorAppSyncWork(
     run: async signal => {
       signal.throwIfAborted();
       if (!canRun()) return;
-      await service.sweep(AGGREGATOR_APP_SYNC_TTL_MS);
+      const result = await service.sweep(AGGREGATOR_APP_SYNC_TTL_MS);
+      const failed = result?.failedConnectionIds ?? [];
+      if (failed.length > 0) {
+        // The affected rows are marked failed, so the app shows "Last check
+        // failed". The log names the gateways so an operator can find them
+        // without reading every app page.
+        logger.warn(
+          { failed: failed.length, connectionIds: failed.slice(0, 10) },
+          "aggregator app sweep could not start planned refreshes",
+        );
+      }
     },
     hasPending: async () => false,
     // A pure timer: the next pass is always one interval out, and a failing
