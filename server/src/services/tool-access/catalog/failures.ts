@@ -33,6 +33,7 @@ export function healthFailureHttpStatus(failure: {
   if (failure.code === "composio_broker_retired") return 422;
   if (failure.code === "tool_connection_transport_unsupported") return 422;
   if (failure.code === "cognee_access_unverified" || failure.code === "memory_api_key_rejected") return 422;
+  if (failure.code === "api_key_rejected") return 422;
   if (failure.code.endsWith("_endpoint_rejected")) return 422;
   return 502;
 }
@@ -51,7 +52,7 @@ export function sanitizeHttpFailure(error: unknown): {
 } {
   if (error instanceof HttpError) {
     const code = asRecord(error.details).code;
-    if (code === "cognee_access_unverified" || code === "memory_api_key_rejected") {
+    if (code === "cognee_access_unverified" || code === "memory_api_key_rejected" || code === "api_key_rejected") {
       return { status: "error", message: error.message, code };
     }
     if (code === "grant_credential_invalid" || code === "oauth_insufficient_scope") {

@@ -14,6 +14,7 @@ import { CEO_HIRING_DENIAL_KEY, normalizeAgentPermissions, permissionsImplyLowTr
 import { readBuiltInAgentMarker } from "../lib/built-in-agent-metadata.js";
 import { secretService, assertClaudeOAuthBindingInvariant } from "./secrets.js";
 import { agentCredentialService } from "./agent-credentials.js";
+import { attachGbrainForAgent } from "./gbrain.js";
 import { agentIdentityService } from "./agent-identity.js";
 import { initializePrimaryAgent } from "./primary-agent.js";
 import { resolveAgentRunnerTaskDriverForCompany, resolveNewAgentRunnerForCompany } from "./agent-runner-selection.js";
@@ -103,6 +104,9 @@ export async function initializeAgentHire(txDb: Db, created: AgentHireRecord, op
     }))).onConflictDoNothing();
   }
   await agentCredentialService(txDb).syncAgentSecretBindings(created, txDb);
+  // A Hermes agent is born with team memory: record the GBrain attachment and
+  // install the company connector when it exists.
+  await attachGbrainForAgent(txDb, created);
   if (!options?.setupOnly && options?.createdByUserId && !readBuiltInAgentMarker(created.metadata)) {
     await initializePrimaryAgent(txDb, companyId, options.createdByUserId, created.id);
   }

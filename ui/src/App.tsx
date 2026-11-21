@@ -116,6 +116,7 @@ const AppNotConnected = lazy(() => import("./pages/apps/AppNotConnected").then((
 const GatewaysList = lazy(() => import("./pages/apps/gateways/GatewaysList").then((module) => ({ default: module.GatewaysList })));
 const GatewayDetail = lazy(() => import("./pages/apps/gateways/GatewayDetail").then((module) => ({ default: module.GatewayDetail })));
 const CompanySkills = lazy(() => import("./pages/CompanySkills").then((module) => ({ default: module.CompanySkills })));
+const AgentReadiness = lazy(() => import("./pages/AgentReadiness").then((module) => ({ default: module.AgentReadiness })));
 const SkillSources = lazy(() => import("./pages/SkillSources").then((module) => ({ default: module.SkillSources })));
 const SkillStudio = lazy(() => import("./pages/SkillStudio").then((module) => ({ default: module.SkillStudio })));
 const Secrets = lazy(() => import("./pages/Secrets").then((module) => ({ default: module.Secrets })));
@@ -266,6 +267,7 @@ function boardRoutes(streamlinedUiEnabled: boolean, combinedInboxTasksEnabled: b
       <Route path="company/settings/:settingsRoutePath/*" element={<CompanySettingsPluginPage />} />
       <Route path="skills/sources" element={<SkillSources />} />
       <Route path="skills/sources/:sourceId" element={<SkillSources />} />
+      <Route path="readiness" element={<AgentReadiness />} />
       <Route path="skills/studio" element={streamlinedUiEnabled ? <CompanySkills collectionView="authored" /> : <SkillStudio />} />
       <Route path="skills/studio/new" element={<SkillStudio />} />
       <Route path="skills/studio/:skillId" element={<SkillStudio />} />

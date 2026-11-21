@@ -142,6 +142,7 @@ import {
   chatWebhookRoutes,
 } from "./routes/chat-channels.js";
 import { smokeLabRoutes } from "./routes/smoke-lab.js";
+import { agentReadinessRoutes } from "./routes/agent-readiness.js";
 import { costRoutes } from "./routes/costs.js";
 import { agentCommentaryRoutes } from "./routes/agent-commentary.js";
 import { agentChatMessageRoutes } from "./routes/agent-chat-messages.js";
@@ -848,6 +849,7 @@ export async function createApp(
     process.env.PAPERCLIP_TOOL_RUNTIME_TRUSTED_HOST ??
     null;
   api.use(costRoutes(db, { pluginWorkerManager: workerManager }));
+  api.use(agentReadinessRoutes(db, { pluginWorkerManager: workerManager }));
   api.use(activityRoutes(db));
   api.use(dashboardRoutes(db));
   api.use(attentionRoutes(db));

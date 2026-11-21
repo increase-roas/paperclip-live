@@ -25,6 +25,7 @@ export { approvalRoutes } from "./approvals.js";
 export { secretRoutes } from "./secrets.js";
 export { toolAccessRoutes } from "./tool-access.js";
 export { smokeLabRoutes } from "./smoke-lab.js";
+export { agentReadinessRoutes } from "./agent-readiness.js";
 export { costRoutes } from "./costs.js";
 export { activityRoutes } from "./activity.js";
 export { dashboardRoutes } from "./dashboard.js";
