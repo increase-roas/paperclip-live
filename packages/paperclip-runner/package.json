@@ -53,6 +53,7 @@
     "dist",
     "dist-issue-thread",
     "protocol",
+    "schema",
     "styles.css",
     "README.md",
     "scripts/install-copilot-assets.mjs",
