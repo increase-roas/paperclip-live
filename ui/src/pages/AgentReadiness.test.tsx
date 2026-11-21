@@ -104,6 +104,27 @@ function buildReport(overrides: Partial<AgentReadinessReport> = {}): AgentReadin
   };
 }
 
+function buildSplitReport(): AgentReadinessReport {
+  const findings = [finding("model.probe", "pass")];
+  const company = scoreReadinessSubject(
+    { subjectType: "company", subjectId: "company-1", name: "Acme Co", provider: null },
+    findings,
+  );
+  const agent = scoreReadinessSubject(
+    { subjectType: "agent", subjectId: "agent-1", name: "Agent One", provider: null },
+    findings,
+  );
+  const twin = scoreReadinessSubject(
+    { subjectType: "bot", subjectId: "bot-1", name: "Grok Twin", provider: "grok_bot_twin", grokBotTwin: true },
+    findings,
+  );
+  const plainBot = scoreReadinessSubject(
+    { subjectType: "bot", subjectId: "bot-2", name: "Plain Hermes Bot", provider: null, grokBotTwin: false },
+    findings,
+  );
+  return { ...buildReport(), summary: summarizeAgentReadiness([company, agent, twin, plainBot], findings) };
+}
+
 async function flushReact() {
   await act(async () => {
     await Promise.resolve();
@@ -159,6 +180,32 @@ describe("AgentReadiness", () => {
     expect(container.textContent).toContain("Agent One");
     expect(container.textContent).toContain("Must-pass");
     expect(getMock).toHaveBeenCalledWith("company-1");
+  });
+
+  it("splits bots from agents and tags grok twins", async () => {
+    await renderPage(buildSplitReport());
+    const bots = container.querySelector<HTMLElement>('[data-readiness-section="bots"]');
+    const agents = container.querySelector<HTMLElement>('[data-readiness-section="agents"]');
+    const company = container.querySelector<HTMLElement>('[data-readiness-section="company"]');
+    expect(bots).toBeTruthy();
+    expect(agents).toBeTruthy();
+    expect(company).toBeTruthy();
+
+    // Counts live in each section heading.
+    expect(bots?.querySelector("h3")?.textContent).toContain("Bots");
+    expect(bots?.querySelector("h3")?.textContent).toContain("(2)");
+    expect(agents?.querySelector("h3")?.textContent).toContain("(1)");
+
+    // A tagged twin carries the badge; an untagged bot does not.
+    expect(bots?.textContent).toContain("Grok Twin");
+    expect(bots?.textContent).toContain("Grok twin");
+    expect(bots?.textContent).toContain("Plain Hermes Bot");
+    expect(bots?.textContent?.match(/Grok twin/g)).toHaveLength(1);
+
+    // Agents never leak into the Bots section.
+    expect(agents?.textContent).toContain("Agent One");
+    expect(agents?.textContent).not.toContain("Grok Twin");
+    expect(bots?.textContent).not.toContain("Agent One");
   });
 
   it("runs a static report on demand", async () => {
