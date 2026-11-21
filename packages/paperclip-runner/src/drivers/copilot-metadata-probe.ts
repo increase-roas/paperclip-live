@@ -7,6 +7,7 @@ import { verifyCopilotInstallation } from "./acpx/copilot-installation.js";
 import { QUALIFIED_ACPX_PROFILES, resolveQualifiedAcpxProfile } from "./acpx/qualified-profiles.js";
 import { classifyCopilotFailure, copilotConfiguration, copilotSandboxEnvironment } from "./acpx/copilot-profile.js";
 import { COPILOT_ACP_CLIENT_CAPABILITIES } from "./acpx/copilot-events.js";
+import { createRunnerLogger, newRunnerTrace, runnerMetrics } from "../observability.js";
 
 type RecordValue = Record<string, unknown>;
 const record = (value: unknown): RecordValue => value !== null && typeof value === "object" && !Array.isArray(value) ? value as RecordValue : {};
@@ -17,6 +18,9 @@ export type CopilotMetadataResult =
 
 /** A metadata-only client: no prompt, tool server, workspace, or ambient login. */
 export async function probeCopilotMetadata(token: string, model?: string): Promise<CopilotMetadataResult> {
+  const startedAt = Date.now();
+  const trace = newRunnerTrace();
+  const logger = createRunnerLogger(trace);
   if (model && ["auto", "default"].includes(model.trim().toLowerCase())) return { status: "failed", code: "COPILOT_MODEL_UNAVAILABLE", message: "Select an explicit Copilot model.", promptSent: false };
   if (!token.trim() || token.includes("\0")) return { status: "failed", code: "COPILOT_AUTH_REQUIRED", message: "Enter a valid Copilot personal access token.", promptSent: false };
   let installation;
@@ -65,7 +69,10 @@ export async function probeCopilotMetadata(token: string, model?: string): Promi
     };
     return await Promise.race([work(), new Promise<never>((_resolve, reject) => {
       deadline = setTimeout(() => reject(new Error("Copilot metadata probe timed out")), 25_000);
-    })]);
+    })]).then((result) => {
+      runnerMetrics.inc("paperclip_runner_copilot_metadata_total", { outcome: result.status });
+      return result;
+    });
   } catch (error) {
     const code = record(error).code;
     if (code === "COPILOT_INSTALLATION_INVALID") return { status: "failed", code, message: "The selected environment has an incompatible Copilot installation.", promptSent: false };
@@ -75,9 +82,15 @@ export async function probeCopilotMetadata(token: string, model?: string): Promi
       : error instanceof Error && error.message === "Copilot provider exited during metadata discovery" ? "provider-exit" : "request-rejected";
     // Only closed diagnostic categories; never log provider errors, wire data,
     // credentials, model catalogs, session IDs or private workspace paths.
-    console.warn("Copilot metadata verification failed", JSON.stringify({ phase, code: failure.code, cause }));
+    runnerMetrics.inc("paperclip_runner_copilot_metadata_total", { outcome: "failed" });
+    logger.warn("Copilot metadata verification failed", { phase, code: failure.code, cause });
     return { status: "failed", ...failure, promptSent: false };
   } finally {
+    runnerMetrics.observe(
+      "paperclip_runner_copilot_metadata_duration_ms",
+      { phase },
+      Date.now() - startedAt,
+    );
     if (deadline) clearTimeout(deadline);
     let providerRetired = child === undefined;
     try {
@@ -93,7 +106,7 @@ export async function probeCopilotMetadata(token: string, model?: string): Promi
     } catch {
       // Unconfirmed execution retains its private home; never report verified
       // metadata or expose paths/provider text after incomplete retirement.
-      console.warn("Copilot metadata verification failed", JSON.stringify({ phase: "cleanup", code: "COPILOT_REQUEST_FAILED", cause: "shutdown-incomplete" }));
+      logger.warn("Copilot metadata verification failed", { phase: "cleanup", code: "COPILOT_REQUEST_FAILED", cause: "shutdown-incomplete" });
       return { status: "failed", code: "COPILOT_REQUEST_FAILED", message: "Copilot metadata verification failed.", promptSent: false };
     }
   }

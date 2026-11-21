@@ -3,6 +3,14 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { createGoogleSheetsMcpServer } from "./index.js";
 import type { GoogleSheetsMcpConfig } from "./config.js";
 import { createGoogleSheetsClient, type GoogleSheetsClient } from "./google-client.js";
+import {
+  createSheetsLogger,
+  newTraceContext,
+  sheetsApiCircuit,
+  sheetsMetrics,
+} from "./observability.js";
+
+const SERVER_STARTED_AT = Date.now();
 
 export interface GoogleSheetsMcpHttpOptions {
   config: GoogleSheetsMcpConfig;
@@ -86,8 +94,31 @@ export function createGoogleSheetsMcpHttpServer(
 
   const server = createServer((req, res) => {
     void (async () => {
+      const trace = newTraceContext();
+      const logger = createSheetsLogger(trace);
+      res.setHeader("x-request-id", trace.requestId);
       try {
         const url = new URL(req.url ?? "/", "http://localhost");
+
+        if (req.method === "GET" && url.pathname === "/healthz") {
+          sendJson(res, 200, {
+            status: "ok",
+            service: "paperclip-google-sheets-mcp",
+            uptimeMs: Date.now() - SERVER_STARTED_AT,
+            circuit: sheetsApiCircuit.snapshot(),
+          });
+          return;
+        }
+
+        if (req.method === "GET" && url.pathname === "/metrics") {
+          if (requiredToken && presentedToken(req) !== requiredToken) {
+            sendJson(res, 401, { error: "Unauthorized. Provide GOOGLE_SHEETS_MCP_TOKEN." });
+            return;
+          }
+          res.writeHead(200, { "content-type": "text/plain; version=0.0.4; charset=utf-8" });
+          res.end(sheetsMetrics.render());
+          return;
+        }
 
         if (url.pathname !== MCP_PATH) {
           sendJson(res, 404, { error: "Not found." });
@@ -101,6 +132,10 @@ export function createGoogleSheetsMcpHttpServer(
 
         await handleMcp(req, res, options.config, client);
       } catch (error) {
+        logger.error("Google Sheets MCP request failed", {
+          path: req.url,
+          error: error instanceof Error ? error.message : String(error),
+        });
         if (!res.headersSent) {
           sendJson(res, 500, { error: error instanceof Error ? error.message : "Internal error." });
         } else {

@@ -1,0 +1,19 @@
+{
+  "$comment": "Duplicate-code scope for scripts/check-duplicate-code.mjs. Generated code, fixtures, browser suites and declarations are excluded because their repetition is intentional or machine-produced.",
+  "exclude": [
+    "**/*.d.ts",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "**/__tests__/**",
+    "**/__fixtures__/**",
+    "**/fixtures/**",
+    "**/generated/**",
+    "**/dist/**",
+    "**/migrations/**",
+    "ui/storybook/**",
+    "tests/**",
+    "scripts/**"
+  ]
+}

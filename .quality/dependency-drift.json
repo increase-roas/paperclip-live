@@ -1,0 +1,6 @@
+{
+  "$comment": "Dependencies whose version ranges legitimately differ across packages. Prefer converging the range over adding an entry here.",
+  "allow": [
+    "@types/node"
+  ]
+}

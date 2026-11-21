@@ -1,0 +1,35 @@
+{
+  "$comment": "Dependency-direction rules for scripts/check-cross-package-boundaries.mjs. The server's internal module layers are enforced separately by check-module-boundaries.mjs.",
+  "rules": [
+    {
+      "from": ["ui/src/lib/**", "ui/src/api/**"],
+      "forbid": ["ui/src/pages/**", "ui/src/components/**"],
+      "reason": "UI data and utility layers must not depend on pages or components."
+    },
+    {
+      "from": ["ui/src/components/**"],
+      "forbid": ["ui/src/pages/**"],
+      "reason": "Components must not import page modules; pass data in through props or hooks."
+    },
+    {
+      "from": ["ui/src/hooks/**"],
+      "forbid": ["ui/src/pages/**"],
+      "reason": "Hooks must stay renderer-agnostic and must not import pages."
+    },
+    {
+      "from": ["server/src/**"],
+      "forbid": ["ui/src/**", "cli/src/**"],
+      "reason": "The API server must not import browser UI or CLI source."
+    },
+    {
+      "from": ["cli/src/**"],
+      "forbid": ["server/src/**", "ui/src/**"],
+      "reason": "The CLI talks to the API over HTTP and must not import server or UI source."
+    },
+    {
+      "from": ["packages/**/src/**"],
+      "forbid": ["server/src/**", "ui/src/**", "cli/src/**"],
+      "reason": "Shared packages must not depend on application source trees."
+    }
+  ]
+}

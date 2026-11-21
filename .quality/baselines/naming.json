@@ -1,0 +1,208 @@
+{
+  "version": 1,
+  "description": "Pre-existing naming violations. New files and declarations must follow CODE-STANDARDS.md.",
+  "generatedAt": "2026-11-21",
+  "entries": [
+    {
+      "key": "packages/adapter-utils/src/acpx-engine/run-contracts.test.ts#decl:_noLeak",
+      "file": "packages/adapter-utils/src/acpx-engine/run-contracts.test.ts",
+      "line": 80
+    },
+    {
+      "key": "server/src/__tests__/plugin-tool-dispatcher-pluginDbId.test.ts#filename",
+      "file": "server/src/__tests__/plugin-tool-dispatcher-pluginDbId.test.ts"
+    },
+    {
+      "key": "ui/src/artifact-directions/directions/d2-tint/specimen.tsx#jsx-component",
+      "file": "ui/src/artifact-directions/directions/d2-tint/specimen.tsx"
+    },
+    {
+      "key": "ui/src/artifact-directions/frames/thread-parts.tsx#jsx-component",
+      "file": "ui/src/artifact-directions/frames/thread-parts.tsx"
+    },
+    {
+      "key": "ui/src/artifact-directions/main.tsx#jsx-component",
+      "file": "ui/src/artifact-directions/main.tsx"
+    },
+    {
+      "key": "ui/src/components/agent-config-primitives.tsx#jsx-component",
+      "file": "ui/src/components/agent-config-primitives.tsx"
+    },
+    {
+      "key": "ui/src/components/issue-properties/context-usage-row.tsx#jsx-component",
+      "file": "ui/src/components/issue-properties/context-usage-row.tsx"
+    },
+    {
+      "key": "ui/src/components/issue-properties/external-object-rows.tsx#jsx-component",
+      "file": "ui/src/components/issue-properties/external-object-rows.tsx"
+    },
+    {
+      "key": "ui/src/components/issue-properties/primitives.tsx#jsx-component",
+      "file": "ui/src/components/issue-properties/primitives.tsx"
+    },
+    {
+      "key": "ui/src/components/issue-properties/property-picker.tsx#jsx-component",
+      "file": "ui/src/components/issue-properties/property-picker.tsx"
+    },
+    {
+      "key": "ui/src/components/issue-properties/relation-controls.tsx#jsx-component",
+      "file": "ui/src/components/issue-properties/relation-controls.tsx"
+    },
+    {
+      "key": "ui/src/components/issue-properties/routine-origin-row.tsx#jsx-component",
+      "file": "ui/src/components/issue-properties/routine-origin-row.tsx"
+    },
+    {
+      "key": "ui/src/components/routine-sections/editable-sections.production.tsx#jsx-component",
+      "file": "ui/src/components/routine-sections/editable-sections.production.tsx"
+    },
+    {
+      "key": "ui/src/components/routine-sections/editable-sections.tsx#jsx-component",
+      "file": "ui/src/components/routine-sections/editable-sections.tsx"
+    },
+    {
+      "key": "ui/src/components/routine-sections/operate-sections.tsx#jsx-component",
+      "file": "ui/src/components/routine-sections/operate-sections.tsx"
+    },
+    {
+      "key": "ui/src/components/task-chat/presentation-mode.tsx#jsx-component",
+      "file": "ui/src/components/task-chat/presentation-mode.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/alert-dialog.tsx#jsx-component",
+      "file": "ui/src/components/ui/alert-dialog.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/attachment.tsx#jsx-component",
+      "file": "ui/src/components/ui/attachment.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/avatar-initials.tsx#jsx-component",
+      "file": "ui/src/components/ui/avatar-initials.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/avatar.tsx#jsx-component",
+      "file": "ui/src/components/ui/avatar.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/badge.tsx#jsx-component",
+      "file": "ui/src/components/ui/badge.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/breadcrumb.tsx#jsx-component",
+      "file": "ui/src/components/ui/breadcrumb.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/button.tsx#jsx-component",
+      "file": "ui/src/components/ui/button.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/card.tsx#jsx-component",
+      "file": "ui/src/components/ui/card.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/checkbox.tsx#jsx-component",
+      "file": "ui/src/components/ui/checkbox.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/collapsible.tsx#jsx-component",
+      "file": "ui/src/components/ui/collapsible.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/command.tsx#jsx-component",
+      "file": "ui/src/components/ui/command.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/dialog.tsx#jsx-component",
+      "file": "ui/src/components/ui/dialog.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/dropdown-menu.tsx#jsx-component",
+      "file": "ui/src/components/ui/dropdown-menu.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/flyout-appearance.tsx#jsx-component",
+      "file": "ui/src/components/ui/flyout-appearance.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/flyout.tsx#jsx-component",
+      "file": "ui/src/components/ui/flyout.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/input.tsx#jsx-component",
+      "file": "ui/src/components/ui/input.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/label.tsx#jsx-component",
+      "file": "ui/src/components/ui/label.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/popover.tsx#jsx-component",
+      "file": "ui/src/components/ui/popover.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/radio-card.tsx#jsx-component",
+      "file": "ui/src/components/ui/radio-card.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/resizable-panels.tsx#jsx-component",
+      "file": "ui/src/components/ui/resizable-panels.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/scroll-area.tsx#jsx-component",
+      "file": "ui/src/components/ui/scroll-area.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/select.tsx#jsx-component",
+      "file": "ui/src/components/ui/select.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/separator.tsx#jsx-component",
+      "file": "ui/src/components/ui/separator.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/sheet.tsx#jsx-component",
+      "file": "ui/src/components/ui/sheet.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/skeleton.tsx#jsx-component",
+      "file": "ui/src/components/ui/skeleton.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/tabs.tsx#jsx-component",
+      "file": "ui/src/components/ui/tabs.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/textarea.tsx#jsx-component",
+      "file": "ui/src/components/ui/textarea.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/toggle-switch.tsx#jsx-component",
+      "file": "ui/src/components/ui/toggle-switch.tsx"
+    },
+    {
+      "key": "ui/src/components/ui/tooltip.tsx#jsx-component",
+      "file": "ui/src/components/ui/tooltip.tsx"
+    },
+    {
+      "key": "ui/src/pages/apps/connection-owner.tsx#jsx-component",
+      "file": "ui/src/pages/apps/connection-owner.tsx"
+    },
+    {
+      "key": "ui/src/pages/secrets/proposal-review.tsx#jsx-component",
+      "file": "ui/src/pages/secrets/proposal-review.tsx"
+    },
+    {
+      "key": "ui/src/pages/secrets/user-secret-presentation.tsx#jsx-component",
+      "file": "ui/src/pages/secrets/user-secret-presentation.tsx"
+    },
+    {
+      "key": "ui/src/pages/tools/connection-dialogs.tsx#jsx-component",
+      "file": "ui/src/pages/tools/connection-dialogs.tsx"
+    },
+    {
+      "key": "ui/src/pages/tools/shared.tsx#jsx-component",
+      "file": "ui/src/pages/tools/shared.tsx"
+    }
+  ]
+}

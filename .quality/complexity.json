@@ -1,0 +1,19 @@
+{
+  "$comment": "Cyclomatic complexity policy for scripts/check-code-complexity.mjs. UI components get a higher budget because JSX conditional rendering contributes decision points.",
+  "defaultThreshold": 80,
+  "thresholds": [
+    { "pattern": "ui/**", "threshold": 120 }
+  ],
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.test.mts",
+    "**/*.test.cts",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "**/*.d.ts",
+    "**/generated/**",
+    "**/dist/**",
+    "**/node_modules/**"
+  ]
+}

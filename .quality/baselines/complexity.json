@@ -1,0 +1,1267 @@
+{
+  "version": 1,
+  "description": "Functions already over the complexity budget. Split or simplify them before adding new offenders.",
+  "generatedAt": "2026-11-21",
+  "entries": [
+    {
+      "key": "cli/src/commands/env.ts::collectDeploymentEnvRows",
+      "note": "complexity=87",
+      "file": "cli/src/commands/env.ts",
+      "line": 112
+    },
+    {
+      "key": "cli/src/commands/onboard.ts::onboard",
+      "note": "complexity=81",
+      "file": "cli/src/commands/onboard.ts",
+      "line": 383
+    },
+    {
+      "key": "cli/src/commands/worktree-merge-history-lib.ts::buildWorktreeMergePlan",
+      "note": "complexity=122",
+      "file": "cli/src/commands/worktree-merge-history-lib.ts",
+      "line": 340
+    },
+    {
+      "key": "packages/adapter-utils/src/acpx-engine/execute.ts::buildRuntime",
+      "note": "complexity=134",
+      "file": "packages/adapter-utils/src/acpx-engine/execute.ts",
+      "line": 1825
+    },
+    {
+      "key": "packages/adapter-utils/src/acpx-engine/execute.ts::stepTurnFinalize",
+      "note": "complexity=109",
+      "file": "packages/adapter-utils/src/acpx-engine/execute.ts",
+      "line": 5302
+    },
+    {
+      "key": "packages/adapter-utils/src/server-utils.ts::renderPaperclipWakePromptBody",
+      "note": "complexity=253",
+      "file": "packages/adapter-utils/src/server-utils.ts",
+      "line": 2306
+    },
+    {
+      "key": "packages/adapters/claude-local/src/server/execute.ts::execute",
+      "note": "complexity=122",
+      "file": "packages/adapters/claude-local/src/server/execute.ts",
+      "line": 410
+    },
+    {
+      "key": "packages/adapters/claude-local/src/server/execute.ts::toAdapterResult",
+      "note": "complexity=104",
+      "file": "packages/adapters/claude-local/src/server/execute.ts",
+      "line": 1000
+    },
+    {
+      "key": "packages/adapters/claude-local/src/server/test.ts::testEnvironment",
+      "note": "complexity=101",
+      "file": "packages/adapters/claude-local/src/server/test.ts",
+      "line": 66
+    },
+    {
+      "key": "packages/adapters/codex-local/src/server/execute.ts::execute",
+      "note": "complexity=150",
+      "file": "packages/adapters/codex-local/src/server/execute.ts",
+      "line": 578
+    },
+    {
+      "key": "packages/adapters/openclaw-gateway/src/server/execute.ts::execute",
+      "note": "complexity=86",
+      "file": "packages/adapters/openclaw-gateway/src/server/execute.ts",
+      "line": 1048
+    },
+    {
+      "key": "packages/adapters/opencode-local/src/server/test.ts::testEnvironment",
+      "note": "complexity=91",
+      "file": "packages/adapters/opencode-local/src/server/test.ts",
+      "line": 69
+    },
+    {
+      "key": "packages/adapters/pi-local/src/server/execute.ts::execute",
+      "note": "complexity=103",
+      "file": "packages/adapters/pi-local/src/server/execute.ts",
+      "line": 228
+    },
+    {
+      "key": "packages/db/src/backup-lib.ts::runDatabaseBackup",
+      "note": "complexity=91",
+      "file": "packages/db/src/backup-lib.ts",
+      "line": 534
+    },
+    {
+      "key": "packages/paperclip-runner/devtools/issue-thread/src/App.tsx::App",
+      "note": "complexity=93",
+      "file": "packages/paperclip-runner/devtools/issue-thread/src/App.tsx",
+      "line": 298
+    },
+    {
+      "key": "packages/paperclip-runner/src/cli/acpx-runtime-sidecar.ts::dispatch",
+      "note": "complexity=81",
+      "file": "packages/paperclip-runner/src/cli/acpx-runtime-sidecar.ts",
+      "line": 279
+    },
+    {
+      "key": "packages/paperclip-runner/src/contracts/native-execution.ts::parseNativeExecutionInput",
+      "note": "complexity=200",
+      "file": "packages/paperclip-runner/src/contracts/native-execution.ts",
+      "line": 430
+    },
+    {
+      "key": "packages/paperclip-runner/src/control-plane/durable-prp-control-plane.ts::#event",
+      "note": "complexity=84",
+      "file": "packages/paperclip-runner/src/control-plane/durable-prp-control-plane.ts",
+      "line": 4128
+    },
+    {
+      "key": "packages/paperclip-runner/src/drivers/acpx/codex-runtime-adapter.ts::openQualifiedAcpxRuntime",
+      "note": "complexity=84",
+      "file": "packages/paperclip-runner/src/drivers/acpx/codex-runtime-adapter.ts",
+      "line": 202
+    },
+    {
+      "key": "packages/paperclip-runner/src/drivers/acpx/pi-acp-runtime.ts::normalize",
+      "note": "complexity=83",
+      "file": "packages/paperclip-runner/src/drivers/acpx/pi-acp-runtime.ts",
+      "line": 45
+    },
+    {
+      "key": "packages/paperclip-runner/src/drivers/codex/codex-app-server-driver-impl.ts::recoverSession",
+      "note": "complexity=98",
+      "file": "packages/paperclip-runner/src/drivers/codex/codex-app-server-driver-impl.ts",
+      "line": 372
+    },
+    {
+      "key": "packages/paperclip-runner/src/drivers/codex/codex-session-notifications.ts::mapNotificationBody",
+      "note": "complexity=208",
+      "file": "packages/paperclip-runner/src/drivers/codex/codex-session-notifications.ts",
+      "line": 154
+    },
+    {
+      "key": "packages/paperclip-runner/src/drivers/opencode/opencode-server-driver.ts::#mapProviderEventValue",
+      "note": "complexity=114",
+      "file": "packages/paperclip-runner/src/drivers/opencode/opencode-server-driver.ts",
+      "line": 1727
+    },
+    {
+      "key": "packages/paperclip-runner/src/live/live-session.ts::assertCapabilityLiveSessionSnapshot",
+      "note": "complexity=134",
+      "file": "packages/paperclip-runner/src/live/live-session.ts",
+      "line": 589
+    },
+    {
+      "key": "packages/paperclip-runner/src/live/runnerd-codex-transport.ts::#pumpEvents",
+      "note": "complexity=117",
+      "file": "packages/paperclip-runner/src/live/runnerd-codex-transport.ts",
+      "line": 7658
+    },
+    {
+      "key": "packages/paperclip-runner/src/live/runnerd-codex-transport.ts::#resumeWork",
+      "note": "complexity=395",
+      "file": "packages/paperclip-runner/src/live/runnerd-codex-transport.ts",
+      "line": 6153
+    },
+    {
+      "key": "packages/paperclip-runner/src/live/runnerd-codex-transport.ts::constructor",
+      "note": "complexity=84",
+      "file": "packages/paperclip-runner/src/live/runnerd-codex-transport.ts",
+      "line": 4035
+    },
+    {
+      "key": "packages/paperclip-runner/src/live/runnerd-codex-transport.ts::request",
+      "note": "complexity=115",
+      "file": "packages/paperclip-runner/src/live/runnerd-codex-transport.ts",
+      "line": 4219
+    },
+    {
+      "key": "packages/paperclip-runner/src/live/runnerd-codex-transport.ts::settleRetainedRunnerdSessionOwned",
+      "note": "complexity=128",
+      "file": "packages/paperclip-runner/src/live/runnerd-codex-transport.ts",
+      "line": 2722
+    },
+    {
+      "key": "packages/paperclip-runner/src/mock-core/capability-mock-control-plane-adapter.ts::#executeCommand",
+      "note": "complexity=126",
+      "file": "packages/paperclip-runner/src/mock-core/capability-mock-control-plane-adapter.ts",
+      "line": 698
+    },
+    {
+      "key": "packages/paperclip-runner/src/native-session-runtime.ts::<anonymous>",
+      "note": "complexity=98",
+      "file": "packages/paperclip-runner/src/native-session-runtime.ts",
+      "line": 1157
+    },
+    {
+      "key": "packages/paperclip-runner/src/native-session-runtime.ts::executeNativeSession",
+      "note": "complexity=224",
+      "file": "packages/paperclip-runner/src/native-session-runtime.ts",
+      "line": 2222
+    },
+    {
+      "key": "packages/paperclip-runner/src/provider-events.ts::canonicalProviderEventsFromCodex",
+      "note": "complexity=108",
+      "file": "packages/paperclip-runner/src/provider-events.ts",
+      "line": 938
+    },
+    {
+      "key": "packages/shared/src/cliplab/renderer.ts::drawFace",
+      "note": "complexity=89",
+      "file": "packages/shared/src/cliplab/renderer.ts",
+      "line": 150
+    },
+    {
+      "key": "packages/shared/src/validators/plugin.ts::<anonymous>",
+      "note": "complexity=114",
+      "file": "packages/shared/src/validators/plugin.ts",
+      "line": 845
+    },
+    {
+      "key": "server/src/config.ts::loadConfig",
+      "note": "complexity=81",
+      "file": "server/src/config.ts",
+      "line": 147
+    },
+    {
+      "key": "server/src/index.ts::startServerWithDatabaseTeardown",
+      "note": "complexity=221",
+      "file": "server/src/index.ts",
+      "line": 306
+    },
+    {
+      "key": "server/src/modules/agent-lifecycle/adapters/postgres.ts::changeLockedAgent",
+      "note": "complexity=85",
+      "file": "server/src/modules/agent-lifecycle/adapters/postgres.ts",
+      "line": 85
+    },
+    {
+      "key": "server/src/routes/access.ts::<anonymous>",
+      "note": "complexity=117",
+      "file": "server/src/routes/access.ts",
+      "line": 3619
+    },
+    {
+      "key": "server/src/routes/agents.ts::<anonymous>",
+      "note": "complexity=144",
+      "file": "server/src/routes/agents.ts",
+      "line": 5522
+    },
+    {
+      "key": "server/src/routes/connection-management-authz.ts::authorizeRequest",
+      "note": "complexity=242",
+      "file": "server/src/routes/connection-management-authz.ts",
+      "line": 81
+    },
+    {
+      "key": "server/src/routes/issues.ts::<anonymous>",
+      "note": "complexity=147",
+      "file": "server/src/routes/issues.ts",
+      "line": 19238
+    },
+    {
+      "key": "server/src/services/agent-runner-selection.ts::resolveAgentRunner",
+      "note": "complexity=173",
+      "file": "server/src/services/agent-runner-selection.ts",
+      "line": 190
+    },
+    {
+      "key": "server/src/services/attention.ts::list",
+      "note": "complexity=155",
+      "file": "server/src/services/attention.ts",
+      "line": 1082
+    },
+    {
+      "key": "server/src/services/authorization.ts::decideBase",
+      "note": "complexity=222",
+      "file": "server/src/services/authorization.ts",
+      "line": 1777
+    },
+    {
+      "key": "server/src/services/browser-use.ts::reconcile",
+      "note": "complexity=81",
+      "file": "server/src/services/browser-use.ts",
+      "line": 1179
+    },
+    {
+      "key": "server/src/services/case-handoffs.ts::<anonymous>",
+      "note": "complexity=155",
+      "file": "server/src/services/case-handoffs.ts",
+      "line": 346
+    },
+    {
+      "key": "server/src/services/chat-channels.ts::processMessage",
+      "note": "complexity=169",
+      "file": "server/src/services/chat-channels.ts",
+      "line": 1442
+    },
+    {
+      "key": "server/src/services/chat-channels/configuration.ts::configureWithCredentialLease",
+      "note": "complexity=97",
+      "file": "server/src/services/chat-channels/configuration.ts",
+      "line": 169
+    },
+    {
+      "key": "server/src/services/chat-channels/discord/commands.ts::<anonymous>",
+      "note": "complexity=82",
+      "file": "server/src/services/chat-channels/discord/commands.ts",
+      "line": 293
+    },
+    {
+      "key": "server/src/services/chat-channels/failed-run-retry.ts::failedChatRetrySource",
+      "note": "complexity=212",
+      "file": "server/src/services/chat-channels/failed-run-retry.ts",
+      "line": 757
+    },
+    {
+      "key": "server/src/services/chat-channels/failed-run-retry.ts::failedNativeRetryCoordinator",
+      "note": "complexity=90",
+      "file": "server/src/services/chat-channels/failed-run-retry.ts",
+      "line": 369
+    },
+    {
+      "key": "server/src/services/chat-channels/failed-run-retry.ts::isPreProviderChatFailure",
+      "note": "complexity=112",
+      "file": "server/src/services/chat-channels/failed-run-retry.ts",
+      "line": 224
+    },
+    {
+      "key": "server/src/services/chat-channels/github/webhook-ingress.ts::recoverGitHubWebhookEndpoint",
+      "note": "complexity=92",
+      "file": "server/src/services/chat-channels/github/webhook-ingress.ts",
+      "line": 1157
+    },
+    {
+      "key": "server/src/services/chat-channels/imessage-photon/events.ts::processPhotonResponse",
+      "note": "complexity=104",
+      "file": "server/src/services/chat-channels/imessage-photon/events.ts",
+      "line": 131
+    },
+    {
+      "key": "server/src/services/chat-channels/inbound/admission.ts::<anonymous>",
+      "note": "complexity=99",
+      "file": "server/src/services/chat-channels/inbound/admission.ts",
+      "line": 77
+    },
+    {
+      "key": "server/src/services/chat-channels/inbound/lifecycle.ts::<anonymous>",
+      "note": "complexity=81",
+      "file": "server/src/services/chat-channels/inbound/lifecycle.ts",
+      "line": 400
+    },
+    {
+      "key": "server/src/services/chat-channels/interactions/callbacks.ts::handleAction",
+      "note": "complexity=142",
+      "file": "server/src/services/chat-channels/interactions/callbacks.ts",
+      "line": 556
+    },
+    {
+      "key": "server/src/services/chat-channels/interactions/callbacks.ts::handleModalSubmit",
+      "note": "complexity=105",
+      "file": "server/src/services/chat-channels/interactions/callbacks.ts",
+      "line": 1429
+    },
+    {
+      "key": "server/src/services/chat-control-recovery-stop.ts::readChatControlRecoveryStop",
+      "note": "complexity=110",
+      "file": "server/src/services/chat-control-recovery-stop.ts",
+      "line": 175
+    },
+    {
+      "key": "server/src/services/chat-interaction-publications.ts::enqueueIssueInteractionChatPublications",
+      "note": "complexity=113",
+      "file": "server/src/services/chat-interaction-publications.ts",
+      "line": 251
+    },
+    {
+      "key": "server/src/services/company-portability.ts::buildManifestFromPackageFiles",
+      "note": "complexity=136",
+      "file": "server/src/services/company-portability.ts",
+      "line": 3105
+    },
+    {
+      "key": "server/src/services/company-portability.ts::buildPreview",
+      "note": "complexity=109",
+      "file": "server/src/services/company-portability.ts",
+      "line": 4871
+    },
+    {
+      "key": "server/src/services/company-portability.ts::exportBundle",
+      "note": "complexity=282",
+      "file": "server/src/services/company-portability.ts",
+      "line": 3882
+    },
+    {
+      "key": "server/src/services/company-portability.ts::importBundle",
+      "note": "complexity=370",
+      "file": "server/src/services/company-portability.ts",
+      "line": 5264
+    },
+    {
+      "key": "server/src/services/connection-intents.ts::search",
+      "note": "complexity=109",
+      "file": "server/src/services/connection-intents.ts",
+      "line": 456
+    },
+    {
+      "key": "server/src/services/connection-management.ts::prepareAuthorization",
+      "note": "complexity=135",
+      "file": "server/src/services/connection-management.ts",
+      "line": 61
+    },
+    {
+      "key": "server/src/services/connectors/slack.ts::executeSlackTool",
+      "note": "complexity=82",
+      "file": "server/src/services/connectors/slack.ts",
+      "line": 134
+    },
+    {
+      "key": "server/src/services/customer-success-inspection.ts::<anonymous>",
+      "note": "complexity=101",
+      "file": "server/src/services/customer-success-inspection.ts",
+      "line": 150
+    },
+    {
+      "key": "server/src/services/environment-probe.ts::probeEnvironment",
+      "note": "complexity=81",
+      "file": "server/src/services/environment-probe.ts",
+      "line": 71
+    },
+    {
+      "key": "server/src/services/environment-run-orchestrator.ts::realizeForRun",
+      "note": "complexity=87",
+      "file": "server/src/services/environment-run-orchestrator.ts",
+      "line": 458
+    },
+    {
+      "key": "server/src/services/environment-runtime.ts::acquireRunLease",
+      "note": "complexity=148",
+      "file": "server/src/services/environment-runtime.ts",
+      "line": 1612
+    },
+    {
+      "key": "server/src/services/environment-task-runtime.ts::executeEnvironmentTask",
+      "note": "complexity=330",
+      "file": "server/src/services/environment-task-runtime.ts",
+      "line": 51
+    },
+    {
+      "key": "server/src/services/execution-blocker.ts::getExecutionBlocker",
+      "note": "complexity=90",
+      "file": "server/src/services/execution-blocker.ts",
+      "line": 227
+    },
+    {
+      "key": "server/src/services/execution-continuation.ts::buildExecutionContinuation",
+      "note": "complexity=140",
+      "file": "server/src/services/execution-continuation.ts",
+      "line": 195
+    },
+    {
+      "key": "server/src/services/execution-projection.ts::projectExecution",
+      "note": "complexity=93",
+      "file": "server/src/services/execution-projection.ts",
+      "line": 270
+    },
+    {
+      "key": "server/src/services/execution-workspaces.ts::sweepTerminalWorkspaces",
+      "note": "complexity=236",
+      "file": "server/src/services/execution-workspaces.ts",
+      "line": 3503
+    },
+    {
+      "key": "server/src/services/explicit-native-continuation.ts::admitExplicitNativeContinuation",
+      "note": "complexity=343",
+      "file": "server/src/services/explicit-native-continuation.ts",
+      "line": 134
+    },
+    {
+      "key": "server/src/services/github-skill-source.ts::scanRepository",
+      "note": "complexity=115",
+      "file": "server/src/services/github-skill-source.ts",
+      "line": 65
+    },
+    {
+      "key": "server/src/services/heartbeat.ts::executeRunAttempt",
+      "note": "complexity=455",
+      "file": "server/src/services/heartbeat.ts",
+      "line": 1887
+    },
+    {
+      "key": "server/src/services/heartbeat/environment-selection.ts::selectHeartbeatEnvironment",
+      "note": "complexity=152",
+      "file": "server/src/services/heartbeat/environment-selection.ts",
+      "line": 87
+    },
+    {
+      "key": "server/src/services/heartbeat/execution-configuration.ts::prepareHeartbeatExecutionConfiguration",
+      "note": "complexity=91",
+      "file": "server/src/services/heartbeat/execution-configuration.ts",
+      "line": 95
+    },
+    {
+      "key": "server/src/services/heartbeat/idle-quota-schedule.ts::readIdleQuotaSchedule",
+      "note": "complexity=84",
+      "file": "server/src/services/heartbeat/idle-quota-schedule.ts",
+      "line": 11
+    },
+    {
+      "key": "server/src/services/heartbeat/idle-retry-schedule.ts::readIdleRetrySchedule",
+      "note": "complexity=155",
+      "file": "server/src/services/heartbeat/idle-retry-schedule.ts",
+      "line": 18
+    },
+    {
+      "key": "server/src/services/heartbeat/queue.ts::<anonymous>",
+      "note": "complexity=364",
+      "file": "server/src/services/heartbeat/queue.ts",
+      "line": 3031
+    },
+    {
+      "key": "server/src/services/heartbeat/queue.ts::claimQueuedRun",
+      "note": "complexity=82",
+      "file": "server/src/services/heartbeat/queue.ts",
+      "line": 817
+    },
+    {
+      "key": "server/src/services/heartbeat/queue.ts::enqueueWakeup",
+      "note": "complexity=239",
+      "file": "server/src/services/heartbeat/queue.ts",
+      "line": 2287
+    },
+    {
+      "key": "server/src/services/heartbeat/recovery.ts::recoverActiveExecutions",
+      "note": "complexity=168",
+      "file": "server/src/services/heartbeat/recovery.ts",
+      "line": 2334
+    },
+    {
+      "key": "server/src/services/heartbeat/retries.ts::scheduleBoundedRetryForRun",
+      "note": "complexity=89",
+      "file": "server/src/services/heartbeat/retries.ts",
+      "line": 435
+    },
+    {
+      "key": "server/src/services/heartbeat/run-completion.ts::completeRun",
+      "note": "complexity=141",
+      "file": "server/src/services/heartbeat/run-completion.ts",
+      "line": 417
+    },
+    {
+      "key": "server/src/services/heartbeat/run-completion.ts::failRunSetup",
+      "note": "complexity=112",
+      "file": "server/src/services/heartbeat/run-completion.ts",
+      "line": 1352
+    },
+    {
+      "key": "server/src/services/heartbeat/run-preparation.ts::buildPaperclipWakePayload",
+      "note": "complexity=137",
+      "file": "server/src/services/heartbeat/run-preparation.ts",
+      "line": 2283
+    },
+    {
+      "key": "server/src/services/heartbeat/run-preparation.ts::resolveExecutionRunAdapterConfig",
+      "note": "complexity=96",
+      "file": "server/src/services/heartbeat/run-preparation.ts",
+      "line": 314
+    },
+    {
+      "key": "server/src/services/heartbeat/runtime-execution.ts::executeHeartbeatRuntime",
+      "note": "complexity=127",
+      "file": "server/src/services/heartbeat/runtime-execution.ts",
+      "line": 242
+    },
+    {
+      "key": "server/src/services/heartbeat/runtime-selection.ts::selectHeartbeatRuntime",
+      "note": "complexity=150",
+      "file": "server/src/services/heartbeat/runtime-selection.ts",
+      "line": 293
+    },
+    {
+      "key": "server/src/services/heartbeat/task-context.ts::prepareHeartbeatTaskContext",
+      "note": "complexity=87",
+      "file": "server/src/services/heartbeat/task-context.ts",
+      "line": 53
+    },
+    {
+      "key": "server/src/services/heartbeat/task-markdown.ts::buildPaperclipTaskMarkdown",
+      "note": "complexity=86",
+      "file": "server/src/services/heartbeat/task-markdown.ts",
+      "line": 8
+    },
+    {
+      "key": "server/src/services/heartbeat/workspace-preparation.ts::prepareHeartbeatWorkspaceLocked",
+      "note": "complexity=330",
+      "file": "server/src/services/heartbeat/workspace-preparation.ts",
+      "line": 199
+    },
+    {
+      "key": "server/src/services/idle-issue-schedule.ts::readIdleIssueSchedule",
+      "note": "complexity=86",
+      "file": "server/src/services/idle-issue-schedule.ts",
+      "line": 19
+    },
+    {
+      "key": "server/src/services/issue-execution-policy.ts::applyIssueExecutionStageTransition",
+      "note": "complexity=110",
+      "file": "server/src/services/issue-execution-policy.ts",
+      "line": 660
+    },
+    {
+      "key": "server/src/services/issues.ts::addComment",
+      "note": "complexity=149",
+      "file": "server/src/services/issues.ts",
+      "line": 13140
+    },
+    {
+      "key": "server/src/services/issues.ts::list",
+      "note": "complexity=81",
+      "file": "server/src/services/issues.ts",
+      "line": 8226
+    },
+    {
+      "key": "server/src/services/issues.ts::persist",
+      "note": "complexity=169",
+      "file": "server/src/services/issues.ts",
+      "line": 10257
+    },
+    {
+      "key": "server/src/services/issues.ts::readIssueBlockerAttentionBatch",
+      "note": "complexity=104",
+      "file": "server/src/services/issues.ts",
+      "line": 3827
+    },
+    {
+      "key": "server/src/services/issues.ts::resolveChatOriginPublicationBindings",
+      "note": "complexity=89",
+      "file": "server/src/services/issues.ts",
+      "line": 1141
+    },
+    {
+      "key": "server/src/services/issues.ts::runUpdate",
+      "note": "complexity=233",
+      "file": "server/src/services/issues.ts",
+      "line": 11564
+    },
+    {
+      "key": "server/src/services/issues.ts::update",
+      "note": "complexity=118",
+      "file": "server/src/services/issues.ts",
+      "line": 11206
+    },
+    {
+      "key": "server/src/services/native-runtime/external-chat-question-response.ts::resolveQuestionResponseChain",
+      "note": "complexity=237",
+      "file": "server/src/services/native-runtime/external-chat-question-response.ts",
+      "line": 208
+    },
+    {
+      "key": "server/src/services/native-runtime/native-completion-feedback.ts::nativeCompletionFeedback",
+      "note": "complexity=116",
+      "file": "server/src/services/native-runtime/native-completion-feedback.ts",
+      "line": 47
+    },
+    {
+      "key": "server/src/services/native-runtime/native-execution-input.ts::buildNativeExecutionInput",
+      "note": "complexity=95",
+      "file": "server/src/services/native-runtime/native-execution-input.ts",
+      "line": 147
+    },
+    {
+      "key": "server/src/services/native-runtime/native-failed-workspace-recovery.ts::<anonymous>",
+      "note": "complexity=86",
+      "file": "server/src/services/native-runtime/native-failed-workspace-recovery.ts",
+      "line": 86
+    },
+    {
+      "key": "server/src/services/native-runtime/native-interaction-bridge.ts::materializeNativeInteractionResponses",
+      "note": "complexity=94",
+      "file": "server/src/services/native-runtime/native-interaction-bridge.ts",
+      "line": 169
+    },
+    {
+      "key": "server/src/services/native-runtime/native-plan-wait.ts::planWaitFromFacts",
+      "note": "complexity=125",
+      "file": "server/src/services/native-runtime/native-plan-wait.ts",
+      "line": 66
+    },
+    {
+      "key": "server/src/services/native-runtime/native-restart-recovery.ts::<anonymous>",
+      "note": "complexity=304",
+      "file": "server/src/services/native-runtime/native-restart-recovery.ts",
+      "line": 988
+    },
+    {
+      "key": "server/src/services/native-runtime/native-run-finalizer.ts::<anonymous>",
+      "note": "complexity=86",
+      "file": "server/src/services/native-runtime/native-run-finalizer.ts",
+      "line": 330
+    },
+    {
+      "key": "server/src/services/native-runtime/native-run-finalizer.ts::finalizeNativeRun",
+      "note": "complexity=199",
+      "file": "server/src/services/native-runtime/native-run-finalizer.ts",
+      "line": 1235
+    },
+    {
+      "key": "server/src/services/native-runtime/native-session-executor.ts::<anonymous>",
+      "note": "complexity=94",
+      "file": "server/src/services/native-runtime/native-session-executor.ts",
+      "line": 11788
+    },
+    {
+      "key": "server/src/services/native-runtime/native-session-executor.ts::createRunnerdBackendWithinSessionClaim",
+      "note": "complexity=293",
+      "file": "server/src/services/native-runtime/native-session-executor.ts",
+      "line": 14461
+    },
+    {
+      "key": "server/src/services/native-runtime/native-session-executor.ts::executePaperclipNativeSessionAttempt",
+      "note": "complexity=372",
+      "file": "server/src/services/native-runtime/native-session-executor.ts",
+      "line": 9612
+    },
+    {
+      "key": "server/src/services/native-runtime/native-session-executor.ts::migrateRunnerdStateRootForExecution",
+      "note": "complexity=84",
+      "file": "server/src/services/native-runtime/native-session-executor.ts",
+      "line": 5721
+    },
+    {
+      "key": "server/src/services/native-runtime/native-session-executor.ts::verifyStoppedNativeSessionForContinuation",
+      "note": "complexity=122",
+      "file": "server/src/services/native-runtime/native-session-executor.ts",
+      "line": 3142
+    },
+    {
+      "key": "server/src/services/native-runtime/native-session-executor.ts::verifyStoppedNativeSessionForReplacement",
+      "note": "complexity=96",
+      "file": "server/src/services/native-runtime/native-session-executor.ts",
+      "line": 3309
+    },
+    {
+      "key": "server/src/services/native-runtime/native-status-reassessment.ts::reassessNativeStatusFromSource",
+      "note": "complexity=82",
+      "file": "server/src/services/native-runtime/native-status-reassessment.ts",
+      "line": 69
+    },
+    {
+      "key": "server/src/services/native-runtime/paperclip-runner-tool-authority.ts::execute",
+      "note": "complexity=182",
+      "file": "server/src/services/native-runtime/paperclip-runner-tool-authority.ts",
+      "line": 582
+    },
+    {
+      "key": "server/src/services/native-runtime/runner-api-client.ts::executeRunnerApi",
+      "note": "complexity=113",
+      "file": "server/src/services/native-runtime/runner-api-client.ts",
+      "line": 152
+    },
+    {
+      "key": "server/src/services/native-runtime/status-arbiter.ts::arbitrateNativeStatus",
+      "note": "complexity=113",
+      "file": "server/src/services/native-runtime/status-arbiter.ts",
+      "line": 123
+    },
+    {
+      "key": "server/src/services/native-runtime/status-decision-committer.ts::<anonymous>",
+      "note": "complexity=257",
+      "file": "server/src/services/native-runtime/status-decision-committer.ts",
+      "line": 1658
+    },
+    {
+      "key": "server/src/services/online-legacy-workspace-recovery.ts::inspectOnlineLegacyWorkspaceRecoveryHold",
+      "note": "complexity=85",
+      "file": "server/src/services/online-legacy-workspace-recovery.ts",
+      "line": 144
+    },
+    {
+      "key": "server/src/services/online-workspace-source.ts::inspectOnlineWorkspaceSource",
+      "note": "complexity=108",
+      "file": "server/src/services/online-workspace-source.ts",
+      "line": 65
+    },
+    {
+      "key": "server/src/services/question-response-delivery.ts::deliver",
+      "note": "complexity=91",
+      "file": "server/src/services/question-response-delivery.ts",
+      "line": 763
+    },
+    {
+      "key": "server/src/services/recovery/service.ts::reconcileStrandedAssignedIssues",
+      "note": "complexity=208",
+      "file": "server/src/services/recovery/service.ts",
+      "line": 4509
+    },
+    {
+      "key": "server/src/services/remote-workspace-migration.ts::inspect",
+      "note": "complexity=142",
+      "file": "server/src/services/remote-workspace-migration.ts",
+      "line": 90
+    },
+    {
+      "key": "server/src/services/remote-workspace-snapshot-archive.ts::workspaceArchive",
+      "note": "complexity=109",
+      "file": "server/src/services/remote-workspace-snapshot-archive.ts",
+      "line": 5
+    },
+    {
+      "key": "server/src/services/run-cost-accounting.ts::<anonymous>",
+      "note": "complexity=108",
+      "file": "server/src/services/run-cost-accounting.ts",
+      "line": 230
+    },
+    {
+      "key": "server/src/services/run-evidence-migration.ts::migrateRunEvidence",
+      "note": "complexity=121",
+      "file": "server/src/services/run-evidence-migration.ts",
+      "line": 41
+    },
+    {
+      "key": "server/src/services/run-failure-diagnostics.ts::collectRunFailureDiagnostics",
+      "note": "complexity=105",
+      "file": "server/src/services/run-failure-diagnostics.ts",
+      "line": 212
+    },
+    {
+      "key": "server/src/services/task-interruption-presentation.ts::projectTaskInterruption",
+      "note": "complexity=110",
+      "file": "server/src/services/task-interruption-presentation.ts",
+      "line": 153
+    },
+    {
+      "key": "server/src/services/task-retry.ts::<anonymous>",
+      "note": "complexity=99",
+      "file": "server/src/services/task-retry.ts",
+      "line": 258
+    },
+    {
+      "key": "server/src/services/tool-access-policy.ts::loadContext",
+      "note": "complexity=81",
+      "file": "server/src/services/tool-access-policy.ts",
+      "line": 1010
+    },
+    {
+      "key": "server/src/services/tool-access.ts::connectGalleryApp",
+      "note": "complexity=336",
+      "file": "server/src/services/tool-access.ts",
+      "line": 1611
+    },
+    {
+      "key": "server/src/services/tool-access/catalog/publication.ts::refreshCatalog",
+      "note": "complexity=82",
+      "file": "server/src/services/tool-access/catalog/publication.ts",
+      "line": 50
+    },
+    {
+      "key": "server/src/services/tool-access/oauth/authorization-start.ts::startOAuth",
+      "note": "complexity=108",
+      "file": "server/src/services/tool-access/oauth/authorization-start.ts",
+      "line": 42
+    },
+    {
+      "key": "server/src/services/tool-gateway.ts::executeRemoteHttpTool",
+      "note": "complexity=84",
+      "file": "server/src/services/tool-gateway.ts",
+      "line": 6199
+    },
+    {
+      "key": "server/src/services/tool-gateway.ts::executeTool",
+      "note": "complexity=201",
+      "file": "server/src/services/tool-gateway.ts",
+      "line": 10339
+    },
+    {
+      "key": "server/src/services/usage-receipts.ts::persistUsageReceiptInTransaction",
+      "note": "complexity=100",
+      "file": "server/src/services/usage-receipts.ts",
+      "line": 102
+    },
+    {
+      "key": "server/src/services/usage-receipts.ts::reconcileLateRunUsageReceiptInTransaction",
+      "note": "complexity=85",
+      "file": "server/src/services/usage-receipts.ts",
+      "line": 296
+    },
+    {
+      "key": "server/src/services/workspace-recovery-source.ts::inspectWorkspaceRecoverySource",
+      "note": "complexity=135",
+      "file": "server/src/services/workspace-recovery-source.ts",
+      "line": 76
+    },
+    {
+      "key": "server/src/services/workspace-runtime.ts::ensurePersistedExecutionWorkspaceAvailable",
+      "note": "complexity=92",
+      "file": "server/src/services/workspace-runtime.ts",
+      "line": 3903
+    },
+    {
+      "key": "server/src/services/workspace-runtime.ts::reconstructRuntimeServices",
+      "note": "complexity=90",
+      "file": "server/src/services/workspace-runtime.ts",
+      "line": 8748
+    },
+    {
+      "key": "server/src/services/workspace-runtime.ts::spawnLocalRuntimeService",
+      "note": "complexity=108",
+      "file": "server/src/services/workspace-runtime.ts",
+      "line": 6305
+    },
+    {
+      "key": "tests/e2e/chat-adapters-ui.shared.ts::<anonymous>",
+      "note": "complexity=131",
+      "file": "tests/e2e/chat-adapters-ui.shared.ts",
+      "line": 445
+    },
+    {
+      "key": "tests/restart-chaos/main.ts::main",
+      "note": "complexity=127",
+      "file": "tests/restart-chaos/main.ts",
+      "line": 146
+    },
+    {
+      "key": "tests/runner-e2e/anthropic-billing-comparison.ts::compareAnthropicBilling",
+      "note": "complexity=88",
+      "file": "tests/runner-e2e/anthropic-billing-comparison.ts",
+      "line": 77
+    },
+    {
+      "key": "tests/runner-e2e/antigravity-journey-evidence.ts::gradeAntigravityJourneyTurn",
+      "note": "complexity=140",
+      "file": "tests/runner-e2e/antigravity-journey-evidence.ts",
+      "line": 74
+    },
+    {
+      "key": "tests/runner-e2e/antigravity-journey-fixtures.ts::cleanupAntigravityJourney",
+      "note": "complexity=131",
+      "file": "tests/runner-e2e/antigravity-journey-fixtures.ts",
+      "line": 186
+    },
+    {
+      "key": "tests/runner-e2e/antigravity-journey-fixtures.ts::parseAntigravityOwnedResources",
+      "note": "complexity=87",
+      "file": "tests/runner-e2e/antigravity-journey-fixtures.ts",
+      "line": 147
+    },
+    {
+      "key": "tests/runner-e2e/case-receipt-scoring.ts::gradeCaseReceipt",
+      "note": "complexity=160",
+      "file": "tests/runner-e2e/case-receipt-scoring.ts",
+      "line": 158
+    },
+    {
+      "key": "tests/runner-e2e/chat-completion-proof.ts::verifyChatCompletion",
+      "note": "complexity=97",
+      "file": "tests/runner-e2e/chat-completion-proof.ts",
+      "line": 44
+    },
+    {
+      "key": "tests/runner-e2e/chat-flow.ts::runChatFlow",
+      "note": "complexity=82",
+      "file": "tests/runner-e2e/chat-flow.ts",
+      "line": 403
+    },
+    {
+      "key": "tests/runner-e2e/copilot-context-evidence.ts::readSemanticBootstrap",
+      "note": "complexity=124",
+      "file": "tests/runner-e2e/copilot-context-evidence.ts",
+      "line": 52
+    },
+    {
+      "key": "tests/runner-e2e/copilot-protection-cases.ts::gradeCopilotDeniedWrite",
+      "note": "complexity=82",
+      "file": "tests/runner-e2e/copilot-protection-cases.ts",
+      "line": 82
+    },
+    {
+      "key": "tests/runner-e2e/copilot-protection-flow.ts::runCopilotProtectionFlow",
+      "note": "complexity=87",
+      "file": "tests/runner-e2e/copilot-protection-flow.ts",
+      "line": 113
+    },
+    {
+      "key": "tests/runner-e2e/copilot-semantic-evidence.ts::readCopilotSemanticCompletion",
+      "note": "complexity=87",
+      "file": "tests/runner-e2e/copilot-semantic-evidence.ts",
+      "line": 23
+    },
+    {
+      "key": "tests/runner-e2e/cost-ledger.ts::validate",
+      "note": "complexity=82",
+      "file": "tests/runner-e2e/cost-ledger.ts",
+      "line": 136
+    },
+    {
+      "key": "tests/runner-e2e/cursor-native-flow.ts::runCursorNativeFlow",
+      "note": "complexity=98",
+      "file": "tests/runner-e2e/cursor-native-flow.ts",
+      "line": 95
+    },
+    {
+      "key": "tests/runner-e2e/dashboard.ts::renderCase",
+      "note": "complexity=95",
+      "file": "tests/runner-e2e/dashboard.ts",
+      "line": 131
+    },
+    {
+      "key": "tests/runner-e2e/everyday-flow.ts::runEverydayFlow",
+      "note": "complexity=247",
+      "file": "tests/runner-e2e/everyday-flow.ts",
+      "line": 157
+    },
+    {
+      "key": "tests/runner-e2e/first-task-scoring.ts::gradeFirstTask",
+      "note": "complexity=108",
+      "file": "tests/runner-e2e/first-task-scoring.ts",
+      "line": 208
+    },
+    {
+      "key": "tests/runner-e2e/github-review-launch.ts::<anonymous>",
+      "note": "complexity=100",
+      "file": "tests/runner-e2e/github-review-launch.ts",
+      "line": 25
+    },
+    {
+      "key": "tests/runner-e2e/hiring-template-turn-accounting.ts::gradeHiringCompletionActions",
+      "note": "complexity=94",
+      "file": "tests/runner-e2e/hiring-template-turn-accounting.ts",
+      "line": 85
+    },
+    {
+      "key": "tests/runner-e2e/kimi-context-checkpoint.ts::projectKimiContextCheckpoint",
+      "note": "complexity=116",
+      "file": "tests/runner-e2e/kimi-context-checkpoint.ts",
+      "line": 26
+    },
+    {
+      "key": "tests/runner-e2e/kimi-lifecycle-evidence.ts::origin",
+      "note": "complexity=98",
+      "file": "tests/runner-e2e/kimi-lifecycle-evidence.ts",
+      "line": 25
+    },
+    {
+      "key": "tests/runner-e2e/launch.ts::runAttempt",
+      "note": "complexity=113",
+      "file": "tests/runner-e2e/launch.ts",
+      "line": 459
+    },
+    {
+      "key": "tests/runner-e2e/non-execution-wake.ts::verifyChatAdmissionWaitCoverage",
+      "note": "complexity=92",
+      "file": "tests/runner-e2e/non-execution-wake.ts",
+      "line": 99
+    },
+    {
+      "key": "tests/runner-e2e/product-journeys/agent-settings-evidence.ts::gradeAgentSettings",
+      "note": "complexity=95",
+      "file": "tests/runner-e2e/product-journeys/agent-settings-evidence.ts",
+      "line": 75
+    },
+    {
+      "key": "tests/runner-e2e/product-journeys/chat-continuity-evidence.ts::gradeChatContinuity",
+      "note": "complexity=112",
+      "file": "tests/runner-e2e/product-journeys/chat-continuity-evidence.ts",
+      "line": 72
+    },
+    {
+      "key": "tests/runner-e2e/product-journeys/launch.ts::launchProductJourneys",
+      "note": "complexity=125",
+      "file": "tests/runner-e2e/product-journeys/launch.ts",
+      "line": 82
+    },
+    {
+      "key": "tests/runner-e2e/product-journeys/onboarding-first-task.ts::onboardingFirstTask",
+      "note": "complexity=113",
+      "file": "tests/runner-e2e/product-journeys/onboarding-first-task.ts",
+      "line": 65
+    },
+    {
+      "key": "tests/runner-e2e/product-journeys/task-dependency-resume-evidence.ts::gradeTaskDependencyResume",
+      "note": "complexity=134",
+      "file": "tests/runner-e2e/product-journeys/task-dependency-resume-evidence.ts",
+      "line": 51
+    },
+    {
+      "key": "tests/runner-e2e/result-validation.ts::validateRetainedRunnerResult",
+      "note": "complexity=81",
+      "file": "tests/runner-e2e/result-validation.ts",
+      "line": 418
+    },
+    {
+      "key": "ui/src/adapters/codex-local/config-fields.tsx::CodexLocalConfigFields",
+      "note": "complexity=140",
+      "file": "ui/src/adapters/codex-local/config-fields.tsx",
+      "line": 71
+    },
+    {
+      "key": "ui/src/components/AgentConfigForm.tsx::AgentConfigForm",
+      "note": "complexity=454",
+      "file": "ui/src/components/AgentConfigForm.tsx",
+      "line": 358
+    },
+    {
+      "key": "ui/src/components/issue-properties/IssueProperties.tsx::IssueProperties",
+      "note": "complexity=447",
+      "file": "ui/src/components/issue-properties/IssueProperties.tsx",
+      "line": 243
+    },
+    {
+      "key": "ui/src/components/IssuesList.tsx::StreamlinedIssuesList",
+      "note": "complexity=138",
+      "file": "ui/src/components/IssuesList.tsx",
+      "line": 712
+    },
+    {
+      "key": "ui/src/components/new-agent/AgentProviderConnection.tsx::AgentProviderConnection",
+      "note": "complexity=135",
+      "file": "ui/src/components/new-agent/AgentProviderConnection.tsx",
+      "line": 38
+    },
+    {
+      "key": "ui/src/components/new-agent/NewAgentSetup.tsx::Setup",
+      "note": "complexity=368",
+      "file": "ui/src/components/new-agent/NewAgentSetup.tsx",
+      "line": 115
+    },
+    {
+      "key": "ui/src/components/OnboardingWizard.tsx::OnboardingWizardInner",
+      "note": "complexity=419",
+      "file": "ui/src/components/OnboardingWizard.tsx",
+      "line": 438
+    },
+    {
+      "key": "ui/src/components/task-chat/TaskChatComposer.tsx::TaskChatComposer",
+      "note": "complexity=167",
+      "file": "ui/src/components/task-chat/TaskChatComposer.tsx",
+      "line": 390
+    },
+    {
+      "key": "ui/src/components/task-chat/transcript-adapter.ts::transcriptToTaskChatItems",
+      "note": "complexity=152",
+      "file": "ui/src/components/task-chat/transcript-adapter.ts",
+      "line": 748
+    },
+    {
+      "key": "ui/src/components/TaskChatThread.tsx::<anonymous>",
+      "note": "complexity=276",
+      "file": "ui/src/components/TaskChatThread.tsx",
+      "line": 1616
+    },
+    {
+      "key": "ui/src/components/TaskChatThread.tsx::TaskChatThread",
+      "note": "complexity=331",
+      "file": "ui/src/components/TaskChatThread.tsx",
+      "line": 515
+    },
+    {
+      "key": "ui/src/components/transcript/native-run-events.ts::nativeRunEventsToTranscript",
+      "note": "complexity=220",
+      "file": "ui/src/components/transcript/native-run-events.ts",
+      "line": 818
+    },
+    {
+      "key": "ui/src/context/LiveUpdatesProvider.tsx::invalidateActivityQueries",
+      "note": "complexity=138",
+      "file": "ui/src/context/LiveUpdatesProvider.tsx",
+      "line": 1496
+    },
+    {
+      "key": "ui/src/features/connections/ConnectionIntentInteractionBody.tsx::ConnectionIntentInteractionBody",
+      "note": "complexity=123",
+      "file": "ui/src/features/connections/ConnectionIntentInteractionBody.tsx",
+      "line": 49
+    },
+    {
+      "key": "ui/src/features/connections/ConnectionSetupFlow.tsx::StandardConnectionSetupFlow",
+      "note": "complexity=351",
+      "file": "ui/src/features/connections/ConnectionSetupFlow.tsx",
+      "line": 642
+    },
+    {
+      "key": "ui/src/pages/AgentDetail.tsx::AgentDetail",
+      "note": "complexity=151",
+      "file": "ui/src/pages/AgentDetail.tsx",
+      "line": 354
+    },
+    {
+      "key": "ui/src/pages/AgentDetail.tsx::PromptsTab",
+      "note": "complexity=125",
+      "file": "ui/src/pages/AgentDetail.tsx",
+      "line": 1856
+    },
+    {
+      "key": "ui/src/pages/apps/AppDetail.tsx::StandardAppDetail",
+      "note": "complexity=144",
+      "file": "ui/src/pages/apps/AppDetail.tsx",
+      "line": 97
+    },
+    {
+      "key": "ui/src/pages/apps/chat/ChatEndpointSetup.tsx::ChatSdkEndpointSetup",
+      "note": "complexity=125",
+      "file": "ui/src/pages/apps/chat/ChatEndpointSetup.tsx",
+      "line": 181
+    },
+    {
+      "key": "ui/src/pages/apps/chat/ChatEndpointSetup.tsx::ProviderConnectStep",
+      "note": "complexity=167",
+      "file": "ui/src/pages/apps/chat/ChatEndpointSetup.tsx",
+      "line": 720
+    },
+    {
+      "key": "ui/src/pages/apps/chat/EmailEndpointSetup.tsx::EmailEndpointSetupForm",
+      "note": "complexity=161",
+      "file": "ui/src/pages/apps/chat/EmailEndpointSetup.tsx",
+      "line": 94
+    },
+    {
+      "key": "ui/src/pages/CompanyEnvironments.tsx::CompanyEnvironments",
+      "note": "complexity=164",
+      "file": "ui/src/pages/CompanyEnvironments.tsx",
+      "line": 1305
+    },
+    {
+      "key": "ui/src/pages/CompanySkills.production.tsx::CompanySkills",
+      "note": "complexity=142",
+      "file": "ui/src/pages/CompanySkills.production.tsx",
+      "line": 4025
+    },
+    {
+      "key": "ui/src/pages/CompanySkills.tsx::CompanySkills",
+      "note": "complexity=158",
+      "file": "ui/src/pages/CompanySkills.tsx",
+      "line": 3947
+    },
+    {
+      "key": "ui/src/pages/Costs.tsx::Costs",
+      "note": "complexity=173",
+      "file": "ui/src/pages/Costs.tsx",
+      "line": 173
+    },
+    {
+      "key": "ui/src/pages/ExecutionWorkspaceDetail.tsx::ExecutionWorkspaceDetail",
+      "note": "complexity=121",
+      "file": "ui/src/pages/ExecutionWorkspaceDetail.tsx",
+      "line": 785
+    },
+    {
+      "key": "ui/src/pages/Inbox.tsx::StreamlinedInbox",
+      "note": "complexity=188",
+      "file": "ui/src/pages/Inbox.tsx",
+      "line": 845
+    },
+    {
+      "key": "ui/src/pages/IssueDetail.tsx::TaskDetailSurface",
+      "note": "complexity=521",
+      "file": "ui/src/pages/IssueDetail.tsx",
+      "line": 3198
+    },
+    {
+      "key": "ui/src/pages/Secrets.tsx::Secrets",
+      "note": "complexity=207",
+      "file": "ui/src/pages/Secrets.tsx",
+      "line": 652
+    },
+    {
+      "key": "ui/storybook/fixtures/privateTasks.ts::<anonymous>",
+      "note": "complexity=145",
+      "file": "ui/storybook/fixtures/privateTasks.ts",
+      "line": 411
+    }
+  ]
+}

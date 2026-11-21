@@ -1,0 +1,40 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "oxc", "import", "promise", "node"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "off",
+    "perf": "off",
+    "style": "off",
+    "pedantic": "off",
+    "restriction": "off"
+  },
+  "rules": {
+    "eqeqeq": "error",
+    "no-debugger": "error",
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-var": "error",
+    "prefer-const": "warn",
+    "no-console": "off",
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+    "typescript/no-explicit-any": "off",
+    "import/no-duplicates": "warn",
+    "promise/no-return-wrap": "error"
+  },
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/dist-*/**",
+    "**/node_modules/**",
+    "**/generated/**",
+    "**/storybook-static/**",
+    "**/*.min.js",
+    "packages/db/src/migrations/**",
+    "docs/api/openapi.json"
+  ],
+  "env": {
+    "es2024": true,
+    "node": true,
+    "browser": true
+  }
+}

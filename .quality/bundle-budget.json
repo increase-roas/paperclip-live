@@ -1,0 +1,38 @@
+{
+  "$comment": "Production bundle budgets for every bundled Paperclip surface. Budgets are deliberately generous headroom over the current build; tighten them when a target is consistently smaller. requiredInCi marks the build the readiness workflow produces.",
+  "targets": [
+    {
+      "name": "ui",
+      "distDir": "ui/dist",
+      "requiredInCi": true,
+      "perChunkGzipBytes": 1500000,
+      "perChunkRawBytes": 4500000,
+      "totalGzipBytes": 8000000,
+      "totalRawBytes": 30000000
+    },
+    {
+      "name": "cli",
+      "distDir": "cli/dist",
+      "perChunkGzipBytes": 2000000,
+      "perChunkRawBytes": 8000000,
+      "totalGzipBytes": 2000000,
+      "totalRawBytes": 8000000
+    },
+    {
+      "name": "runner-browser",
+      "distDir": "packages/paperclip-runner/dist-browser",
+      "perChunkGzipBytes": 1500000,
+      "perChunkRawBytes": 4000000,
+      "totalGzipBytes": 8000000,
+      "totalRawBytes": 30000000
+    },
+    {
+      "name": "server-runtime",
+      "distDir": "server/dist-runtime",
+      "perChunkGzipBytes": 2000000,
+      "perChunkRawBytes": 8000000,
+      "totalGzipBytes": 8000000,
+      "totalRawBytes": 30000000
+    }
+  ]
+}

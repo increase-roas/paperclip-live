@@ -1,0 +1,12 @@
+{
+  "$comment": "Feature-flag inventory for scripts/check-dead-feature-flags.mjs. Flags outside this interface are not tracked as experimental settings.",
+  "definitionFile": "packages/shared/src/types/instance.ts",
+  "interfaceName": "InstanceExperimentalSettings",
+  "scanRoots": ["server/src", "ui/src", "cli/src", "packages", "scripts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "generated",
+    "packages/db/src/migrations"
+  ]
+}

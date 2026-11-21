@@ -1,0 +1,17 @@
+{
+  "$comment": "Dependencies that are intentionally declared without a direct import (tooling, platform shims, runtime-injected packages) belong here. Existing unused declarations are in .quality/baselines/unused-dependencies.json.",
+  "ignore": [
+    "@types/node",
+    "typescript",
+    "vitest",
+    "turbo",
+    "cross-env",
+    "esbuild",
+    "oxc-parser",
+    "oxlint",
+    "@vitest/coverage-v8",
+    "yaml",
+    "@playwright/test"
+  ],
+  "ignoreByPackage": {}
+}

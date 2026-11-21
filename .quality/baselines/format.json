@@ -1,0 +1,199 @@
+{
+  "version": 1,
+  "description": "Files that still need normalization. Running `pnpm format` fixes them and makes these entries stale.",
+  "generatedAt": "2026-11-21",
+  "entries": [
+    {
+      "key": "adapter-plugin.md",
+      "file": "adapter-plugin.md"
+    },
+    {
+      "key": "cli/src/checks/storage-check.ts",
+      "file": "cli/src/checks/storage-check.ts"
+    },
+    {
+      "key": "cli/src/commands/allowed-hostname.ts",
+      "file": "cli/src/commands/allowed-hostname.ts"
+    },
+    {
+      "key": "cli/src/config/hostnames.ts",
+      "file": "cli/src/config/hostnames.ts"
+    },
+    {
+      "key": "cli/src/prompts/storage.ts",
+      "file": "cli/src/prompts/storage.ts"
+    },
+    {
+      "key": "doc/plans/2026-02-20-storage-system-implementation.md",
+      "file": "doc/plans/2026-02-20-storage-system-implementation.md"
+    },
+    {
+      "key": "doc/plans/2026-10-16-runner-dead-fixture-test-audit.md",
+      "file": "doc/plans/2026-10-16-runner-dead-fixture-test-audit.md"
+    },
+    {
+      "key": "packages/adapters/pi-local/src/server/execute.ts",
+      "file": "packages/adapters/pi-local/src/server/execute.ts",
+      "line": 314
+    },
+    {
+      "key": "packages/adapters/pi-local/src/server/models.ts",
+      "file": "packages/adapters/pi-local/src/server/models.ts",
+      "line": 19
+    },
+    {
+      "key": "packages/adapters/pi-local/src/server/test.ts",
+      "file": "packages/adapters/pi-local/src/server/test.ts",
+      "line": 246
+    },
+    {
+      "key": "packages/adapters/pi-local/src/ui/build-config.ts",
+      "file": "packages/adapters/pi-local/src/ui/build-config.ts",
+      "line": 17
+    },
+    {
+      "key": "packages/adapters/pi-local/src/ui/parse-stdout.ts",
+      "file": "packages/adapters/pi-local/src/ui/parse-stdout.ts",
+      "line": 23
+    },
+    {
+      "key": "packages/db/src/schema/agent_runtime_state.ts",
+      "file": "packages/db/src/schema/agent_runtime_state.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/src/drivers/acpx/config-admission.ts",
+      "file": "packages/paperclip-runner/src/drivers/acpx/config-admission.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/src/live/runnerd-codex-transport-settlement.test.ts",
+      "file": "packages/paperclip-runner/src/live/runnerd-codex-transport-settlement.test.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/src/tool-file-changes.ts",
+      "file": "packages/paperclip-runner/src/tool-file-changes.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/test-fixtures/governance/codex-0.160-hooks-auto-review.json",
+      "file": "packages/paperclip-runner/test-fixtures/governance/codex-0.160-hooks-auto-review.json"
+    },
+    {
+      "key": "packages/plugins/sandbox-providers/daytona/src/file-sync.ts",
+      "file": "packages/plugins/sandbox-providers/daytona/src/file-sync.ts",
+      "line": 738
+    },
+    {
+      "key": "packages/shared/src/types/asset.ts",
+      "file": "packages/shared/src/types/asset.ts"
+    },
+    {
+      "key": "server/src/__tests__/native-workspace-finalization-work.test.ts",
+      "file": "server/src/__tests__/native-workspace-finalization-work.test.ts",
+      "line": 161
+    },
+    {
+      "key": "server/src/index.ts",
+      "file": "server/src/index.ts",
+      "line": 324
+    },
+    {
+      "key": "server/src/lib/oauth-browser-return.ts",
+      "file": "server/src/lib/oauth-browser-return.ts"
+    },
+    {
+      "key": "server/src/modules/execution-admission/adapters/postgres.ts",
+      "file": "server/src/modules/execution-admission/adapters/postgres.ts"
+    },
+    {
+      "key": "server/src/services/adapter-registry-config.ts",
+      "file": "server/src/services/adapter-registry-config.ts"
+    },
+    {
+      "key": "server/src/services/agent-runner-selection.ts",
+      "file": "server/src/services/agent-runner-selection.ts"
+    },
+    {
+      "key": "server/src/services/assets.ts",
+      "file": "server/src/services/assets.ts"
+    },
+    {
+      "key": "server/src/services/chat-channels/discord/runtime-reconciliation.ts",
+      "file": "server/src/services/chat-channels/discord/runtime-reconciliation.ts"
+    },
+    {
+      "key": "server/src/services/chat-channels/imessage-photon/publications.ts",
+      "file": "server/src/services/chat-channels/imessage-photon/publications.ts"
+    },
+    {
+      "key": "server/src/services/connection-credential-bindings.ts",
+      "file": "server/src/services/connection-credential-bindings.ts"
+    },
+    {
+      "key": "server/src/services/git-repository-excludes.ts",
+      "file": "server/src/services/git-repository-excludes.ts"
+    },
+    {
+      "key": "server/src/services/managed-environments.test-support.ts",
+      "file": "server/src/services/managed-environments.test-support.ts"
+    },
+    {
+      "key": "server/src/services/native-runtime/refused-task-retry.live.test.ts",
+      "file": "server/src/services/native-runtime/refused-task-retry.live.test.ts",
+      "line": 45
+    },
+    {
+      "key": "server/src/services/tool-access/github-access-discovery.ts",
+      "file": "server/src/services/tool-access/github-access-discovery.ts"
+    },
+    {
+      "key": "tests/restart-chaos/fixtures/rc30-terminal-then-k2.json",
+      "file": "tests/restart-chaos/fixtures/rc30-terminal-then-k2.json"
+    },
+    {
+      "key": "tests/runner-e2e/braintrust-query.ts",
+      "file": "tests/runner-e2e/braintrust-query.ts"
+    },
+    {
+      "key": "tests/runner-e2e/chat-feature-testops-api.test.mjs",
+      "file": "tests/runner-e2e/chat-feature-testops-api.test.mjs",
+      "line": 29
+    },
+    {
+      "key": "ui/src/components/AgentConfigForm.tsx",
+      "file": "ui/src/components/AgentConfigForm.tsx",
+      "line": 695
+    },
+    {
+      "key": "ui/src/components/RepositoryEditor.tsx",
+      "file": "ui/src/components/RepositoryEditor.tsx"
+    },
+    {
+      "key": "ui/src/fixtures/runTranscriptFixtures.ts",
+      "file": "ui/src/fixtures/runTranscriptFixtures.ts"
+    },
+    {
+      "key": "ui/src/hooks/useStagingCommit.ts",
+      "file": "ui/src/hooks/useStagingCommit.ts"
+    },
+    {
+      "key": "ui/src/lib/account-scope.ts",
+      "file": "ui/src/lib/account-scope.ts"
+    },
+    {
+      "key": "ui/src/pages/PluginManager.tsx",
+      "file": "ui/src/pages/PluginManager.tsx",
+      "line": 214
+    },
+    {
+      "key": "ui/storybook/fixtures/workTimeline.human.sample.json",
+      "file": "ui/storybook/fixtures/workTimeline.human.sample.json"
+    },
+    {
+      "key": "ui/storybook/fixtures/workTimeline.sample.json",
+      "file": "ui/storybook/fixtures/workTimeline.sample.json"
+    },
+    {
+      "key": "ui/storybook/public/project-skills-evidence/index.html",
+      "file": "ui/storybook/public/project-skills-evidence/index.html"
+    }
+  ]
+}

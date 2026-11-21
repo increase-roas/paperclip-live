@@ -30,6 +30,7 @@
     "access": "public"
   },
   "scripts": {
+    "test:coverage": "vitest run --coverage",
     "dev": "tsx src/index.ts",
     "build": "node --input-type=module -e \"import esbuild from 'esbuild'; import config from './esbuild.config.mjs'; await esbuild.build(config);\" && chmod +x dist/index.js",
     "clean": "rm -rf dist",

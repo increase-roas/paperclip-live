@@ -240,6 +240,30 @@ audit log at `BROKER_AUDIT_PATH` records every allow/deny and mutation outcome
 state digests, quarantine/recovery) with lease handles and raw CLI output
 redacted.
 
+## Local QA (no root or Tailscale)
+
+The core lifecycle can be exercised on a laptop with an in-memory Tailscale
+Serve fake, a temporary registry and the in-memory audit sink:
+
+```sh
+pnpm --filter @paperclipai/tailscale-https-broker qa:local
+```
+
+The harness prints the `reserve`, `expose`, `list` and `remove` responses and
+the number of audit records. It exercises the same `BrokerCore` path the socket
+server calls, without requiring a tailnet, operator authority or a host
+install.
+
+For a read-only host probe use `--doctor`; for a machine-readable health probe
+(including circuit and metric snapshots) use `--health`:
+
+```sh
+paperclip-tailscale-https-broker --doctor
+paperclip-tailscale-https-broker --health
+```
+
+Privacy and retention rules are in [docs/privacy.md](docs/privacy.md).
+
 ## Tests
 
 ```sh

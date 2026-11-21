@@ -1,0 +1,303 @@
+{
+  "version": 1,
+  "description": "Modules that were already orphaned when the check was introduced. Delete them or add an explicit reference.",
+  "generatedAt": "2026-11-21",
+  "entries": [
+    {
+      "key": "packages/adapter-utils/src/openrouter-attribution.ts",
+      "file": "packages/adapter-utils/src/openrouter-attribution.ts"
+    },
+    {
+      "key": "packages/adapter-utils/src/workspace-snapshot-thread-worker.ts",
+      "file": "packages/adapter-utils/src/workspace-snapshot-thread-worker.ts"
+    },
+    {
+      "key": "packages/db/src/__fixtures__/postgres-connection-recovery.mjs",
+      "file": "packages/db/src/__fixtures__/postgres-connection-recovery.mjs"
+    },
+    {
+      "key": "packages/db/src/__fixtures__/test-command-tree.mjs",
+      "file": "packages/db/src/__fixtures__/test-command-tree.mjs"
+    },
+    {
+      "key": "packages/db/src/__fixtures__/test-postgres-exit.mjs",
+      "file": "packages/db/src/__fixtures__/test-postgres-exit.mjs"
+    },
+    {
+      "key": "packages/db/src/backup.ts",
+      "file": "packages/db/src/backup.ts"
+    },
+    {
+      "key": "packages/db/src/migration-status.ts",
+      "file": "packages/db/src/migration-status.ts"
+    },
+    {
+      "key": "packages/db/src/test-postgres-command.ts",
+      "file": "packages/db/src/test-postgres-command.ts"
+    },
+    {
+      "key": "packages/google-sheets-mcp-server/src/http-server.ts",
+      "file": "packages/google-sheets-mcp-server/src/http-server.ts"
+    },
+    {
+      "key": "packages/google-sheets-mcp-server/src/stdio.ts",
+      "file": "packages/google-sheets-mcp-server/src/stdio.ts"
+    },
+    {
+      "key": "packages/mcp-server/src/stdio.ts",
+      "file": "packages/mcp-server/src/stdio.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/src/cli/codex-app-server-unix-proxy.ts",
+      "file": "packages/paperclip-runner/src/cli/codex-app-server-unix-proxy.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/src/cli/codex.ts",
+      "file": "packages/paperclip-runner/src/cli/codex.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/src/cli/copilot-metadata-probe.ts",
+      "file": "packages/paperclip-runner/src/cli/copilot-metadata-probe.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/src/cli/live-runner.ts",
+      "file": "packages/paperclip-runner/src/cli/live-runner.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/src/cli/local-runner.ts",
+      "file": "packages/paperclip-runner/src/cli/local-runner.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/src/cli/paperclip-adapter.ts",
+      "file": "packages/paperclip-runner/src/cli/paperclip-adapter.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/src/cli/replay.ts",
+      "file": "packages/paperclip-runner/src/cli/replay.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/src/live/cursor-usage-notice.ts",
+      "file": "packages/paperclip-runner/src/live/cursor-usage-notice.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/src/live/scenario-chat-loopback-proxy.ts",
+      "file": "packages/paperclip-runner/src/live/scenario-chat-loopback-proxy.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/src/test-support/acpx-blocked-output-host.mjs",
+      "file": "packages/paperclip-runner/src/test-support/acpx-blocked-output-host.mjs"
+    },
+    {
+      "key": "packages/paperclip-runner/src/testing.ts",
+      "file": "packages/paperclip-runner/src/testing.ts"
+    },
+    {
+      "key": "packages/paperclip-runner/src/tracer/conformance.ts",
+      "file": "packages/paperclip-runner/src/tracer/conformance.ts"
+    },
+    {
+      "key": "packages/plugins/paperclip-plugin-fake-sandbox/src/worker.ts",
+      "file": "packages/plugins/paperclip-plugin-fake-sandbox/src/worker.ts"
+    },
+    {
+      "key": "packages/shared/src/node-version.ts",
+      "file": "packages/shared/src/node-version.ts"
+    },
+    {
+      "key": "server/src/dev-native-runner-status.ts",
+      "file": "server/src/dev-native-runner-status.ts"
+    },
+    {
+      "key": "server/src/maintenance/agent-files.ts",
+      "file": "server/src/maintenance/agent-files.ts"
+    },
+    {
+      "key": "server/src/maintenance/ephemeral-migration.ts",
+      "file": "server/src/maintenance/ephemeral-migration.ts"
+    },
+    {
+      "key": "server/src/services/agent-avatar-worker.ts",
+      "file": "server/src/services/agent-avatar-worker.ts"
+    },
+    {
+      "key": "server/src/services/native-runtime/__fixtures__/usage-receiver.ts",
+      "file": "server/src/services/native-runtime/__fixtures__/usage-receiver.ts"
+    },
+    {
+      "key": "server/src/services/paperclip-id-gmail-connector.ts",
+      "file": "server/src/services/paperclip-id-gmail-connector.ts"
+    },
+    {
+      "key": "server/src/services/plugin-log-retention.ts",
+      "file": "server/src/services/plugin-log-retention.ts"
+    },
+    {
+      "key": "server/src/services/plugin-runtime-sandbox.ts",
+      "file": "server/src/services/plugin-runtime-sandbox.ts"
+    },
+    {
+      "key": "server/src/services/public-mcp/canonical-host.fixture.ts",
+      "file": "server/src/services/public-mcp/canonical-host.fixture.ts"
+    },
+    {
+      "key": "server/src/services/scripts/adapter-auth-read.cjs",
+      "file": "server/src/services/scripts/adapter-auth-read.cjs"
+    },
+    {
+      "key": "server/src/services/scripts/agent-file-checkpoint.d.mts",
+      "file": "server/src/services/scripts/agent-file-checkpoint.d.mts"
+    },
+    {
+      "key": "ui/src/artifact-directions/shot.cjs",
+      "file": "ui/src/artifact-directions/shot.cjs"
+    },
+    {
+      "key": "ui/src/components/ai-connections/AiConnectionIdentity.tsx",
+      "file": "ui/src/components/ai-connections/AiConnectionIdentity.tsx"
+    },
+    {
+      "key": "ui/src/components/AppConnectionSidebar.production.tsx",
+      "file": "ui/src/components/AppConnectionSidebar.production.tsx"
+    },
+    {
+      "key": "ui/src/components/AppsSidebar.production.tsx",
+      "file": "ui/src/components/AppsSidebar.production.tsx"
+    },
+    {
+      "key": "ui/src/components/ArtifactsPanel.tsx",
+      "file": "ui/src/components/ArtifactsPanel.tsx"
+    },
+    {
+      "key": "ui/src/components/BreadcrumbBar.production.tsx",
+      "file": "ui/src/components/BreadcrumbBar.production.tsx"
+    },
+    {
+      "key": "ui/src/components/CompanySettingsSidebar.production.tsx",
+      "file": "ui/src/components/CompanySettingsSidebar.production.tsx"
+    },
+    {
+      "key": "ui/src/components/coordinator/CoordinatorAttentionTasks.tsx",
+      "file": "ui/src/components/coordinator/CoordinatorAttentionTasks.tsx"
+    },
+    {
+      "key": "ui/src/components/environment-variables-editor/ConvertToSecretPopover.tsx",
+      "file": "ui/src/components/environment-variables-editor/ConvertToSecretPopover.tsx"
+    },
+    {
+      "key": "ui/src/components/Layout.production.tsx",
+      "file": "ui/src/components/Layout.production.tsx"
+    },
+    {
+      "key": "ui/src/components/OnboardingChat.tsx",
+      "file": "ui/src/components/OnboardingChat.tsx"
+    },
+    {
+      "key": "ui/src/components/routine-sections/editable-sections.production.tsx",
+      "file": "ui/src/components/routine-sections/editable-sections.production.tsx"
+    },
+    {
+      "key": "ui/src/components/SecondarySidebar.production.tsx",
+      "file": "ui/src/components/SecondarySidebar.production.tsx"
+    },
+    {
+      "key": "ui/src/components/Sidebar.production.tsx",
+      "file": "ui/src/components/Sidebar.production.tsx"
+    },
+    {
+      "key": "ui/src/components/SidebarAccountMenu.production.tsx",
+      "file": "ui/src/components/SidebarAccountMenu.production.tsx"
+    },
+    {
+      "key": "ui/src/components/SidebarAgents.production.tsx",
+      "file": "ui/src/components/SidebarAgents.production.tsx"
+    },
+    {
+      "key": "ui/src/components/SidebarCompanyMenu.production.tsx",
+      "file": "ui/src/components/SidebarCompanyMenu.production.tsx"
+    },
+    {
+      "key": "ui/src/components/SidebarNavItem.production.tsx",
+      "file": "ui/src/components/SidebarNavItem.production.tsx"
+    },
+    {
+      "key": "ui/src/components/SidebarShell.production.tsx",
+      "file": "ui/src/components/SidebarShell.production.tsx"
+    },
+    {
+      "key": "ui/src/components/SidebarStarredProjects.production.tsx",
+      "file": "ui/src/components/SidebarStarredProjects.production.tsx"
+    },
+    {
+      "key": "ui/src/components/StageSecretsPanel.tsx",
+      "file": "ui/src/components/StageSecretsPanel.tsx"
+    },
+    {
+      "key": "ui/src/hooks/useStandardMarkdownMentionOptions.ts",
+      "file": "ui/src/hooks/useStandardMarkdownMentionOptions.ts"
+    },
+    {
+      "key": "ui/src/lib/built-in-agent-toast.ts",
+      "file": "ui/src/lib/built-in-agent-toast.ts"
+    },
+    {
+      "key": "ui/src/pages/AgentDetail.production.tsx",
+      "file": "ui/src/pages/AgentDetail.production.tsx"
+    },
+    {
+      "key": "ui/src/pages/Agents.production.tsx",
+      "file": "ui/src/pages/Agents.production.tsx"
+    },
+    {
+      "key": "ui/src/pages/apps/app-detail/action-permission-summary.ts",
+      "file": "ui/src/pages/apps/app-detail/action-permission-summary.ts"
+    },
+    {
+      "key": "ui/src/pages/apps/ComposioAppManager.tsx",
+      "file": "ui/src/pages/apps/ComposioAppManager.tsx"
+    },
+    {
+      "key": "ui/src/pages/audit/AuditFeed.production.tsx",
+      "file": "ui/src/pages/audit/AuditFeed.production.tsx"
+    },
+    {
+      "key": "ui/src/pages/audit/CompanyActivity.production.tsx",
+      "file": "ui/src/pages/audit/CompanyActivity.production.tsx"
+    },
+    {
+      "key": "ui/src/pages/CompanySkills.production.tsx",
+      "file": "ui/src/pages/CompanySkills.production.tsx"
+    },
+    {
+      "key": "ui/src/pages/MyIssues.tsx",
+      "file": "ui/src/pages/MyIssues.tsx"
+    },
+    {
+      "key": "ui/src/pages/NewAgent.test-support.tsx",
+      "file": "ui/src/pages/NewAgent.test-support.tsx"
+    },
+    {
+      "key": "ui/src/pages/Org.tsx",
+      "file": "ui/src/pages/Org.tsx"
+    },
+    {
+      "key": "ui/src/pages/OrgChart.production.tsx",
+      "file": "ui/src/pages/OrgChart.production.tsx"
+    },
+    {
+      "key": "ui/src/pages/RoutineDetail.production.tsx",
+      "file": "ui/src/pages/RoutineDetail.production.tsx"
+    },
+    {
+      "key": "ui/src/pages/Routines.production.tsx",
+      "file": "ui/src/pages/Routines.production.tsx"
+    },
+    {
+      "key": "ui/src/pages/TeamCatalog.fixtures.ts",
+      "file": "ui/src/pages/TeamCatalog.fixtures.ts"
+    },
+    {
+      "key": "ui/src/pages/tools/connection-dialogs.tsx",
+      "file": "ui/src/pages/tools/connection-dialogs.tsx"
+    }
+  ]
+}

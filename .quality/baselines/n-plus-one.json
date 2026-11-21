@@ -1,0 +1,3517 @@
+{
+  "version": 1,
+  "description": "Sequential query patterns that predate the check. Batch, join or load them before adding new ones.",
+  "generatedAt": "2026-11-21",
+  "entries": [
+    {
+      "key": "cli/src/commands/worktree.ts::00df6ceb6c1c",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 1385
+    },
+    {
+      "key": "cli/src/commands/worktree.ts::10e9dcd8bab5",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 4031
+    },
+    {
+      "key": "cli/src/commands/worktree.ts::14ea6584bb2d",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 3927
+    },
+    {
+      "key": "cli/src/commands/worktree.ts::2950aa8a1472",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 1336
+    },
+    {
+      "key": "cli/src/commands/worktree.ts::42a0325e8f52",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 3968
+    },
+    {
+      "key": "cli/src/commands/worktree.ts::492a4918e095",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 836
+    },
+    {
+      "key": "cli/src/commands/worktree.ts::4b9b73cfefa6",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 3995
+    },
+    {
+      "key": "cli/src/commands/worktree.ts::5402cc4efc83",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 3985
+    },
+    {
+      "key": "cli/src/commands/worktree.ts::65dbea63f6bc",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 3934
+    },
+    {
+      "key": "cli/src/commands/worktree.ts::702b5a71e9cc",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 1372
+    },
+    {
+      "key": "cli/src/commands/worktree.ts::880dae4a6dbd",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 4084
+    },
+    {
+      "key": "cli/src/commands/worktree.ts::99c7280394d7",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 3906
+    },
+    {
+      "key": "cli/src/commands/worktree.ts::9eb3a6bd1860",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 3846
+    },
+    {
+      "key": "cli/src/commands/worktree.ts::a62a8e8773bd",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 3900
+    },
+    {
+      "key": "cli/src/commands/worktree.ts::ad7a58a0d18a",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 4023
+    },
+    {
+      "key": "cli/src/commands/worktree.ts::b18ff4f08c20",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 3979
+    },
+    {
+      "key": "cli/src/commands/worktree.ts::b30eaeb86b64",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 3953
+    },
+    {
+      "key": "cli/src/commands/worktree.ts::b4b3ec82a71f",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 1352
+    },
+    {
+      "key": "cli/src/commands/worktree.ts::baacf85c3734",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 3789
+    },
+    {
+      "key": "cli/src/commands/worktree.ts::bde113396eaa",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 3768
+    },
+    {
+      "key": "cli/src/commands/worktree.ts::c4102c089021",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 4099
+    },
+    {
+      "key": "cli/src/commands/worktree.ts::cbd7abfaae8f",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 4005
+    },
+    {
+      "key": "cli/src/commands/worktree.ts::e1d063eae173",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 4061
+    },
+    {
+      "key": "cli/src/commands/worktree.ts::f0f57ba2586e",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 1314
+    },
+    {
+      "key": "cli/src/commands/worktree.ts::f76921f6b4c6",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 3946
+    },
+    {
+      "key": "cli/src/commands/worktree.ts::f7a1a0dc40d9",
+      "file": "cli/src/commands/worktree.ts",
+      "line": 1307
+    },
+    {
+      "key": "packages/db/src/backup-lib.ts::9a3640bfe415",
+      "file": "packages/db/src/backup-lib.ts",
+      "line": 1119
+    },
+    {
+      "key": "packages/db/src/work-signals.ts::59f0cbe7b9db",
+      "file": "packages/db/src/work-signals.ts",
+      "line": 130
+    },
+    {
+      "key": "server/src/board-claim.ts::65ab4b4f633f",
+      "file": "server/src/board-claim.ts",
+      "line": 131
+    },
+    {
+      "key": "server/src/board-claim.ts::dc5916173327",
+      "file": "server/src/board-claim.ts",
+      "line": 144
+    },
+    {
+      "key": "server/src/board-claim.ts::dfc118fe5426",
+      "file": "server/src/board-claim.ts",
+      "line": 116
+    },
+    {
+      "key": "server/src/index.ts::519b3a774729",
+      "file": "server/src/index.ts",
+      "line": 485
+    },
+    {
+      "key": "server/src/index.ts::9cdb0f91b37b",
+      "file": "server/src/index.ts",
+      "line": 497
+    },
+    {
+      "key": "server/src/maintenance/online-workspace-migration.ts::f4369ea35db8",
+      "file": "server/src/maintenance/online-workspace-migration.ts",
+      "line": 108
+    },
+    {
+      "key": "server/src/middleware/auth.ts::3321d623f012",
+      "file": "server/src/middleware/auth.ts",
+      "line": 882
+    },
+    {
+      "key": "server/src/modules/agent-lifecycle/adapters/company-policy.ts::ec8bd723f84b",
+      "file": "server/src/modules/agent-lifecycle/adapters/company-policy.ts",
+      "line": 62
+    },
+    {
+      "key": "server/src/modules/agent-lifecycle/adapters/records.ts::e8f87f6d9dfc",
+      "file": "server/src/modules/agent-lifecycle/adapters/records.ts",
+      "line": 112
+    },
+    {
+      "key": "server/src/modules/external-agents/dot.ts::21f79b9316b3",
+      "file": "server/src/modules/external-agents/dot.ts",
+      "line": 179
+    },
+    {
+      "key": "server/src/modules/external-agents/dot.ts::8467e24a61c0",
+      "file": "server/src/modules/external-agents/dot.ts",
+      "line": 366
+    },
+    {
+      "key": "server/src/modules/external-agents/dot.ts::bb7be72da05a",
+      "file": "server/src/modules/external-agents/dot.ts",
+      "line": 180
+    },
+    {
+      "key": "server/src/modules/external-agents/dot.ts::d9c565f58f35",
+      "file": "server/src/modules/external-agents/dot.ts",
+      "line": 182
+    },
+    {
+      "key": "server/src/modules/external-agents/muse.ts::0522dee71d70",
+      "file": "server/src/modules/external-agents/muse.ts",
+      "line": 116
+    },
+    {
+      "key": "server/src/modules/external-agents/muse.ts::39a73a581c3a",
+      "file": "server/src/modules/external-agents/muse.ts",
+      "line": 304
+    },
+    {
+      "key": "server/src/modules/external-agents/muse.ts::59ab8715d83a",
+      "file": "server/src/modules/external-agents/muse.ts",
+      "line": 307
+    },
+    {
+      "key": "server/src/modules/external-agents/muse.ts::5fdea5dacc96",
+      "file": "server/src/modules/external-agents/muse.ts",
+      "line": 113
+    },
+    {
+      "key": "server/src/modules/external-agents/muse.ts::6f0754755872",
+      "file": "server/src/modules/external-agents/muse.ts",
+      "line": 79
+    },
+    {
+      "key": "server/src/modules/external-agents/muse.ts::77b18dac2157",
+      "file": "server/src/modules/external-agents/muse.ts",
+      "line": 115
+    },
+    {
+      "key": "server/src/modules/external-agents/muse.ts::788dde55ceb6",
+      "file": "server/src/modules/external-agents/muse.ts",
+      "line": 114
+    },
+    {
+      "key": "server/src/modules/external-agents/muse.ts::b5c4d25040ed",
+      "file": "server/src/modules/external-agents/muse.ts",
+      "line": 111
+    },
+    {
+      "key": "server/src/modules/external-agents/muse.ts::ba34096df755",
+      "file": "server/src/modules/external-agents/muse.ts",
+      "line": 305
+    },
+    {
+      "key": "server/src/modules/external-agents/native-broker.ts::578a288926fb",
+      "file": "server/src/modules/external-agents/native-broker.ts",
+      "line": 181
+    },
+    {
+      "key": "server/src/modules/external-agents/native-broker.ts::61ce2e2b4434",
+      "file": "server/src/modules/external-agents/native-broker.ts",
+      "line": 181
+    },
+    {
+      "key": "server/src/modules/run-dispatch/adapters/postgres.ts::0a8c6103600f",
+      "file": "server/src/modules/run-dispatch/adapters/postgres.ts",
+      "line": 1013
+    },
+    {
+      "key": "server/src/modules/run-dispatch/adapters/postgres.ts::310ce32188e6",
+      "file": "server/src/modules/run-dispatch/adapters/postgres.ts",
+      "line": 1002
+    },
+    {
+      "key": "server/src/modules/run-dispatch/adapters/postgres.ts::59fed22cacdf",
+      "file": "server/src/modules/run-dispatch/adapters/postgres.ts",
+      "line": 235
+    },
+    {
+      "key": "server/src/modules/wake-queue/adapters/postgres.ts::35927a2ef89b",
+      "file": "server/src/modules/wake-queue/adapters/postgres.ts",
+      "line": 288
+    },
+    {
+      "key": "server/src/modules/wake-queue/adapters/postgres.ts::40044c8281f0",
+      "file": "server/src/modules/wake-queue/adapters/postgres.ts",
+      "line": 828
+    },
+    {
+      "key": "server/src/modules/wake-queue/adapters/postgres.ts::6a296006d801",
+      "file": "server/src/modules/wake-queue/adapters/postgres.ts",
+      "line": 240
+    },
+    {
+      "key": "server/src/routes/access.ts::1821bbdd24d8",
+      "file": "server/src/routes/access.ts",
+      "line": 3076
+    },
+    {
+      "key": "server/src/routes/agents.ts::b9f4cb631d91",
+      "file": "server/src/routes/agents.ts",
+      "line": 3219
+    },
+    {
+      "key": "server/src/routes/cases.ts::154e69eaea9b",
+      "file": "server/src/routes/cases.ts",
+      "line": 549
+    },
+    {
+      "key": "server/src/routes/cases.ts::1ed92e302511",
+      "file": "server/src/routes/cases.ts",
+      "line": 769
+    },
+    {
+      "key": "server/src/routes/cases.ts::8543fdb92401",
+      "file": "server/src/routes/cases.ts",
+      "line": 859
+    },
+    {
+      "key": "server/src/routes/cases.ts::e80539d5aa92",
+      "file": "server/src/routes/cases.ts",
+      "line": 549
+    },
+    {
+      "key": "server/src/routes/connection-management-authz.ts::00e7644c793d",
+      "file": "server/src/routes/connection-management-authz.ts",
+      "line": 359
+    },
+    {
+      "key": "server/src/routes/connection-management-authz.ts::0d311c7a81c5",
+      "file": "server/src/routes/connection-management-authz.ts",
+      "line": 335
+    },
+    {
+      "key": "server/src/routes/connection-management-authz.ts::275647715bc3",
+      "file": "server/src/routes/connection-management-authz.ts",
+      "line": 354
+    },
+    {
+      "key": "server/src/routes/connection-management-authz.ts::3b3349f3b646",
+      "file": "server/src/routes/connection-management-authz.ts",
+      "line": 171
+    },
+    {
+      "key": "server/src/routes/connection-management-authz.ts::823edacfc5ac",
+      "file": "server/src/routes/connection-management-authz.ts",
+      "line": 280
+    },
+    {
+      "key": "server/src/routes/connection-management-authz.ts::87cd447b5ce8",
+      "file": "server/src/routes/connection-management-authz.ts",
+      "line": 459
+    },
+    {
+      "key": "server/src/routes/connection-management-authz.ts::92d1f0f4cf01",
+      "file": "server/src/routes/connection-management-authz.ts",
+      "line": 337
+    },
+    {
+      "key": "server/src/routes/connection-management-authz.ts::9e7d8d8897cf",
+      "file": "server/src/routes/connection-management-authz.ts",
+      "line": 463
+    },
+    {
+      "key": "server/src/routes/connection-management-authz.ts::c9743538016d",
+      "file": "server/src/routes/connection-management-authz.ts",
+      "line": 349
+    },
+    {
+      "key": "server/src/routes/connection-management-authz.ts::eb0f473684b2",
+      "file": "server/src/routes/connection-management-authz.ts",
+      "line": 152
+    },
+    {
+      "key": "server/src/routes/issues.ts::218741500875",
+      "file": "server/src/routes/issues.ts",
+      "line": 4271
+    },
+    {
+      "key": "server/src/services/access.ts::7d35bf896b1e",
+      "file": "server/src/services/access.ts",
+      "line": 928
+    },
+    {
+      "key": "server/src/services/access.ts::c632f8cc1003",
+      "file": "server/src/services/access.ts",
+      "line": 341
+    },
+    {
+      "key": "server/src/services/access.ts::ce12dae0bb73",
+      "file": "server/src/services/access.ts",
+      "line": 305
+    },
+    {
+      "key": "server/src/services/access.ts::f1447be66866",
+      "file": "server/src/services/access.ts",
+      "line": 915
+    },
+    {
+      "key": "server/src/services/activity.ts::21d732f0b235",
+      "file": "server/src/services/activity.ts",
+      "line": 312
+    },
+    {
+      "key": "server/src/services/activity.ts::23396c948769",
+      "file": "server/src/services/activity.ts",
+      "line": 264
+    },
+    {
+      "key": "server/src/services/activity.ts::32e887eac860",
+      "file": "server/src/services/activity.ts",
+      "line": 250
+    },
+    {
+      "key": "server/src/services/activity.ts::4cfd350f0d1e",
+      "file": "server/src/services/activity.ts",
+      "line": 296
+    },
+    {
+      "key": "server/src/services/activity.ts::9e693675eb7b",
+      "file": "server/src/services/activity.ts",
+      "line": 304
+    },
+    {
+      "key": "server/src/services/activity.ts::cab8bfc28c04",
+      "file": "server/src/services/activity.ts",
+      "line": 282
+    },
+    {
+      "key": "server/src/services/activity.ts::e9bfc67a86e4",
+      "file": "server/src/services/activity.ts",
+      "line": 348
+    },
+    {
+      "key": "server/src/services/agent-execution-stop.ts::6c0cf1103a30",
+      "file": "server/src/services/agent-execution-stop.ts",
+      "line": 64
+    },
+    {
+      "key": "server/src/services/agent-file-maintenance.ts::54b740b25149",
+      "file": "server/src/services/agent-file-maintenance.ts",
+      "line": 115
+    },
+    {
+      "key": "server/src/services/agent-file-maintenance.ts::d50fde228da3",
+      "file": "server/src/services/agent-file-maintenance.ts",
+      "line": 84
+    },
+    {
+      "key": "server/src/services/agent-file-maintenance.ts::d77786c12d7c",
+      "file": "server/src/services/agent-file-maintenance.ts",
+      "line": 32
+    },
+    {
+      "key": "server/src/services/agent-instruction-working-copies.ts::a2c3aea2cf77",
+      "file": "server/src/services/agent-instruction-working-copies.ts",
+      "line": 508
+    },
+    {
+      "key": "server/src/services/agent-instruction-working-copies.ts::b2e10bcd544e",
+      "file": "server/src/services/agent-instruction-working-copies.ts",
+      "line": 553
+    },
+    {
+      "key": "server/src/services/agent-instruction-working-copies.ts::d4f482c20324",
+      "file": "server/src/services/agent-instruction-working-copies.ts",
+      "line": 430
+    },
+    {
+      "key": "server/src/services/ai-connection-router.ts::61aac33db4d4",
+      "file": "server/src/services/ai-connection-router.ts",
+      "line": 230
+    },
+    {
+      "key": "server/src/services/ai-connection-router.ts::a294c9772da1",
+      "file": "server/src/services/ai-connection-router.ts",
+      "line": 222
+    },
+    {
+      "key": "server/src/services/ai-connection-router.ts::aee40c2b8673",
+      "file": "server/src/services/ai-connection-router.ts",
+      "line": 264
+    },
+    {
+      "key": "server/src/services/ai-connection-router.ts::f4dba0cd0654",
+      "file": "server/src/services/ai-connection-router.ts",
+      "line": 231
+    },
+    {
+      "key": "server/src/services/attention-retention.ts::3395657f73f4",
+      "file": "server/src/services/attention-retention.ts",
+      "line": 137
+    },
+    {
+      "key": "server/src/services/attention-retention.ts::3cbf17fb99a2",
+      "file": "server/src/services/attention-retention.ts",
+      "line": 175
+    },
+    {
+      "key": "server/src/services/attention-retention.ts::429b399b3c8b",
+      "file": "server/src/services/attention-retention.ts",
+      "line": 173
+    },
+    {
+      "key": "server/src/services/attention-retention.ts::4773378aad34",
+      "file": "server/src/services/attention-retention.ts",
+      "line": 171
+    },
+    {
+      "key": "server/src/services/attention-retention.ts::532c3cfe6e61",
+      "file": "server/src/services/attention-retention.ts",
+      "line": 115
+    },
+    {
+      "key": "server/src/services/attention-retention.ts::69f487ee1b5f",
+      "file": "server/src/services/attention-retention.ts",
+      "line": 169
+    },
+    {
+      "key": "server/src/services/attention-retention.ts::6ca98050a940",
+      "file": "server/src/services/attention-retention.ts",
+      "line": 111
+    },
+    {
+      "key": "server/src/services/attention-retention.ts::cfbcdb2a2830",
+      "file": "server/src/services/attention-retention.ts",
+      "line": 139
+    },
+    {
+      "key": "server/src/services/attention-retention.ts::d3e22b3e6a39",
+      "file": "server/src/services/attention-retention.ts",
+      "line": 104
+    },
+    {
+      "key": "server/src/services/attention-retention.ts::fd083458d824",
+      "file": "server/src/services/attention-retention.ts",
+      "line": 108
+    },
+    {
+      "key": "server/src/services/attention-source-eligibility.ts::904371681904",
+      "file": "server/src/services/attention-source-eligibility.ts",
+      "line": 120
+    },
+    {
+      "key": "server/src/services/authorization.ts::7d918c2261f1",
+      "file": "server/src/services/authorization.ts",
+      "line": 837
+    },
+    {
+      "key": "server/src/services/authorization.ts::849fcef75940",
+      "file": "server/src/services/authorization.ts",
+      "line": 810
+    },
+    {
+      "key": "server/src/services/authorization.ts::e41e4aaa62ae",
+      "file": "server/src/services/authorization.ts",
+      "line": 822
+    },
+    {
+      "key": "server/src/services/authorization.ts::ec203c3d82a0",
+      "file": "server/src/services/authorization.ts",
+      "line": 3055
+    },
+    {
+      "key": "server/src/services/billing-reconciliation.ts::05d957f737f0",
+      "file": "server/src/services/billing-reconciliation.ts",
+      "line": 45
+    },
+    {
+      "key": "server/src/services/billing-reconciliation.ts::74e0fcab609f",
+      "file": "server/src/services/billing-reconciliation.ts",
+      "line": 41
+    },
+    {
+      "key": "server/src/services/billing-reconciliation.ts::fcbc76db52dd",
+      "file": "server/src/services/billing-reconciliation.ts",
+      "line": 65
+    },
+    {
+      "key": "server/src/services/browser-use.ts::0cdd150b79dc",
+      "file": "server/src/services/browser-use.ts",
+      "line": 1305
+    },
+    {
+      "key": "server/src/services/browser-use.ts::266e269f9140",
+      "file": "server/src/services/browser-use.ts",
+      "line": 1294
+    },
+    {
+      "key": "server/src/services/browser-use.ts::43df953eb50f",
+      "file": "server/src/services/browser-use.ts",
+      "line": 1136
+    },
+    {
+      "key": "server/src/services/browser-use.ts::5b288bc39992",
+      "file": "server/src/services/browser-use.ts",
+      "line": 1232
+    },
+    {
+      "key": "server/src/services/browser-use.ts::5dcd1cf63a52",
+      "file": "server/src/services/browser-use.ts",
+      "line": 1403
+    },
+    {
+      "key": "server/src/services/browser-use.ts::70f07bcc2256",
+      "file": "server/src/services/browser-use.ts",
+      "line": 1269
+    },
+    {
+      "key": "server/src/services/browser-use.ts::855119dab036",
+      "file": "server/src/services/browser-use.ts",
+      "line": 1349
+    },
+    {
+      "key": "server/src/services/browser-use.ts::87719c2898a3",
+      "file": "server/src/services/browser-use.ts",
+      "line": 1280
+    },
+    {
+      "key": "server/src/services/browser-use.ts::884afef12202",
+      "file": "server/src/services/browser-use.ts",
+      "line": 1241
+    },
+    {
+      "key": "server/src/services/browser-use.ts::d7638c87bfc6",
+      "file": "server/src/services/browser-use.ts",
+      "line": 1369
+    },
+    {
+      "key": "server/src/services/browser-use.ts::e6bc2e879701",
+      "file": "server/src/services/browser-use.ts",
+      "line": 1507
+    },
+    {
+      "key": "server/src/services/browser-use.ts::ea11a350fe2b",
+      "file": "server/src/services/browser-use.ts",
+      "line": 1058
+    },
+    {
+      "key": "server/src/services/browser-use.ts::ea6deac3a8a9",
+      "file": "server/src/services/browser-use.ts",
+      "line": 1070
+    },
+    {
+      "key": "server/src/services/browser-use.ts::f17d10894c23",
+      "file": "server/src/services/browser-use.ts",
+      "line": 1472
+    },
+    {
+      "key": "server/src/services/browser-use.ts::f83e52b76576",
+      "file": "server/src/services/browser-use.ts",
+      "line": 1103
+    },
+    {
+      "key": "server/src/services/budget-resume-continuation.ts::910d4fee535e",
+      "file": "server/src/services/budget-resume-continuation.ts",
+      "line": 218
+    },
+    {
+      "key": "server/src/services/budgets.ts::ac12ecb97789",
+      "file": "server/src/services/budgets.ts",
+      "line": 1254
+    },
+    {
+      "key": "server/src/services/budgets.ts::d3aef9eb07b6",
+      "file": "server/src/services/budgets.ts",
+      "line": 1225
+    },
+    {
+      "key": "server/src/services/case-access.ts::57c60cae9471",
+      "file": "server/src/services/case-access.ts",
+      "line": 228
+    },
+    {
+      "key": "server/src/services/case-access.ts::fb22bb018242",
+      "file": "server/src/services/case-access.ts",
+      "line": 218
+    },
+    {
+      "key": "server/src/services/case-handoff-delivery.ts::e42ce4ccdbd2",
+      "file": "server/src/services/case-handoff-delivery.ts",
+      "line": 137
+    },
+    {
+      "key": "server/src/services/case-handoffs.ts::066f78d57ce6",
+      "file": "server/src/services/case-handoffs.ts",
+      "line": 176
+    },
+    {
+      "key": "server/src/services/case-handoffs.ts::0e0b56c20225",
+      "file": "server/src/services/case-handoffs.ts",
+      "line": 171
+    },
+    {
+      "key": "server/src/services/case-handoffs.ts::dafb3462807c",
+      "file": "server/src/services/case-handoffs.ts",
+      "line": 178
+    },
+    {
+      "key": "server/src/services/chat-channels.ts::3fbd32e7a6f2",
+      "file": "server/src/services/chat-channels.ts",
+      "line": 3207
+    },
+    {
+      "key": "server/src/services/chat-channels.ts::b1825b5b49c0",
+      "file": "server/src/services/chat-channels.ts",
+      "line": 3175
+    },
+    {
+      "key": "server/src/services/chat-channels/discord/command-schedule.ts::d0dfe3982cb6",
+      "file": "server/src/services/chat-channels/discord/command-schedule.ts",
+      "line": 19
+    },
+    {
+      "key": "server/src/services/chat-channels/failed-retry-notices.ts::af896b63ea4e",
+      "file": "server/src/services/chat-channels/failed-retry-notices.ts",
+      "line": 56
+    },
+    {
+      "key": "server/src/services/chat-channels/github/review-projection-work.ts::4439f277cc82",
+      "file": "server/src/services/chat-channels/github/review-projection-work.ts",
+      "line": 57
+    },
+    {
+      "key": "server/src/services/chat-channels/github/webhook-ingress.ts::1b54f33892d4",
+      "file": "server/src/services/chat-channels/github/webhook-ingress.ts",
+      "line": 308
+    },
+    {
+      "key": "server/src/services/chat-channels/github/webhook-ingress.ts::36e4d35e7c23",
+      "file": "server/src/services/chat-channels/github/webhook-ingress.ts",
+      "line": 1320
+    },
+    {
+      "key": "server/src/services/chat-channels/github/webhook-recovery-schedule.ts::96e23a10e93d",
+      "file": "server/src/services/chat-channels/github/webhook-recovery-schedule.ts",
+      "line": 21
+    },
+    {
+      "key": "server/src/services/chat-channels/inbound-attachments.ts::6b9d9c20e29f",
+      "file": "server/src/services/chat-channels/inbound-attachments.ts",
+      "line": 175
+    },
+    {
+      "key": "server/src/services/chat-channels/inbound/conversation-queue.ts::3fbd32e7a6f2",
+      "file": "server/src/services/chat-channels/inbound/conversation-queue.ts",
+      "line": 531
+    },
+    {
+      "key": "server/src/services/chat-channels/inbound/conversation-queue.ts::b1825b5b49c0",
+      "file": "server/src/services/chat-channels/inbound/conversation-queue.ts",
+      "line": 626
+    },
+    {
+      "key": "server/src/services/chat-channels/inbound/conversation-queue.ts::f846be7e6b7e",
+      "file": "server/src/services/chat-channels/inbound/conversation-queue.ts",
+      "line": 671
+    },
+    {
+      "key": "server/src/services/chat-channels/inbound/wakeup-notices.ts::b5c6d879d891",
+      "file": "server/src/services/chat-channels/inbound/wakeup-notices.ts",
+      "line": 234
+    },
+    {
+      "key": "server/src/services/chat-channels/interactions/confirmation-actions.ts::1fe8b4bef6a1",
+      "file": "server/src/services/chat-channels/interactions/confirmation-actions.ts",
+      "line": 680
+    },
+    {
+      "key": "server/src/services/chat-channels/interactions/continuations.ts::03bf3110a5fd",
+      "file": "server/src/services/chat-channels/interactions/continuations.ts",
+      "line": 349
+    },
+    {
+      "key": "server/src/services/chat-channels/interactions/continuations.ts::101ac9652769",
+      "file": "server/src/services/chat-channels/interactions/continuations.ts",
+      "line": 329
+    },
+    {
+      "key": "server/src/services/chat-channels/interactions/continuations.ts::1c24844d0e1e",
+      "file": "server/src/services/chat-channels/interactions/continuations.ts",
+      "line": 217
+    },
+    {
+      "key": "server/src/services/chat-channels/interactions/continuations.ts::281cbd665e86",
+      "file": "server/src/services/chat-channels/interactions/continuations.ts",
+      "line": 191
+    },
+    {
+      "key": "server/src/services/chat-channels/interactions/continuations.ts::3928e0d6143c",
+      "file": "server/src/services/chat-channels/interactions/continuations.ts",
+      "line": 364
+    },
+    {
+      "key": "server/src/services/chat-channels/interactions/continuations.ts::3b302dcfd1d9",
+      "file": "server/src/services/chat-channels/interactions/continuations.ts",
+      "line": 96
+    },
+    {
+      "key": "server/src/services/chat-channels/interactions/continuations.ts::3c308380804f",
+      "file": "server/src/services/chat-channels/interactions/continuations.ts",
+      "line": 417
+    },
+    {
+      "key": "server/src/services/chat-channels/interactions/continuations.ts::41cead8b16a9",
+      "file": "server/src/services/chat-channels/interactions/continuations.ts",
+      "line": 247
+    },
+    {
+      "key": "server/src/services/chat-channels/interactions/continuations.ts::432da005a1b5",
+      "file": "server/src/services/chat-channels/interactions/continuations.ts",
+      "line": 161
+    },
+    {
+      "key": "server/src/services/chat-channels/interactions/continuations.ts::579db286348c",
+      "file": "server/src/services/chat-channels/interactions/continuations.ts",
+      "line": 478
+    },
+    {
+      "key": "server/src/services/chat-channels/interactions/continuations.ts::579ef260c17e",
+      "file": "server/src/services/chat-channels/interactions/continuations.ts",
+      "line": 146
+    },
+    {
+      "key": "server/src/services/chat-channels/interactions/continuations.ts::ccdad5a735d4",
+      "file": "server/src/services/chat-channels/interactions/continuations.ts",
+      "line": 386
+    },
+    {
+      "key": "server/src/services/chat-channels/microsoft-teams/attempt-recovery-work.ts::72a8c616524a",
+      "file": "server/src/services/chat-channels/microsoft-teams/attempt-recovery-work.ts",
+      "line": 21
+    },
+    {
+      "key": "server/src/services/chat-channels/microsoft-teams/file-delivery.ts::9302627bdb50",
+      "file": "server/src/services/chat-channels/microsoft-teams/file-delivery.ts",
+      "line": 335
+    },
+    {
+      "key": "server/src/services/chat-channels/publication-replacement.ts::23c3458dc51c",
+      "file": "server/src/services/chat-channels/publication-replacement.ts",
+      "line": 653
+    },
+    {
+      "key": "server/src/services/chat-channels/publications/queue.ts::a833b3d18460",
+      "file": "server/src/services/chat-channels/publications/queue.ts",
+      "line": 307
+    },
+    {
+      "key": "server/src/services/chat-channels/publications/requests.ts::b5cdd8b5127d",
+      "file": "server/src/services/chat-channels/publications/requests.ts",
+      "line": 387
+    },
+    {
+      "key": "server/src/services/chat-channels/resource-reconciliation.ts::568a428c713c",
+      "file": "server/src/services/chat-channels/resource-reconciliation.ts",
+      "line": 148
+    },
+    {
+      "key": "server/src/services/chat-channels/resource-reconciliation.ts::5d840860c20d",
+      "file": "server/src/services/chat-channels/resource-reconciliation.ts",
+      "line": 306
+    },
+    {
+      "key": "server/src/services/chat-channels/run-origin.ts::019027d6413f",
+      "file": "server/src/services/chat-channels/run-origin.ts",
+      "line": 34
+    },
+    {
+      "key": "server/src/services/chat-channels/run-origin.ts::49273a4c0bbb",
+      "file": "server/src/services/chat-channels/run-origin.ts",
+      "line": 67
+    },
+    {
+      "key": "server/src/services/chat-channels/run-origin.ts::845737ec0575",
+      "file": "server/src/services/chat-channels/run-origin.ts",
+      "line": 57
+    },
+    {
+      "key": "server/src/services/chat-channels/run-origin.ts::87c52f6174d1",
+      "file": "server/src/services/chat-channels/run-origin.ts",
+      "line": 43
+    },
+    {
+      "key": "server/src/services/chat-channels/runtime/ownership.ts::6c6dfdcfab1d",
+      "file": "server/src/services/chat-channels/runtime/ownership.ts",
+      "line": 360
+    },
+    {
+      "key": "server/src/services/chat-channels/runtime/ownership.ts::890e4f84f9a7",
+      "file": "server/src/services/chat-channels/runtime/ownership.ts",
+      "line": 347
+    },
+    {
+      "key": "server/src/services/chat-channels/runtime/receiver-schedule.ts::498d9511dc6b",
+      "file": "server/src/services/chat-channels/runtime/receiver-schedule.ts",
+      "line": 18
+    },
+    {
+      "key": "server/src/services/chat-channels/slack/board-messages.ts::34e1b8ebd424",
+      "file": "server/src/services/chat-channels/slack/board-messages.ts",
+      "line": 31
+    },
+    {
+      "key": "server/src/services/chat-channels/slack/cloud-enrollment.ts::0ed7f1d2806e",
+      "file": "server/src/services/chat-channels/slack/cloud-enrollment.ts",
+      "line": 130
+    },
+    {
+      "key": "server/src/services/chat-channels/slack/file-receipts.ts::550f3520ea48",
+      "file": "server/src/services/chat-channels/slack/file-receipts.ts",
+      "line": 500
+    },
+    {
+      "key": "server/src/services/chat-channels/slack/file-receipts.ts::b04ce0be7ed9",
+      "file": "server/src/services/chat-channels/slack/file-receipts.ts",
+      "line": 528
+    },
+    {
+      "key": "server/src/services/chat-channels/slack/file-receipts.ts::df65bf75097d",
+      "file": "server/src/services/chat-channels/slack/file-receipts.ts",
+      "line": 915
+    },
+    {
+      "key": "server/src/services/chat-channels/slack/session-status.ts::16dacecc170f",
+      "file": "server/src/services/chat-channels/slack/session-status.ts",
+      "line": 362
+    },
+    {
+      "key": "server/src/services/chat-completion-delivery.ts::51645bdbb256",
+      "file": "server/src/services/chat-completion-delivery.ts",
+      "line": 171
+    },
+    {
+      "key": "server/src/services/chat-completion-delivery.ts::648049eaf263",
+      "file": "server/src/services/chat-completion-delivery.ts",
+      "line": 175
+    },
+    {
+      "key": "server/src/services/chat-completion-delivery.ts::8916ad60b707",
+      "file": "server/src/services/chat-completion-delivery.ts",
+      "line": 201
+    },
+    {
+      "key": "server/src/services/chat-completion-delivery.ts::e06d4b85a3fb",
+      "file": "server/src/services/chat-completion-delivery.ts",
+      "line": 197
+    },
+    {
+      "key": "server/src/services/chat-control-chronology.ts::a2de7cea4362",
+      "file": "server/src/services/chat-control-chronology.ts",
+      "line": 134
+    },
+    {
+      "key": "server/src/services/chat-control-recovery-stop.ts::329be6c8f1f9",
+      "file": "server/src/services/chat-control-recovery-stop.ts",
+      "line": 343
+    },
+    {
+      "key": "server/src/services/chat-control-recovery-stop.ts::5e5109028150",
+      "file": "server/src/services/chat-control-recovery-stop.ts",
+      "line": 606
+    },
+    {
+      "key": "server/src/services/chat-control-recovery-stop.ts::6936391dd977",
+      "file": "server/src/services/chat-control-recovery-stop.ts",
+      "line": 243
+    },
+    {
+      "key": "server/src/services/chat-control-recovery-stop.ts::7a7c07454bd9",
+      "file": "server/src/services/chat-control-recovery-stop.ts",
+      "line": 359
+    },
+    {
+      "key": "server/src/services/chat-control-recovery-stop.ts::7c167294ef5d",
+      "file": "server/src/services/chat-control-recovery-stop.ts",
+      "line": 561
+    },
+    {
+      "key": "server/src/services/chat-control-recovery-stop.ts::836f90679a35",
+      "file": "server/src/services/chat-control-recovery-stop.ts",
+      "line": 442
+    },
+    {
+      "key": "server/src/services/chat-control-recovery-stop.ts::9b38d5693fcc",
+      "file": "server/src/services/chat-control-recovery-stop.ts",
+      "line": 505
+    },
+    {
+      "key": "server/src/services/chat-control-recovery-stop.ts::cfce0cc10e02",
+      "file": "server/src/services/chat-control-recovery-stop.ts",
+      "line": 226
+    },
+    {
+      "key": "server/src/services/chat-control-recovery-stop.ts::dbb2fa0b122c",
+      "file": "server/src/services/chat-control-recovery-stop.ts",
+      "line": 186
+    },
+    {
+      "key": "server/src/services/chat-control-recovery-stop.ts::eb8bdf9547af",
+      "file": "server/src/services/chat-control-recovery-stop.ts",
+      "line": 214
+    },
+    {
+      "key": "server/src/services/chat-control-recovery-stop.ts::ecfdd6c9902c",
+      "file": "server/src/services/chat-control-recovery-stop.ts",
+      "line": 321
+    },
+    {
+      "key": "server/src/services/chat-control-recovery-stop.ts::f1f411b14c31",
+      "file": "server/src/services/chat-control-recovery-stop.ts",
+      "line": 468
+    },
+    {
+      "key": "server/src/services/chat-credential-mutation-lease.ts::171ea73fa650",
+      "file": "server/src/services/chat-credential-mutation-lease.ts",
+      "line": 50
+    },
+    {
+      "key": "server/src/services/chat-credential-mutation-lease.ts::dc1d7020d944",
+      "file": "server/src/services/chat-credential-mutation-lease.ts",
+      "line": 38
+    },
+    {
+      "key": "server/src/services/chat-github-management.ts::7f751b5b53a7",
+      "file": "server/src/services/chat-github-management.ts",
+      "line": 109
+    },
+    {
+      "key": "server/src/services/chat-github-response-comments.ts::2ed22e8bec99",
+      "file": "server/src/services/chat-github-response-comments.ts",
+      "line": 331
+    },
+    {
+      "key": "server/src/services/chat-github-response-comments.ts::887c7a333e65",
+      "file": "server/src/services/chat-github-response-comments.ts",
+      "line": 316
+    },
+    {
+      "key": "server/src/services/chat-github-response-comments.ts::baad6d5ead72",
+      "file": "server/src/services/chat-github-response-comments.ts",
+      "line": 348
+    },
+    {
+      "key": "server/src/services/chat-github-response-comments.ts::c6050f84f224",
+      "file": "server/src/services/chat-github-response-comments.ts",
+      "line": 323
+    },
+    {
+      "key": "server/src/services/chat-github-reviews.ts::2307d9dc22fd",
+      "file": "server/src/services/chat-github-reviews.ts",
+      "line": 1336
+    },
+    {
+      "key": "server/src/services/chat-github-reviews.ts::8623a708647f",
+      "file": "server/src/services/chat-github-reviews.ts",
+      "line": 1358
+    },
+    {
+      "key": "server/src/services/chat-github-tools.ts::e6fe6b429f6f",
+      "file": "server/src/services/chat-github-tools.ts",
+      "line": 291
+    },
+    {
+      "key": "server/src/services/chat-github-tools.ts::fa816e79d2c2",
+      "file": "server/src/services/chat-github-tools.ts",
+      "line": 172
+    },
+    {
+      "key": "server/src/services/chat-interaction-publications.ts::bb4045b64a37",
+      "file": "server/src/services/chat-interaction-publications.ts",
+      "line": 771
+    },
+    {
+      "key": "server/src/services/chat-interaction-publications.ts::db7858308e31",
+      "file": "server/src/services/chat-interaction-publications.ts",
+      "line": 449
+    },
+    {
+      "key": "server/src/services/chat-receipt-reactions.ts::d05624e7c2b4",
+      "file": "server/src/services/chat-receipt-reactions.ts",
+      "line": 226
+    },
+    {
+      "key": "server/src/services/chat-run-publications.ts::7d5f8b4c5a0f",
+      "file": "server/src/services/chat-run-publications.ts",
+      "line": 669
+    },
+    {
+      "key": "server/src/services/chat-run-publications.ts::8f9523db102a",
+      "file": "server/src/services/chat-run-publications.ts",
+      "line": 170
+    },
+    {
+      "key": "server/src/services/companies.ts::b4a254e1830e",
+      "file": "server/src/services/companies.ts",
+      "line": 264
+    },
+    {
+      "key": "server/src/services/company-artifacts.ts::0767cd75d618",
+      "file": "server/src/services/company-artifacts.ts",
+      "line": 203
+    },
+    {
+      "key": "server/src/services/company-skills.ts::05a5dbf26b87",
+      "file": "server/src/services/company-skills.ts",
+      "line": 3240
+    },
+    {
+      "key": "server/src/services/company-skills.ts::1097a7712e34",
+      "file": "server/src/services/company-skills.ts",
+      "line": 4089
+    },
+    {
+      "key": "server/src/services/company-skills.ts::1aaafaf257b7",
+      "file": "server/src/services/company-skills.ts",
+      "line": 4683
+    },
+    {
+      "key": "server/src/services/company-skills.ts::1b77b62453bc",
+      "file": "server/src/services/company-skills.ts",
+      "line": 4312
+    },
+    {
+      "key": "server/src/services/company-skills.ts::4319ab887cb1",
+      "file": "server/src/services/company-skills.ts",
+      "line": 6151
+    },
+    {
+      "key": "server/src/services/company-skills.ts::6b5d50125ed8",
+      "file": "server/src/services/company-skills.ts",
+      "line": 6473
+    },
+    {
+      "key": "server/src/services/company-skills.ts::8e21de5d631c",
+      "file": "server/src/services/company-skills.ts",
+      "line": 7462
+    },
+    {
+      "key": "server/src/services/company-skills.ts::a343f008bafa",
+      "file": "server/src/services/company-skills.ts",
+      "line": 3260
+    },
+    {
+      "key": "server/src/services/company-skills.ts::c1d9c3a1f35f",
+      "file": "server/src/services/company-skills.ts",
+      "line": 6479
+    },
+    {
+      "key": "server/src/services/company-skills.ts::e77b62f6e95d",
+      "file": "server/src/services/company-skills.ts",
+      "line": 7440
+    },
+    {
+      "key": "server/src/services/company-skills.ts::eae94be15ab7",
+      "file": "server/src/services/company-skills.ts",
+      "line": 3188
+    },
+    {
+      "key": "server/src/services/connection-agent-access.ts::5a02f25bc156",
+      "file": "server/src/services/connection-agent-access.ts",
+      "line": 52
+    },
+    {
+      "key": "server/src/services/connection-agent-access.ts::a381206a58a1",
+      "file": "server/src/services/connection-agent-access.ts",
+      "line": 58
+    },
+    {
+      "key": "server/src/services/connection-credentials.ts::7b2d34684c82",
+      "file": "server/src/services/connection-credentials.ts",
+      "line": 205
+    },
+    {
+      "key": "server/src/services/connection-credentials.ts::fb4732cc45c5",
+      "file": "server/src/services/connection-credentials.ts",
+      "line": 236
+    },
+    {
+      "key": "server/src/services/connection-management.ts::d3d9282b96a8",
+      "file": "server/src/services/connection-management.ts",
+      "line": 189
+    },
+    {
+      "key": "server/src/services/connection-management.ts::f714811c0f2d",
+      "file": "server/src/services/connection-management.ts",
+      "line": 47
+    },
+    {
+      "key": "server/src/services/connectors/slack-catalog.ts::c94f52d8c8df",
+      "file": "server/src/services/connectors/slack-catalog.ts",
+      "line": 104
+    },
+    {
+      "key": "server/src/services/connectors/slack/setup/manager-grants.ts::f31522f59453",
+      "file": "server/src/services/connectors/slack/setup/manager-grants.ts",
+      "line": 256
+    },
+    {
+      "key": "server/src/services/conversation-continuation.ts::0bf8a3509697",
+      "file": "server/src/services/conversation-continuation.ts",
+      "line": 136
+    },
+    {
+      "key": "server/src/services/costs.ts::341eaf8bd1f5",
+      "file": "server/src/services/costs.ts",
+      "line": 547
+    },
+    {
+      "key": "server/src/services/costs.ts::58c624588299",
+      "file": "server/src/services/costs.ts",
+      "line": 104
+    },
+    {
+      "key": "server/src/services/decision-archive-delivery.ts::da59e27c955b",
+      "file": "server/src/services/decision-archive-delivery.ts",
+      "line": 88
+    },
+    {
+      "key": "server/src/services/decision-archive-delivery.ts::db947545d5ec",
+      "file": "server/src/services/decision-archive-delivery.ts",
+      "line": 74
+    },
+    {
+      "key": "server/src/services/decision-continuations.ts::41f2ef02dfec",
+      "file": "server/src/services/decision-continuations.ts",
+      "line": 47
+    },
+    {
+      "key": "server/src/services/decision-models.ts::4f535127fb27",
+      "file": "server/src/services/decision-models.ts",
+      "line": 159
+    },
+    {
+      "key": "server/src/services/decision-queues.ts::b0e1890953c2",
+      "file": "server/src/services/decision-queues.ts",
+      "line": 426
+    },
+    {
+      "key": "server/src/services/decision-retention.ts::623f5b1e5c8d",
+      "file": "server/src/services/decision-retention.ts",
+      "line": 392
+    },
+    {
+      "key": "server/src/services/decision-retention.ts::a1823f708283",
+      "file": "server/src/services/decision-retention.ts",
+      "line": 163
+    },
+    {
+      "key": "server/src/services/decision-targets.ts::497cc4f6643f",
+      "file": "server/src/services/decision-targets.ts",
+      "line": 59
+    },
+    {
+      "key": "server/src/services/decisions.ts::f4433d48aacb",
+      "file": "server/src/services/decisions.ts",
+      "line": 538
+    },
+    {
+      "key": "server/src/services/document-annotations.ts::46ff326d2e21",
+      "file": "server/src/services/document-annotations.ts",
+      "line": 1158
+    },
+    {
+      "key": "server/src/services/document-annotations.ts::93f477dd7b83",
+      "file": "server/src/services/document-annotations.ts",
+      "line": 1135
+    },
+    {
+      "key": "server/src/services/dot-assignment-follow-up.ts::9b64a6faec0d",
+      "file": "server/src/services/dot-assignment-follow-up.ts",
+      "line": 95
+    },
+    {
+      "key": "server/src/services/dot-assignment-follow-up.ts::9eff3b696a14",
+      "file": "server/src/services/dot-assignment-follow-up.ts",
+      "line": 107
+    },
+    {
+      "key": "server/src/services/email-channels.ts::00047d004a4f",
+      "file": "server/src/services/email-channels.ts",
+      "line": 2184
+    },
+    {
+      "key": "server/src/services/email-channels.ts::06c96d1020e6",
+      "file": "server/src/services/email-channels.ts",
+      "line": 2209
+    },
+    {
+      "key": "server/src/services/email-channels.ts::0794a011064b",
+      "file": "server/src/services/email-channels.ts",
+      "line": 2223
+    },
+    {
+      "key": "server/src/services/email-channels.ts::629a8d691bd7",
+      "file": "server/src/services/email-channels.ts",
+      "line": 2340
+    },
+    {
+      "key": "server/src/services/email-channels.ts::6dc8793e6c01",
+      "file": "server/src/services/email-channels.ts",
+      "line": 2277
+    },
+    {
+      "key": "server/src/services/email-channels.ts::9562482903fb",
+      "file": "server/src/services/email-channels.ts",
+      "line": 2210
+    },
+    {
+      "key": "server/src/services/email-channels.ts::c6d8fc0b5163",
+      "file": "server/src/services/email-channels.ts",
+      "line": 2318
+    },
+    {
+      "key": "server/src/services/email-connections.ts::2d5c7c52acfc",
+      "file": "server/src/services/email-connections.ts",
+      "line": 199
+    },
+    {
+      "key": "server/src/services/environment-runtime.ts::26620d19808a",
+      "file": "server/src/services/environment-runtime.ts",
+      "line": 3979
+    },
+    {
+      "key": "server/src/services/environment-runtime.ts::6ed19d92c050",
+      "file": "server/src/services/environment-runtime.ts",
+      "line": 3955
+    },
+    {
+      "key": "server/src/services/environment-runtime.ts::dcfbd8f4aba6",
+      "file": "server/src/services/environment-runtime.ts",
+      "line": 4552
+    },
+    {
+      "key": "server/src/services/environment-skills.ts::7f773c1c468c",
+      "file": "server/src/services/environment-skills.ts",
+      "line": 32
+    },
+    {
+      "key": "server/src/services/environment-task-runtime.ts::359ceabd3e6c",
+      "file": "server/src/services/environment-task-runtime.ts",
+      "line": 470
+    },
+    {
+      "key": "server/src/services/environments.ts::42429680f74b",
+      "file": "server/src/services/environments.ts",
+      "line": 904
+    },
+    {
+      "key": "server/src/services/environments.ts::56677da4df0b",
+      "file": "server/src/services/environments.ts",
+      "line": 716
+    },
+    {
+      "key": "server/src/services/execution-control-reconciliation.ts::688dc45f67ef",
+      "file": "server/src/services/execution-control-reconciliation.ts",
+      "line": 121
+    },
+    {
+      "key": "server/src/services/execution-control-reconciliation.ts::a4754d6f3ba7",
+      "file": "server/src/services/execution-control-reconciliation.ts",
+      "line": 103
+    },
+    {
+      "key": "server/src/services/execution-recovery-resolution.ts::23021052512a",
+      "file": "server/src/services/execution-recovery-resolution.ts",
+      "line": 374
+    },
+    {
+      "key": "server/src/services/execution-recovery-resolution.ts::661b0971443b",
+      "file": "server/src/services/execution-recovery-resolution.ts",
+      "line": 346
+    },
+    {
+      "key": "server/src/services/execution-recovery-resolution.ts::94f068654c6e",
+      "file": "server/src/services/execution-recovery-resolution.ts",
+      "line": 332
+    },
+    {
+      "key": "server/src/services/execution-recovery-resolution.ts::ab1d7953fda6",
+      "file": "server/src/services/execution-recovery-resolution.ts",
+      "line": 513
+    },
+    {
+      "key": "server/src/services/execution-recovery-resolution.ts::d7c562e20f6d",
+      "file": "server/src/services/execution-recovery-resolution.ts",
+      "line": 545
+    },
+    {
+      "key": "server/src/services/execution-status-delivery.ts::3e1020360260",
+      "file": "server/src/services/execution-status-delivery.ts",
+      "line": 58
+    },
+    {
+      "key": "server/src/services/execution-workspace-repositories.ts::a6a7c20c48a2",
+      "file": "server/src/services/execution-workspace-repositories.ts",
+      "line": 456
+    },
+    {
+      "key": "server/src/services/execution-workspace-repositories.ts::c5244a395348",
+      "file": "server/src/services/execution-workspace-repositories.ts",
+      "line": 470
+    },
+    {
+      "key": "server/src/services/execution-workspace-repositories.ts::c5e59deb934f",
+      "file": "server/src/services/execution-workspace-repositories.ts",
+      "line": 477
+    },
+    {
+      "key": "server/src/services/execution-workspaces.ts::249fb630e56b",
+      "file": "server/src/services/execution-workspaces.ts",
+      "line": 5486
+    },
+    {
+      "key": "server/src/services/execution-workspaces.ts::50b5e96e95dd",
+      "file": "server/src/services/execution-workspaces.ts",
+      "line": 4149
+    },
+    {
+      "key": "server/src/services/execution-workspaces.ts::5e9f4f4bc479",
+      "file": "server/src/services/execution-workspaces.ts",
+      "line": 3146
+    },
+    {
+      "key": "server/src/services/execution-workspaces.ts::659a973efd18",
+      "file": "server/src/services/execution-workspaces.ts",
+      "line": 3121
+    },
+    {
+      "key": "server/src/services/execution-workspaces.ts::f1b9aff66591",
+      "file": "server/src/services/execution-workspaces.ts",
+      "line": 3789
+    },
+    {
+      "key": "server/src/services/explicit-native-continuation.ts::068f88287b90",
+      "file": "server/src/services/explicit-native-continuation.ts",
+      "line": 336
+    },
+    {
+      "key": "server/src/services/explicit-native-continuation.ts::06cc7dbde4e8",
+      "file": "server/src/services/explicit-native-continuation.ts",
+      "line": 631
+    },
+    {
+      "key": "server/src/services/explicit-native-continuation.ts::243e5c679498",
+      "file": "server/src/services/explicit-native-continuation.ts",
+      "line": 614
+    },
+    {
+      "key": "server/src/services/explicit-native-continuation.ts::2f15713a4fe7",
+      "file": "server/src/services/explicit-native-continuation.ts",
+      "line": 462
+    },
+    {
+      "key": "server/src/services/explicit-native-continuation.ts::585c1d8ea3e3",
+      "file": "server/src/services/explicit-native-continuation.ts",
+      "line": 339
+    },
+    {
+      "key": "server/src/services/explicit-native-continuation.ts::8f03e55f619c",
+      "file": "server/src/services/explicit-native-continuation.ts",
+      "line": 494
+    },
+    {
+      "key": "server/src/services/explicit-native-continuation.ts::9edfda42eade",
+      "file": "server/src/services/explicit-native-continuation.ts",
+      "line": 395
+    },
+    {
+      "key": "server/src/services/explicit-native-continuation.ts::c420c63f5247",
+      "file": "server/src/services/explicit-native-continuation.ts",
+      "line": 411
+    },
+    {
+      "key": "server/src/services/explicit-native-continuation.ts::dd523c24dbfe",
+      "file": "server/src/services/explicit-native-continuation.ts",
+      "line": 328
+    },
+    {
+      "key": "server/src/services/explicit-native-continuation.ts::f53f885df497",
+      "file": "server/src/services/explicit-native-continuation.ts",
+      "line": 618
+    },
+    {
+      "key": "server/src/services/fast-responses.ts::271e726e1799",
+      "file": "server/src/services/fast-responses.ts",
+      "line": 595
+    },
+    {
+      "key": "server/src/services/feedback.ts::07d16b93dae3",
+      "file": "server/src/services/feedback.ts",
+      "line": 1911
+    },
+    {
+      "key": "server/src/services/feedback.ts::f7f31bdcf338",
+      "file": "server/src/services/feedback.ts",
+      "line": 1898
+    },
+    {
+      "key": "server/src/services/folders.ts::39566368b8fd",
+      "file": "server/src/services/folders.ts",
+      "line": 600
+    },
+    {
+      "key": "server/src/services/folders.ts::5fcbf0085419",
+      "file": "server/src/services/folders.ts",
+      "line": 561
+    },
+    {
+      "key": "server/src/services/folders.ts::9e367e59f528",
+      "file": "server/src/services/folders.ts",
+      "line": 475
+    },
+    {
+      "key": "server/src/services/folders.ts::e390e3bac50f",
+      "file": "server/src/services/folders.ts",
+      "line": 464
+    },
+    {
+      "key": "server/src/services/git-restore-point-ledger.ts::365160cb660c",
+      "file": "server/src/services/git-restore-point-ledger.ts",
+      "line": 165
+    },
+    {
+      "key": "server/src/services/git-restore-point-ledger.ts::66c28083730d",
+      "file": "server/src/services/git-restore-point-ledger.ts",
+      "line": 160
+    },
+    {
+      "key": "server/src/services/git-restore-point-storage.ts::82e220bc3094",
+      "file": "server/src/services/git-restore-point-storage.ts",
+      "line": 317
+    },
+    {
+      "key": "server/src/services/git-restore-point-storage.ts::acdc750ceffd",
+      "file": "server/src/services/git-restore-point-storage.ts",
+      "line": 323
+    },
+    {
+      "key": "server/src/services/github-connection-events.ts::d5a358fb51a4",
+      "file": "server/src/services/github-connection-events.ts",
+      "line": 430
+    },
+    {
+      "key": "server/src/services/grok-bot/dispatcher.ts::d328321c2e57",
+      "file": "server/src/services/grok-bot/dispatcher.ts",
+      "line": 28
+    },
+    {
+      "key": "server/src/services/grok-bot/routine.ts::56bcefe94597",
+      "file": "server/src/services/grok-bot/routine.ts",
+      "line": 66
+    },
+    {
+      "key": "server/src/services/grok-bot/routine.ts::a85e1b10580b",
+      "file": "server/src/services/grok-bot/routine.ts",
+      "line": 64
+    },
+    {
+      "key": "server/src/services/grok-bot/routine.ts::d68c95d83fda",
+      "file": "server/src/services/grok-bot/routine.ts",
+      "line": 65
+    },
+    {
+      "key": "server/src/services/grok-bot/workspace-inspection.ts::4fba574a1f27",
+      "file": "server/src/services/grok-bot/workspace-inspection.ts",
+      "line": 80
+    },
+    {
+      "key": "server/src/services/heartbeat-run-privacy.ts::4942732bf4ef",
+      "file": "server/src/services/heartbeat-run-privacy.ts",
+      "line": 86
+    },
+    {
+      "key": "server/src/services/heartbeat-run-privacy.ts::5650028b6a12",
+      "file": "server/src/services/heartbeat-run-privacy.ts",
+      "line": 224
+    },
+    {
+      "key": "server/src/services/heartbeat.ts::b40c09a58b7d",
+      "file": "server/src/services/heartbeat.ts",
+      "line": 1570
+    },
+    {
+      "key": "server/src/services/heartbeat/agent-status.ts::2ded3c3a91e9",
+      "file": "server/src/services/heartbeat/agent-status.ts",
+      "line": 132
+    },
+    {
+      "key": "server/src/services/heartbeat/case-handoff-lifecycle.ts::26b7a782dbb2",
+      "file": "server/src/services/heartbeat/case-handoff-lifecycle.ts",
+      "line": 155
+    },
+    {
+      "key": "server/src/services/heartbeat/queue.ts::098871083a23",
+      "file": "server/src/services/heartbeat/queue.ts",
+      "line": 5116
+    },
+    {
+      "key": "server/src/services/heartbeat/queue.ts::0d0245227101",
+      "file": "server/src/services/heartbeat/queue.ts",
+      "line": 1918
+    },
+    {
+      "key": "server/src/services/heartbeat/queue.ts::229e3d7fbf31",
+      "file": "server/src/services/heartbeat/queue.ts",
+      "line": 5015
+    },
+    {
+      "key": "server/src/services/heartbeat/queue.ts::2d5f3e94c8c5",
+      "file": "server/src/services/heartbeat/queue.ts",
+      "line": 5148
+    },
+    {
+      "key": "server/src/services/heartbeat/queue.ts::492c1b700869",
+      "file": "server/src/services/heartbeat/queue.ts",
+      "line": 5211
+    },
+    {
+      "key": "server/src/services/heartbeat/queue.ts::4bdc01004ebd",
+      "file": "server/src/services/heartbeat/queue.ts",
+      "line": 1932
+    },
+    {
+      "key": "server/src/services/heartbeat/queue.ts::64422f1203cd",
+      "file": "server/src/services/heartbeat/queue.ts",
+      "line": 5241
+    },
+    {
+      "key": "server/src/services/heartbeat/queue.ts::8b65ba1ab5a2",
+      "file": "server/src/services/heartbeat/queue.ts",
+      "line": 1863
+    },
+    {
+      "key": "server/src/services/heartbeat/queue.ts::8d1197a960bd",
+      "file": "server/src/services/heartbeat/queue.ts",
+      "line": 5191
+    },
+    {
+      "key": "server/src/services/heartbeat/queue.ts::b39d8edd82e9",
+      "file": "server/src/services/heartbeat/queue.ts",
+      "line": 5070
+    },
+    {
+      "key": "server/src/services/heartbeat/queue.ts::e055b973d078",
+      "file": "server/src/services/heartbeat/queue.ts",
+      "line": 1852
+    },
+    {
+      "key": "server/src/services/heartbeat/queue.ts::e74e40a53f96",
+      "file": "server/src/services/heartbeat/queue.ts",
+      "line": 1868
+    },
+    {
+      "key": "server/src/services/heartbeat/queue.ts::f3cccac0e097",
+      "file": "server/src/services/heartbeat/queue.ts",
+      "line": 1163
+    },
+    {
+      "key": "server/src/services/heartbeat/recovery.ts::00bf633e05ea",
+      "file": "server/src/services/heartbeat/recovery.ts",
+      "line": 1205
+    },
+    {
+      "key": "server/src/services/heartbeat/recovery.ts::07bbee321af4",
+      "file": "server/src/services/heartbeat/recovery.ts",
+      "line": 1926
+    },
+    {
+      "key": "server/src/services/heartbeat/recovery.ts::28e0946ec706",
+      "file": "server/src/services/heartbeat/recovery.ts",
+      "line": 1643
+    },
+    {
+      "key": "server/src/services/heartbeat/recovery.ts::33a5eecf9071",
+      "file": "server/src/services/heartbeat/recovery.ts",
+      "line": 843
+    },
+    {
+      "key": "server/src/services/heartbeat/recovery.ts::3af8a21130eb",
+      "file": "server/src/services/heartbeat/recovery.ts",
+      "line": 821
+    },
+    {
+      "key": "server/src/services/heartbeat/recovery.ts::4e6cf6c4686d",
+      "file": "server/src/services/heartbeat/recovery.ts",
+      "line": 2188
+    },
+    {
+      "key": "server/src/services/heartbeat/recovery.ts::a495ba6ac537",
+      "file": "server/src/services/heartbeat/recovery.ts",
+      "line": 1185
+    },
+    {
+      "key": "server/src/services/heartbeat/recovery.ts::afa231cb4d39",
+      "file": "server/src/services/heartbeat/recovery.ts",
+      "line": 1661
+    },
+    {
+      "key": "server/src/services/heartbeat/recovery.ts::e230ade6284f",
+      "file": "server/src/services/heartbeat/recovery.ts",
+      "line": 2167
+    },
+    {
+      "key": "server/src/services/heartbeat/run-control.ts::392b29909fc2",
+      "file": "server/src/services/heartbeat/run-control.ts",
+      "line": 877
+    },
+    {
+      "key": "server/src/services/heartbeat/run-control.ts::3a4cb689e8ce",
+      "file": "server/src/services/heartbeat/run-control.ts",
+      "line": 798
+    },
+    {
+      "key": "server/src/services/heartbeat/run-control.ts::421e6070d9db",
+      "file": "server/src/services/heartbeat/run-control.ts",
+      "line": 670
+    },
+    {
+      "key": "server/src/services/heartbeat/run-control.ts::4d527d8bc6eb",
+      "file": "server/src/services/heartbeat/run-control.ts",
+      "line": 908
+    },
+    {
+      "key": "server/src/services/heartbeat/run-control.ts::6d879f3ca39a",
+      "file": "server/src/services/heartbeat/run-control.ts",
+      "line": 535
+    },
+    {
+      "key": "server/src/services/heartbeat/run-control.ts::96ae83a6859e",
+      "file": "server/src/services/heartbeat/run-control.ts",
+      "line": 805
+    },
+    {
+      "key": "server/src/services/heartbeat/run-control.ts::a1408433737b",
+      "file": "server/src/services/heartbeat/run-control.ts",
+      "line": 678
+    },
+    {
+      "key": "server/src/services/heartbeat/run-control.ts::acf310c18f4c",
+      "file": "server/src/services/heartbeat/run-control.ts",
+      "line": 1834
+    },
+    {
+      "key": "server/src/services/heartbeat/scheduling.ts::570cfaada283",
+      "file": "server/src/services/heartbeat/scheduling.ts",
+      "line": 1322
+    },
+    {
+      "key": "server/src/services/heartbeat/scheduling.ts::57d4fb655218",
+      "file": "server/src/services/heartbeat/scheduling.ts",
+      "line": 1243
+    },
+    {
+      "key": "server/src/services/heartbeat/workspace-preparation.ts::24922069b586",
+      "file": "server/src/services/heartbeat/workspace-preparation.ts",
+      "line": 256
+    },
+    {
+      "key": "server/src/services/heartbeat/workspace-preparation.ts::b017df9b5289",
+      "file": "server/src/services/heartbeat/workspace-preparation.ts",
+      "line": 189
+    },
+    {
+      "key": "server/src/services/historical-provider-credentials.ts::f46d7061aa54",
+      "file": "server/src/services/historical-provider-credentials.ts",
+      "line": 24
+    },
+    {
+      "key": "server/src/services/issue-thread-interactions.ts::0dafba1bd125",
+      "file": "server/src/services/issue-thread-interactions.ts",
+      "line": 4061
+    },
+    {
+      "key": "server/src/services/issue-thread-interactions.ts::297ca1b38810",
+      "file": "server/src/services/issue-thread-interactions.ts",
+      "line": 4064
+    },
+    {
+      "key": "server/src/services/issue-thread-interactions.ts::3948ab321fd3",
+      "file": "server/src/services/issue-thread-interactions.ts",
+      "line": 3289
+    },
+    {
+      "key": "server/src/services/issue-thread-interactions.ts::94f21a71732d",
+      "file": "server/src/services/issue-thread-interactions.ts",
+      "line": 5117
+    },
+    {
+      "key": "server/src/services/issue-thread-interactions.ts::f80b159c4fe1",
+      "file": "server/src/services/issue-thread-interactions.ts",
+      "line": 5040
+    },
+    {
+      "key": "server/src/services/issue-tree-control.ts::1abf37c7867f",
+      "file": "server/src/services/issue-tree-control.ts",
+      "line": 481
+    },
+    {
+      "key": "server/src/services/issue-tree-control.ts::2a203c802aad",
+      "file": "server/src/services/issue-tree-control.ts",
+      "line": 1046
+    },
+    {
+      "key": "server/src/services/issue-tree-control.ts::76d14dc94f5f",
+      "file": "server/src/services/issue-tree-control.ts",
+      "line": 664
+    },
+    {
+      "key": "server/src/services/issue-tree-resume.ts::3fb8c801b97d",
+      "file": "server/src/services/issue-tree-resume.ts",
+      "line": 224
+    },
+    {
+      "key": "server/src/services/issue-tree-resume.ts::d858ffce9df0",
+      "file": "server/src/services/issue-tree-resume.ts",
+      "line": 253
+    },
+    {
+      "key": "server/src/services/issue-tree-resume.ts::ea117b91abe0",
+      "file": "server/src/services/issue-tree-resume.ts",
+      "line": 256
+    },
+    {
+      "key": "server/src/services/issues.ts::12d6faed49fa",
+      "file": "server/src/services/issues.ts",
+      "line": 3506
+    },
+    {
+      "key": "server/src/services/issues.ts::145cf5e263b7",
+      "file": "server/src/services/issues.ts",
+      "line": 14242
+    },
+    {
+      "key": "server/src/services/issues.ts::1c485772ce0a",
+      "file": "server/src/services/issues.ts",
+      "line": 1163
+    },
+    {
+      "key": "server/src/services/issues.ts::42cb37036227",
+      "file": "server/src/services/issues.ts",
+      "line": 5139
+    },
+    {
+      "key": "server/src/services/issues.ts::452d81bd2210",
+      "file": "server/src/services/issues.ts",
+      "line": 9947
+    },
+    {
+      "key": "server/src/services/issues.ts::5e5f28b00d2a",
+      "file": "server/src/services/issues.ts",
+      "line": 12204
+    },
+    {
+      "key": "server/src/services/issues.ts::8edb6a3a03ab",
+      "file": "server/src/services/issues.ts",
+      "line": 3657
+    },
+    {
+      "key": "server/src/services/issues.ts::a48ced77b643",
+      "file": "server/src/services/issues.ts",
+      "line": 2612
+    },
+    {
+      "key": "server/src/services/issues.ts::d8560e1d3e4f",
+      "file": "server/src/services/issues.ts",
+      "line": 14021
+    },
+    {
+      "key": "server/src/services/issues.ts::f0e742f341ee",
+      "file": "server/src/services/issues.ts",
+      "line": 11153
+    },
+    {
+      "key": "server/src/services/legacy-execution-recovery.ts::a3791363d549",
+      "file": "server/src/services/legacy-execution-recovery.ts",
+      "line": 417
+    },
+    {
+      "key": "server/src/services/legacy-workspace-recovery-migration.ts::531313a79638",
+      "file": "server/src/services/legacy-workspace-recovery-migration.ts",
+      "line": 52
+    },
+    {
+      "key": "server/src/services/legacy-workspace-recovery-migration.ts::588027ceca90",
+      "file": "server/src/services/legacy-workspace-recovery-migration.ts",
+      "line": 32
+    },
+    {
+      "key": "server/src/services/legacy-workspace-recovery-migration.ts::7c0dec6d65a2",
+      "file": "server/src/services/legacy-workspace-recovery-migration.ts",
+      "line": 113
+    },
+    {
+      "key": "server/src/services/legacy-workspace-restore-recovery.ts::4c2ace70140f",
+      "file": "server/src/services/legacy-workspace-restore-recovery.ts",
+      "line": 90
+    },
+    {
+      "key": "server/src/services/legacy-workspace-restore-recovery.ts::5eee04cb9b05",
+      "file": "server/src/services/legacy-workspace-restore-recovery.ts",
+      "line": 98
+    },
+    {
+      "key": "server/src/services/legacy-workspace-restore-recovery.ts::72b1efa1f7d6",
+      "file": "server/src/services/legacy-workspace-restore-recovery.ts",
+      "line": 113
+    },
+    {
+      "key": "server/src/services/low-trust-runtime-containment.ts::94008873ae15",
+      "file": "server/src/services/low-trust-runtime-containment.ts",
+      "line": 23
+    },
+    {
+      "key": "server/src/services/managed-skill-content.ts::b863abaf0b3b",
+      "file": "server/src/services/managed-skill-content.ts",
+      "line": 122
+    },
+    {
+      "key": "server/src/services/muse-assignment-follow-up.ts::44998ba07a9e",
+      "file": "server/src/services/muse-assignment-follow-up.ts",
+      "line": 90
+    },
+    {
+      "key": "server/src/services/muse-assignment-follow-up.ts::9eff3b696a14",
+      "file": "server/src/services/muse-assignment-follow-up.ts",
+      "line": 102
+    },
+    {
+      "key": "server/src/services/muse-maintenance.ts::77e4328e99f0",
+      "file": "server/src/services/muse-maintenance.ts",
+      "line": 65
+    },
+    {
+      "key": "server/src/services/muse-maintenance.ts::b8c889720a94",
+      "file": "server/src/services/muse-maintenance.ts",
+      "line": 72
+    },
+    {
+      "key": "server/src/services/muse-maintenance.ts::e87d103d67ef",
+      "file": "server/src/services/muse-maintenance.ts",
+      "line": 45
+    },
+    {
+      "key": "server/src/services/muse-receiver.ts::125246beccd0",
+      "file": "server/src/services/muse-receiver.ts",
+      "line": 22
+    },
+    {
+      "key": "server/src/services/native-local-process-stop.ts::ef2fba6b0f7b",
+      "file": "server/src/services/native-local-process-stop.ts",
+      "line": 319
+    },
+    {
+      "key": "server/src/services/native-runtime/automatic-completion-reviews.ts::abce153461d2",
+      "file": "server/src/services/native-runtime/automatic-completion-reviews.ts",
+      "line": 119
+    },
+    {
+      "key": "server/src/services/native-runtime/chat-attachment-reuse.ts::eacc60a4b02f",
+      "file": "server/src/services/native-runtime/chat-attachment-reuse.ts",
+      "line": 988
+    },
+    {
+      "key": "server/src/services/native-runtime/generate-image-tool.ts::2166dfbf2e64",
+      "file": "server/src/services/native-runtime/generate-image-tool.ts",
+      "line": 204
+    },
+    {
+      "key": "server/src/services/native-runtime/generate-image-tool.ts::3b4b2aa9e680",
+      "file": "server/src/services/native-runtime/generate-image-tool.ts",
+      "line": 201
+    },
+    {
+      "key": "server/src/services/native-runtime/generate-image-tool.ts::572f418d42b3",
+      "file": "server/src/services/native-runtime/generate-image-tool.ts",
+      "line": 205
+    },
+    {
+      "key": "server/src/services/native-runtime/handoff-plan-context.ts::26bdfa13c3c6",
+      "file": "server/src/services/native-runtime/handoff-plan-context.ts",
+      "line": 27
+    },
+    {
+      "key": "server/src/services/native-runtime/native-cancellation-delivery.ts::2be81a0ecccf",
+      "file": "server/src/services/native-runtime/native-cancellation-delivery.ts",
+      "line": 43
+    },
+    {
+      "key": "server/src/services/native-runtime/native-completion-feedback.ts::25122dce365a",
+      "file": "server/src/services/native-runtime/native-completion-feedback.ts",
+      "line": 348
+    },
+    {
+      "key": "server/src/services/native-runtime/native-controller-migration.ts::73585a3c6996",
+      "file": "server/src/services/native-runtime/native-controller-migration.ts",
+      "line": 330
+    },
+    {
+      "key": "server/src/services/native-runtime/native-failed-workspace-recovery.ts::58cec7b86e93",
+      "file": "server/src/services/native-runtime/native-failed-workspace-recovery.ts",
+      "line": 265
+    },
+    {
+      "key": "server/src/services/native-runtime/native-failed-workspace-recovery.ts::a98df9e292cf",
+      "file": "server/src/services/native-runtime/native-failed-workspace-recovery.ts",
+      "line": 302
+    },
+    {
+      "key": "server/src/services/native-runtime/native-finalization-reconciler.ts::0ce9f75e8498",
+      "file": "server/src/services/native-runtime/native-finalization-reconciler.ts",
+      "line": 622
+    },
+    {
+      "key": "server/src/services/native-runtime/native-finalization-reconciler.ts::131b63fefcd1",
+      "file": "server/src/services/native-runtime/native-finalization-reconciler.ts",
+      "line": 575
+    },
+    {
+      "key": "server/src/services/native-runtime/native-finalization-reconciler.ts::498b42f3dcd0",
+      "file": "server/src/services/native-runtime/native-finalization-reconciler.ts",
+      "line": 546
+    },
+    {
+      "key": "server/src/services/native-runtime/native-finalization-reconciler.ts::621e27ea97d7",
+      "file": "server/src/services/native-runtime/native-finalization-reconciler.ts",
+      "line": 351
+    },
+    {
+      "key": "server/src/services/native-runtime/native-finalization-reconciler.ts::6316465bb58d",
+      "file": "server/src/services/native-runtime/native-finalization-reconciler.ts",
+      "line": 839
+    },
+    {
+      "key": "server/src/services/native-runtime/native-finalization-reconciler.ts::977fdce99b41",
+      "file": "server/src/services/native-runtime/native-finalization-reconciler.ts",
+      "line": 156
+    },
+    {
+      "key": "server/src/services/native-runtime/native-harness-backup-expiration.ts::2db5ea74f909",
+      "file": "server/src/services/native-runtime/native-harness-backup-expiration.ts",
+      "line": 438
+    },
+    {
+      "key": "server/src/services/native-runtime/native-harness-backup-expiration.ts::cab8a1859bb6",
+      "file": "server/src/services/native-runtime/native-harness-backup-expiration.ts",
+      "line": 431
+    },
+    {
+      "key": "server/src/services/native-runtime/native-harness-filesystem-independence.ts::06adddb0e20c",
+      "file": "server/src/services/native-runtime/native-harness-filesystem-independence.ts",
+      "line": 168
+    },
+    {
+      "key": "server/src/services/native-runtime/native-harness-filesystem-independence.ts::7f70e5235e5d",
+      "file": "server/src/services/native-runtime/native-harness-filesystem-independence.ts",
+      "line": 179
+    },
+    {
+      "key": "server/src/services/native-runtime/native-harness-filesystem-independence.ts::88859094a2f6",
+      "file": "server/src/services/native-runtime/native-harness-filesystem-independence.ts",
+      "line": 173
+    },
+    {
+      "key": "server/src/services/native-runtime/native-harness-filesystem-independence.ts::c0815f0f386b",
+      "file": "server/src/services/native-runtime/native-harness-filesystem-independence.ts",
+      "line": 779
+    },
+    {
+      "key": "server/src/services/native-runtime/native-harness-filesystem-independence.ts::d7273b30f737",
+      "file": "server/src/services/native-runtime/native-harness-filesystem-independence.ts",
+      "line": 776
+    },
+    {
+      "key": "server/src/services/native-runtime/native-interaction-bridge.ts::2c5dcf9a8dc6",
+      "file": "server/src/services/native-runtime/native-interaction-bridge.ts",
+      "line": 149
+    },
+    {
+      "key": "server/src/services/native-runtime/native-interaction-bridge.ts::2f6cf5c4e480",
+      "file": "server/src/services/native-runtime/native-interaction-bridge.ts",
+      "line": 699
+    },
+    {
+      "key": "server/src/services/native-runtime/native-interaction-bridge.ts::3bba947adc86",
+      "file": "server/src/services/native-runtime/native-interaction-bridge.ts",
+      "line": 125
+    },
+    {
+      "key": "server/src/services/native-runtime/native-interaction-bridge.ts::3ea4da8ac92f",
+      "file": "server/src/services/native-runtime/native-interaction-bridge.ts",
+      "line": 113
+    },
+    {
+      "key": "server/src/services/native-runtime/native-interaction-bridge.ts::55f41d41a06b",
+      "file": "server/src/services/native-runtime/native-interaction-bridge.ts",
+      "line": 708
+    },
+    {
+      "key": "server/src/services/native-runtime/native-interaction-bridge.ts::66746f15128c",
+      "file": "server/src/services/native-runtime/native-interaction-bridge.ts",
+      "line": 662
+    },
+    {
+      "key": "server/src/services/native-runtime/native-interaction-bridge.ts::6fdc6ffc9775",
+      "file": "server/src/services/native-runtime/native-interaction-bridge.ts",
+      "line": 221
+    },
+    {
+      "key": "server/src/services/native-runtime/native-interaction-bridge.ts::975f2dfc04f1",
+      "file": "server/src/services/native-runtime/native-interaction-bridge.ts",
+      "line": 649
+    },
+    {
+      "key": "server/src/services/native-runtime/native-interaction-bridge.ts::afbe7de599b2",
+      "file": "server/src/services/native-runtime/native-interaction-bridge.ts",
+      "line": 202
+    },
+    {
+      "key": "server/src/services/native-runtime/native-interaction-bridge.ts::b5edf3277a3c",
+      "file": "server/src/services/native-runtime/native-interaction-bridge.ts",
+      "line": 203
+    },
+    {
+      "key": "server/src/services/native-runtime/native-interaction-bridge.ts::d10eb3efb737",
+      "file": "server/src/services/native-runtime/native-interaction-bridge.ts",
+      "line": 640
+    },
+    {
+      "key": "server/src/services/native-runtime/native-interaction-bridge.ts::ec98a3441f87",
+      "file": "server/src/services/native-runtime/native-interaction-bridge.ts",
+      "line": 137
+    },
+    {
+      "key": "server/src/services/native-runtime/native-interaction-bridge.ts::f00e917471a6",
+      "file": "server/src/services/native-runtime/native-interaction-bridge.ts",
+      "line": 104
+    },
+    {
+      "key": "server/src/services/native-runtime/native-reconstruction-intervening-executions.ts::4c2ace70140f",
+      "file": "server/src/services/native-runtime/native-reconstruction-intervening-executions.ts",
+      "line": 44
+    },
+    {
+      "key": "server/src/services/native-runtime/native-reconstruction-intervening-executions.ts::8fd0eb64cfc1",
+      "file": "server/src/services/native-runtime/native-reconstruction-intervening-executions.ts",
+      "line": 25
+    },
+    {
+      "key": "server/src/services/native-runtime/native-reconstruction-intervening-executions.ts::92a5063ebb3e",
+      "file": "server/src/services/native-runtime/native-reconstruction-intervening-executions.ts",
+      "line": 31
+    },
+    {
+      "key": "server/src/services/native-runtime/native-reconstruction-intervening-executions.ts::ae8592591296",
+      "file": "server/src/services/native-runtime/native-reconstruction-intervening-executions.ts",
+      "line": 50
+    },
+    {
+      "key": "server/src/services/native-runtime/native-reconstruction-intervening-executions.ts::e324439ac8e7",
+      "file": "server/src/services/native-runtime/native-reconstruction-intervening-executions.ts",
+      "line": 36
+    },
+    {
+      "key": "server/src/services/native-runtime/native-restart-recovery.ts::b3a0d99ad20d",
+      "file": "server/src/services/native-runtime/native-restart-recovery.ts",
+      "line": 988
+    },
+    {
+      "key": "server/src/services/native-runtime/native-run-finalizer.ts::57e2daf2ed44",
+      "file": "server/src/services/native-runtime/native-run-finalizer.ts",
+      "line": 1413
+    },
+    {
+      "key": "server/src/services/native-runtime/native-run-finalizer.ts::e3123082856f",
+      "file": "server/src/services/native-runtime/native-run-finalizer.ts",
+      "line": 1841
+    },
+    {
+      "key": "server/src/services/native-runtime/native-run-finalizer.ts::f8c4b2efb983",
+      "file": "server/src/services/native-runtime/native-run-finalizer.ts",
+      "line": 1652
+    },
+    {
+      "key": "server/src/services/native-runtime/native-runner-checkpoint.ts::61cb89d71ee7",
+      "file": "server/src/services/native-runtime/native-runner-checkpoint.ts",
+      "line": 33
+    },
+    {
+      "key": "server/src/services/native-runtime/native-runtime-response-delivery.ts::aca2387e2825",
+      "file": "server/src/services/native-runtime/native-runtime-response-delivery.ts",
+      "line": 126
+    },
+    {
+      "key": "server/src/services/native-runtime/native-safe-replacement.ts::16277a324e77",
+      "file": "server/src/services/native-runtime/native-safe-replacement.ts",
+      "line": 403
+    },
+    {
+      "key": "server/src/services/native-runtime/native-safe-replacement.ts::47d27da85770",
+      "file": "server/src/services/native-runtime/native-safe-replacement.ts",
+      "line": 394
+    },
+    {
+      "key": "server/src/services/native-runtime/native-safe-replacement.ts::4dc6c49e84a8",
+      "file": "server/src/services/native-runtime/native-safe-replacement.ts",
+      "line": 293
+    },
+    {
+      "key": "server/src/services/native-runtime/native-safe-replacement.ts::6684c93cf684",
+      "file": "server/src/services/native-runtime/native-safe-replacement.ts",
+      "line": 282
+    },
+    {
+      "key": "server/src/services/native-runtime/native-safe-replacement.ts::688dc45f67ef",
+      "file": "server/src/services/native-runtime/native-safe-replacement.ts",
+      "line": 527
+    },
+    {
+      "key": "server/src/services/native-runtime/native-safe-replacement.ts::833a7b007bd3",
+      "file": "server/src/services/native-runtime/native-safe-replacement.ts",
+      "line": 374
+    },
+    {
+      "key": "server/src/services/native-runtime/native-safe-replacement.ts::d7c562e20f6d",
+      "file": "server/src/services/native-runtime/native-safe-replacement.ts",
+      "line": 591
+    },
+    {
+      "key": "server/src/services/native-runtime/native-safe-replacement.ts::dc9a7d860294",
+      "file": "server/src/services/native-runtime/native-safe-replacement.ts",
+      "line": 784
+    },
+    {
+      "key": "server/src/services/native-runtime/native-session-executor.ts::6796885ed891",
+      "file": "server/src/services/native-runtime/native-session-executor.ts",
+      "line": 6070
+    },
+    {
+      "key": "server/src/services/native-runtime/native-session-executor.ts::8a54fa6176c6",
+      "file": "server/src/services/native-runtime/native-session-executor.ts",
+      "line": 6102
+    },
+    {
+      "key": "server/src/services/native-runtime/native-workspace-lock-keepalive.ts::2f4b0bf33407",
+      "file": "server/src/services/native-runtime/native-workspace-lock-keepalive.ts",
+      "line": 16
+    },
+    {
+      "key": "server/src/services/native-runtime/native-workspace-migration.ts::0eda24fd9c08",
+      "file": "server/src/services/native-runtime/native-workspace-migration.ts",
+      "line": 34
+    },
+    {
+      "key": "server/src/services/native-runtime/native-workspace-reconstruction.ts::203408bfb238",
+      "file": "server/src/services/native-runtime/native-workspace-reconstruction.ts",
+      "line": 142
+    },
+    {
+      "key": "server/src/services/native-runtime/native-workspace-reconstruction.ts::c7e438f03e60",
+      "file": "server/src/services/native-runtime/native-workspace-reconstruction.ts",
+      "line": 137
+    },
+    {
+      "key": "server/src/services/native-runtime/native-workspace-sync-retention.ts::a3b9714dbec3",
+      "file": "server/src/services/native-runtime/native-workspace-sync-retention.ts",
+      "line": 415
+    },
+    {
+      "key": "server/src/services/native-runtime/obsolete-policy-reviews.ts::b42e97987b15",
+      "file": "server/src/services/native-runtime/obsolete-policy-reviews.ts",
+      "line": 75
+    },
+    {
+      "key": "server/src/services/native-runtime/runtime-context.ts::b2071b543c61",
+      "file": "server/src/services/native-runtime/runtime-context.ts",
+      "line": 234
+    },
+    {
+      "key": "server/src/services/native-runtime/runtime-skill-preservation.ts::0db4cbc9e045",
+      "file": "server/src/services/native-runtime/runtime-skill-preservation.ts",
+      "line": 195
+    },
+    {
+      "key": "server/src/services/native-runtime/runtime-skill-preservation.ts::5eb5d54a4e11",
+      "file": "server/src/services/native-runtime/runtime-skill-preservation.ts",
+      "line": 92
+    },
+    {
+      "key": "server/src/services/native-runtime/runtime-skill-preservation.ts::a536882290c6",
+      "file": "server/src/services/native-runtime/runtime-skill-preservation.ts",
+      "line": 180
+    },
+    {
+      "key": "server/src/services/native-runtime/status-decision-committer.ts::158901f36a57",
+      "file": "server/src/services/native-runtime/status-decision-committer.ts",
+      "line": 2468
+    },
+    {
+      "key": "server/src/services/native-runtime/superseded-external-review-requests.ts::0571f6210deb",
+      "file": "server/src/services/native-runtime/superseded-external-review-requests.ts",
+      "line": 76
+    },
+    {
+      "key": "server/src/services/offline-workspace-operation-reconciliation.ts::7eecf57f1314",
+      "file": "server/src/services/offline-workspace-operation-reconciliation.ts",
+      "line": 126
+    },
+    {
+      "key": "server/src/services/online-legacy-workspace-recovery.ts::a548ddd54f42",
+      "file": "server/src/services/online-legacy-workspace-recovery.ts",
+      "line": 62
+    },
+    {
+      "key": "server/src/services/online-workspace-source.ts::bd8b3b49d6cb",
+      "file": "server/src/services/online-workspace-source.ts",
+      "line": 183
+    },
+    {
+      "key": "server/src/services/plan-review-context.ts::3b8c8fd41be4",
+      "file": "server/src/services/plan-review-context.ts",
+      "line": 448
+    },
+    {
+      "key": "server/src/services/plan-review-context.ts::3d468f218f05",
+      "file": "server/src/services/plan-review-context.ts",
+      "line": 396
+    },
+    {
+      "key": "server/src/services/plan-review-context.ts::ae285a69df5f",
+      "file": "server/src/services/plan-review-context.ts",
+      "line": 383
+    },
+    {
+      "key": "server/src/services/plan-review-context.ts::d27c68b7e66b",
+      "file": "server/src/services/plan-review-context.ts",
+      "line": 427
+    },
+    {
+      "key": "server/src/services/plugin-agent-runtime-state.ts::ee401e462f71",
+      "file": "server/src/services/plugin-agent-runtime-state.ts",
+      "line": 75
+    },
+    {
+      "key": "server/src/services/plugin-database.ts::08b855163935",
+      "file": "server/src/services/plugin-database.ts",
+      "line": 504
+    },
+    {
+      "key": "server/src/services/plugin-database.ts::4721c1596c17",
+      "file": "server/src/services/plugin-database.ts",
+      "line": 484
+    },
+    {
+      "key": "server/src/services/plugin-database.ts::bf1187737f6a",
+      "file": "server/src/services/plugin-database.ts",
+      "line": 506
+    },
+    {
+      "key": "server/src/services/plugin-host-services.ts::662dd1f26eeb",
+      "file": "server/src/services/plugin-host-services.ts",
+      "line": 1273
+    },
+    {
+      "key": "server/src/services/plugin-host-services.ts::e50ae9f77925",
+      "file": "server/src/services/plugin-host-services.ts",
+      "line": 3266
+    },
+    {
+      "key": "server/src/services/plugin-job-scheduler.ts::ba7a556834eb",
+      "file": "server/src/services/plugin-job-scheduler.ts",
+      "line": 232
+    },
+    {
+      "key": "server/src/services/plugin-job-scheduler.ts::f4db44be2a05",
+      "file": "server/src/services/plugin-job-scheduler.ts",
+      "line": 164
+    },
+    {
+      "key": "server/src/services/plugin-job-store.ts::0b0c2e838fb2",
+      "file": "server/src/services/plugin-job-store.ts",
+      "line": 184
+    },
+    {
+      "key": "server/src/services/plugin-job-store.ts::145352ed7834",
+      "file": "server/src/services/plugin-job-store.ts",
+      "line": 190
+    },
+    {
+      "key": "server/src/services/plugin-job-store.ts::5b056c2d3c03",
+      "file": "server/src/services/plugin-job-store.ts",
+      "line": 202
+    },
+    {
+      "key": "server/src/services/plugin-lifecycle-delivery.ts::1d051a79489a",
+      "file": "server/src/services/plugin-lifecycle-delivery.ts",
+      "line": 118
+    },
+    {
+      "key": "server/src/services/plugin-lifecycle-delivery.ts::69341b7108a7",
+      "file": "server/src/services/plugin-lifecycle-delivery.ts",
+      "line": 135
+    },
+    {
+      "key": "server/src/services/plugin-lifecycle-delivery.ts::cfeb7bf63c1d",
+      "file": "server/src/services/plugin-lifecycle-delivery.ts",
+      "line": 101
+    },
+    {
+      "key": "server/src/services/plugin-lifecycle-delivery.ts::df45d085fd9c",
+      "file": "server/src/services/plugin-lifecycle-delivery.ts",
+      "line": 125
+    },
+    {
+      "key": "server/src/services/plugin-log-retention.ts::75804c23e7b6",
+      "file": "server/src/services/plugin-log-retention.ts",
+      "line": 35
+    },
+    {
+      "key": "server/src/services/plugin-workspaces.ts::429f68abd814",
+      "file": "server/src/services/plugin-workspaces.ts",
+      "line": 917
+    },
+    {
+      "key": "server/src/services/plugin-workspaces.ts::543fab16dd4e",
+      "file": "server/src/services/plugin-workspaces.ts",
+      "line": 898
+    },
+    {
+      "key": "server/src/services/plugin-workspaces.ts::b02113a080e9",
+      "file": "server/src/services/plugin-workspaces.ts",
+      "line": 903
+    },
+    {
+      "key": "server/src/services/projects.ts::c5207485b663",
+      "file": "server/src/services/projects.ts",
+      "line": 1083
+    },
+    {
+      "key": "server/src/services/prompt-injection-prevention.ts::4f535127fb27",
+      "file": "server/src/services/prompt-injection-prevention.ts",
+      "line": 122
+    },
+    {
+      "key": "server/src/services/provider-billing-import.ts::3c424b1b9382",
+      "file": "server/src/services/provider-billing-import.ts",
+      "line": 307
+    },
+    {
+      "key": "server/src/services/provider-billing-import.ts::5b6dfc8903e1",
+      "file": "server/src/services/provider-billing-import.ts",
+      "line": 334
+    },
+    {
+      "key": "server/src/services/provider-billing-import.ts::b9cddb65262c",
+      "file": "server/src/services/provider-billing-import.ts",
+      "line": 325
+    },
+    {
+      "key": "server/src/services/provider-fresh-workspace.ts::1d6dd4955a59",
+      "file": "server/src/services/provider-fresh-workspace.ts",
+      "line": 51
+    },
+    {
+      "key": "server/src/services/public-mcp/canonical-host.fixture.ts::1b4cd1a93215",
+      "file": "server/src/services/public-mcp/canonical-host.fixture.ts",
+      "line": 149
+    },
+    {
+      "key": "server/src/services/public-mcp/canonical-host.fixture.ts::61ccca48fb55",
+      "file": "server/src/services/public-mcp/canonical-host.fixture.ts",
+      "line": 149
+    },
+    {
+      "key": "server/src/services/public-mcp/client-mirror-sync.ts::1300a4c75cbd",
+      "file": "server/src/services/public-mcp/client-mirror-sync.ts",
+      "line": 110
+    },
+    {
+      "key": "server/src/services/public-mcp/client-mirror-sync.ts::4e9ab56b20f7",
+      "file": "server/src/services/public-mcp/client-mirror-sync.ts",
+      "line": 113
+    },
+    {
+      "key": "server/src/services/public-mcp/events.ts::18c5306c4bf8",
+      "file": "server/src/services/public-mcp/events.ts",
+      "line": 300
+    },
+    {
+      "key": "server/src/services/public-mcp/events.ts::9038d76f911d",
+      "file": "server/src/services/public-mcp/events.ts",
+      "line": 267
+    },
+    {
+      "key": "server/src/services/public-mcp/events.ts::923d4a8fa270",
+      "file": "server/src/services/public-mcp/events.ts",
+      "line": 254
+    },
+    {
+      "key": "server/src/services/public-mcp/events.ts::b645f38cf44d",
+      "file": "server/src/services/public-mcp/events.ts",
+      "line": 204
+    },
+    {
+      "key": "server/src/services/public-mcp/file-transfers.ts::0dcdc5222859",
+      "file": "server/src/services/public-mcp/file-transfers.ts",
+      "line": 116
+    },
+    {
+      "key": "server/src/services/public-mcp/muse-oauth-diagnostics.ts::9a082edb26a5",
+      "file": "server/src/services/public-mcp/muse-oauth-diagnostics.ts",
+      "line": 97
+    },
+    {
+      "key": "server/src/services/public-mcp/revocation-index-sync.ts::9b0a42e3cb34",
+      "file": "server/src/services/public-mcp/revocation-index-sync.ts",
+      "line": 87
+    },
+    {
+      "key": "server/src/services/public-mcp/revocation-index-sync.ts::c4672b843ab9",
+      "file": "server/src/services/public-mcp/revocation-index-sync.ts",
+      "line": 69
+    },
+    {
+      "key": "server/src/services/public-mcp/revocation-index-sync.ts::d2f579af9960",
+      "file": "server/src/services/public-mcp/revocation-index-sync.ts",
+      "line": 59
+    },
+    {
+      "key": "server/src/services/question-response-delivery.ts::f7cf972bab0b",
+      "file": "server/src/services/question-response-delivery.ts",
+      "line": 1349
+    },
+    {
+      "key": "server/src/services/recovery/blocker-stall-wakeups.ts::ae5fbf62b1f7",
+      "file": "server/src/services/recovery/blocker-stall-wakeups.ts",
+      "line": 231
+    },
+    {
+      "key": "server/src/services/recovery/blocker-stall-wakeups.ts::b3e7059daa71",
+      "file": "server/src/services/recovery/blocker-stall-wakeups.ts",
+      "line": 247
+    },
+    {
+      "key": "server/src/services/recovery/blocker-stall-wakeups.ts::f4ffccb921c5",
+      "file": "server/src/services/recovery/blocker-stall-wakeups.ts",
+      "line": 202
+    },
+    {
+      "key": "server/src/services/recovery/ownership-invariant-report.ts::1fb318ea1f35",
+      "file": "server/src/services/recovery/ownership-invariant-report.ts",
+      "line": 526
+    },
+    {
+      "key": "server/src/services/recovery/ownership-invariant-report.ts::2018917e76b2",
+      "file": "server/src/services/recovery/ownership-invariant-report.ts",
+      "line": 151
+    },
+    {
+      "key": "server/src/services/recovery/ownership-invariant-report.ts::aef89f8a101c",
+      "file": "server/src/services/recovery/ownership-invariant-report.ts",
+      "line": 557
+    },
+    {
+      "key": "server/src/services/recovery/ownership-invariant-report.ts::b4a18d5783b3",
+      "file": "server/src/services/recovery/ownership-invariant-report.ts",
+      "line": 334
+    },
+    {
+      "key": "server/src/services/recovery/ownership-invariant-report.ts::eb529d90df1b",
+      "file": "server/src/services/recovery/ownership-invariant-report.ts",
+      "line": 165
+    },
+    {
+      "key": "server/src/services/recovery/ownership-invariant-report.ts::f91f05eec985",
+      "file": "server/src/services/recovery/ownership-invariant-report.ts",
+      "line": 349
+    },
+    {
+      "key": "server/src/services/recovery/ownership-registry.ts::065b72e7ab4a",
+      "file": "server/src/services/recovery/ownership-registry.ts",
+      "line": 1022
+    },
+    {
+      "key": "server/src/services/recovery/ownership-registry.ts::edf57a8c2140",
+      "file": "server/src/services/recovery/ownership-registry.ts",
+      "line": 265
+    },
+    {
+      "key": "server/src/services/recovery/service.ts::188e2e026130",
+      "file": "server/src/services/recovery/service.ts",
+      "line": 4683
+    },
+    {
+      "key": "server/src/services/recovery/service.ts::30d7d9a6f8e3",
+      "file": "server/src/services/recovery/service.ts",
+      "line": 6562
+    },
+    {
+      "key": "server/src/services/recovery/service.ts::54835a23d003",
+      "file": "server/src/services/recovery/service.ts",
+      "line": 4838
+    },
+    {
+      "key": "server/src/services/recovery/service.ts::8806b73693ba",
+      "file": "server/src/services/recovery/service.ts",
+      "line": 4601
+    },
+    {
+      "key": "server/src/services/recovery/service.ts::be937614f6f9",
+      "file": "server/src/services/recovery/service.ts",
+      "line": 4609
+    },
+    {
+      "key": "server/src/services/recovery/service.ts::f8d7b30bcced",
+      "file": "server/src/services/recovery/service.ts",
+      "line": 4660
+    },
+    {
+      "key": "server/src/services/remote-workspace-migration-batch.ts::3593def96cbe",
+      "file": "server/src/services/remote-workspace-migration-batch.ts",
+      "line": 21
+    },
+    {
+      "key": "server/src/services/remote-workspace-migration-tree.ts::14a73296cec5",
+      "file": "server/src/services/remote-workspace-migration-tree.ts",
+      "line": 141
+    },
+    {
+      "key": "server/src/services/remote-workspace-migration-tree.ts::36af6c4c027f",
+      "file": "server/src/services/remote-workspace-migration-tree.ts",
+      "line": 429
+    },
+    {
+      "key": "server/src/services/remote-workspace-migration.ts::03213e93dfb5",
+      "file": "server/src/services/remote-workspace-migration.ts",
+      "line": 723
+    },
+    {
+      "key": "server/src/services/remote-workspace-migration.ts::07117486d626",
+      "file": "server/src/services/remote-workspace-migration.ts",
+      "line": 522
+    },
+    {
+      "key": "server/src/services/remote-workspace-migration.ts::130c699bfcad",
+      "file": "server/src/services/remote-workspace-migration.ts",
+      "line": 549
+    },
+    {
+      "key": "server/src/services/remote-workspace-migration.ts::29fb0bd6406d",
+      "file": "server/src/services/remote-workspace-migration.ts",
+      "line": 171
+    },
+    {
+      "key": "server/src/services/remote-workspace-migration.ts::35ea42548b22",
+      "file": "server/src/services/remote-workspace-migration.ts",
+      "line": 208
+    },
+    {
+      "key": "server/src/services/remote-workspace-migration.ts::3b32d7c79a5e",
+      "file": "server/src/services/remote-workspace-migration.ts",
+      "line": 216
+    },
+    {
+      "key": "server/src/services/remote-workspace-migration.ts::4850c809d1cd",
+      "file": "server/src/services/remote-workspace-migration.ts",
+      "line": 589
+    },
+    {
+      "key": "server/src/services/remote-workspace-migration.ts::8cbad1ba1ef6",
+      "file": "server/src/services/remote-workspace-migration.ts",
+      "line": 534
+    },
+    {
+      "key": "server/src/services/remote-workspace-migration.ts::ab86b16b916e",
+      "file": "server/src/services/remote-workspace-migration.ts",
+      "line": 581
+    },
+    {
+      "key": "server/src/services/remote-workspace-migration.ts::b23759a2f032",
+      "file": "server/src/services/remote-workspace-migration.ts",
+      "line": 40
+    },
+    {
+      "key": "server/src/services/remote-workspace-migration.ts::d943f6a7b327",
+      "file": "server/src/services/remote-workspace-migration.ts",
+      "line": 524
+    },
+    {
+      "key": "server/src/services/remote-workspace-migration.ts::db1cfd7b5180",
+      "file": "server/src/services/remote-workspace-migration.ts",
+      "line": 516
+    },
+    {
+      "key": "server/src/services/remote-workspace-recovery-attachments.ts::745a8bbfff3c",
+      "file": "server/src/services/remote-workspace-recovery-attachments.ts",
+      "line": 168
+    },
+    {
+      "key": "server/src/services/remote-workspace-recovery-attachments.ts::c3cffe57d1c8",
+      "file": "server/src/services/remote-workspace-recovery-attachments.ts",
+      "line": 225
+    },
+    {
+      "key": "server/src/services/remote-workspace-snapshot-retention.ts::1bdc10c2ac0c",
+      "file": "server/src/services/remote-workspace-snapshot-retention.ts",
+      "line": 206
+    },
+    {
+      "key": "server/src/services/remote-workspace-snapshot-retention.ts::3ef9a3ac1da1",
+      "file": "server/src/services/remote-workspace-snapshot-retention.ts",
+      "line": 130
+    },
+    {
+      "key": "server/src/services/remote-workspace-snapshot-retention.ts::6a7d28a8f5c9",
+      "file": "server/src/services/remote-workspace-snapshot-retention.ts",
+      "line": 102
+    },
+    {
+      "key": "server/src/services/remote-workspace-snapshot-retention.ts::a009aa623982",
+      "file": "server/src/services/remote-workspace-snapshot-retention.ts",
+      "line": 211
+    },
+    {
+      "key": "server/src/services/remote-workspace-snapshot-retention.ts::cc9f60e95418",
+      "file": "server/src/services/remote-workspace-snapshot-retention.ts",
+      "line": 159
+    },
+    {
+      "key": "server/src/services/remote-workspace-snapshot-retention.ts::e1950a6743e6",
+      "file": "server/src/services/remote-workspace-snapshot-retention.ts",
+      "line": 149
+    },
+    {
+      "key": "server/src/services/remote-workspaces.ts::0cd0a884f3c1",
+      "file": "server/src/services/remote-workspaces.ts",
+      "line": 1154
+    },
+    {
+      "key": "server/src/services/remote-workspaces.ts::4c0dd93e9eae",
+      "file": "server/src/services/remote-workspaces.ts",
+      "line": 1122
+    },
+    {
+      "key": "server/src/services/remote-workspaces.ts::5add27b56c72",
+      "file": "server/src/services/remote-workspaces.ts",
+      "line": 330
+    },
+    {
+      "key": "server/src/services/remote-workspaces.ts::7c6ab065e852",
+      "file": "server/src/services/remote-workspaces.ts",
+      "line": 1148
+    },
+    {
+      "key": "server/src/services/remote-workspaces.ts::be8e8a67b218",
+      "file": "server/src/services/remote-workspaces.ts",
+      "line": 302
+    },
+    {
+      "key": "server/src/services/remote-workspaces.ts::e81181f39fe0",
+      "file": "server/src/services/remote-workspaces.ts",
+      "line": 658
+    },
+    {
+      "key": "server/src/services/remote-workspaces.ts::e94912fd6509",
+      "file": "server/src/services/remote-workspaces.ts",
+      "line": 666
+    },
+    {
+      "key": "server/src/services/required-quality-review.ts::a3ead878bf39",
+      "file": "server/src/services/required-quality-review.ts",
+      "line": 88
+    },
+    {
+      "key": "server/src/services/routines.ts::3e4c7cf123ef",
+      "file": "server/src/services/routines.ts",
+      "line": 3272
+    },
+    {
+      "key": "server/src/services/run-cost-accounting.ts::8ec91a11e22f",
+      "file": "server/src/services/run-cost-accounting.ts",
+      "line": 316
+    },
+    {
+      "key": "server/src/services/run-cost-accounting.ts::fe10e421c372",
+      "file": "server/src/services/run-cost-accounting.ts",
+      "line": 503
+    },
+    {
+      "key": "server/src/services/run-evidence-migration.ts::a51a461c4ef0",
+      "file": "server/src/services/run-evidence-migration.ts",
+      "line": 241
+    },
+    {
+      "key": "server/src/services/run-evidence-migration.ts::b926fe85852e",
+      "file": "server/src/services/run-evidence-migration.ts",
+      "line": 465
+    },
+    {
+      "key": "server/src/services/sandbox-creation-operations.ts::44839e546e7d",
+      "file": "server/src/services/sandbox-creation-operations.ts",
+      "line": 190
+    },
+    {
+      "key": "server/src/services/sandbox-creation-operations.ts::8ccc43a50494",
+      "file": "server/src/services/sandbox-creation-operations.ts",
+      "line": 243
+    },
+    {
+      "key": "server/src/services/satisfied-connection-intents.ts::aaec6d41b94c",
+      "file": "server/src/services/satisfied-connection-intents.ts",
+      "line": 141
+    },
+    {
+      "key": "server/src/services/secrets.ts::2c39c4a47d69",
+      "file": "server/src/services/secrets.ts",
+      "line": 5556
+    },
+    {
+      "key": "server/src/services/secrets.ts::47372f043251",
+      "file": "server/src/services/secrets.ts",
+      "line": 3462
+    },
+    {
+      "key": "server/src/services/secrets.ts::7661bf5ced7f",
+      "file": "server/src/services/secrets.ts",
+      "line": 4558
+    },
+    {
+      "key": "server/src/services/secrets.ts::c0c7626a38c5",
+      "file": "server/src/services/secrets.ts",
+      "line": 4862
+    },
+    {
+      "key": "server/src/services/skill-installation-maintenance.ts::87e0e9db4885",
+      "file": "server/src/services/skill-installation-maintenance.ts",
+      "line": 267
+    },
+    {
+      "key": "server/src/services/skill-installation-maintenance.ts::bb93178f9c6e",
+      "file": "server/src/services/skill-installation-maintenance.ts",
+      "line": 245
+    },
+    {
+      "key": "server/src/services/skill-package-maintenance.ts::0203cd66e44f",
+      "file": "server/src/services/skill-package-maintenance.ts",
+      "line": 146
+    },
+    {
+      "key": "server/src/services/skill-package-maintenance.ts::16635dda6701",
+      "file": "server/src/services/skill-package-maintenance.ts",
+      "line": 37
+    },
+    {
+      "key": "server/src/services/skill-package-maintenance.ts::4f9d2216f238",
+      "file": "server/src/services/skill-package-maintenance.ts",
+      "line": 58
+    },
+    {
+      "key": "server/src/services/skill-package-maintenance.ts::6e0648045260",
+      "file": "server/src/services/skill-package-maintenance.ts",
+      "line": 131
+    },
+    {
+      "key": "server/src/services/skill-package-maintenance.ts::7106fc6b5b0f",
+      "file": "server/src/services/skill-package-maintenance.ts",
+      "line": 52
+    },
+    {
+      "key": "server/src/services/skill-package-maintenance.ts::9116ebb369a1",
+      "file": "server/src/services/skill-package-maintenance.ts",
+      "line": 29
+    },
+    {
+      "key": "server/src/services/skill-package-maintenance.ts::cc96b103707d",
+      "file": "server/src/services/skill-package-maintenance.ts",
+      "line": 65
+    },
+    {
+      "key": "server/src/services/skill-package-maintenance.ts::d6925d2e8f3d",
+      "file": "server/src/services/skill-package-maintenance.ts",
+      "line": 88
+    },
+    {
+      "key": "server/src/services/skill-package-maintenance.ts::f5f78a0809e3",
+      "file": "server/src/services/skill-package-maintenance.ts",
+      "line": 26
+    },
+    {
+      "key": "server/src/services/skill-package-storage-migration.ts::b366fdf4bd6c",
+      "file": "server/src/services/skill-package-storage-migration.ts",
+      "line": 31
+    },
+    {
+      "key": "server/src/services/skill-package-storage-migration.ts::d72900856da6",
+      "file": "server/src/services/skill-package-storage-migration.ts",
+      "line": 59
+    },
+    {
+      "key": "server/src/services/skill-package-work.ts::06033ea900e8",
+      "file": "server/src/services/skill-package-work.ts",
+      "line": 129
+    },
+    {
+      "key": "server/src/services/skill-package-work.ts::124fe06bf4cb",
+      "file": "server/src/services/skill-package-work.ts",
+      "line": 149
+    },
+    {
+      "key": "server/src/services/skill-package-work.ts::70718bcdfdfd",
+      "file": "server/src/services/skill-package-work.ts",
+      "line": 139
+    },
+    {
+      "key": "server/src/services/skill-package-work.ts::cc96b103707d",
+      "file": "server/src/services/skill-package-work.ts",
+      "line": 125
+    },
+    {
+      "key": "server/src/services/skill-package-work.ts::cfc4b2eddaf4",
+      "file": "server/src/services/skill-package-work.ts",
+      "line": 117
+    },
+    {
+      "key": "server/src/services/skill-source-import-queue.ts::e5c6290fe1d4",
+      "file": "server/src/services/skill-source-import-queue.ts",
+      "line": 35
+    },
+    {
+      "key": "server/src/services/skill-source-sync.ts::a1f0c4f89605",
+      "file": "server/src/services/skill-source-sync.ts",
+      "line": 291
+    },
+    {
+      "key": "server/src/services/skill-sources.ts::0db5f678fa2b",
+      "file": "server/src/services/skill-sources.ts",
+      "line": 214
+    },
+    {
+      "key": "server/src/services/skill-sources.ts::14786a6cd5bd",
+      "file": "server/src/services/skill-sources.ts",
+      "line": 206
+    },
+    {
+      "key": "server/src/services/skill-sources.ts::287fffb40b95",
+      "file": "server/src/services/skill-sources.ts",
+      "line": 211
+    },
+    {
+      "key": "server/src/services/skill-sources.ts::67a87f38fe5a",
+      "file": "server/src/services/skill-sources.ts",
+      "line": 177
+    },
+    {
+      "key": "server/src/services/skill-sources.ts::70db67f23317",
+      "file": "server/src/services/skill-sources.ts",
+      "line": 179
+    },
+    {
+      "key": "server/src/services/skill-sources.ts::b7bced5906aa",
+      "file": "server/src/services/skill-sources.ts",
+      "line": 183
+    },
+    {
+      "key": "server/src/services/skill-sources.ts::e5a0374682d0",
+      "file": "server/src/services/skill-sources.ts",
+      "line": 198
+    },
+    {
+      "key": "server/src/services/skill-version-retention.ts::0fea73036ff8",
+      "file": "server/src/services/skill-version-retention.ts",
+      "line": 224
+    },
+    {
+      "key": "server/src/services/skill-version-retention.ts::24fd0da38915",
+      "file": "server/src/services/skill-version-retention.ts",
+      "line": 365
+    },
+    {
+      "key": "server/src/services/skill-version-retention.ts::a7defb12f0ba",
+      "file": "server/src/services/skill-version-retention.ts",
+      "line": 234
+    },
+    {
+      "key": "server/src/services/slack-board-authority.ts::de396abf36a9",
+      "file": "server/src/services/slack-board-authority.ts",
+      "line": 94
+    },
+    {
+      "key": "server/src/services/slack-board-messages.ts::1269f495a5b0",
+      "file": "server/src/services/slack-board-messages.ts",
+      "line": 149
+    },
+    {
+      "key": "server/src/services/slack-board-messages.ts::20151beab3c3",
+      "file": "server/src/services/slack-board-messages.ts",
+      "line": 127
+    },
+    {
+      "key": "server/src/services/slack-board-messages.ts::6781ff7de3f5",
+      "file": "server/src/services/slack-board-messages.ts",
+      "line": 168
+    },
+    {
+      "key": "server/src/services/slack-board-messages.ts::df02d93f3687",
+      "file": "server/src/services/slack-board-messages.ts",
+      "line": 106
+    },
+    {
+      "key": "server/src/services/smoke-lab.ts::968638adacca",
+      "file": "server/src/services/smoke-lab.ts",
+      "line": 877
+    },
+    {
+      "key": "server/src/services/smoke-lab.ts::ae4c5611a2a8",
+      "file": "server/src/services/smoke-lab.ts",
+      "line": 880
+    },
+    {
+      "key": "server/src/services/smoke-lab.ts::e790497d9c94",
+      "file": "server/src/services/smoke-lab.ts",
+      "line": 872
+    },
+    {
+      "key": "server/src/services/task-creation-provenance.ts::36ed995c3a76",
+      "file": "server/src/services/task-creation-provenance.ts",
+      "line": 86
+    },
+    {
+      "key": "server/src/services/task-creation-provenance.ts::479e2208ca46",
+      "file": "server/src/services/task-creation-provenance.ts",
+      "line": 93
+    },
+    {
+      "key": "server/src/services/task-creation-provenance.ts::857bbd940da6",
+      "file": "server/src/services/task-creation-provenance.ts",
+      "line": 72
+    },
+    {
+      "key": "server/src/services/task-creation-provenance.ts::921a4445a7e0",
+      "file": "server/src/services/task-creation-provenance.ts",
+      "line": 115
+    },
+    {
+      "key": "server/src/services/task-creation-provenance.ts::9edabf9133f5",
+      "file": "server/src/services/task-creation-provenance.ts",
+      "line": 65
+    },
+    {
+      "key": "server/src/services/task-creation-provenance.ts::e7d407b9155f",
+      "file": "server/src/services/task-creation-provenance.ts",
+      "line": 123
+    },
+    {
+      "key": "server/src/services/task-repository-acquisition.ts::31358057632c",
+      "file": "server/src/services/task-repository-acquisition.ts",
+      "line": 96
+    },
+    {
+      "key": "server/src/services/task-repository-acquisition.ts::41c5f29b8e40",
+      "file": "server/src/services/task-repository-acquisition.ts",
+      "line": 112
+    },
+    {
+      "key": "server/src/services/task-retry.ts::006d1b911bd3",
+      "file": "server/src/services/task-retry.ts",
+      "line": 454
+    },
+    {
+      "key": "server/src/services/task-retry.ts::3164ec0a9d1a",
+      "file": "server/src/services/task-retry.ts",
+      "line": 487
+    },
+    {
+      "key": "server/src/services/task-retry.ts::54d90820dbdc",
+      "file": "server/src/services/task-retry.ts",
+      "line": 317
+    },
+    {
+      "key": "server/src/services/task-retry.ts::a2d36a8de77a",
+      "file": "server/src/services/task-retry.ts",
+      "line": 451
+    },
+    {
+      "key": "server/src/services/task-retry.ts::f78bdb52962b",
+      "file": "server/src/services/task-retry.ts",
+      "line": 498
+    },
+    {
+      "key": "server/src/services/task-watchdog-scope.ts::63f9ba1d10e9",
+      "file": "server/src/services/task-watchdog-scope.ts",
+      "line": 137
+    },
+    {
+      "key": "server/src/services/tool-access-policy.ts::15d154592768",
+      "file": "server/src/services/tool-access-policy.ts",
+      "line": 1839
+    },
+    {
+      "key": "server/src/services/tool-access.ts::06677776bd3b",
+      "file": "server/src/services/tool-access.ts",
+      "line": 2455
+    },
+    {
+      "key": "server/src/services/tool-access.ts::88632173f570",
+      "file": "server/src/services/tool-access.ts",
+      "line": 3461
+    },
+    {
+      "key": "server/src/services/tool-access.ts::9a1c5eab2277",
+      "file": "server/src/services/tool-access.ts",
+      "line": 2475
+    },
+    {
+      "key": "server/src/services/tool-access.ts::a22f20c14492",
+      "file": "server/src/services/tool-access.ts",
+      "line": 3093
+    },
+    {
+      "key": "server/src/services/tool-access/catalog/aggregator-accounts.ts::6c27bd65de9f",
+      "file": "server/src/services/tool-access/catalog/aggregator-accounts.ts",
+      "line": 369
+    },
+    {
+      "key": "server/src/services/tool-access/catalog/aggregator-accounts.ts::e1accd141e15",
+      "file": "server/src/services/tool-access/catalog/aggregator-accounts.ts",
+      "line": 162
+    },
+    {
+      "key": "server/src/services/tool-access/catalog/aggregator-accounts.ts::ff984ef1b077",
+      "file": "server/src/services/tool-access/catalog/aggregator-accounts.ts",
+      "line": 152
+    },
+    {
+      "key": "server/src/services/tool-access/catalog/health-schedule.ts::01f0c9d45799",
+      "file": "server/src/services/tool-access/catalog/health-schedule.ts",
+      "line": 18
+    },
+    {
+      "key": "server/src/services/tool-access/catalog/publication.ts::49ca12c335d8",
+      "file": "server/src/services/tool-access/catalog/publication.ts",
+      "line": 242
+    },
+    {
+      "key": "server/src/services/tool-access/connections/credential-validation.ts::4247ef5559fe",
+      "file": "server/src/services/tool-access/connections/credential-validation.ts",
+      "line": 59
+    },
+    {
+      "key": "server/src/services/tool-access/connections/installs.ts::8d034379d596",
+      "file": "server/src/services/tool-access/connections/installs.ts",
+      "line": 279
+    },
+    {
+      "key": "server/src/services/tool-access/connections/installs.ts::90652c51ad24",
+      "file": "server/src/services/tool-access/connections/installs.ts",
+      "line": 245
+    },
+    {
+      "key": "server/src/services/tool-access/oauth/refresh-leases.ts::6fd16f73206d",
+      "file": "server/src/services/tool-access/oauth/refresh-leases.ts",
+      "line": 250
+    },
+    {
+      "key": "server/src/services/tool-access/oauth/refresh-leases.ts::fdd8ca06a4e6",
+      "file": "server/src/services/tool-access/oauth/refresh-leases.ts",
+      "line": 110
+    },
+    {
+      "key": "server/src/services/tool-access/profiles/service.ts::33797b63fddf",
+      "file": "server/src/services/tool-access/profiles/service.ts",
+      "line": 507
+    },
+    {
+      "key": "server/src/services/tool-action-delivery.ts::871b5486a754",
+      "file": "server/src/services/tool-action-delivery.ts",
+      "line": 400
+    },
+    {
+      "key": "server/src/services/tool-gateway.ts::5331feb3f148",
+      "file": "server/src/services/tool-gateway.ts",
+      "line": 11843
+    },
+    {
+      "key": "server/src/services/tool-gateway.ts::67699404151f",
+      "file": "server/src/services/tool-gateway.ts",
+      "line": 11853
+    },
+    {
+      "key": "server/src/services/tool-gateway.ts::9cdfa8a86417",
+      "file": "server/src/services/tool-gateway.ts",
+      "line": 9558
+    },
+    {
+      "key": "server/src/services/tool-gateway.ts::c48ab4ed31d9",
+      "file": "server/src/services/tool-gateway.ts",
+      "line": 3057
+    },
+    {
+      "key": "server/src/services/tool-gateway.ts::d002be32f87b",
+      "file": "server/src/services/tool-gateway.ts",
+      "line": 11847
+    },
+    {
+      "key": "server/src/services/tool-gateway.ts::d4d8b9f12380",
+      "file": "server/src/services/tool-gateway.ts",
+      "line": 11837
+    },
+    {
+      "key": "server/src/services/tool-gateway.ts::e67c56c62755",
+      "file": "server/src/services/tool-gateway.ts",
+      "line": 7920
+    },
+    {
+      "key": "server/src/services/tool-profile-entry-validation.ts::91e514548987",
+      "file": "server/src/services/tool-profile-entry-validation.ts",
+      "line": 46
+    },
+    {
+      "key": "server/src/services/tool-profile-entry-validation.ts::b178e575ea2b",
+      "file": "server/src/services/tool-profile-entry-validation.ts",
+      "line": 64
+    },
+    {
+      "key": "server/src/services/tool-profile-entry-validation.ts::e904ccec4711",
+      "file": "server/src/services/tool-profile-entry-validation.ts",
+      "line": 53
+    },
+    {
+      "key": "server/src/services/tool-review-expiry.ts::5181ba58e341",
+      "file": "server/src/services/tool-review-expiry.ts",
+      "line": 37
+    },
+    {
+      "key": "server/src/services/tool-review-expiry.ts::f400999d3760",
+      "file": "server/src/services/tool-review-expiry.ts",
+      "line": 45
+    },
+    {
+      "key": "server/src/services/tool-review-interruption.ts::52ffae03cff8",
+      "file": "server/src/services/tool-review-interruption.ts",
+      "line": 31
+    },
+    {
+      "key": "server/src/services/tool-review-interruption.ts::735a858be660",
+      "file": "server/src/services/tool-review-interruption.ts",
+      "line": 26
+    },
+    {
+      "key": "server/src/services/tool-review-recovery.ts::7b0140bcf0d9",
+      "file": "server/src/services/tool-review-recovery.ts",
+      "line": 107
+    },
+    {
+      "key": "server/src/services/tool-runtime-supervisor.ts::779dd1cf7f65",
+      "file": "server/src/services/tool-runtime-supervisor.ts",
+      "line": 238
+    },
+    {
+      "key": "server/src/services/voice/speko-agent-tools.ts::0b2f63d0c3ab",
+      "file": "server/src/services/voice/speko-agent-tools.ts",
+      "line": 123
+    },
+    {
+      "key": "server/src/services/voice/speko-tool-setup.ts::0ced1eed294c",
+      "file": "server/src/services/voice/speko-tool-setup.ts",
+      "line": 63
+    },
+    {
+      "key": "server/src/services/voice/speko-tool-setup.ts::1b1473b82c59",
+      "file": "server/src/services/voice/speko-tool-setup.ts",
+      "line": 88
+    },
+    {
+      "key": "server/src/services/voice/speko-tool-setup.ts::28312bb5c650",
+      "file": "server/src/services/voice/speko-tool-setup.ts",
+      "line": 71
+    },
+    {
+      "key": "server/src/services/voice/speko-tool-setup.ts::3a6fbc340e79",
+      "file": "server/src/services/voice/speko-tool-setup.ts",
+      "line": 98
+    },
+    {
+      "key": "server/src/services/voice/speko-tool-setup.ts::431b08d798b8",
+      "file": "server/src/services/voice/speko-tool-setup.ts",
+      "line": 76
+    },
+    {
+      "key": "server/src/services/voice/speko-tool-setup.ts::59f9a99ebf2f",
+      "file": "server/src/services/voice/speko-tool-setup.ts",
+      "line": 55
+    },
+    {
+      "key": "server/src/services/voice/speko-tool-setup.ts::b00f10ecfaea",
+      "file": "server/src/services/voice/speko-tool-setup.ts",
+      "line": 36
+    },
+    {
+      "key": "server/src/services/voice/speko-tool-setup.ts::c788571d9ef1",
+      "file": "server/src/services/voice/speko-tool-setup.ts",
+      "line": 58
+    },
+    {
+      "key": "server/src/services/voice/speko-tool-setup.ts::f64da06f0af1",
+      "file": "server/src/services/voice/speko-tool-setup.ts",
+      "line": 50
+    },
+    {
+      "key": "server/src/services/voice/voice-delivery-diagnostics.ts::084ffc2afbb3",
+      "file": "server/src/services/voice/voice-delivery-diagnostics.ts",
+      "line": 59
+    },
+    {
+      "key": "server/src/services/voice/voice-delivery-diagnostics.ts::cdbbcbcc3173",
+      "file": "server/src/services/voice/voice-delivery-diagnostics.ts",
+      "line": 44
+    },
+    {
+      "key": "server/src/services/voice/voice-reply-dispatch-recovery.ts::bcc05ac76624",
+      "file": "server/src/services/voice/voice-reply-dispatch-recovery.ts",
+      "line": 14
+    },
+    {
+      "key": "server/src/services/voice/voice-reply-dispatch-recovery.ts::c613f3697fd0",
+      "file": "server/src/services/voice/voice-reply-dispatch-recovery.ts",
+      "line": 24
+    },
+    {
+      "key": "server/src/services/voice/voice-reply-push.ts::1dd356308cae",
+      "file": "server/src/services/voice/voice-reply-push.ts",
+      "line": 105
+    },
+    {
+      "key": "server/src/services/voice/voice-reply-push.ts::245e15f1b199",
+      "file": "server/src/services/voice/voice-reply-push.ts",
+      "line": 84
+    },
+    {
+      "key": "server/src/services/voice/voice-session-recovery.ts::ee3f7f63afbc",
+      "file": "server/src/services/voice/voice-session-recovery.ts",
+      "line": 40
+    },
+    {
+      "key": "server/src/services/voice/voice-session-store.ts::28ad371221bc",
+      "file": "server/src/services/voice/voice-session-store.ts",
+      "line": 301
+    },
+    {
+      "key": "server/src/services/voice/voice-session-store.ts::29686744021e",
+      "file": "server/src/services/voice/voice-session-store.ts",
+      "line": 31
+    },
+    {
+      "key": "server/src/services/voice/voice-session-store.ts::2fb597e9ec32",
+      "file": "server/src/services/voice/voice-session-store.ts",
+      "line": 442
+    },
+    {
+      "key": "server/src/services/voice/voice-session-store.ts::77aa47d352a5",
+      "file": "server/src/services/voice/voice-session-store.ts",
+      "line": 496
+    },
+    {
+      "key": "server/src/services/voice/voice-session-store.ts::ec78fb3d6c95",
+      "file": "server/src/services/voice/voice-session-store.ts",
+      "line": 376
+    },
+    {
+      "key": "server/src/services/workspace-file-resources.ts::18cc6e457f79",
+      "file": "server/src/services/workspace-file-resources.ts",
+      "line": 1119
+    },
+    {
+      "key": "server/src/services/workspace-file-resources.ts::4b2feb7c512d",
+      "file": "server/src/services/workspace-file-resources.ts",
+      "line": 1109
+    },
+    {
+      "key": "server/src/services/workspace-file-resources.ts::c73be8477456",
+      "file": "server/src/services/workspace-file-resources.ts",
+      "line": 1123
+    },
+    {
+      "key": "server/src/services/workspace-file-resources.ts::d1cbb29bb4ef",
+      "file": "server/src/services/workspace-file-resources.ts",
+      "line": 1111
+    },
+    {
+      "key": "server/src/services/workspace-recovery-backfill.ts::27db155f5ea6",
+      "file": "server/src/services/workspace-recovery-backfill.ts",
+      "line": 39
+    },
+    {
+      "key": "server/src/services/workspace-recovery-receipt.ts::8c499a809c40",
+      "file": "server/src/services/workspace-recovery-receipt.ts",
+      "line": 117
+    },
+    {
+      "key": "server/src/services/workspace-recovery-snapshot.ts::1d6dd4955a59",
+      "file": "server/src/services/workspace-recovery-snapshot.ts",
+      "line": 171
+    },
+    {
+      "key": "server/src/services/workspace-recovery-source.ts::04f526759339",
+      "file": "server/src/services/workspace-recovery-source.ts",
+      "line": 154
+    },
+    {
+      "key": "server/src/services/workspace-recovery-source.ts::084a88e61886",
+      "file": "server/src/services/workspace-recovery-source.ts",
+      "line": 186
+    },
+    {
+      "key": "server/src/services/workspace-recovery-source.ts::66aba7afaf64",
+      "file": "server/src/services/workspace-recovery-source.ts",
+      "line": 179
+    },
+    {
+      "key": "server/src/services/workspace-recovery-source.ts::813a65a02d65",
+      "file": "server/src/services/workspace-recovery-source.ts",
+      "line": 231
+    },
+    {
+      "key": "server/src/services/workspace-recovery-source.ts::879bed169ecf",
+      "file": "server/src/services/workspace-recovery-source.ts",
+      "line": 213
+    },
+    {
+      "key": "server/src/services/workspace-recovery-source.ts::aed5fa9b0457",
+      "file": "server/src/services/workspace-recovery-source.ts",
+      "line": 188
+    },
+    {
+      "key": "server/src/services/workspace-recovery.ts::00789da19cca",
+      "file": "server/src/services/workspace-recovery.ts",
+      "line": 380
+    },
+    {
+      "key": "server/src/services/workspace-recovery.ts::37adff8a13ff",
+      "file": "server/src/services/workspace-recovery.ts",
+      "line": 287
+    },
+    {
+      "key": "server/src/services/workspace-recovery.ts::54e710b3b24a",
+      "file": "server/src/services/workspace-recovery.ts",
+      "line": 396
+    },
+    {
+      "key": "server/src/services/workspace-recovery.ts::82a7ae5df58a",
+      "file": "server/src/services/workspace-recovery.ts",
+      "line": 103
+    },
+    {
+      "key": "server/src/services/workspace-recovery.ts::c0c3ed0c5665",
+      "file": "server/src/services/workspace-recovery.ts",
+      "line": 353
+    },
+    {
+      "key": "server/src/services/workspace-recovery.ts::d0a39f9e0eef",
+      "file": "server/src/services/workspace-recovery.ts",
+      "line": 319
+    },
+    {
+      "key": "server/src/services/workspace-recovery.ts::f2909d4fa736",
+      "file": "server/src/services/workspace-recovery.ts",
+      "line": 400
+    },
+    {
+      "key": "server/src/services/workspace-runtime.ts::0f1439ae2c88",
+      "file": "server/src/services/workspace-runtime.ts",
+      "line": 8722
+    },
+    {
+      "key": "server/src/services/workspace-runtime.ts::1c0e177fac16",
+      "file": "server/src/services/workspace-runtime.ts",
+      "line": 7502
+    },
+    {
+      "key": "server/src/services/workspace-runtime.ts::7f626b033e88",
+      "file": "server/src/services/workspace-runtime.ts",
+      "line": 7483
+    },
+    {
+      "key": "server/src/services/workspace-runtime.ts::847123d88274",
+      "file": "server/src/services/workspace-runtime.ts",
+      "line": 9029
+    },
+    {
+      "key": "server/src/services/workspace-runtime.ts::909efb28979b",
+      "file": "server/src/services/workspace-runtime.ts",
+      "line": 7526
+    },
+    {
+      "key": "server/src/services/workspace-runtime.ts::c514dbfd6005",
+      "file": "server/src/services/workspace-runtime.ts",
+      "line": 9212
+    },
+    {
+      "key": "server/src/services/workspace-runtime.ts::d62b0f57e789",
+      "file": "server/src/services/workspace-runtime.ts",
+      "line": 7390
+    },
+    {
+      "key": "server/src/services/workspace-runtime.ts::da84fbe7f441",
+      "file": "server/src/services/workspace-runtime.ts",
+      "line": 7178
+    },
+    {
+      "key": "server/src/services/workspace-source-lock.ts::9de4d42f9a84",
+      "file": "server/src/services/workspace-source-lock.ts",
+      "line": 52
+    }
+  ]
+}

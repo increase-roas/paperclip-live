@@ -6,6 +6,11 @@ instrumentation contracts; see the
 [Telemetry Data Contract](../packages/shared/src/telemetry/README.md) for the
 separate first-party event system.
 
+For the post-deploy view per application, see
+[DEPLOYMENT-OBSERVABILITY.md](./DEPLOYMENT-OBSERVABILITY.md). Prometheus alert
+rules and the scrape example live in `docker/prometheus/`; routing and runbook
+links are in [observability/ALERTS.md](./observability/ALERTS.md).
+
 Paperclip ships with **opt-in** OpenTelemetry auto-instrumentation for the
 server process. When activated it produces **traces only** — no metrics and no
 logs are exported by this integration.

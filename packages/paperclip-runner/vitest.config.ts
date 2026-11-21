@@ -45,5 +45,12 @@ export default defineConfig({
       "scripts/live-console-browser-server.test.mjs",
       "scripts/vitest-sequencer.test.mjs",
     ],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json-summary"],
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: ["src/**/*.test.{ts,tsx}", "src/**/*.d.ts", "src/generated/**"],
+      thresholds: { lines: 20, functions: 15, branches: 10, statements: 20 },
+    },
   },
 });

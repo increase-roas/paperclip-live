@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "description": "Version differences that predate the check. Converge them when touching the package; new drift fails.",
+  "generatedAt": "2026-11-21",
+  "entries": [
+    {
+      "key": "@agentclientprotocol/claude-agent-acp::0.73.0 | ^0.73.0",
+      "file": "pnpm-workspace.yaml"
+    },
+    {
+      "key": "@agentclientprotocol/codex-acp::1.6.2 | ^1.6.2",
+      "file": "pnpm-workspace.yaml"
+    },
+    {
+      "key": "@codemirror/state::^6.7.2 | ^6.7.6",
+      "file": "pnpm-workspace.yaml"
+    },
+    {
+      "key": "@codemirror/view::^6.43.11 | ^6.43.9",
+      "file": "pnpm-workspace.yaml"
+    },
+    {
+      "key": "@lezer/highlight::^1.2.1 | ^1.2.3",
+      "file": "pnpm-workspace.yaml"
+    },
+    {
+      "key": "@playwright/test::^1.61.1 | ^1.62.1",
+      "file": "pnpm-workspace.yaml"
+    },
+    {
+      "key": "@types/react::^19.2.17 | ^19.2.18",
+      "file": "pnpm-workspace.yaml"
+    },
+    {
+      "key": "@vitejs/plugin-react::^4.7.0 | ^6.1.1",
+      "file": "pnpm-workspace.yaml"
+    },
+    {
+      "key": "acpx::0.12.0 | 0.13.1",
+      "file": "pnpm-workspace.yaml"
+    },
+    {
+      "key": "codemirror::^6.0.1 | ^6.0.2",
+      "file": "pnpm-workspace.yaml"
+    },
+    {
+      "key": "drizzle-orm::0.45.2 | ^0.45.2",
+      "file": "pnpm-workspace.yaml"
+    },
+    {
+      "key": "react-dom::^19.2.7 | ^19.2.8",
+      "file": "pnpm-workspace.yaml"
+    },
+    {
+      "key": "react::^19.2.7 | ^19.2.8",
+      "file": "pnpm-workspace.yaml"
+    },
+    {
+      "key": "vite::^6.1.0 | ^8.2.2",
+      "file": "pnpm-workspace.yaml"
+    }
+  ]
+}

@@ -1,5 +1,14 @@
 import { getPageVisibility, getVisibilityHeaderValue } from "@/lib/page-visibility";
 import { tenantSessionRecovery } from "@/lib/tenant-session-recovery";
+import {
+  startUiTrace,
+  traceHeaders,
+  uiApiCircuit,
+  uiApiDuration,
+  uiApiRequests,
+  uiLogger,
+  type TraceContext,
+} from "@/lib/observability";
 import { ApiError, apiErrorFromResponse } from "./api-error";
 import { errorCopy } from "./errors";
 export { ApiError, apiErrorFromResponse, type ApiErrorOptions } from "./api-error";
@@ -120,13 +129,18 @@ function abortError(): DOMException {
  * Non-authoritative observability hints (PAP-12556 / Phase 1). The server treats
  * these as scheduling/telemetry only and never as security signals.
  */
-function applyObservabilityHeaders(headers: Headers) {
-  if (headers.has("X-Paperclip-Tab-Visible")) return; // caller override wins
+function applyObservabilityHeaders(headers: Headers): TraceContext {
+  const trace = startUiTrace();
+  const traceContextHeaders = traceHeaders(trace);
+  headers.set("traceparent", traceContextHeaders.traceparent);
+  headers.set("x-request-id", traceContextHeaders["x-request-id"]);
+  if (headers.has("X-Paperclip-Tab-Visible")) return trace; // caller override wins
   const visibility = getPageVisibility();
   headers.set("X-Paperclip-Tab-Visible", getVisibilityHeaderValue(visibility));
   if (typeof window !== "undefined" && window.location) {
     headers.set("X-Paperclip-Route", window.location.pathname);
   }
+  return trace;
 }
 
 export async function requestResponse(path: string, init?: RequestInit): Promise<Response> {
@@ -135,14 +149,39 @@ export async function requestResponse(path: string, init?: RequestInit): Promise
   if (!(body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  applyObservabilityHeaders(headers);
+  const trace = applyObservabilityHeaders(headers);
+  const startedAt = Date.now();
 
-  const res = await apiFetch(`${BASE}${path}`, {
-    credentials: "include",
-    ...init,
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await uiApiCircuit.execute(() =>
+      apiFetch(`${BASE}${path}`, {
+        credentials: "include",
+        ...init,
+        headers,
+      }),
+    );
+  } catch (error) {
+    uiApiRequests.inc({ outcome: "network_error" });
+    uiLogger.withTrace(trace).warn("API request failed", {
+      path,
+      method: init?.method ?? "GET",
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  } finally {
+    uiApiDuration.observe({}, Date.now() - startedAt);
+  }
+
+  uiApiRequests.inc({ outcome: String(res.status) });
   if (!res.ok) {
+    if (res.status >= 500) {
+      uiLogger.withTrace(trace).warn("API response was not ok", {
+        path,
+        method: init?.method ?? "GET",
+        status: res.status,
+      });
+    }
     const errorBody = await readApiJson(res);
     const recovery = tenantSessionRecovery.recoverIfNeeded(res.status, errorBody);
     if (recovery) return recovery;

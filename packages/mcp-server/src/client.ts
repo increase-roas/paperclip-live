@@ -1,4 +1,12 @@
 import type { PaperclipMcpConfig } from "./config.js";
+import {
+  createMcpLogger,
+  mcpApiCircuit,
+  mcpApiDuration,
+  mcpApiRequests,
+  newTraceContext,
+  traceHeaders,
+} from "./observability.js";
 
 export class PaperclipApiError extends Error {
   readonly status: number;
@@ -92,11 +100,32 @@ export class PaperclipApiClient {
       headers["X-Paperclip-Run-Id"] = this.config.runId;
     }
 
-    const response = await fetch(url, {
-      method,
-      headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    });
+    const trace = newTraceContext();
+    Object.assign(headers, traceHeaders(trace));
+    const startedAt = Date.now();
+
+    let response: Response;
+    try {
+      response = await mcpApiCircuit.execute(() =>
+        fetch(url, {
+          method,
+          headers,
+          body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        }),
+      );
+    } catch (error) {
+      mcpApiRequests.inc({ method: method.toUpperCase(), outcome: "network_error" });
+      createMcpLogger(trace).warn("Paperclip API request failed", {
+        method: method.toUpperCase(),
+        path,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    } finally {
+      mcpApiDuration.observe({ method: method.toUpperCase() }, Date.now() - startedAt);
+    }
+
+    mcpApiRequests.inc({ method: method.toUpperCase(), outcome: String(response.status) });
     const parsedBody = await parseResponseBody(response);
 
     if (!response.ok) {

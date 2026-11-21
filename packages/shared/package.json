@@ -15,6 +15,7 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
+    "./observability": "./src/observability/index.ts",
     "./telemetry": "./src/telemetry/index.ts",
     "./*": "./src/*.ts"
   },
