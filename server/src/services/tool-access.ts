@@ -4699,6 +4699,10 @@ export function toolAccessService(
           name: input.name ?? existing.name,
           status: input.status ?? existing.status,
           enabled: input.enabled ?? existing.enabled,
+          // An explicit authKind was accepted by the schema but never written,
+          // so a connection flipped to OAuth by an earlier probe could not be
+          // returned to its configured API key.
+          authKind: input.authKind ?? existing.authKind,
           ...(input.agentInstructions !== undefined ? { agentInstructions: input.agentInstructions } : {}),
           config,
           transportConfig: isGoogleSheetsConnectionConfig(config)

@@ -267,7 +267,9 @@ export function createToolCatalogDiscovery(db: Db, { now, audit, secrets, creden
         response.status === 401 &&
         /bearer|oauth|authorization/i.test(authenticate)
       ) {
-        if (connection.authKind === "api_key" && (connection.credentialSecretRefs?.length ?? 0) > 0) {
+        const staticCredentialCount =
+          (connection.credentialSecretRefs?.length ?? 0) + (connection.credentialRefs?.length ?? 0);
+        if (connection.authKind === "api_key" && staticCredentialCount > 0) {
           // An explicit API key stays an API key. The app publishes OAuth
           // metadata, but this connection was configured to use its bearer
           // secret, so report the rejected key instead of silently switching
