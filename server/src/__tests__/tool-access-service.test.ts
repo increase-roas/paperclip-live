@@ -16625,6 +16625,65 @@ describeEmbeddedPostgres("tool access service", () => {
     await expect(db.select().from(toolConnections)).resolves.toHaveLength(0);
   });
 
+  it("keeps an explicit API key when the app advertises OAuth on health check", async () => {
+    const company = await createCompany(db);
+    const app = createRouteApp(db);
+    const secret = await secretService(db).create(company.id, {
+      provider: "local_encrypted",
+      name: "GBrain bearer fixture",
+      key: `gbrain.${randomUUID()}`,
+      value: "gbrain-fixture-token",
+    });
+    const [application] = await db.insert(toolApplications).values({
+      companyId: company.id,
+      applicationKey: `gbrain-${randomUUID()}`,
+      name: "GBrain fixture",
+      type: "mcp_http",
+      status: "active",
+    }).returning();
+    const [connection] = await db.insert(toolConnections).values({
+      companyId: company.id,
+      applicationId: application!.id,
+      name: "GBrain fixture",
+      uid: `test/${randomUUID()}`,
+      transport: "mcp_remote",
+      authKind: "api_key",
+      credentialPolicy: "shared",
+      status: "active",
+      enabled: true,
+      config: { url: "https://gbrain.example.test/mcp" },
+      transportConfig: { url: "https://gbrain.example.test/mcp" },
+      credentialSecretRefs: [
+        { secretId: secret.id, configPath: "headers.Authorization" },
+      ],
+    }).returning();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(
+      JSON.stringify({ error: "unauthorized" }),
+      {
+        status: 401,
+        headers: {
+          "content-type": "application/json",
+          "www-authenticate":
+            'Bearer resource_metadata="https://gbrain.example.test/.well-known/oauth-protected-resource/mcp"',
+        },
+      },
+    ));
+
+    const res = await request(app).post(`/api/tool-connections/${connection!.id}/health-check`);
+
+    expect(res.status).toBe(422);
+    expect(res.body).toMatchObject({
+      code: "api_key_rejected",
+      details: expect.objectContaining({ code: "api_key_rejected" }),
+    });
+    const [stored] = await db
+      .select()
+      .from(toolConnections)
+      .where(eq(toolConnections.id, connection!.id));
+    expect(stored!.authKind).toBe("api_key");
+    expect(JSON.stringify(stored!.config)).not.toContain("oauth");
+  });
+
   it.each(["catalog", "catalog/refresh", "health-check"])(
     "explains disabled Slack MCP access on %s without reporting a server error",
     async (path) => {
