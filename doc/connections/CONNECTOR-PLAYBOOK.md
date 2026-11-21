@@ -691,7 +691,6 @@ gateway, or a user action marks an account as needing attention, never age
 alone. Account sync does not gate tool calls. A stale list still resolves and
 runs tools through the gateway.
 
-
 For a reviewed remote MCP method that accepts discovery before initialization
 but requires an initialized session for calls, set
 `defaults.mcpSessionRequired: true`. Tavily uses this compatibility preference.

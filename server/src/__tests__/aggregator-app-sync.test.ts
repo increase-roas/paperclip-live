@@ -65,7 +65,7 @@ if (!support.supported) console.warn(`Managed-account database tests unavailable
     await db.insert(toolCatalogEntries).values({ companyId: company.id, connectionId: connection.id, name: "COMPOSIO_MANAGE_CONNECTIONS",
       toolName: "COMPOSIO_MANAGE_CONNECTIONS", versionHash: "v1", status: "active", riskLevel: "read" });
     const calls: { params?: { name?: string } }[] = [];
-    const access = toolAccessService(db, { remoteHttpRequest: async (_url, init) => {
+    const access = toolAccessService(db, { composioAppToolkits: ["gmail", "notion"], remoteHttpRequest: async (_url, init) => {
       const rpc = init.body ? JSON.parse(String(init.body)) : {};
       calls.push(rpc);
       const toolkits: { name: string }[] = rpc?.params?.arguments?.toolkits ?? [];
@@ -79,7 +79,10 @@ if (!support.supported) console.warn(`Managed-account database tests unavailable
     await db.update(toolConnectionAppSyncs).set({ lastCompletedAt: stale, updatedAt: stale }).where(eq(toolConnectionAppSyncs.connectionId, connection.id));
     calls.length = 0;
     expect(await access.sweepAggregatorAppSyncs()).toMatchObject({ checked: 1, refreshed: 1 });
-    await vi.waitFor(async () => expect((await syncRow())?.lastCompletedAt?.getTime()).toBeGreaterThan(stale.getTime()), { timeout: 5000 });
+    // The sweep starts the same background job an explicit Refresh does; a full
+    // catalog pass takes tens of batches, so allow it the same budget as the
+    // first sync above instead of a tight window.
+    await vi.waitFor(async () => expect((await syncRow())?.lastCompletedAt?.getTime()).toBeGreaterThan(stale.getTime()), { timeout: 60000, interval: 100 });
     expect(calls.some(call => call.params?.name === "COMPOSIO_MANAGE_CONNECTIONS")).toBe(true);
     // A fresh row is not checked again on the next tick.
     calls.length = 0;
