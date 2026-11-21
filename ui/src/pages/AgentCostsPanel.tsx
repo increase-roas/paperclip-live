@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Coins, DollarSign, PlayCircle, ReceiptText } from "lucide-react";
 import type { CostByAgent, CostByAgentModel } from "@paperclipai/shared";
 import { costsApi } from "../api/costs";
+import { AgentRecentRunUsagePanel } from "../components/AgentRecentRunUsagePanel";
 import { CostAmount } from "../components/CostAmount";
 import { EmptyState } from "../components/EmptyState";
 import { MetricCard } from "../components/MetricCard";
@@ -115,6 +116,7 @@ export function AgentCostsPanel({ agentId, agentName, companyId }: { agentId: st
           </section>
         </>
       )}
+      <AgentRecentRunUsagePanel agentId={agentId} agentName={agentName} companyId={companyId} />
     </div>
   );
 }
