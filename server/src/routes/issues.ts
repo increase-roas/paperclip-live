@@ -11044,6 +11044,7 @@ export function issueRoutes(
             eq(issueRecoveryActions.companyId, lockedIssue.companyId),
             eq(issueRecoveryActions.sourceIssueId, lockedIssue.id),
             not(eq(issueRecoveryActions.id, action.id)),
+            not(eq(issueRecoveryActions.status, "resolved")),
             sql`${issueRecoveryActions.evidence}->>'runId' = ${runId}`,
             sql`${issueRecoveryActions.evidence}->'automaticRecovery'->>'replay' = 'blocked'`,
           ));
