@@ -281,6 +281,21 @@ export function agentService(db: Db, budgetHooks: BudgetServiceHooks = {}) {
       return { agent: null, ambiguous: false } as const;
     },
     update: updateAgent,
+
+    /**
+     * Replace an agent's metadata tags without a lifecycle command.
+     *
+     * Lifecycle configuration work must run on the root database connection,
+     * but metadata flags (readiness links, operator tags) are plain row data and
+     * are often written inside an existing transaction that holds the row lock.
+     */
+    setMetadata: async (id: string, metadata: Record<string, unknown>) => {
+      const [updated] = await db.update(agents)
+        .set({ metadata, updatedAt: new Date() })
+        .where(eq(agents.id, id))
+        .returning();
+      return updated ?? null;
+    },
     remove: (id: string) => createAgentLifecycle(db, budgetHooks).purgeAgent(id),
     clearError: (id: string) => createAgentLifecycle(db, budgetHooks).clearError(id),
   };

@@ -288,6 +288,45 @@ describePostgres("agent readiness", () => {
     expect(created?.title).toContain("Readiness test");
   });
 
+  it("removes a missing desired skill through the safe fix", async () => {
+    const company = await createCompany(db, "SkillFix");
+    await db.insert(companySkills).values({
+      companyId: company.id,
+      key: "deploy",
+      slug: "deploy",
+      name: "Deploy",
+      markdown: "# Deploy",
+    });
+    const agent = await createAgent(db, company.id, {
+      adapterConfig: {
+        model: "gpt-5.6-sol",
+        fallbackModel: "gpt-5.6-mini",
+        hermesCommand: "jarvis",
+        toolsets: "mcp",
+        paperclipSkillSync: {
+          desiredSkills: [{ key: "deploy", versionId: null }, { key: "gone", versionId: null }],
+        },
+      },
+    });
+    const service = agentReadinessService(db);
+    // The configuration write is a lifecycle command. Running it on the
+    // transaction threw "Lifecycle commands require the root database
+    // connection" before this fix.
+    const result = await service.applyFix({
+      companyId: company.id,
+      subjectType: "agent",
+      subjectId: agent.id,
+      checkId: "instructions.no_dead_skill_refs",
+      action: "sync_skills",
+      confirm: true,
+      actor: { actorType: "user", actorId: "board-user" },
+    });
+    expect(result.finding?.status).toBe("pass");
+    const [updated] = await db.select().from(agents).where(eq(agents.id, agent.id));
+    const sync = (updated?.adapterConfig as { paperclipSkillSync?: { desiredSkills?: { key: string }[] } })?.paperclipSkillSync;
+    expect(sync?.desiredSkills?.map((entry) => entry.key)).toEqual(["deploy"]);
+  });
+
   it("attests a manual check with a note and saves the report it returns", async () => {
     const company = await createCompany(db, "Attest");
     const agent = await createAgent(db, company.id);
