@@ -69,7 +69,7 @@ curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
 
 **Approval:** “Merge gateway PR #4.”
 
-PR #4 is the tested head (`66467f0`, 129/129). PR #5 (ElevenLabs) targets
+PR #4 code was tested at `66467f0` (129/129); the only later commits are docs (this pass included). PR #5 (ElevenLabs) targets
 `feat/provider-registry` and has not merged; merging it now would change the
 code under test and add a provider whose secret is not set. Ship #4 as v103, #5
 as v104 (step 12).
