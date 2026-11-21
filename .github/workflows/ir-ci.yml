@@ -21,7 +21,10 @@ permissions:
 env:
   CI: "1"
   COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
-  NODE_OPTIONS: --max-old-space-size=6144
+  # Same heap as Paperclip's Dockerfile; one workspace package at a time so the
+  # standard runner does not run out of memory compiling the server.
+  NODE_OPTIONS: --max-old-space-size=4096
+  npm_config_workspace_concurrency: "1"
 
 jobs:
   build:

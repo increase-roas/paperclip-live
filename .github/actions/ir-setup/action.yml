@@ -3,6 +3,13 @@ description: Node 24 + pnpm (packageManager) + pinned Rust toolchain + pnpm inst
 runs:
   using: composite
   steps:
+    - name: Add 8 GB swap (standard runners have little RAM for the server build)
+      shell: bash
+      run: |
+        sudo swapoff -a || true
+        sudo fallocate -l 8G /mnt/ir-swap && sudo chmod 600 /mnt/ir-swap
+        sudo mkswap /mnt/ir-swap >/dev/null && sudo swapon /mnt/ir-swap
+        free -h
     - uses: actions/setup-node@v4
       with:
         node-version: "24"
