@@ -40,20 +40,35 @@ unless the live tag changed since this document was written.
 ## Build the image
 
 Use the same bake target as the live image (repo `docker/increase-roas/docker-bake.hcl`).
-The build needs the integration worktree and a buildx builder; the existing
-`ir-builder` is limited to 4 CPUs / 12 GB.
+Build from a clean checkout of the merge commit, never from a dirty worktree.
+The host has no `ir-builder` builder today; the command below creates one limited
+to 4 CPUs / 12 GB on first use.
 
 ```sh
-cd /srv/paperclip-dev/wt-integration        # the release checkout
-git fetch origin && git checkout <merge-sha>
+RELEASE=/srv/paperclip-release
+git -C /srv/paperclip-report fetch origin
+
+# Clean worktree at the merge commit (replace <merge-sha>).
+git -C /srv/paperclip-report worktree remove --force "$RELEASE" 2>/dev/null || true
+git -C /srv/paperclip-report worktree add --detach "$RELEASE" <merge-sha>
+cd "$RELEASE"
+
 SHA=$(git rev-parse --short=12 HEAD)
 export TAG=paperclip-ir:$SHA
+docker buildx inspect ir-builder >/dev/null 2>&1 || \
+  docker buildx create --name ir-builder --driver docker-container \
+    --driver-opt cpu-quota=400000 --driver-opt memory=12g
+
 PAPERCLIP_BUILD_COMMIT=$(git rev-parse HEAD) \
 PAPERCLIP_BUILD_VERSION="$(node -p "require('./cli/package.json').version")-ir.${SHA:0:7}" \
 TAGS="$TAG" \
   docker buildx bake --builder ir-builder -f docker/increase-roas/docker-bake.hcl ir --load \
   | tee /tmp/build-$SHA.log
 ```
+
+The `--load` step copies the image into the local Docker engine, which the
+compose file uses. Expect a 15–40 minute first build; later builds reuse the
+builder cache.
 
 Verify the image before it goes near the compose file:
 
