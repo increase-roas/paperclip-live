@@ -10917,6 +10917,15 @@ export function issueRoutes(
           ))
           .for("update");
         if (!action) throw notFound("Recovery action not found.");
+        const replay = (action.evidence as {
+          automaticRecovery?: { replay?: string };
+        }).automaticRecovery?.replay;
+        if (!requiresExecutionReconciliation(action.cause) && replay !== "blocked") {
+          throw conflict(
+            "This recovery action is not an execution hold. Use its own recovery flow.",
+            { code: "execution_hold_action_unsupported" },
+          );
+        }
         const [liveRun] = await tx
           .select({ id: heartbeatRuns.id })
           .from(heartbeatRuns)
