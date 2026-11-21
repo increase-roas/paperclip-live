@@ -2,6 +2,10 @@
 
 Status: **plan, not executed.** No live connection, grant or secret was changed.
 
+Executable commands (create, prove, disable, roll back) are in
+[2026-11-21-drive-cutover-runbook.md](2026-11-21-drive-cutover-runbook.md). No
+Paperclip code change is required; the existing remote MCP surfaces cover it.
+
 ## Why
 
 The Google Drive MCP connection `689b44c0-9163-4496-8827-531d803f7507` uses Google
