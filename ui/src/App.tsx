@@ -117,6 +117,8 @@ const GatewaysList = lazy(() => import("./pages/apps/gateways/GatewaysList").the
 const GatewayDetail = lazy(() => import("./pages/apps/gateways/GatewayDetail").then((module) => ({ default: module.GatewayDetail })));
 const CompanySkills = lazy(() => import("./pages/CompanySkills").then((module) => ({ default: module.CompanySkills })));
 const AgentReadiness = lazy(() => import("./pages/AgentReadiness").then((module) => ({ default: module.AgentReadiness })));
+const Bots = lazy(() => import("./pages/Bots").then((module) => ({ default: module.Bots })));
+const BotDetail = lazy(() => import("./pages/BotDetail").then((module) => ({ default: module.BotDetail })));
 const SkillSources = lazy(() => import("./pages/SkillSources").then((module) => ({ default: module.SkillSources })));
 const SkillStudio = lazy(() => import("./pages/SkillStudio").then((module) => ({ default: module.SkillStudio })));
 const Secrets = lazy(() => import("./pages/Secrets").then((module) => ({ default: module.Secrets })));
@@ -268,6 +270,8 @@ function boardRoutes(streamlinedUiEnabled: boolean, combinedInboxTasksEnabled: b
       <Route path="skills/sources" element={<SkillSources />} />
       <Route path="skills/sources/:sourceId" element={<SkillSources />} />
       <Route path="readiness" element={<AgentReadiness />} />
+      <Route path="bots" element={<Bots />} />
+      <Route path="bots/:botId" element={<BotDetail />} />
       <Route path="skills/studio" element={streamlinedUiEnabled ? <CompanySkills collectionView="authored" /> : <SkillStudio />} />
       <Route path="skills/studio/new" element={<SkillStudio />} />
       <Route path="skills/studio/:skillId" element={<SkillStudio />} />

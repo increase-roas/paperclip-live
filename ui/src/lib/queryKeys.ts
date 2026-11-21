@@ -2,6 +2,10 @@ export const queryKeys = {
   agentReadiness: {
     report: (companyId: string | null) => ["agent-readiness", companyId] as const,
   },
+  bots: {
+    list: (companyId: string | null) => ["bots", companyId] as const,
+    detail: (companyId: string | null, botId: string) => ["bots", companyId, botId] as const,
+  },
   workspacePreferences: {
     mine: (userId: string | null) => ["workspace-preferences", userId] as const,
   },

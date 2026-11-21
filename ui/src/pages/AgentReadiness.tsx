@@ -567,6 +567,12 @@ export function AgentReadiness() {
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={report.summary.status} />
           <span className="text-xs text-muted-foreground">Last run {formatTimestamp(report.completedAt)}</span>
+          <Button asChild variant="outline">
+            <Link to="/bots">
+              <Bot aria-hidden />
+              Bots
+            </Link>
+          </Button>
           <Button type="button" variant="outline" disabled={running} onClick={() => runMutation.mutate(false)}>
             <RefreshCw aria-hidden className={running ? "animate-spin" : ""} />
             Run checks
