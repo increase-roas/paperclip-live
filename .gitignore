@@ -107,3 +107,6 @@ test-results/
 
 # Agent Readiness reports (baselines are committed, generated reports are not)
 .quality/reports/
+
+# Local agent session notes
+.supermatt/
