@@ -445,8 +445,18 @@ export function agentReadinessService(db: Db, options: AgentReadinessServiceOpti
     return "Saved a configuration snapshot.";
   }
 
+  type SyncSkillsPlan =
+    | { kind: "noop"; message: string }
+    | {
+        kind: "update";
+        message: string;
+        agentId: string;
+        previousConfiguration: Pick<typeof agents.$inferSelect, "adapterConfig" | "adapterType" | "defaultEnvironmentId" | "runtimeConfig">;
+        nextAdapterConfig: Record<string, unknown>;
+      };
+
   async function syncSkills(companyId: string, agentId: string, actor: AgentReadinessActor): Promise<string> {
-    return db.transaction(async (tx) => {
+    const plan = await db.transaction(async (tx): Promise<SyncSkillsPlan> => {
     // Serialize with other readiness fixes and Runtime-page edits for this agent.
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`agent-readiness:${companyId}:${agentId}`}))`);
     const [agent] = await tx.select().from(agents).where(and(
@@ -459,7 +469,7 @@ export function agentReadinessService(db: Db, options: AgentReadinessServiceOpti
     const skillRows = await tx.select({ key: companySkills.key }).from(companySkills).where(eq(companySkills.companyId, companyId));
     const known = new Set(skillRows.map((row) => row.key));
     const missing = preference.desiredSkills.filter((key) => !known.has(key));
-    if (missing.length === 0) return "All desired skills still exist in the company library.";
+    if (missing.length === 0) return { kind: "noop", message: "All desired skills still exist in the company library." };
     const missingSet = new Set(missing);
     const sync = asRecord(config.paperclipSkillSync);
     const nextSync: Record<string, unknown> = { ...sync };
@@ -476,17 +486,34 @@ export function agentReadinessService(db: Db, options: AgentReadinessServiceOpti
         return !(typeof key === "string" && missingSet.has(key));
       });
     }
-    await agentService(tx as unknown as Db).update(agent.id, {
-      adapterConfig: { ...config, paperclipSkillSync: nextSync },
-    }, {
+    return {
+      kind: "update",
+      agentId: agent.id,
+      previousConfiguration: {
+        adapterConfig: agent.adapterConfig,
+        adapterType: agent.adapterType,
+        defaultEnvironmentId: agent.defaultEnvironmentId,
+        runtimeConfig: agent.runtimeConfig,
+      },
+      nextAdapterConfig: { ...config, paperclipSkillSync: nextSync },
+      message: `Removed ${missing.length} missing skill reference${missing.length === 1 ? "" : "s"}.`,
+    };
+    });
+    // Configuration changes are lifecycle commands: they must use the root
+    // connection, which opens its own transaction. Passing the transaction here
+    // threw "Lifecycle commands require the root database connection". The
+    // expected configuration turns a concurrent edit into a conflict instead of
+    // a lost update.
+    if (plan.kind === "noop") return plan.message;
+    await agentService(db).update(plan.agentId, { adapterConfig: plan.nextAdapterConfig }, {
       recordRevision: {
         createdByAgentId: actor.actorType === "agent" ? actor.agentId ?? null : null,
         createdByUserId: actor.actorType === "user" ? actor.actorId : null,
         source: "readiness",
       },
+      expectedConfiguration: plan.previousConfiguration,
     });
-    return `Removed ${missing.length} missing skill reference${missing.length === 1 ? "" : "s"}.`;
-    });
+    return plan.message;
   }
 
   async function createTestTask(companyId: string, agentId: string): Promise<string> {
@@ -518,9 +545,7 @@ export function agentReadinessService(db: Db, options: AgentReadinessServiceOpti
         status: "backlog",
         assigneeAgentId: agent.id,
       });
-      await agentService(tx as unknown as Db).update(agent.id, {
-        metadata: { ...metadata, readinessTestIssueId: issue.id },
-      }, { recordRevision: { source: "readiness" } });
+      await agentService(tx as unknown as Db).setMetadata(agent.id, { ...metadata, readinessTestIssueId: issue.id });
       return `Created readiness test task ${issue.identifier ?? issue.id}.`;
     });
   }

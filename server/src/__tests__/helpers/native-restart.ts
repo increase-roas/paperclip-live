@@ -11,8 +11,17 @@ export * from "./native-restart-fixture.js";
  * skipped test that names the prerequisite. This keeps `vitest list` and the
  * CI test report honest about what was not exercised instead of presenting an
  * empty file with no suite.
+ *
+ * `.each` mirrors `describe.each` so a caller can register one suite per case.
+ * The plain function never had it, which broke both the typecheck and the
+ * runtime of `native-controller-migration.integration.test.ts`.
  */
-export function describeEmbeddedPostgres(name: string, register: () => void): void {
+type EmbeddedPostgresDescribe = {
+  (name: string, register: () => void): void;
+  each: <T>(cases: readonly T[]) => (name: string, register: (value: T) => void) => void;
+};
+
+function registerEmbeddedPostgres(name: string, register: () => void): void {
   if (!recoveryPostgresSupport.supported) {
     describe(name, () => {
       it("reports why the embedded Postgres integration suite is unavailable", () => {
@@ -32,3 +41,14 @@ export function describeEmbeddedPostgres(name: string, register: () => void): vo
   }
   describe(name, register);
 }
+
+export const describeEmbeddedPostgres: EmbeddedPostgresDescribe = Object.assign(
+  (name: string, register: () => void) => registerEmbeddedPostgres(name, register),
+  {
+    each: <T>(cases: readonly T[]) => (name: string, register: (value: T) => void) => {
+      for (const value of cases) {
+        registerEmbeddedPostgres(name.replace("%s", String(value)), () => register(value));
+      }
+    },
+  },
+);
