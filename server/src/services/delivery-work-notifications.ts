@@ -35,6 +35,7 @@ export const DELIVERY_QUEUES = {
   nativeRunnerEvidenceRetention: "native-runner-evidence-retention",
   skillVersionRetention: "skill-version-retention",
   externalObjectRefresh: "external-object-refresh",
+  aggregatorAppSync: "aggregator-app-sync",
   databaseBackups: "database-backups",
   importSpoolCleanup: "import-spool-cleanup",
   externalConversationSettlement: "external-conversation-settlement",

@@ -397,6 +397,15 @@ describe("Connectors landing page", () => {
     return snapshot;
   }
 
+  // A single account renders inline; a second one folds behind the connection count.
+  async function expandFirefliesAccounts() {
+    const toggle = Array.from(container.querySelectorAll<HTMLButtonElement>('[data-app-slug="fireflies"] button'))
+      .find(button => /^\d+ connections$/.test(button.textContent?.trim() ?? ""));
+    if (!toggle) return;
+    await act(() => toggle.click());
+    await flushReact();
+  }
+
   async function clickButton(text: string, scope: ParentNode = document) {
     const button = Array.from(scope.querySelectorAll<HTMLButtonElement>("button")).find(button => button.textContent?.trim() === text)!;
     expect(button).toBeTruthy();
@@ -608,12 +617,21 @@ describe("Connectors landing page", () => {
     await renderBrowse();
     expect(container.querySelector('button[aria-label="Manage Circleback"]')).toBeTruthy();
     expect(container.querySelector('[data-app-slug="circleback"] [title="Connected"]')).toBeNull();
-    expect(container.textContent).toContain("Last known account · Refresh to verify");
+    expect(container.textContent).toContain("Last check failed · Refresh to verify");
     expect(container.textContent).toContain("Unavailable");
     const menu = await openComposioAccountMenu();
     await act(() => Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitem"]')).find(item => item.textContent?.trim() === "Refresh Composio")!.click());
     await flushReact();
     expect(syncComposioAppsMock).toHaveBeenCalledWith("conn-notion", true);
+  });
+
+  it("keeps a healthy account connected when its last check is merely old", async () => {
+    const snapshot = composioFixture();
+    listComposioAppsMock.mockResolvedValue({ apps: [{ ...snapshot, checkedAt: new Date(Date.now() - 60 * 60_000).toISOString() }] });
+    await renderBrowse();
+    expect(container.querySelector('[data-app-slug="circleback"]')?.querySelector('[title="Connected"]')).toBeTruthy();
+    expect(container.textContent).not.toContain("Last check failed · Refresh to verify");
+    expect(container.textContent).not.toContain("Not verified");
   });
 
   it("keeps the last known aggregator accounts without a load-error notice when a refetch fails transiently", async () => {
@@ -629,7 +647,7 @@ describe("Connectors landing page", () => {
 
     expect(circleback()?.textContent).toContain("Meeting notes");
     expect(circleback()?.querySelector('[title="Connected"]')).toBeTruthy();
-    expect(container.textContent).not.toContain("Last known account · Refresh to verify");
+    expect(container.textContent).not.toContain("Last check failed · Refresh to verify");
     expect(container.textContent).not.toContain("Couldn’t load Composio accounts");
     expect(container.querySelector('[data-query-view="error"]')).toBeNull();
     expect(container.textContent).not.toContain("Paperclip is restarting.");
@@ -646,7 +664,7 @@ describe("Connectors landing page", () => {
 
     expect(container.querySelector('[data-app-slug="circleback"]')?.textContent).toContain("Meeting notes");
     expect(container.textContent).toContain("Couldn’t load Composio accounts. Use Refresh in the connection’s menu to try again.");
-    expect(container.textContent).toContain("Last known account · Refresh to verify");
+    expect(container.textContent).toContain("Last check failed · Refresh to verify");
   });
 
   it("refreshes only the selected Composio account while another account is syncing", async () => {
@@ -782,6 +800,9 @@ describe("Connectors landing page", () => {
     aggregatorIdentityCalls.limit = catalogNames * 20;
     try {
       const client = await renderBrowse(true, { cloud: true });
+      // A healthy account list folds behind the connection count; expand it so the
+      // assertions below read the account rows, not the collapsed summary.
+      await expandFirefliesAccounts();
       expect(container.querySelector('[data-app-slug="fireflies"]')?.textContent).toContain("Meeting notes");
       expect(aggregatorIdentityCalls.count).toBeLessThan(catalogNames * 20);
 
@@ -795,6 +816,7 @@ describe("Connectors landing page", () => {
       listComposioAppsMock.mockImplementation(async () => ({ apps: [{ ...snapshot, accounts: [...snapshot.accounts, { id: "ca-team", alias: "Team notes", status: "ACTIVE", isDefault: false }] }] }));
       await act(async () => { await client.refetchQueries({ queryKey: accountsKey, exact: true }); });
       await flushReact();
+      await expandFirefliesAccounts();
       expect(container.querySelector('[data-app-slug="fireflies"]')?.textContent).toContain("Team notes");
 
       // Typing a search changes no connector data, so the rows are not rebuilt.

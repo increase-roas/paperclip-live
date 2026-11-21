@@ -4,7 +4,7 @@ import { eq, sql } from "drizzle-orm";
 import express from "express";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { companies, companyMemberships, connectionGrants, createDb, toolApplications, toolCatalogEntries, toolConnections, toolConnectionAppSnapshots } from "@paperclipai/db";
+import { companies, companyMemberships, connectionGrants, createDb, toolApplications, toolCatalogEntries, toolConnections, toolConnectionAppSnapshots, toolConnectionAppSyncs } from "@paperclipai/db";
 import { toolAccessService } from "../services/tool-access.js";
 import { secretService } from "../services/secrets.js";
 import { toolAccessRoutes } from "../routes/tool-access.js";
@@ -53,6 +53,43 @@ if (!support.supported) console.warn(`Managed-account database tests unavailable
     await vi.waitFor(async () => { result = await f.access.listAggregatorApps(f.connection.id, f.actor); expect(result.sync.status).not.toBe("syncing"); }, { timeout: 5000 });
     return result;
   }
+  it("refreshes due healthy Composio rows on the sweep and leaves failed rows to an explicit refresh", async () => {
+    const [company] = await db.insert(companies).values({ name: "Composio sweep test", issuePrefix: randomUUID().slice(0, 6).toUpperCase() }).returning();
+    const userId = randomUUID();
+    await db.insert(companyMemberships).values({ companyId: company.id, principalType: "user", principalId: userId, membershipRole: "admin", status: "active" });
+    const [application] = await db.insert(toolApplications).values({ companyId: company.id, applicationKey: randomUUID(), name: "Composio", type: "mcp_http", metadata: { sourceTemplateKey: "composio" } }).returning();
+    const [connection] = await db.insert(toolConnections).values({ companyId: company.id, applicationId: application.id, uid: randomUUID(), name: "Composio gateway",
+      transport: "mcp_remote", authKind: "none", credentialPolicy: "shared", status: "active", enabled: true,
+      config: { sourceTemplateKey: "composio", url: "https://connect.composio.dev/mcp" } }).returning();
+    await db.insert(connectionGrants).values({ companyId: company.id, connectionId: connection.id, kind: "organization", status: "active", isDefault: true });
+    await db.insert(toolCatalogEntries).values({ companyId: company.id, connectionId: connection.id, name: "COMPOSIO_MANAGE_CONNECTIONS",
+      toolName: "COMPOSIO_MANAGE_CONNECTIONS", versionHash: "v1", status: "active", riskLevel: "read" });
+    const calls: { params?: { name?: string } }[] = [];
+    const access = toolAccessService(db, { remoteHttpRequest: async (_url, init) => {
+      const rpc = init.body ? JSON.parse(String(init.body)) : {};
+      calls.push(rpc);
+      const toolkits: { name: string }[] = rpc?.params?.arguments?.toolkits ?? [];
+      return Response.json({ jsonrpc: "2.0", id: rpc.id, result: { structuredContent: { results: toolkits.map(tool => ({ toolkit: tool.name, accounts: [] })) } } });
+    } });
+    const actor = { actorType: "user" as const, actorId: userId };
+    const syncRow = async () => (await db.select().from(toolConnectionAppSyncs).where(eq(toolConnectionAppSyncs.connectionId, connection.id)))[0];
+    await access.syncComposioApps(connection.id, true, actor);
+    await vi.waitFor(async () => expect((await syncRow())?.status).toBe("ready"), { timeout: 60000, interval: 100 });
+    const stale = new Date(Date.now() - 60 * 60_000);
+    await db.update(toolConnectionAppSyncs).set({ lastCompletedAt: stale, updatedAt: stale }).where(eq(toolConnectionAppSyncs.connectionId, connection.id));
+    calls.length = 0;
+    expect(await access.sweepAggregatorAppSyncs()).toMatchObject({ checked: 1, refreshed: 1 });
+    await vi.waitFor(async () => expect((await syncRow())?.lastCompletedAt?.getTime()).toBeGreaterThan(stale.getTime()), { timeout: 5000 });
+    expect(calls.some(call => call.params?.name === "COMPOSIO_MANAGE_CONNECTIONS")).toBe(true);
+    // A fresh row is not checked again on the next tick.
+    calls.length = 0;
+    expect(await access.sweepAggregatorAppSyncs()).toMatchObject({ checked: 0, refreshed: 0 });
+    // A failed check stays for the explicit Refresh path instead of retrying on a timer.
+    await db.update(toolConnectionAppSyncs).set({ status: "error", lastCompletedAt: stale, updatedAt: stale }).where(eq(toolConnectionAppSyncs.connectionId, connection.id));
+    expect(await access.sweepAggregatorAppSyncs()).toMatchObject({ checked: 0 });
+    expect(calls).toHaveLength(0);
+  });
+
   it("replays the account migrations without losing observations or weakening company boundaries", async () => {
     const f = await fixture();
     await sync(f);

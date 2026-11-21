@@ -3,6 +3,12 @@ import type { ComposioAppSnapshot, ComposioAppSyncState } from "./composio-app-s
 import type { AppCatalogAggregator } from "./aggregator-app-catalog.js";
 
 export const AGGREGATOR_NAMES = { composio: "Composio", arcade: "Arcade", executor: "Executor" } as const;
+
+/** How long a cached aggregator account list counts as fresh for sync gating. */
+export const AGGREGATOR_APP_SYNC_TTL_MS = 5 * 60_000;
+/** Background refresh cadence. Shorter than the TTL so a usable list never ages out. */
+export const AGGREGATOR_APP_SYNC_SWEEP_MS = 4 * 60_000;
+
 export function isAppAggregator(value: unknown): value is AppCatalogAggregator {
   return typeof value === "string" && Object.hasOwn(AGGREGATOR_NAMES, value);
 }

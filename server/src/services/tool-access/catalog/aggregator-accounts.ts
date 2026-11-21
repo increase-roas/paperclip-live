@@ -2,7 +2,7 @@ import { connectionActorUserId } from "../actor.js";
 import { actorForSecret } from "../oauth/credential-store.js";
 import type { ActorInfo } from "../types.js";
 import { remoteEndpoint, projectedConnectionHeaders } from "../connection-methods.js";
-import { AGGREGATOR_NAMES, isAppAggregator, type AggregatorAppsResponse, type ArcadeDiscoverySetupInput } from "@paperclipai/shared/aggregator-apps";
+import { AGGREGATOR_APP_SYNC_TTL_MS, AGGREGATOR_NAMES, isAppAggregator, type AggregatorAppsResponse, type ArcadeDiscoverySetupInput } from "@paperclipai/shared/aggregator-apps";
 import { resolveAggregatorApp, type AppCatalogAggregator } from "@paperclipai/shared/aggregator-app-catalog";
 import { AggregatorDiscoveryUnavailableError, discoverArcadeApps, discoverExecutorApps, type DiscoveredApp } from "../../aggregator-app-discovery.js";
 import { COMPOSIO_APP_TOOLKITS, findComposioCatalogApp } from "@paperclipai/shared/aggregator-app-catalog";
@@ -49,7 +49,8 @@ export function createAggregatorAccounts(db: Db, { options, secrets, audit, cred
   const { vaultGrantForConnection, resolveCredentialHeaders, resolvedRemoteEndpoint } = credentials;
   const composioSyncJobs = new Map<string, Promise<void>>();
 
-  const composioSyncTtlMs = 5 * 60_000;
+  // The one shared freshness window; the scheduled sweep refreshes inside it.
+  const composioSyncTtlMs = AGGREGATOR_APP_SYNC_TTL_MS;
 
   const composioSyncLeaseMs = 4 * 60_000;
 
@@ -227,6 +228,50 @@ export function createAggregatorAccounts(db: Db, { options, secrets, audit, cred
     return composioAppsResponse(await getConnectionRow(connectionId), actor);
   }
 
+  // The scheduled refresh. Sync rows are per responsible user, so each due row
+  // is refreshed on behalf of the user who connected the gateway. Rows whose
+  // last check failed are left for an explicit Refresh: the UI reports them as
+  // needing attention, and retrying a broken gateway on a timer adds no value.
+  async function sweepComposioAppSyncs(input: { staleAfterMs?: number; limit?: number } = {}) {
+    const staleAfterMs = input.staleAfterMs ?? composioSyncTtlMs;
+    const cutoff = new Date(Date.now() - staleAfterMs);
+    const due = await db.select({
+      companyId: toolConnectionAppSyncs.companyId,
+      connectionId: toolConnectionAppSyncs.connectionId,
+      userId: toolConnectionAppSyncs.userId,
+      credentialKey: toolConnectionAppSyncs.credentialKey,
+      connection: toolConnections,
+    }).from(toolConnectionAppSyncs)
+      .innerJoin(toolConnections, and(
+        eq(toolConnections.id, toolConnectionAppSyncs.connectionId),
+        eq(toolConnections.companyId, toolConnectionAppSyncs.companyId),
+      ))
+      .where(and(
+        eq(toolConnectionAppSyncs.status, "ready"),
+        lt(toolConnectionAppSyncs.lastCompletedAt, cutoff),
+        eq(toolConnections.enabled, true),
+        eq(toolConnections.status, "active"),
+        sql`${toolConnections.config}->>'sourceTemplateKey' = 'composio'`,
+      ))
+      .orderBy(asc(toolConnectionAppSyncs.lastCompletedAt))
+      .limit(input.limit ?? 10);
+    let refreshed = 0;
+    const failedConnectionIds: string[] = [];
+    for (const row of due) {
+      const actor = { actorType: "user" as const, actorId: row.userId };
+      try {
+        // A row whose stored credential key no longer matches belongs to a
+        // rotated credential; the current key refreshes on demand instead.
+        if (await composioCredentialKey(row.connection, actor) !== row.credentialKey) continue;
+        await startComposioAppSync(row.connectionId, false, actor);
+        refreshed += 1;
+      } catch {
+        failedConnectionIds.push(row.connectionId);
+      }
+    }
+    return { checked: due.length, refreshed, failedConnectionIds };
+  }
+
   function aggregatorProvider(connection: typeof toolConnections.$inferSelect): AppCatalogAggregator {
     const provider = connection.config.sourceTemplateKey;
     if (!isAppAggregator(provider) || connection.transport !== "mcp_remote") throw notFound("Aggregator gateway not found");
@@ -277,7 +322,9 @@ export function createAggregatorAccounts(db: Db, { options, secrets, audit, cred
     const discovery = await aggregatorDiscoveryState(connection, actor);
     return { provider, discovery, apps: result.apps.map(snapshot => {
       const app = resolveAggregatorApp(provider, snapshot.toolkit, snapshot.accounts[0]?.appName);
-      return { ...snapshot, provider, freshness: discovery.availability !== "available" || snapshot.errorAt || result.sync.status === "error" || connection.status !== "active" || !connection.enabled || Date.now() - new Date(snapshot.checkedAt).getTime() > composioSyncTtlMs ? "stale" as const : "fresh" as const, appSlug: app.slug.startsWith(`${provider}:`) ? `${provider}:${connection.id}:${snapshot.toolkit}` : snapshot.accounts[0]?.appSlug ?? app.slug, appName: snapshot.accounts[0]?.appName ?? app.name };
+      // Age alone is not an attention state: the scheduled sweep keeps the list
+      // current, so only a failed check or an unusable gateway marks it stale.
+      return { ...snapshot, provider, freshness: discovery.availability !== "available" || snapshot.errorAt || result.sync.status === "error" || connection.status !== "active" || !connection.enabled ? "stale" as const : "fresh" as const, appSlug: app.slug.startsWith(`${provider}:`) ? `${provider}:${connection.id}:${snapshot.toolkit}` : snapshot.accounts[0]?.appSlug ?? app.slug, appName: snapshot.accounts[0]?.appName ?? app.name };
     }), sync: { ...result.sync, coverage: provider === "composio" ? "supported_catalog" : provider === "arcade" ? "gateway_tools" : "visible_accounts",
       error: result.sync.error ? `Couldn’t finish checking ${AGGREGATOR_NAMES[provider]} apps. Refresh to try again.` : null,
     } };
@@ -443,6 +490,7 @@ export function createAggregatorAccounts(db: Db, { options, secrets, audit, cred
       return syncAggregatorApps(connectionId, true, actor);
     },
     syncComposioApps: startComposioAppSync,
+    sweepComposioAppSyncs,
     async listComposioApps(connectionId: string, actor: ActorInfo) {
       const connection = await getConnectionRow(connectionId);
       await actor.managementContext?.reauthorize();
