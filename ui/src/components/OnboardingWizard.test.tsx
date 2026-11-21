@@ -480,9 +480,12 @@ describe("OnboardingWizard restore-gate (stale localStorage across accounts)", (
       const root = await openProviderChoices();
       try {
         const sources = [...document.body.querySelectorAll("button[aria-checked]")];
-        expect(sources).toHaveLength(2);
+        expect(sources).toHaveLength(4);
         expect(sources.map(source => source.textContent)).toEqual([
-          expect.stringContaining("Claude"), expect.stringContaining("OpenAI"),
+          expect.stringContaining("Claude"),
+          expect.stringContaining("OpenAI"),
+          expect.stringContaining("OpenCode"),
+          expect.stringContaining("OpenAI-compatible / custom"),
         ]);
         expect(document.body.textContent).not.toContain("GitHub Copilot");
         expect(document.body.textContent).not.toContain("Windows");
@@ -495,8 +498,65 @@ describe("OnboardingWizard restore-gate (stale localStorage across accounts)", (
       const root = await openProviderChoices();
       try {
         const sources = [...document.body.querySelectorAll("button[aria-checked]")];
-        expect(sources).toHaveLength(1);
+        expect(sources).toHaveLength(3);
         expect(sources[0]?.textContent).toContain("OpenAI");
+        expect(sources.map(source => source.textContent)).toEqual([
+          expect.stringContaining("OpenAI"),
+          expect.stringContaining("OpenCode"),
+          expect.stringContaining("OpenAI-compatible / custom"),
+        ]);
+      } finally { await act(async () => root.unmount()); }
+    });
+
+    async function clickProviderSource(match: (text: string) => boolean) {
+      const button = [...document.body.querySelectorAll<HTMLButtonElement>("button")]
+        .find((candidate) => match(candidate.textContent ?? ""));
+      expect(button).toBeTruthy();
+      await act(async () => {
+        button!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+    }
+
+    it("selects OpenCode with an editable provider/model", async () => {
+      const root = await openProviderChoices();
+      try {
+        await clickProviderSource((text) => /OpenCode/.test(text) && !text.includes("compatible"));
+        await flushReact();
+        expect(JSON.parse(window.localStorage.getItem(ONBOARDING_STORAGE_KEY)!)).toMatchObject({
+          adapterType: "opencode_local",
+        });
+        const model = document.body.querySelector<HTMLInputElement>("#onboarding-opencode-model");
+        expect(model).not.toBeNull();
+        await act(async () => setControlledValue(model!, "openai/gpt-5"));
+        await flushReact();
+        expect(model!.value).toBe("openai/gpt-5");
+      } finally { await act(async () => root.unmount()); }
+    });
+
+    it("offers the OpenAI-compatible custom row as OpenCode with a free-form model", async () => {
+      const root = await openProviderChoices();
+      try {
+        await clickProviderSource((text) => text.includes("OpenAI-compatible / custom"));
+        await flushReact();
+        expect(JSON.parse(window.localStorage.getItem(ONBOARDING_STORAGE_KEY)!)).toMatchObject({
+          adapterType: "opencode_local",
+        });
+        expect(document.body.querySelector<HTMLInputElement>("#onboarding-opencode-model")).not.toBeNull();
+        expect(document.body.textContent).toContain("Custom Gateway");
+      } finally { await act(async () => root.unmount()); }
+    });
+
+    it("creates the agent from Skip without probing a provider", async () => {
+      const root = await openProviderChoices({ adapterType: "claude_local", runner: "legacy" });
+      try {
+        mockAgentsApi.testEnvironment.mockClear();
+        await clickProviderSource((text) => text.trim() === "Skip for now");
+        for (let index = 0; index < 8; index++) await flushReact();
+        expect(mockAgentsApi.testEnvironment).not.toHaveBeenCalled();
+        expect(mockAgentsApi.hire).toHaveBeenCalled();
+        expect(JSON.parse(window.localStorage.getItem(ONBOARDING_STORAGE_KEY)!)).toMatchObject({
+          adapterType: "claude_local",
+        });
       } finally { await act(async () => root.unmount()); }
     });
 
@@ -529,14 +589,14 @@ describe("OnboardingWizard restore-gate (stale localStorage across accounts)", (
     });
 
     it.each([false, true])("explains unavailable onboarding providers and clears an old Copilot draft: %s", async savedCopilot => {
-      mockAdapterRegistry.disabled = new Set(["claude_local", "codex_local"]);
+      mockAdapterRegistry.disabled = new Set(["claude_local", "codex_local", "opencode_local"]);
       const root = await openProviderChoices(savedCopilot ? {
         adapterType: "paperclip_runner", onboardingCopilot: true, runner: "paperclip", model: "copilot-model",
       } : {});
       try {
         expect(document.body.querySelectorAll("button[aria-checked]")).toHaveLength(0);
-        expect(document.body.textContent).toContain("Claude and Codex are unavailable on this instance.");
-        expect(document.body.textContent).toContain("choose New Agent on the Agents page");
+        expect(document.body.textContent).toContain("No model provider is enabled on this instance.");
+        expect(document.body.textContent).toContain("Skip for now");
         const next = [...document.body.querySelectorAll("button")].find(button => isArcPrimary(button.textContent?.trim() ?? ""));
         expect(next?.disabled).toBe(true);
         expect(mockAgentsApi.hire).not.toHaveBeenCalled();

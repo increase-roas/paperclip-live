@@ -139,7 +139,7 @@ import {
   onboardingStepPositionFor,
 } from "./onboarding/Stepper";
 import { AgentPreview } from "./onboarding/AgentPreview";
-import { ModelSourceTiles, type CredentialMode } from "./onboarding/ModelSourceTiles";
+import { ModelSourceTiles, type CredentialMode, type ModelSource } from "./onboarding/ModelSourceTiles";
 import { CredentialModeLink } from "./onboarding/CredentialModeLink";
 import { FooterNav, type FooterPrimaryIcon } from "./onboarding/FooterNav";
 import { OnboardingHeading } from "./onboarding/OnboardingPrimitives";
@@ -159,7 +159,7 @@ type Step = 0 | 1 | 2 | 3 | 4 | 5;
 // wizard's registry-driven approach rather than a fixed union.
 type AdapterType = string;
 
-const ONBOARDING_ADAPTER_TYPES = new Set(["claude_local", "codex_local"]);
+const ONBOARDING_ADAPTER_TYPES = new Set(["claude_local", "codex_local", "opencode_local"]);
 
 function restoreOnboardingAdapterType(savedAdapterType: unknown, provider?: unknown, savedCopilot?: unknown): AdapterType {
   if (savedAdapterType === "paperclip_runner" && provider === "pi") return "pi_local";
@@ -588,6 +588,9 @@ function OnboardingWizardInner({
    * whether the row has been *answered* on this visit.
    */
   const [sourcePicked, setSourcePicked] = useState(false);
+  /** OpenCode's generic provider row: let the customer name any provider/model. */
+  const [customOpenAiCompatible, setCustomOpenAiCompatible] = useState(false);
+  const skipConnectionRequested = useRef(false);
   const [setupNameConflict, setSetupNameConflict] = useState<string | null>(null);
   const [gatewayConnection, setGatewayConnection] = useState<{
     companyId: string; adapterType: string; binding: AiConnectionBinding;
@@ -1237,12 +1240,42 @@ function OnboardingWizardInner({
   }, [disabledTypes]);
 
   /**
+   * The sources this step offers. Claude and Codex stay first, OpenCode is a
+   * peer when the instance has it, and the last tile names OpenCode's generic
+   * OpenAI-compatible provider path without inventing another adapter.
+   */
+  const onboardingSourceAdapters = useMemo(
+    () => [...recommendedAdapters, ...moreAdapters],
+    [recommendedAdapters, moreAdapters],
+  );
+  const onboardingSources = useMemo<ModelSource[]>(() => {
+    const sources: ModelSource[] = onboardingSourceAdapters.map((option) => ({
+      id: option.type,
+      label: CONNECT_SOURCE_NAMES[option.type] ?? option.label,
+      icon: <ModelSourceMark type={option.type} Fallback={option.icon} />,
+    }));
+    if (onboardingSourceAdapters.some((option) => option.type === "opencode_local")) {
+      sources.push({
+        id: "openai_compatible",
+        label: "OpenAI-compatible / custom",
+        icon: <OpenAiBlossom className="size-full" />,
+        credentialMode: "advanced",
+      });
+    }
+    return sources;
+  }, [onboardingSourceAdapters]);
+
+  /**
    * A source chosen from the visible row. Read off the row rather than off
    * `adapterType` alone, because a restored draft can name an adapter this step
    * no longer offers — a selection the customer cannot see.
    */
   const sourceSelected =
-    sourcePicked && recommendedAdapters.some((opt) => opt.type === adapterType);
+    sourcePicked && (
+      customOpenAiCompatible
+        ? onboardingSourceAdapters.some((opt) => opt.type === "opencode_local")
+        : onboardingSourceAdapters.some((opt) => opt.type === adapterType)
+    );
 
   /**
    * Whether the connect step may advance.
@@ -1675,7 +1708,7 @@ function OnboardingWizardInner({
     // external adapter is indistinguishable from a disabled one - and snapping
     // would replace the customer's choice with a built-in and persist it.
     if (!adapterRegistryLoaded) return;
-    const visible = [...recommendedAdapters, ...moreAdapters].filter(
+    const visible = onboardingSourceAdapters.filter(
       (a) => !a.comingSoon,
     );
     if (visible.length === 0) {
@@ -1705,7 +1738,7 @@ function OnboardingWizardInner({
       return;
     }
     setModel("");
-  }, [adapterRegistryLoaded, recommendedAdapters, moreAdapters, adapterType]);
+  }, [adapterRegistryLoaded, onboardingSourceAdapters, adapterType]);
 
   const COMMAND_PLACEHOLDERS: Record<string, string> = {
     claude_local: "claude",
@@ -2384,13 +2417,47 @@ function OnboardingWizardInner({
   }
 
 
+  /**
+   * Create the agent without proving a provider. The customer may be between
+   * providers, or using a harness this build cannot test here. The agent is
+   * still real and can be connected from its settings; nothing claims a model
+   * was verified.
+   */
+  function skipConnectingModel() {
+    if (loading || adapterEnvLoading || setupError) return;
+    if (!sourceSelected) {
+      const fallback = onboardingSourceAdapters[0];
+      if (!fallback) {
+        setError("No model provider is enabled on this instance. Ask an administrator to enable one.");
+        return;
+      }
+      setSourcePicked(true);
+      setCustomOpenAiCompatible(false);
+      setAdapterType(fallback.type);
+      setModel(fallback.type === "opencode_local" ? DEFAULT_OPENCODE_LOCAL_MODEL : "");
+    }
+    setError(null);
+    skipConnectionRequested.current = true;
+    if (setupPrepared || createdAgentId) {
+      skipConnectionRequested.current = false;
+      void handleGiveHeartbeat({ skipConnectionCheck: true });
+    }
+  }
+
+  useEffect(() => {
+    if (!skipConnectionRequested.current || step !== 4 || !sourceSelected) return;
+    if (!setupPrepared && !createdAgentId) return;
+    skipConnectionRequested.current = false;
+    void handleGiveHeartbeat({ skipConnectionCheck: true });
+  }, [step, sourceSelected, setupPrepared, createdAgentId]);
+
   // Step 4 → 5 ("Give it a heartbeat"): hire the lead agent + seed its
   // instructions, then advance to Review. Guarded so revisiting step 4
   // doesn't hire a second agent.
-  async function handleGiveHeartbeat() {
+  async function handleGiveHeartbeat(options: { skipConnectionCheck?: boolean } = {}) {
     if (!createdCompanyId) return;
     if (!setupPrepared && !createdAgentId) return;
-    if (!connectionModelReady) {
+    if (!connectionModelReady && !options.skipConnectionCheck) {
       setError("Choose a model for this gateway connection before connecting your agent.");
       return;
     }
@@ -2414,7 +2481,7 @@ function OnboardingWizardInner({
     setError(null);
     let qualifiedDiscovery: { adapters: AdapterInfo[]; environmentId: string | null } | undefined;
     try {
-      if (adapterType === "opencode_local") {
+      if (adapterType === "opencode_local" && !options.skipConnectionCheck) {
         const selectedModelId = model.trim();
         if (!isValidOpenCodeModelId(selectedModelId)) {
           setError(
@@ -2517,7 +2584,7 @@ function OnboardingWizardInner({
           }
         : baseAdapterConfig;
 
-      if (isLocalAdapter) {
+      if (isLocalAdapter && !options.skipConnectionCheck) {
         // A cached result is reusable only when it tested the same
         // configuration the hire below sends, and only when it does not
         // block the hire — see blocksAgentCreate. With the "Test now" card
@@ -3089,16 +3156,15 @@ function OnboardingWizardInner({
                   <div>
                     <ModelSourceTiles
                       label="Model source"
-                      sources={recommendedAdapters.map((opt) => ({
-                        id: opt.type,
-                        label: CONNECT_SOURCE_NAMES[opt.type] ?? opt.label,
-                        icon: <ModelSourceMark type={opt.type} Fallback={opt.icon} />,
-                      }))}
+                      sources={onboardingSources}
                       mode={credentialMode}
                       selectedId={
-                        sourcePicked &&
-                        recommendedAdapters.some((opt) => opt.type === adapterType)
-                          ? adapterType
+                        sourcePicked
+                          ? customOpenAiCompatible
+                            ? "openai_compatible"
+                            : onboardingSourceAdapters.some((opt) => opt.type === adapterType)
+                              ? adapterType
+                              : null
                           : null
                       }
                       collapsed={connectCollapsed}
@@ -3107,6 +3173,15 @@ function OnboardingWizardInner({
                         if (connectPhase !== "idle") return;
                         autoConnectStartedRef.current = false;
                         setSourcePicked(true);
+                        if (id === "openai_compatible") {
+                          setCustomOpenAiCompatible(true);
+                          setAdapterType("opencode_local");
+                          setRunner("auto");
+                          setModel("");
+                          setConnectPhase("collapsing");
+                          return;
+                        }
+                        setCustomOpenAiCompatible(false);
                         setAdapterType(id);
                         if (id !== adapterType) setRunner("auto");
                         if (id !== adapterType) {
@@ -3117,12 +3192,56 @@ function OnboardingWizardInner({
                       }}
                     />
 
-                    {adapterRegistryLoaded && recommendedAdapters.length === 0 && (
+                    {sourceSelected && adapterType === "opencode_local" && (
+                      <div className="mt-3 max-w-sm">
+                        <label className="mb-1 block text-xs text-muted-foreground" htmlFor="onboarding-opencode-model">
+                          Model
+                        </label>
+                        <input
+                          id="onboarding-opencode-model"
+                          className="w-full rounded-md border border-border bg-transparent px-3 py-2 font-mono text-sm outline-none placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-ring"
+                          placeholder="provider/model"
+                          value={model}
+                          list="onboarding-opencode-models"
+                          onChange={(event) => {
+                            setCustomOpenAiCompatible(false);
+                            setModel(event.target.value);
+                          }}
+                        />
+                        <datalist id="onboarding-opencode-models">
+                          {(adapterModels ?? []).map((entry) => (
+                            <option key={entry.id} value={entry.id} />
+                          ))}
+                        </datalist>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Use any OpenCode model ID, including an OpenAI-compatible provider/model.
+                        </p>
+                      </div>
+                    )}
+
+                    {adapterRegistryLoaded && onboardingSources.length === 0 && (
                       <p role="status" className="text-sm text-muted-foreground">
-                        Claude and Codex are unavailable on this instance. Ask an administrator to enable one,
-                        or exit setup and choose New Agent on the Agents page to use another provider.
+                        No model provider is enabled on this instance. Ask an administrator to enable one,
+                        then return to this step. You can also skip and configure a provider later.
                       </p>
                     )}
+
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="-ml-3 text-muted-foreground"
+                        disabled={loading || adapterEnvLoading || setupError}
+                        onClick={skipConnectingModel}
+                        data-testid="onboarding-skip-model"
+                      >
+                        Skip for now
+                      </Button>
+                      <p className="text-xs text-muted-foreground">
+                        Creates the agent without testing a provider. Connect one from the agent's settings later.
+                      </p>
+                    </div>
 
                     {/* Fades on the first beat but keeps its space until the
                         second, so pressing a tile moves nothing vertically.
