@@ -1,11 +1,13 @@
 import {
   CircuitBreaker,
+  createErrorTracker,
   createMetricsRegistry,
   createStructuredLogger,
   newTraceContext,
   traceHeaders,
   type TraceContext,
 } from "@paperclipai/shared/observability";
+import { createProductAnalytics } from "@paperclipai/shared/analytics";
 
 import type { GoogleSheetsClient } from "./google-client.js";
 
@@ -44,6 +46,20 @@ export function createSheetsLogger(trace?: TraceContext) {
     },
   });
 }
+
+export const sheetsErrorTracker = createErrorTracker({
+  service: "paperclip-google-sheets-mcp",
+  dsn: process.env.SENTRY_DSN_SHEETS ?? process.env.SENTRY_DSN,
+  environment: process.env.PAPERCLIP_ENVIRONMENT,
+  release: process.env.SENTRY_RELEASE,
+  logger: createSheetsLogger(),
+});
+
+export const sheetsProductAnalytics = createProductAnalytics({
+  app: "paperclip-google-sheets-mcp",
+  apiKey: process.env.PAPERCLIP_POSTHOG_KEY ?? process.env.POSTHOG_API_KEY,
+  host: process.env.PAPERCLIP_POSTHOG_HOST ?? process.env.POSTHOG_HOST,
+});
 
 function wrapMethod<TArgs extends unknown[], TResult>(
   name: string,

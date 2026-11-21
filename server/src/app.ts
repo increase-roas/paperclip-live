@@ -75,6 +75,7 @@ import type { InspectDatabaseBackupHealthOptions } from "./services/database-bac
 import type { StorageService } from "./storage/types.js";
 import { httpLogger, errorHandler } from "./middleware/index.js";
 import { metricsMiddleware, renderMetrics } from "./metrics.js";
+import { productAnalyticsMiddleware } from "./middleware/product-analytics.js";
 import { skillAccessRequestContext } from "./services/skill-access.js";
 import { actorMiddleware } from "./middleware/auth.js";
 import { boardMutationGuard } from "./middleware/board-mutation-guard.js";
@@ -534,6 +535,7 @@ export async function createApp(
   app.use("/api", apiCompression());
   app.use(httpLogger);
   app.use(metricsMiddleware);
+  app.use(productAnalyticsMiddleware);
   app.get("/metrics", (_req, res) => {
     res.type("text/plain; version=0.0.4; charset=utf-8").send(renderMetrics());
   });

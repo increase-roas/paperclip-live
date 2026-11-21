@@ -1,11 +1,13 @@
 import {
   CircuitBreaker,
+  createErrorTracker,
   createMetricsRegistry,
   createStructuredLogger,
   newTraceContext,
   traceHeaders,
   type TraceContext,
 } from "@paperclipai/shared/observability";
+import { createProductAnalytics } from "@paperclipai/shared/analytics";
 
 export const mcpMetrics = createMetricsRegistry();
 
@@ -37,6 +39,20 @@ export function createMcpLogger(trace?: TraceContext) {
     },
   });
 }
+
+export const mcpErrorTracker = createErrorTracker({
+  service: "paperclip-mcp-server",
+  dsn: process.env.SENTRY_DSN_MCP ?? process.env.SENTRY_DSN,
+  environment: process.env.PAPERCLIP_ENVIRONMENT,
+  release: process.env.SENTRY_RELEASE,
+  logger: createMcpLogger(),
+});
+
+export const mcpProductAnalytics = createProductAnalytics({
+  app: "paperclip-mcp-server",
+  apiKey: process.env.PAPERCLIP_POSTHOG_KEY ?? process.env.POSTHOG_API_KEY,
+  host: process.env.PAPERCLIP_POSTHOG_HOST ?? process.env.POSTHOG_HOST,
+});
 
 export { newTraceContext, traceHeaders };
 export type { TraceContext };

@@ -68,6 +68,20 @@ paperclip/
 └── doc/                         # Internal documentation
 ```
 
+## Data Model and Service Schemas
+
+[`doc/data-model.md`](../../doc/data-model.md) maps every persisted state
+surface to its schema:
+
+- Relational tables and migrations live in `packages/db`.
+- The Tailscale HTTPS broker registry has a JSON Schema at
+  `packages/tailscale-https-broker/schema/lease-registry.schema.json`.
+- The native Runner controller checkpoint has a JSON Schema at
+  `packages/paperclip-runner/schema/controller-checkpoint.schema.json`.
+- The server API contract is `docs/api/openapi.json`.
+- The Google Sheets MCP HTTP server contract is
+  `packages/google-sheets-mcp-server/openapi.yaml`.
+
 ## Request Flow
 
 When a heartbeat fires:

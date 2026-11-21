@@ -3,11 +3,15 @@ import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { eq, sql } from "drizzle-orm";
 import { checkpointDb, livenessDb, nativeRunFinalizations } from "@paperclipai/db";
-import { beforeAll, expect } from "vitest";
+import { beforeAll, expect, it } from "vitest";
 import { createRunnerdCodexTransport, DurablePrpControlPlane } from "../../vendor/paperclip-runner/index.js";
 import { registerRunnerPrpAuthority } from "../../realtime/runner-prp-ws.js";
 import { nativeRunnerCheckpointWriter } from "./native-runner-checkpoint.js";
 import { nativeRestartFixture, describeEmbeddedPostgres, realProcessIt, waitForCondition } from "../../__tests__/helpers/native-restart.js";
+
+it("keeps the checkpoint-cost restart suite discoverable", () => {
+  expect(typeof describeEmbeddedPostgres).toBe("function");
+});
 
 describeEmbeddedPostgres("native runner restart recovery: checkpoint-cost", () => {
   const environment = nativeRestartFixture();

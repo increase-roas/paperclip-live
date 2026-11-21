@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 import { createCodexTaskEnvelope } from "../contracts/codex.js";
 import { CodexAppServerDriver } from "../drivers/codex/codex-app-server-driver.js";
 import { runCodexCodexTracer } from "../mock-core/codex-runner.js";
+import { runnerErrorTracker, runnerProductAnalytics } from "../observability.js";
 
 interface CliOptions {
   workingDirectory?: string;
@@ -125,7 +126,10 @@ async function main(): Promise<void> {
   if (Object.values(trace.assertions).some((passed) => !passed)) process.exitCode = 1;
 }
 
-void main().catch((error: unknown) => {
+runnerProductAnalytics.capture("runner_cli_started", { command: "codex" });
+void main().catch(async (error: unknown) => {
+  runnerErrorTracker.capture(error, { surface: "runner-cli", command: "codex" });
+  await runnerErrorTracker.flush(2_000);
   process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
   process.exitCode = 1;
 });

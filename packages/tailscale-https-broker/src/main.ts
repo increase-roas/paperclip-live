@@ -21,7 +21,7 @@ import { startSocketServer } from "./socket-server.js";
 import { buildStatusArgv } from "./argv.js";
 import { assertPrimaryIntact, parseServeStatus } from "./serve-config.js";
 import { createTailscaleRunner, isSupportedTailscaleVersion } from "./tailscale-cli.js";
-import { brokerMetrics, brokerTailscaleCircuit, createBrokerLogger } from "./observability.js";
+import { brokerErrorTracker, brokerMetrics, brokerTailscaleCircuit, createBrokerLogger } from "./observability.js";
 
 function runDoctor(): number {
   const config = loadHostConfig(process.env);
@@ -131,4 +131,10 @@ function main(): void {
   process.stderr.write(`[broker] listening on ${config.socketPath}\n`);
 }
 
-main();
+try {
+  main();
+} catch (error) {
+  brokerErrorTracker.capture(error, { surface: "broker", phase: "startup" });
+  void brokerErrorTracker.flush(2_000);
+  process.exitCode = 1;
+}

@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paperclip.ing/schemas/tailscale-https-broker/lease-registry.schema.json",
+  "title": "Paperclip Tailscale HTTPS broker ownership registry",
+  "description": "JSON persisted by the broker at BROKER_REGISTRY_PATH. The file is root-owned, mode 0600, and written with temp + fsync + rename. Lease handles are ownership capabilities and must never be logged.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "nodeIdentity", "generationCounter", "leases", "quarantinedPorts"],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "nodeIdentity": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Node/boot identity. A change forces quarantine and operator reconciliation."
+    },
+    "generationCounter": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Monotonic counter used to defeat ABA remove/re-expose confusion."
+    },
+    "leases": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/lease"
+      }
+    },
+    "quarantinedPorts": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 65535
+      },
+      "description": "Ports quarantined after ambiguous or failed cleanup. They are never reused or auto-freed."
+    }
+  },
+  "$defs": {
+    "lease": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "handle",
+        "runtimeId",
+        "peerUid",
+        "peerGid",
+        "ports",
+        "purposes",
+        "state",
+        "generation",
+        "createdAtIso",
+        "expiresAtIso"
+      ],
+      "properties": {
+        "handle": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unguessable ownership capability bound to peer, runtime, ports, and generation."
+        },
+        "runtimeId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "peerUid": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "peerGid": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ports": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          }
+        },
+        "purposes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["app", "vite_hmr"]
+          }
+        },
+        "state": {
+          "enum": ["reserved", "exposed"]
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "createdAtIso": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expiresAtIso": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "Bounds leaked reservations when a caller crashes before its backend starts."
+        }
+      }
+    }
+  }
+}

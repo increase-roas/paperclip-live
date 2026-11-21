@@ -67,6 +67,7 @@
   },
   "sideEffects": false,
   "scripts": {
+    "check:size": "node ../../scripts/check-bundle-size.mjs --only runner-node && node ../../scripts/check-bundle-size.mjs --only runner-browser",
     "health": "node scripts/health.mjs",
     "test:coverage": "vitest run --coverage",
     "build": "node scripts/record-build-inputs.mjs --begin && pnpm run check:protocol-manifest && pnpm run build:typescript && pnpm run check:capability-contract && pnpm run check:capability-inventory && pnpm run check:protocol-coverage && node scripts/generate-semantic-contracts.mjs --check && node scripts/check-runner-workflow-traceability.mjs && pnpm run build:binary && node scripts/generate-replay-goldens.mjs --check && node scripts/generate-semantic-action-catalog.mjs --check && node scripts/record-build-inputs.mjs --finish",

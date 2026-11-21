@@ -30,6 +30,7 @@
     "access": "public"
   },
   "scripts": {
+    "check:size": "node ../scripts/check-bundle-size.mjs --only cli",
     "test:coverage": "vitest run --coverage",
     "dev": "tsx src/index.ts",
     "build": "node --input-type=module -e \"import esbuild from 'esbuild'; import config from './esbuild.config.mjs'; await esbuild.build(config);\" && chmod +x dist/index.js",

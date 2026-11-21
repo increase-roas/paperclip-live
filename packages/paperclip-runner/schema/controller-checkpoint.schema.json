@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paperclip.ing/schemas/paperclip-runner/controller-checkpoint.schema.json",
+  "title": "Paperclip Runner durable controller checkpoint",
+  "description": "The record map persisted by the native Runner control plane. Keys are stable record ids; values are JSON strings. `header` and `cursor` are required, command and event records are keyed by their monotonic sequence, and the optional staged-attachment template is present only before a run attach command is issued.",
+  "type": "object",
+  "required": ["header", "cursor"],
+  "minProperties": 2,
+  "propertyNames": {
+    "anyOf": [
+      {
+        "enum": ["header", "cursor", "staged-attachment-template"]
+      },
+      {
+        "pattern": "^(command|event):[0-9]+$"
+      }
+    ]
+  },
+  "additionalProperties": {
+    "type": "string",
+    "description": "A JSON-encoded record value."
+  },
+  "allOf": [
+    {
+      "properties": {
+        "header": {
+          "type": "string",
+          "description": "JSON-encoded checkpoint header.",
+          "contentMediaType": "application/json",
+          "contentSchema": {
+            "$ref": "#/$defs/header"
+          }
+        },
+        "cursor": {
+          "type": "string",
+          "description": "JSON-encoded acknowledged source sequence and replay deliveries.",
+          "contentMediaType": "application/json",
+          "contentSchema": {
+            "$ref": "#/$defs/cursor"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "header": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "runnerVersion", "runnerDigest", "state"],
+      "properties": {
+        "schema": {
+          "enum": [
+            "paperclip.runner.controller-checkpoint.v1",
+            "paperclip.runner.controller-checkpoint.v2"
+          ]
+        },
+        "runnerVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runnerDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "SHA-256 of the runner artifact that wrote the checkpoint."
+        },
+        "state": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["identity"],
+          "properties": {
+            "identity": {
+              "type": "object",
+              "additionalProperties": true,
+              "required": ["runId"],
+              "properties": {
+                "runId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "normalizedSessionId": {
+                  "type": ["string", "null"]
+                }
+              }
+            },
+            "stagedRunAttachment": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      }
+    },
+    "cursor": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["ackedSourceSeq", "replayDeliveries"],
+      "properties": {
+        "ackedSourceSeq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "replayDeliveries": {
+          "type": "array"
+        }
+      }
+    }
+  }
+}

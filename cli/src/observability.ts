@@ -1,5 +1,6 @@
 import {
   CircuitBreaker,
+  createErrorTracker,
   createMetricsRegistry,
   createStructuredLogger,
   type StructuredLogger,
@@ -48,6 +49,14 @@ export function createCliLogger(trace?: TraceContext): StructuredLogger {
     },
   });
 }
+
+export const cliErrorTracker = createErrorTracker({
+  service: "paperclipai-cli",
+  dsn: process.env.SENTRY_DSN_CLI ?? process.env.SENTRY_DSN,
+  environment: process.env.PAPERCLIP_ENVIRONMENT,
+  release: process.env.SENTRY_RELEASE,
+  logger: createCliLogger(),
+});
 
 export type { TraceContext };
 export { newTraceContext, traceHeaders } from "@paperclipai/shared/observability";

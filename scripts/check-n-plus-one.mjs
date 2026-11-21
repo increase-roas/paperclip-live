@@ -57,7 +57,13 @@ function sourceSlice(code, node, limit = 180) {
 function main() {
   const args = parseArgs();
   const config = readJsonFile(".quality/n-plus-one.json", {});
-  const roots = config.roots ?? ["server/src", "packages/*/src", "packages/adapters/*/src"];
+  const roots = config.roots ?? [
+    "server/src",
+    "packages/*/src",
+    "packages/adapters/*/src",
+    "cli/src",
+    "ui/src",
+  ];
   const exclude = config.exclude ?? [];
   const files = (gitTrackedFiles() ?? [])
     .map((file) => repoPath(file))

@@ -33,6 +33,7 @@
     "scripts/install-copilot-assets.mjs"
   ],
   "scripts": {
+    "check:size": "node ../scripts/check-bundle-size.mjs --only server-runtime",
     "test:coverage": "vitest run --coverage",
     "dev": "tsx src/index.ts",
     "dev:watch": "cross-env PAPERCLIP_MIGRATION_PROMPT=never PAPERCLIP_MIGRATION_AUTO_APPLY=true tsx ./scripts/dev-watch.ts",

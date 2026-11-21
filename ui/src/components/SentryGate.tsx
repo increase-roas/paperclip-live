@@ -2,7 +2,12 @@ import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { authApi } from "@/api/auth";
 import { queryKeys } from "@/lib/queryKeys";
-import { initBrowserErrorMonitoring, teardownBrowserErrorMonitoring } from "@/lib/sentry";
+import {
+  addBrowserBreadcrumb,
+  initBrowserErrorMonitoring,
+  setBrowserUser,
+  teardownBrowserErrorMonitoring,
+} from "@/lib/sentry";
 
 /**
  * Opens the browser Sentry gate for an authorized board actor. Reads the
@@ -26,14 +31,19 @@ export function SentryGate() {
 
   const dsn = session?.sentryDsn;
   const environment = session?.sentryEnvironment ?? undefined;
+  const userId = session?.user?.id;
+  const userName = session?.user?.name;
 
   useEffect(() => {
     if (!dsn) return;
     void initBrowserErrorMonitoring(dsn, environment);
+    setBrowserUser(userId ? { id: userId, username: userName ?? undefined } : null);
+    addBrowserBreadcrumb({ category: "auth", message: "browser error monitoring started" });
     return () => {
+      setBrowserUser(null);
       void teardownBrowserErrorMonitoring();
     };
-  }, [dsn, environment]);
+  }, [dsn, environment, userId, userName]);
 
   return null;
 }

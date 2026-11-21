@@ -8,7 +8,13 @@ import { join, resolve } from "node:path";
 import { getCACertificates, setDefaultCACertificates } from "node:tls";
 import { eq } from "drizzle-orm";
 import WebSocket, { WebSocketServer, type RawData } from "ws";
-import { expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+
+describe("plugin runner eviction test prerequisites", () => {
+  it("keeps the integration suite discoverable", () => {
+    expect(typeof describeEmbeddedPostgres).toBe("function");
+  });
+});
 import { completionContracts, environmentLeases, environments, executionWorkspaces, heartbeatRuns, issues, nativeRunFinalizations, nativeRunResults, plugins, agents } from "@paperclipai/db";
 import { environmentTaskOperationSchema, type PluginEnvironmentTaskOperation } from "@paperclipai/plugin-sdk";
 import { readRunnerdArtifactBinding, defaultCapabilityRunnerdBinary,

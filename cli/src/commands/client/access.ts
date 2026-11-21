@@ -28,11 +28,27 @@ export function registerAccessCommands(program: Command): void {
   addCommonClientOptions(
     program
       .command("health")
-      .description("Check API health")
+      .description("Check API health, readiness and liveness")
       .action(async (opts: BaseClientOptions) => {
         try {
           const ctx = resolveCommandContext(opts);
-          printOutput(await ctx.api.get("/api/health"), { json: ctx.json });
+          const paths = ["/api/health", "/api/ready", "/api/liveness"] as const;
+          const checks = await Promise.all(
+            paths.map(async (path) => {
+              try {
+                return { path, ok: true, body: await ctx.api.get(path) };
+              } catch (error) {
+                return {
+                  path,
+                  ok: false,
+                  error: error instanceof Error ? error.message : String(error),
+                };
+              }
+            }),
+          );
+          const ok = checks.every((check) => check.ok);
+          printOutput({ status: ok ? "ok" : "degraded", checks }, { json: ctx.json });
+          if (!ok) process.exitCode = 1;
         } catch (err) {
           handleCommandError(err);
         }

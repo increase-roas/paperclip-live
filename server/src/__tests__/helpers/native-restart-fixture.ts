@@ -24,6 +24,7 @@ export const fakeCodexAppServer = resolve(
 );
 const binariesAvailable =
   existsSync(defaultCapabilityRunnerdBinary()) && existsSync(fakeCodexAppServer);
+export const nativeRestartBinariesAvailable = binariesAvailable;
 export const realProcessIt: typeof it.skip = binariesAvailable ? it : it.skip;
 
 async function closeServer(server: Server | null): Promise<void> {

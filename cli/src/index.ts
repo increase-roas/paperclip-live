@@ -31,6 +31,8 @@ import { registerTeamCommands } from "./commands/client/teams.js";
 import { applyDataDirOverride, type DataDirOptionLike } from "./config/data-dir.js";
 import { loadPaperclipEnvFile } from "./config/env.js";
 import { initTelemetryFromConfigFile, flushTelemetry } from "./telemetry.js";
+import { cliErrorTracker } from "./observability.js";
+import { cliProductAnalytics } from "./product-analytics.js";
 import { registerWorktreeCommands } from "./commands/worktree.js";
 import { registerPluginCommands } from "./commands/client/plugin.js";
 import { registerClientAuthCommands } from "./commands/client/auth.js";
@@ -288,9 +290,18 @@ async function main(): Promise<void> {
     await program.parseAsync();
   } catch (err) {
     failed = true;
+    cliErrorTracker.capture(err, { tags: { surface: "cli" } });
     console.error(err instanceof Error ? err.message : String(err));
   } finally {
-    await flushTelemetry();
+    cliProductAnalytics.capture("cli_command_completed", {
+      command: program.args[0] ?? "none",
+      outcome: failed ? "error" : "ok",
+    });
+    await Promise.all([
+      flushTelemetry(),
+      cliErrorTracker.flush(2_000),
+      cliProductAnalytics.shutdown(),
+    ]);
   }
 
   if (failed) {

@@ -1,6 +1,6 @@
 {
   "$comment": "Static N+1 detection scope. Generated clients and tests are excluded; agent-facing server code and shared packages are scanned.",
-  "roots": ["server/src", "packages/shared/src", "packages/db/src", "packages/adapters", "cli/src"],
+  "roots": ["server/src", "packages/shared/src", "packages/db/src", "packages/adapters", "cli/src", "ui/src"],
   "exclude": [
     "**/*.test.ts",
     "**/*.test.tsx",

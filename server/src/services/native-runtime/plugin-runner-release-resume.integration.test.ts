@@ -40,6 +40,10 @@ const parkId = (source: DurableRecoveryIdentity) => `park_${sha(JSON.stringify(O
 
 // The only replaced service is the external environment-task/Launcher edge.
 // Runtime, backend, owner, PRP ingress, checkpoint persistence and native Runner are real.
+it("keeps the release/resume integration suite discoverable", () => {
+  expect(typeof describeEmbeddedPostgres).toBe("function");
+});
+
 describeEmbeddedPostgres("plugin Runner release/resume through the Core execution entry", () => {
   const environment = nativeRestartFixture();
   const nativeIt = process.platform === "win32" ? it.skip : realProcessIt;

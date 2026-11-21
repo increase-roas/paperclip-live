@@ -80,6 +80,20 @@ request and on pushes to `master`. A second job builds the UI and runs the
 bundle-budget check. The workflow is additive; it does not replace the existing
 CI pipeline.
 
+## Operational readiness scripts
+
+These run on demand or from an operator timer. They are not CI-only checks.
+
+| Command | Purpose |
+| --- | --- |
+| `pnpm health:export` | Probe every component and write Prometheus `paperclip_component_*` text for node_exporter |
+| `pnpm test:dast -- --base http://127.0.0.1:3100` | Active DAST against a disposable local or staging instance |
+| `pnpm sentry:issues` | Dry-run unresolved Sentry issues to GitHub issues; add `--apply` to create |
+| `pnpm issues:triage` | Dry-run type and area labels for untriaged GitHub issues; add `--apply` to label |
+
+Their unit tests run with `pnpm test:health-export`, `pnpm test:dast:self` and
+`pnpm test:sentry-issues`.
+
 ## Adding a check
 
 1. Put reusable logic in `scripts/readiness/lib/`.

@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { readConfigFromEnv, type GoogleSheetsMcpConfig } from "./config.js";
 import { createGoogleSheetsClient, type GoogleSheetsClient } from "./google-client.js";
-import { guardGoogleSheetsClient } from "./observability.js";
+import { guardGoogleSheetsClient, sheetsProductAnalytics } from "./observability.js";
 import { createToolDefinitions } from "./tools.js";
 
 export interface CreateGoogleSheetsMcpServerOptions {
@@ -28,6 +28,26 @@ export function createGoogleSheetsMcpServer(
   });
 
   for (const tool of tools) {
+    const execute = tool.execute;
+    const tracked = async (input: Parameters<typeof execute>[0]) => {
+      const startedAt = Date.now();
+      try {
+        const result = await execute(input);
+        sheetsProductAnalytics.capture("sheets_tool_called", {
+          tool: tool.name,
+          outcome: "ok",
+          duration_ms: Date.now() - startedAt,
+        });
+        return result;
+      } catch (error) {
+        sheetsProductAnalytics.capture("sheets_tool_called", {
+          tool: tool.name,
+          outcome: "error",
+          duration_ms: Date.now() - startedAt,
+        });
+        throw error;
+      }
+    };
     server.registerTool(
       tool.name,
       {
@@ -35,9 +55,10 @@ export function createGoogleSheetsMcpServer(
         inputSchema: tool.schema.shape,
         annotations: tool.annotations,
       },
-      tool.execute,
+      tracked as typeof execute,
     );
   }
+  sheetsProductAnalytics.capture("sheets_server_started", { tool_count: tools.length });
 
   return {
     server,
