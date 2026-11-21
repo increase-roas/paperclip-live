@@ -51,6 +51,8 @@ import {
   hasAcknowledgedNativeStopIntent,
 } from "../acknowledged-native-stop.js";
 import { connectionIntentService } from "../connection-intents.js";
+import { isAiAuthenticationFailure } from "../ai-auth-failure.js";
+import { createAgentLifecycle } from "../agent-lifecycle.js";
 import {
   CONVERSATION_CONTINUATION_POLICY,
   isConversationAdapter,
@@ -3098,6 +3100,15 @@ export function createHeartbeatLifecycle(db: Db, dependencies: HeartbeatLifecycl
     };
   }
 
+  async function pauseAgentForProviderAuth(run: typeof heartbeatRuns.$inferSelect) {
+    if (run.status !== "failed" || !isAiAuthenticationFailure(run.errorCode)) return;
+    const [agent] = await db.select({ status: agents.status, pauseReason: agents.pauseReason }).from(agents)
+      .where(and(eq(agents.id, run.agentId), eq(agents.companyId, run.companyId)));
+    if (!agent || agent.status === "terminated" || agent.status === "pending_approval"
+      || agent.pauseReason === "auth_required") return;
+    await createAgentLifecycle(db).pauseAgent(run.agentId, "auth_required");
+  }
+
   async function classifyAndPersistRunLiveness(
     run: typeof heartbeatRuns.$inferSelect,
     resultJson?: Record<string, unknown> | null,
@@ -3108,6 +3119,11 @@ export function createHeartbeatLifecycle(db: Db, dependencies: HeartbeatLifecycl
           return null;
         })
       : null;
+    // An expired provider sign-in cannot recover without a person. Stop the
+    // agent instead of letting later wakes fail through the same credential.
+    await pauseAgentForProviderAuth(run).catch((error) => {
+      logger.warn({ runId: run.id, err: error }, "Could not pause the agent after a provider authentication failure");
+    });
     const classification = classifyRunLiveness({
       ...await buildRunLivenessInput(run, resultJson),
       authenticationRepairRequested: Boolean(authRepair?.interactionId),

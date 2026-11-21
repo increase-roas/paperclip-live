@@ -5,6 +5,10 @@ import { readProviderFailure, type ProviderFailure } from "@paperclipai/shared";
 export const NATIVE_MODEL_REJECTION_MESSAGE =
   "The selected model is not available through the current AI connection. Choose a supported model or a compatible AI connection.";
 
+export const NATIVE_PROVIDER_AUTH_REQUIRED_CODE = "native_provider_auth_required";
+export const NATIVE_PROVIDER_AUTH_REQUIRED_MESSAGE =
+  "The provider sign-in expired or was rejected. Reconnect the provider account, then resume the agent.";
+
 export const NATIVE_PROVIDER_OVERLOADED_MESSAGE =
   "Selected model is at capacity. Please try a different model.";
 export const NATIVE_PROVIDER_OVERLOADED_CODE = "native_provider_overloaded";
@@ -272,6 +276,15 @@ export function createNativeProviderFailureObservation(provider: { kind: string;
         errorMessage: NATIVE_PROVIDER_OVERLOADED_MESSAGE,
         diagnostic: { ...NATIVE_PROVIDER_OVERLOADED_DIAGNOSTIC },
       };
+      const authenticationFailure = providerFailures.get(turnId);
+      if (authenticationFailure?.category === "authentication") return {
+        errorCode: NATIVE_PROVIDER_AUTH_REQUIRED_CODE,
+        errorMessage: NATIVE_PROVIDER_AUTH_REQUIRED_MESSAGE,
+        diagnostic: failedTurns.get(turnId) ?? {
+          provider: authenticationFailure.provider,
+          category: authenticationFailure.category,
+        },
+      };
       if (turnId !== rejectedTurnId) {
         // A driver's closed category marks a rejected model for any provider. Only an
         // action-required rejection qualifies; a transient one may succeed on retry.
@@ -292,7 +305,8 @@ export function createNativeProviderFailureObservation(provider: { kind: string;
     /** Diagnostics only: the failed turn that `forTerminal` did not classify. */
     unclassifiedTurnFailure(turnId: string | null | undefined, terminal: PrpTerminalState) {
       if (!turnId || terminal.turnTerminalState !== "failed" || terminal.runTerminalState !== "failed" ||
-          turnId === overloadedTurnId || turnId === rejectedTurnId || modelUnavailableTurn(turnId)) return null;
+          turnId === overloadedTurnId || turnId === rejectedTurnId || modelUnavailableTurn(turnId)
+          || providerFailures.get(turnId)?.category === "authentication") return null;
       const diagnostic = failedTurns.get(turnId);
       return diagnostic ? { ...diagnostic } : null;
     },

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PrpEvent, PrpTerminalState } from "../../vendor/paperclip-runner/index.js";
-import { createNativeProviderFailureObservation, NATIVE_MODEL_REJECTION_DIAGNOSTIC, NATIVE_MODEL_REJECTION_MESSAGE, NATIVE_PROVIDER_OVERLOADED_MESSAGE, readNativeTurnFailureDiagnostic } from "./native-provider-failure.js";
+import { createNativeProviderFailureObservation, NATIVE_MODEL_REJECTION_DIAGNOSTIC, NATIVE_MODEL_REJECTION_MESSAGE, NATIVE_PROVIDER_AUTH_REQUIRED_MESSAGE, NATIVE_PROVIDER_OVERLOADED_MESSAGE, readNativeTurnFailureDiagnostic } from "./native-provider-failure.js";
 
 const model = "test-model";
 const response = {
@@ -32,6 +32,19 @@ describe("native provider failure observation", () => {
     expect(observed.providerFailureForTerminal("other-turn", terminal)).toBeNull();
     expect(observed.providerFailureForTerminal("turn", { ...terminal, runTerminalState: "succeeded" })).toBeNull();
   });
+  it.each(["claude", "codex", "opencode"])("classifies an authentication failure from %s as a reconnect state", kind => {
+    const observed = createNativeProviderFailureObservation({ kind });
+    const providerFailure = { schema: "paperclip.provider-failure.v1", provider: kind === "claude" ? "anthropic" : kind,
+      phase: "turn", category: "authentication", message: "OAuth token expired. Run claude login.", retryability: "requires_action" };
+    observed.observe({ ...event, payload: { status: "failed", error: { providerFailure } } });
+    const result = observed.forTerminal("turn", terminal);
+    expect(result).toMatchObject({ errorCode: "native_provider_auth_required", errorMessage: NATIVE_PROVIDER_AUTH_REQUIRED_MESSAGE });
+    expect(result?.diagnostic).toEqual(expect.objectContaining({ provider: kind === "claude" ? "anthropic" : kind }));
+    expect(observed.unclassifiedTurnFailure("turn", terminal)).toBeNull();
+    expect(observed.forTerminal("other-turn", terminal)).toBeNull();
+    expect(observed.forTerminal("turn", { ...terminal, runTerminalState: "succeeded" })).toBeNull();
+  });
+
   it.each(["opencode", "codex"])("classifies an action-required model_unavailable failure from %s as a model rejection", kind => {
     const observed = createNativeProviderFailureObservation({ kind });
     const providerFailure = { schema: "paperclip.provider-failure.v1", provider: "openrouter", phase: "turn",

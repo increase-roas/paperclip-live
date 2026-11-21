@@ -4,6 +4,7 @@ import { AgentCharacter } from "../components/AgentCharacter";
 import { characterStateForAgent } from "@paperclipai/shared";
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useNavigate, useLocation, Link, Navigate, useBeforeUnload, type NavigateFunction } from "@/lib/router";
+import { isProviderAuthFailureCode, providerAuthLabel } from "../lib/provider-auth";
 import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import {
   agentsApi,
@@ -3044,17 +3045,19 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
                 {run.errorCode && <span className="text-muted-foreground ml-1">({run.errorCode})</span>}
               </div>
             )}
-            {run.errorCode === "claude_auth_required" && adapterType === "claude_local" && (
+            {isProviderAuthFailureCode(run.errorCode) && (
               <div className="space-y-2">
-                <Button
+                {adapterType === "claude_local" ? <Button
                   variant="outline"
                   size="sm"
                   className="h-7 px-2 text-xs"
                   onClick={() => runClaudeLogin.mutate()}
                   disabled={runClaudeLogin.isPending}
                 >
-                  {runClaudeLogin.isPending ? "Running claude login..." : "Login to Claude Code"}
-                </Button>
+                  {runClaudeLogin.isPending ? "Running claude login..." : "Reconnect Claude"}
+                </Button> : <Button variant="outline" size="sm" className="h-7 px-2 text-xs" asChild>
+                  <Link to={`/agents/${encodeURIComponent(agentRouteId)}/runtime`}>Reconnect {providerAuthLabel({ adapterType, adapterConfig })}</Link>
+                </Button>}
                 {runClaudeLogin.isError && ( // query-error-ok: mutation result, not a query
                   <p className="text-xs text-destructive">
                     {runClaudeLogin.error instanceof Error

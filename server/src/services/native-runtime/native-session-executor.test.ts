@@ -14196,6 +14196,29 @@ describe("native session bounded recovery", () => {
     })).toMatchObject({ issueStatus: "blocked", recoveryOwner: { kind: "board" } });
   });
 
+  it("maps a native provider authentication error to the reconnect source code", () => {
+    const error = Object.assign(new Error("provider failed"), {
+      providerFailure: {
+        schema: "paperclip.provider-failure.v1",
+        provider: "anthropic",
+        phase: "turn",
+        category: "authentication",
+        message: "OAuth token expired.",
+        retryability: "requires_action",
+      },
+    });
+    expect(nativeSessionFailureSourceCode(error)).toBe("native_provider_auth_required");
+  });
+
+  it("stops immediately when the native provider reports an authentication failure", () => {
+    const now = new Date("2026-08-09T00:00:00.000Z");
+    expect(nativeSessionFailureDisposition(1, now, "native_provider_auth_required")).toEqual({
+      phase: "terminal_failure",
+      failureCode: "native_provider_auth_required",
+      nextAttemptAt: null,
+    });
+  });
+
   it("retries the same run twice and stops at the third failed attempt", () => {
     const now = new Date("2026-08-09T00:00:00.000Z");
     expect(

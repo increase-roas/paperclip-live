@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { queryKeys } from "@/lib/queryKeys";
+import { isProviderAuthFailureCode, providerAuthLabel } from "@/lib/provider-auth";
 import { Link, useSearchParams } from "@/lib/router";
 import { relativeTime } from "@/lib/utils";
 
@@ -299,6 +300,11 @@ export function AuditRuns({
                         {run.id.slice(0, 8)}
                       </span>
                       <StatusBadge status={run.status} />
+                      {isProviderAuthFailureCode(run.errorCode) ? (
+                        <span className="rounded border border-border px-1.5 py-0.5 text-(length:--text-micro) text-muted-foreground">
+                          Reconnect {providerAuthLabel(agent ?? {})}
+                        </span>
+                      ) : null}
                     </div>
                     <p className="mt-1 truncate text-sm text-muted-foreground">
                       {summary ?? `${readableSource(run.invocationSource)} run`}
