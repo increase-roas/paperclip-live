@@ -37,6 +37,14 @@ async function createCompany(db: Db, label: string) {
     .then((rows) => rows[0]!);
 }
 
+async function createCompanyNamed(db: Db, name: string) {
+  return db
+    .insert(companies)
+    .values({ name, issuePrefix: `B${randomUUID().slice(0, 6).toUpperCase()}` })
+    .returning()
+    .then((rows) => rows[0]!);
+}
+
 async function createAgent(db: Db, companyId: string, overrides: Partial<typeof agents.$inferInsert> = {}) {
   return db
     .insert(agents)
@@ -123,7 +131,7 @@ describePostgres("bots", () => {
   });
 
   it("keeps known gateway bots visible until an agent registers them", async () => {
-    const company = await createCompany(db, "Catalog");
+    const company = await createCompanyNamed(db, "Increase Roas");
     const app = await createApp(db, boardActor(company.id));
 
     const before = await request(app).get(`/api/companies/${company.id}/bots`).expect(200);
@@ -217,6 +225,13 @@ describePostgres("bots", () => {
     const response = await request(app).get(`/api/companies/${company.id}/bots`).expect(200);
     const kiwi = response.body.bots.find((bot: { name: string }) => bot.name === "Kiwi");
     expect(kiwi).toMatchObject({ registered: true, gateway: null });
+  });
+
+  it("only suggests known gateway bots inside the company that runs them", async () => {
+    const company = await createCompany(db, "Elsewhere");
+    const app = await createApp(db, boardActor(company.id));
+    const response = await request(app).get(`/api/companies/${company.id}/bots`).expect(200);
+    expect(response.body.bots).toEqual([]);
   });
 
   it("does not expose another company's bot", async () => {

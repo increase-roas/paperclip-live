@@ -1,10 +1,11 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
-import { activityLog, agents, routineTriggers, routines } from "@paperclipai/db";
+import { activityLog, agents, companies, routineTriggers, routines } from "@paperclipai/db";
 import {
   botSlug,
   findKnownGatewayBot,
   isBotAgentMetadata,
+  knownGatewayBotsForCompany,
   KNOWN_GATEWAY_BOTS,
   readBotMetadata,
   type BotActivityEntry,
@@ -74,11 +75,16 @@ export function botsService(db: Db) {
   }
 
   async function list(companyId: string): Promise<CompanyBotSummary[]> {
+    const [company] = await db
+      .select({ name: companies.name })
+      .from(companies)
+      .where(eq(companies.id, companyId))
+      .limit(1);
     const agentsForCompany = await listBotAgents(companyId);
     const bots = agentsForCompany.map(toSummary);
     const registeredSlugs = new Set(bots.flatMap((bot) => [bot.slug, botSlug(bot.name)]));
     const registeredNames = new Set(bots.map((bot) => bot.name.toLowerCase()));
-    for (const known of KNOWN_GATEWAY_BOTS) {
+    for (const known of company ? knownGatewayBotsForCompany(company.name) : []) {
       if (registeredSlugs.has(known.slug) || registeredNames.has(known.name.toLowerCase())) continue;
       bots.push(catalogSummary(known));
     }

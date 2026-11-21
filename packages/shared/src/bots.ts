@@ -22,19 +22,26 @@
 
 export const BOT_METADATA_KEY = "bot";
 
-/** Gateway-only bots Alex runs that have no Paperclip agent row yet. */
+/**
+ * Gateway-only bots Alex runs that have no Paperclip agent row yet. Each entry
+ * names the company it belongs to, so the roster never suggests a bot in a
+ * company that does not run it.
+ */
 export const KNOWN_GATEWAY_BOTS = [
   {
+    company: "Increase Roas",
     slug: "funnel-builder",
     name: "Funnel Builder",
     note: "Runs on the gateway website-builder policy with the full GHL scope set.",
   },
   {
+    company: "Increase Roas",
     slug: "kiwi",
     name: "Kiwi",
     note: "No agent, gateway key id or policy recorded in Paperclip yet.",
   },
   {
+    company: "Increase Roas",
     slug: "dr-eggbot",
     name: "dr eggbot",
     note: "No agent, gateway key id or policy recorded in Paperclip yet.",
@@ -162,6 +169,11 @@ export function readBotMetadata(metadata: unknown): {
     transport: cleanString(block.transport, MAX_NAME),
     gateway,
   };
+}
+
+export function knownGatewayBotsForCompany(companyName: string): KnownGatewayBot[] {
+  const needle = companyName.trim().toLowerCase();
+  return KNOWN_GATEWAY_BOTS.filter((bot) => bot.company.toLowerCase() === needle);
 }
 
 export function findKnownGatewayBot(slugOrName: string): KnownGatewayBot | null {
