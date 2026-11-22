@@ -163,7 +163,7 @@ describePostgres("bots", () => {
     });
     const kiwi = before.body.bots.find((bot: { slug: string }) => bot.slug === "kiwi");
     expect(kiwi?.purpose ?? null).toBeNull();
-    expect(kiwi?.note).toContain("TODO");
+    expect(kiwi?.note).toContain("no recorded purpose");
 
     const detail = await request(app).get(`/api/companies/${company.id}/bots/funnel-builder`).expect(200);
     expect(detail.body).toMatchObject({ slug: "funnel-builder", registered: false, routines: [], recentActivity: [] });
@@ -319,6 +319,71 @@ describePostgres("bots", () => {
 
     expect(response.body.suggestedAgents.map((agent: { name: string }) => agent.name)).toEqual(["Hermes Untagged"]);
     expect(response.body.suggestedAgents[0]).toMatchObject({ status: "idle", adapterType: "hermes_gateway" });
+  });
+
+  it("reads a gateway policy from the agent's own gateway URL when metadata has none", async () => {
+    const company = await createCompany(db, "Gateway URLs");
+    const live = await createAgent(db, company.id, {
+      name: "Ads checker",
+      adapterConfig: {
+        apiBaseUrl: "https://srv2155332.tailde26a1.ts.net:8443/p/ads-checker",
+        apiKey: { type: "secret_ref", secretId: "secret-id-should-not-leak" },
+      },
+    });
+    // A registered bot gets the same derivation on the roster.
+    await createAgent(db, company.id, {
+      name: "Web Builder",
+      metadata: { agentKind: "bot", bot: { purpose: "Builds pages.", transport: "hermes_gateway" } },
+      adapterConfig: { apiBaseUrl: "https://srv2155332.tailde26a1.ts.net:8443/p/website-builder" },
+    });
+    // A tagged bot on another adapter keeps its null link: only the Hermes
+    // gateway URL names a policy.
+    await createAgent(db, company.id, {
+      name: "Plain Codex",
+      adapterType: "codex_local",
+      metadata: { agentKind: "bot" },
+      adapterConfig: { apiBaseUrl: "https://example.test/p/website-builder" },
+    });
+
+    const app = await createApp(db, boardActor(company.id));
+    const detail = await request(app).get(`/api/companies/${company.id}/bots/${live.id}`).expect(200);
+    expect(detail.body.gateway).toEqual({
+      keyId: null,
+      policy: "ads-checker",
+      provider: "srv2155332.tailde26a1.ts.net:8443",
+      source: "agent_config",
+    });
+    expect(JSON.stringify(detail.body)).not.toContain("secret-id-should-not-leak");
+
+    const roster = await request(app).get(`/api/companies/${company.id}/bots`).expect(200);
+    const entry = roster.body.bots.find((bot: { name: string }) => bot.name === "Web Builder");
+    expect(entry.gateway).toMatchObject({ keyId: null, policy: "website-builder", source: "agent_config" });
+    const codex = roster.body.bots.find((bot: { name: string }) => bot.name === "Plain Codex");
+    expect(codex.gateway).toBeNull();
+  });
+
+  it("keeps a recorded metadata link ahead of the adapter URL", async () => {
+    const company = await createCompany(db, "Recorded link");
+    const bot = await createAgent(db, company.id, {
+      name: "Research Analyst",
+      metadata: {
+        grokBotTwin: true,
+        bot: {
+          purpose: "Researches accounts and markets with GBrain.",
+          gateway: { keyId: "gk_live_research", policy: "researcher", provider: "increase-roas-oauth-gateway" },
+        },
+      },
+      adapterConfig: { apiBaseUrl: "https://srv2155332.tailde26a1.ts.net:8443/p/research" },
+    });
+
+    const app = await createApp(db, boardActor(company.id));
+    const detail = await request(app).get(`/api/companies/${company.id}/bots/${bot.id}`).expect(200);
+    expect(detail.body.gateway).toEqual({
+      keyId: "gk_live_research",
+      policy: "researcher",
+      provider: "increase-roas-oauth-gateway",
+      source: "metadata",
+    });
   });
 
   it("does not expose another company's bot", async () => {

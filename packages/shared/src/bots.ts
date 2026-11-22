@@ -32,13 +32,15 @@ export const KNOWN_GATEWAY_BOTS = [
     company: "Increase Roas",
     slug: "funnel-builder",
     name: "Funnel Builder",
+    purpose: "Builds and maintains funnels and landing pages through the gateway website-builder policy.",
     note: "Runs on the gateway website-builder policy with the full GHL scope set.",
   },
   {
     company: "Increase Roas",
     slug: "kiwi",
     name: "Kiwi",
-    note: "No agent, gateway key id or policy recorded in Paperclip yet.",
+    purpose: null,
+    note: "TODO: no recorded purpose. This bot has no agent, gateway key or policy in Paperclip, and no source in the repo or ops notes describes what it does. Add bot.purpose to its metadata once Alex confirms it.",
   },
   {
     company: "Increase Roas",
@@ -51,18 +53,21 @@ export const KNOWN_GATEWAY_BOTS = [
     company: "Increase Roas",
     slug: "workflow-builder",
     name: "Workflow Builder",
+    purpose: "Builds and maintains workflows and routines.",
     note: "Builds and maintains workflows and routines; no agent or gateway key recorded yet.",
   },
   {
     company: "Increase Roas",
     slug: "drive-organizer",
     name: "Drive Organizer",
+    purpose: "Keeps the Increase ROAS — Company OS shared drive organized.",
     note: "Keeps the Increase ROAS — Company OS shared drive organized; no agent or gateway key recorded yet.",
   },
   {
     company: "Increase Roas",
     slug: "hermes-specialist",
     name: "Hermes Specialist",
+    purpose: "Maintains and tunes Hermes agent profiles.",
     note: "Hermes profile specialist; no agent or gateway key recorded yet.",
   },
 ] as const;
@@ -72,12 +77,23 @@ export type KnownGatewayBot = (typeof KNOWN_GATEWAY_BOTS)[number];
 export type BotKind = "agent" | "gateway";
 
 export interface BotGatewayLink {
-  /** Non-secret gateway key identifier, for example `gk_live_ab12`. */
-  keyId: string;
+  /**
+   * Non-secret gateway key identifier, for example `gk_live_ab12`.
+   *
+   * `null` means the policy is known but the key id is not recorded: the link
+   * came from the agent's own gateway URL, which names a profile and never a
+   * key. Pages say "Key id not recorded" instead of guessing one.
+   */
+  keyId: string | null;
   /** Policy name the gateway enforces for that key. */
   policy: string;
   /** Gateway or provider that issued the key. */
   provider: string | null;
+  /**
+   * Where the link came from. `metadata` is a link an operator recorded;
+   * `agent_config` is read from the agent's own gateway URL.
+   */
+  source: "metadata" | "agent_config";
 }
 
 export interface CompanyBotSummary {
@@ -103,6 +119,55 @@ export interface CompanyBotSummary {
   gateway: BotGatewayLink | null;
   note: string | null;
   updatedAt: string | null;
+}
+
+/**
+ * Reads the policy name out of a Hermes gateway base URL.
+ *
+ * The gateway serves each profile under `/p/<policy>`, so a configured URL is
+ * recorded evidence of which policy an agent talks to. The key id is not in the
+ * URL and is never derived from it.
+ */
+export function gatewayPolicyFromBaseUrl(value: unknown): { policy: string; provider: string | null } | null {
+  const raw = cleanString(value, MAX_ID * 4);
+  if (!raw) return null;
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return null;
+  }
+  // A bare host:port parses as a custom scheme with an empty host; the adapter
+  // always configures an http(s) base URL, so anything else is not evidence.
+  if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+  const segments = url.pathname.split("/").filter(Boolean).map((segment) => {
+    try {
+      return decodeURIComponent(segment);
+    } catch {
+      return segment;
+    }
+  });
+  const index = segments.lastIndexOf("p");
+  const policy = index >= 0 ? cleanString(segments[index + 1], MAX_ID) : null;
+  if (!policy) return null;
+  return { policy, provider: cleanString(url.host || null, MAX_NAME) };
+}
+
+/**
+ * Derives a policy-only gateway link from an agent's adapter configuration.
+ *
+ * Only the Hermes gateway adapter is considered, and only the base URL is read.
+ * The adapter's `apiKey` is a secret reference; this function never looks at it,
+ * which is what keeps a page from printing a credential.
+ */
+export function agentGatewayLinkFromConfig(input: {
+  adapterType: string | null;
+  adapterConfig: Record<string, unknown> | null;
+}): BotGatewayLink | null {
+  if (input.adapterType !== "hermes_gateway") return null;
+  const derived = gatewayPolicyFromBaseUrl(input.adapterConfig?.apiBaseUrl);
+  if (!derived) return null;
+  return { keyId: null, policy: derived.policy, provider: derived.provider, source: "agent_config" };
 }
 
 export interface BotRoutineTrigger {
@@ -206,7 +271,7 @@ export function readBotMetadata(metadata: unknown): {
   const policy = cleanString(gatewayBlock?.policy, MAX_ID);
   const gateway: BotGatewayLink | null =
     keyId && policy
-      ? { keyId, policy, provider: cleanString(gatewayBlock?.provider, MAX_NAME) }
+      ? { keyId, policy, provider: cleanString(gatewayBlock?.provider, MAX_NAME), source: "metadata" }
       : null;
   return {
     purpose: cleanString(block.purpose, MAX_TEXT),

@@ -56,7 +56,12 @@ const researchBot: CompanyBotSummary = {
   status: "idle",
   adapterType: "hermes_gateway",
   grokBotTwin: true,
-  gateway: { keyId: "gk_live_research", policy: "researcher", provider: "increase-roas-oauth-gateway" },
+  gateway: {
+    keyId: "gk_live_research",
+    policy: "researcher",
+    provider: "increase-roas-oauth-gateway",
+    source: "metadata",
+  },
   note: null,
   updatedAt: "2026-11-21T12:00:00.000Z",
 };
@@ -246,6 +251,28 @@ describe("Bots", () => {
     expect(text).toContain("PAPERCLIP_GATEWAY_BOTS_ENABLED");
     expect(text).toContain("gk_live_research");
     expect(text).toContain("What it does");
+  });
+
+  it("shows a policy read from the agent's gateway URL with the key id called out as missing", async () => {
+    params.botId = "agent-1";
+    getMock.mockResolvedValue({
+      ...researchBot,
+      gateway: {
+        keyId: null,
+        policy: "ads-checker",
+        provider: "srv2155332.tailde26a1.ts.net:8443",
+        source: "agent_config",
+      },
+      routines: [],
+      recentActivity: [],
+    });
+
+    await render(<BotDetail />);
+    const text = container.textContent ?? "";
+
+    expect(text).toContain("ads-checker");
+    expect(text).toContain("Key id not recorded");
+    expect(text).toContain("read from this agent's gateway URL");
   });
 
   it("splits registered bots from known bots that are not registered yet", async () => {
