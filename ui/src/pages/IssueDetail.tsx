@@ -6755,6 +6755,37 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
     }
   };
 
+  // Hiding removes the task from every collection and has no filter to bring
+  // it back, so keep one visible way to undo the change. Failure feedback comes
+  // from the shared issue mutation, which rolls back and shows a toast.
+  const hideIssue = useCallback(() => {
+    if (!issue?.id || updateIssue.isPending) return;
+    const taskId = issue.id;
+    updateIssue.mutate(
+      { hiddenAt: new Date().toISOString() },
+      {
+        onSuccess: () => {
+          navigate("/issues/all");
+          pushToast({
+            title: "Task hidden",
+            body: "The task no longer appears in the task list.",
+            tone: "success",
+            action: {
+              label: "Undo",
+              onClick: () => {
+                updateIssue.mutate({ hiddenAt: null }, {
+                  onSuccess: () => {
+                    void queryClient.invalidateQueries({ queryKey: queryKeys.issues.detail(taskId) });
+                  },
+                });
+              },
+            },
+          });
+        },
+      },
+    );
+  }, [issue?.id, navigate, pushToast, queryClient, updateIssue]);
+
   // Gmail-style mobile toolbar when viewing an issue from inbox.
   // Callbacks are stored in a ref so the effect deps stay stable and
   // don't trigger an infinite render loop (useMutation results and
@@ -6766,12 +6797,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
     },
     onCopy: () => copyIssueToClipboard(),
     onProperties: () => setMobilePropsOpen(true),
-    onHide: () => {
-      updateIssue.mutate(
-        { hiddenAt: new Date().toISOString() },
-        { onSuccess: () => navigate("/issues/all") },
-      );
-    },
+    onHide: hideIssue,
   });
   inboxToolbarCallbacksRef.current = {
     onArchive: () => {
@@ -6780,12 +6806,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
     },
     onCopy: () => copyIssueToClipboard(),
     onProperties: () => setMobilePropsOpen(true),
-    onHide: () => {
-      updateIssue.mutate(
-        { hiddenAt: new Date().toISOString() },
-        { onSuccess: () => navigate("/issues/all") },
-      );
-    },
+    onHide: hideIssue,
   };
 
   const backHref = sourceBreadcrumb.href ?? "/inbox";
@@ -8046,10 +8067,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
                 <button
                   className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 text-destructive"
                   onClick={() => {
-                    updateIssue.mutate(
-                      { hiddenAt: new Date().toISOString() },
-                      { onSuccess: () => navigate("/issues/all") },
-                    );
+                    hideIssue();
                     setMoreOpen(false);
                   }}
                 >

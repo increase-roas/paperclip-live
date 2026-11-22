@@ -4310,6 +4310,114 @@ describe("IssueDetail", () => {
     directToolbarContainer.remove();
   });
 
+  it("offers Undo after hiding a task from the mobile toolbar", async () => {
+    mockSidebarState.isMobile = true;
+    mockLocation.state = createIssueDetailLocationState("Inbox", "/inbox/mine", "inbox");
+    const issue = createIssue();
+    mockIssuesApi.get.mockResolvedValue(issue);
+    mockIssuesApi.update.mockReset().mockResolvedValue(issue);
+
+    await act(async () => {
+      renderIssueView();
+    });
+    await flushReact();
+    await flushReact();
+
+    const toolbar = [...mockSetMobileToolbar.mock.calls]
+      .map(([node]) => node)
+      .filter(Boolean)
+      .at(-1) as ReactNode;
+    const toolbarContainer = document.createElement("div");
+    document.body.appendChild(toolbarContainer);
+    const toolbarRoot = createRoot(toolbarContainer);
+    flushSync(() => toolbarRoot.render(toolbar));
+
+    const pointerEvent = window.PointerEvent ?? MouseEvent;
+    const moreActions = toolbarContainer.querySelector<HTMLButtonElement>('button[aria-label="More actions"]')!;
+    await act(async () => {
+      moreActions.dispatchEvent(new pointerEvent("pointerdown", { bubbles: true, button: 0 }));
+      moreActions.click();
+    });
+    const hide = [...document.body.querySelectorAll("button")].find(
+      (button) => button.textContent === "Hide this task",
+    ) as HTMLButtonElement | undefined;
+    expect(hide).toBeTruthy();
+    await act(async () => {
+      hide!.dispatchEvent(new pointerEvent("pointerdown", { bubbles: true, button: 0 }));
+      hide!.click();
+    });
+
+    await waitForAssertion(() => {
+      expect(mockIssuesApi.update).toHaveBeenCalledWith(
+        "issue-1",
+        expect.objectContaining({ hiddenAt: expect.any(String) }),
+      );
+      expect(mockPushToast).toHaveBeenCalledWith(expect.objectContaining({
+        title: "Task hidden",
+        action: expect.objectContaining({ label: "Undo" }),
+      }));
+    });
+    expect(mockNavigate).toHaveBeenCalledWith("/issues/all");
+
+    const hiddenToast = mockPushToast.mock.calls
+      .map(([toast]) => toast)
+      .find((toast) => toast.title === "Task hidden")!;
+    await act(async () => {
+      hiddenToast.action.onClick();
+    });
+    await waitForAssertion(() => {
+      expect(mockIssuesApi.update).toHaveBeenLastCalledWith("issue-1", { hiddenAt: null });
+    });
+
+    flushSync(() => toolbarRoot.unmount());
+    toolbarContainer.remove();
+  });
+
+  it("reports a failed hide without leaving the task", async () => {
+    mockSidebarState.isMobile = true;
+    mockLocation.state = createIssueDetailLocationState("Inbox", "/inbox/mine", "inbox");
+    mockIssuesApi.get.mockResolvedValue(createIssue());
+    mockIssuesApi.update.mockReset().mockRejectedValue(new Error("Hide is not allowed"));
+
+    await act(async () => {
+      renderIssueView();
+    });
+    await flushReact();
+    await flushReact();
+
+    const toolbar = [...mockSetMobileToolbar.mock.calls]
+      .map(([node]) => node)
+      .filter(Boolean)
+      .at(-1) as ReactNode;
+    const toolbarContainer = document.createElement("div");
+    document.body.appendChild(toolbarContainer);
+    const toolbarRoot = createRoot(toolbarContainer);
+    flushSync(() => toolbarRoot.render(toolbar));
+
+    const pointerEvent = window.PointerEvent ?? MouseEvent;
+    const moreActions = toolbarContainer.querySelector<HTMLButtonElement>('button[aria-label="More actions"]')!;
+    await act(async () => {
+      moreActions.dispatchEvent(new pointerEvent("pointerdown", { bubbles: true, button: 0 }));
+      moreActions.click();
+    });
+    const hide = [...document.body.querySelectorAll("button")].find(
+      (button) => button.textContent === "Hide this task",
+    ) as HTMLButtonElement | undefined;
+    await act(async () => {
+      hide!.dispatchEvent(new pointerEvent("pointerdown", { bubbles: true, button: 0 }));
+      hide!.click();
+    });
+
+    await waitForAssertion(() => {
+      expect(mockPushToast).toHaveBeenCalledWith(expect.objectContaining({ tone: "error" }));
+    });
+    expect(mockPushToast).not.toHaveBeenCalledWith(expect.objectContaining({ title: "Task hidden" }));
+    expect(mockNavigate).not.toHaveBeenCalledWith("/issues/all");
+
+    flushSync(() => toolbarRoot.unmount());
+    toolbarContainer.remove();
+  });
+
   it("shows assignee and originating avatars in the issue header metadata", async () => {
     mockIssuesApi.get.mockResolvedValue(
       createIssue({
