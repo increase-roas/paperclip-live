@@ -136,10 +136,20 @@ describePostgres("bots", () => {
 
     const before = await request(app).get(`/api/companies/${company.id}/bots`).expect(200);
     expect(before.body.bots.map((bot: { slug: string }) => bot.slug)).toEqual(
-      expect.arrayContaining(["funnel-builder", "kiwi", "dr-eggbot"]),
+      expect.arrayContaining([
+        "funnel-builder",
+        "kiwi",
+        "dr-eggbot",
+        "workflow-builder",
+        "drive-organizer",
+        "hermes-specialist",
+      ]),
     );
     const funnel = before.body.bots.find((bot: { slug: string }) => bot.slug === "funnel-builder");
     expect(funnel).toMatchObject({ registered: false, kind: "gateway", status: "unregistered", gateway: null });
+    const workflow = before.body.bots.find((bot: { slug: string }) => bot.slug === "workflow-builder");
+    expect(workflow).toMatchObject({ name: "Workflow Builder", registered: false, gateway: null });
+    expect(workflow.note).toContain("workflows and routines");
 
     const detail = await request(app).get(`/api/companies/${company.id}/bots/funnel-builder`).expect(200);
     expect(detail.body).toMatchObject({ slug: "funnel-builder", registered: false, routines: [], recentActivity: [] });

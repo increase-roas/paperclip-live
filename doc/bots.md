@@ -49,9 +49,10 @@ omit `details`, which can carry arbitrary payloads.
 ## Known gateway bots
 
 `KNOWN_GATEWAY_BOTS` in `packages/shared/src/bots.ts` lists the gateway bots Alex
-runs that Paperclip cannot discover on its own: `funnel-builder`, `kiwi` and
-`dr-eggbot`, each scoped to its company by name. They render on that company's
-Bots page as **Not registered yet** and never appear in another company. To register
+runs that Paperclip cannot discover on its own: `funnel-builder`, `kiwi`,
+`dr-eggbot`, `workflow-builder`, `drive-organizer` and `hermes-specialist`, each
+scoped to its company by name. They render on that company's Bots page as
+**Not registered yet** and never appear in another company. To register
 one, either create the bot as an agent with `grokBotTwin: true` (or
 `agentKind: "bot"`) and fill in `bot.gateway`, or keep it gateway-only and link a
 key later.

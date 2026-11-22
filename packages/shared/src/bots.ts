@@ -46,6 +46,24 @@ export const KNOWN_GATEWAY_BOTS = [
     name: "dr eggbot",
     note: "No agent, gateway key id or policy recorded in Paperclip yet.",
   },
+  {
+    company: "Increase Roas",
+    slug: "workflow-builder",
+    name: "Workflow Builder",
+    note: "Builds and maintains workflows and routines; no agent or gateway key recorded yet.",
+  },
+  {
+    company: "Increase Roas",
+    slug: "drive-organizer",
+    name: "Drive Organizer",
+    note: "Keeps the Increase ROAS — Company OS shared drive organized; no agent or gateway key recorded yet.",
+  },
+  {
+    company: "Increase Roas",
+    slug: "hermes-specialist",
+    name: "Hermes Specialist",
+    note: "Hermes profile specialist; no agent or gateway key recorded yet.",
+  },
 ] as const;
 
 export type KnownGatewayBot = (typeof KNOWN_GATEWAY_BOTS)[number];
