@@ -510,6 +510,11 @@ describeEmbeddedPostgres("heartbeat plugin environments", () => {
 
     expect(sharedRun).not.toBeNull();
     expect(overrideRun).not.toBeNull();
+    // Each plugin environment lease takes about four seconds on this suite's
+    // embedded database (the single-company case above needs 4s for one run).
+    // Two runs started together therefore need more than the 5s this budget
+    // used to allow; that value only held on a faster machine. The assertion is
+    // unchanged: both runs must reach succeeded.
     await vi.waitFor(async () => {
       const [latestShared, latestOverride] = await Promise.all([
         heartbeat.getRun(sharedRun!.id),
@@ -517,7 +522,7 @@ describeEmbeddedPostgres("heartbeat plugin environments", () => {
       ]);
       expect(latestShared?.status).toBe("succeeded");
       expect(latestOverride?.status).toBe("succeeded");
-    }, { timeout: 5_000 });
+    }, { timeout: 20_000 });
 
     const acquireCalls = vi.mocked(workerManager.call).mock.calls
       .filter(([, method]) => method === "environmentAcquireLease");
