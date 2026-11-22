@@ -7,10 +7,11 @@ Base: `origin/master` (`6de064ea94` when this runbook was written)
 This page is the single source of truth for the usability train: the 42-PR
 initial batch, the four follow-up PRs from the same round, the five newer PRs
 added on the next pass, the lane A test-helper PR, the six usability fixes plus
-two lane A fixes added on the final pass, and eleven lane A test and report PRs
-added on this pass. It lists the exact merge order, which PRs are superseded,
-what to check after each batch, and one command that proves the whole order
-still merges cleanly.
+two lane A fixes added on the final pass, eleven lane A test and report PRs
+added on this pass, and four usability fixes found in the Activity, Tasks and
+Inbox audit (#183, #184, #186, #188). It lists the exact merge order, which PRs
+are superseded, what to check after each batch, and one command that proves the
+whole order still merges cleanly.
 
 ## One-command verification
 
@@ -25,14 +26,16 @@ pushes nothing. It merges each PR head into a running tree with
 first conflict with the conflicted paths. Exit code `0` means the whole order is
 clean; `1` means a conflict; `2` means a usage or git error.
 
-Last verified: 2026-11-22 (seventh pass), 71 of 71 merged, no conflicts, base
+Last verified: 2026-11-22 (eighth pass), 75 of 75 merged, no conflicts, base
 `6de064ea94`. #158 was rebased onto #118 to clear the one conflict (see below).
 #167 is a draft combo branch and must be marked ready before it merges. #167 now
 contains all of #145, #162's first commit and #162's `--proposals` commit, so
 #145 and #162 both close as covered; #158 still merges first. #171 is stacked on
 #167 and must merge after it. #173, #174, #176, #181 and the eleven lane A PRs
 from #119 through #146 are independent. #175 is stacked on #169 and must merge
-after it. #177-#182 are independent usability fixes. #89, #97 and #112 stay out
+after it. #177-#182 are independent usability fixes. #183, #184, #186 and #188
+are independent usability fixes and merge last; #183 was rebased onto #137 to
+clear the `CoordinatorTasks.tsx` conflict. #89, #97 and #112 stay out
 of the train: #112's base is the draft #97 branch, which is stacked on the draft
 #89 branch.
 
@@ -118,6 +121,10 @@ node scripts/merge-train-simulate.mjs --json
 #139
 #140
 #146
+#183
+#184
+#186
+#188
 ```
 
 Keep `#115` before `#149` and `#136` before `#148`; those pairs touch the same
@@ -158,6 +165,7 @@ timeline Retry, and adds the range controls, section heading and range group.
 | X. Routine archive Undo | #180 | `cd ui && npx vitest run src/pages/Routines.test.tsx -t "offers Undo after archiving"` (1 passed) and `tests/e2e/routine-archive-undo.spec.ts` (1 passed). |
 | Y. Inbox read errors | #182 | `cd ui && npx vitest run src/pages/Inbox.test.tsx -t "reports a failed mark-all-read"` (1 passed) and `tests/e2e/inbox-read-error.spec.ts` (1 passed). |
 | Z. Lane A test fixes and rebuild report | #119 #120 #121 #129 #130 #131 #134 #138 #139 #140 #146 | Each PR body names its focused suite and counts. Run server tests for #119 (openapi), `pnpm --filter @paperclipai/server test -- <area>` for #121/#129/#130/#131/#138/#139/#140, the skills test for #120, the rebuild-report tests for #134, and the shutdown-hook tests for #146. All eleven merged after the usability stack in the simulation. |
+| AA. Audit usability fixes | #183 #184 #186 #188 | #183: `cd ui && npx vitest run src/components/IssuesList.test.tsx` (78 passed) and `tests/e2e/task-participant-filter-chip.spec.ts` (1 passed at 390px). #184: `npx vitest run src/pages/IssueDetail.test.tsx -t "hide"` (8 passed) and `tests/e2e/hide-task-undo.spec.ts` (1 passed). #186: `npx vitest run src/pages/Inbox.test.tsx` (78 passed) and `tests/e2e/inbox-alert-dismiss-touch.spec.ts` (1 passed at 390px). #188: `npx vitest run src/pages/Timeline.test.tsx` (8 passed) and `tests/e2e/timeline-summary-phone.spec.ts` (1 passed at 390px and 1280px). |
 
 ## What supersedes what
 
@@ -211,7 +219,9 @@ timeline Retry, and adds the range controls, section heading and range group.
   the same `package.json` slot, and then received #162's `--proposals` commit.
   #171 was rebased onto #167 and #158 was rebased onto #118. Both additions are
   kept. #145 and #162 need no further edits because they close as covered by
-  #167.
+  #167. #183 was rebased onto #137 because both edit the Coordinator task
+  toolbar; the resolution keeps #137's `describeError` copy and adds the
+  participant chip above it.
 - **#89, #97 and #112 stay out of the train.** #89 (shared fixture module) and
   #97 (suite harness plus the 47-file split) are drafts. #112's base is #97, so
   it inherits the split and conflicts with #110 on
