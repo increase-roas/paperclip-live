@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { AgentIdentity } from "@/components/AgentIdentity";
 import { CheckCircle2, XCircle, Clock } from "lucide-react";
 import { Link } from "@/lib/router";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Identity } from "./Identity";
 import {
   approvalSubject,
@@ -33,16 +35,20 @@ export function ApprovalCard({
   detailLink,
   isPending = false,
   pendingAction = null,
+  allowDecisionNote = false,
 }: {
   approval: Approval;
   requesterAgent: Agent | null;
-  onApprove?: () => void;
-  onReject?: () => void;
+  onApprove?: (note?: string) => void;
+  onReject?: (note?: string) => void;
   onOpen?: () => void;
   detailLink?: string;
   isPending?: boolean;
   pendingAction?: "approve" | "reject" | null;
+  allowDecisionNote?: boolean;
 }) {
+  const [decisionNote, setDecisionNote] = useState("");
+  const [decisionNoteOpen, setDecisionNoteOpen] = useState(false);
   const payload = approval.payload as Record<string, unknown> | null;
   const Icon = typeIcon[approval.type] ?? defaultTypeIcon;
   const kindLabel = typeLabel[approval.type] ?? approval.type;
@@ -51,7 +57,14 @@ export function ApprovalCard({
     Boolean(onApprove && onReject) &&
     approval.type !== "budget_override_required" &&
     (approval.status === "pending" || approval.status === "revision_requested");
+  const showDecisionNoteField = allowDecisionNote && showResolutionButtons;
+  const decisionNoteId = `approval-decision-note-${approval.id}`;
   const hasFooter = showResolutionButtons || Boolean(detailLink || onOpen);
+
+  const submitDecision = (handler?: (note?: string) => void) => {
+    if (!handler) return;
+    handler(decisionNote.trim() || undefined);
+  };
 
   return (
     <Card className="block border-border/70 p-4">
@@ -110,43 +123,79 @@ export function ApprovalCard({
       )}
 
       {hasFooter ? (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4">
-          <div className="flex flex-wrap items-center gap-2">
-            {showResolutionButtons && (
-              <>
-                <Button
-                  size="sm"
-                  className="bg-green-700 hover:bg-green-600 text-white"
-                  onClick={onApprove}
-                  disabled={isPending}
+        <div className="mt-4 space-y-3 border-t border-border/60 pt-4">
+          {showDecisionNoteField && decisionNoteOpen && (
+            <div className="space-y-1">
+              <label htmlFor={decisionNoteId} className="text-xs font-medium text-muted-foreground">
+                Decision note (optional)
+              </label>
+              <Textarea
+                id={decisionNoteId}
+                value={decisionNote}
+                onChange={(event) => setDecisionNote(event.target.value)}
+                placeholder="Add context for the requesting agent…"
+                rows={2}
+              />
+              <p className="text-(length:--text-micro) text-muted-foreground">
+                Stored with the decision and sent to the requesting agent.
+              </p>
+            </div>
+          )}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {showResolutionButtons && (
+                <>
+                  <Button
+                    size="sm"
+                    className="bg-green-700 hover:bg-green-600 text-white"
+                    onClick={() => submitDecision(onApprove)}
+                    disabled={isPending}
+                  >
+                    {pendingAction === "approve" ? "Approving..." : "Approve"}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => submitDecision(onReject)}
+                    disabled={isPending}
+                  >
+                    {pendingAction === "reject" ? "Rejecting..." : "Reject"}
+                  </Button>
+                  {showDecisionNoteField && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto px-2 text-xs text-muted-foreground"
+                      onClick={() => setDecisionNoteOpen((open) => !open)}
+                      aria-expanded={decisionNoteOpen}
+                      aria-controls={decisionNoteOpen ? decisionNoteId : undefined}
+                      disabled={isPending}
+                    >
+                      {decisionNoteOpen
+                        ? "Hide note"
+                        : decisionNote.trim()
+                          ? "Note added"
+                          : "Add note"}
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
+            {(detailLink || onOpen) ? (
+              detailLink ? (
+                <Link
+                  to={detailLink}
+                  className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-auto px-2 text-xs text-muted-foreground")}
                 >
-                  {pendingAction === "approve" ? "Approving..." : "Approve"}
+                  View details
+                </Link>
+              ) : (
+                <Button variant="ghost" size="sm" className="h-auto px-2 text-xs text-muted-foreground" onClick={onOpen}>
+                  View details
                 </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={onReject}
-                  disabled={isPending}
-                >
-                  {pendingAction === "reject" ? "Rejecting..." : "Reject"}
-                </Button>
-              </>
-            )}
+              )
+            ) : null}
           </div>
-          {(detailLink || onOpen) ? (
-            detailLink ? (
-              <Link
-                to={detailLink}
-                className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-auto px-2 text-xs text-muted-foreground")}
-              >
-                View details
-              </Link>
-            ) : (
-              <Button variant="ghost" size="sm" className="h-auto px-2 text-xs text-muted-foreground" onClick={onOpen}>
-                View details
-              </Button>
-            )
-          ) : null}
         </div>
       ) : null}
     </Card>
