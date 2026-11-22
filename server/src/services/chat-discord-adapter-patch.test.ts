@@ -4,6 +4,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { classifyChatPublicationError } from "./chat-publication-errors.js";
+import { childProcessEnv } from "../__tests__/helpers/child-env.js";
 
 type GatewayHandler = (...args: unknown[]) => Promise<void> | void;
 
@@ -1979,7 +1980,7 @@ describe("pinned Discord Gateway lifecycle patch", () => {
         discordWsRequire.resolve("@discordjs/ws"),
         mode,
       ],
-      { timeout: 5_000 },
+      { timeout: 5_000, env: childProcessEnv() },
     );
     expect(result.stdout).toBe(
       "all owned sockets closed; expected reconnect and failure counts\n",
