@@ -1,10 +1,12 @@
+import { useAgentEditMutations } from "./agent/useAgentEditMutations";
+import { AgentRunFailureNotices } from "@/components/agent/AgentRunFailureNotices";
 import { describeError } from "../api/errors";
 import { useSelectedHeartbeatRun } from "../hooks/useSelectedHeartbeatRun";
 import { AgentCharacter } from "../components/AgentCharacter";
 import { characterStateForAgent } from "@paperclipai/shared";
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useNavigate, useLocation, Link, Navigate, useBeforeUnload, type NavigateFunction } from "@/lib/router";
-import { isProviderAuthFailureCode, providerAuthLabel } from "../lib/provider-auth";
+import { isProviderAuthFailureCode } from "../lib/provider-auth";
 import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import {
   agentsApi,
@@ -108,7 +110,6 @@ import {
   isResponsibleUserDenialCode,
   responsibleUserLabel,
 } from "@paperclipai/shared";
-import { ResponsibleUserDenialNotice } from "../components/ResponsibleUserDenialNotice";
 import { RunWorkspaceRecoverySurface } from "../components/RunWorkspaceRecoverySurface";
 import { buildPermissionsForTrustPreset, getTrustPreset } from "../lib/trust-policy-ui";
 import { agentRouteRef } from "../lib/utils";
@@ -570,32 +571,7 @@ export function AgentDetail() {
     },
   });
 
-  const updateIcon = useMutation({
-    mutationFn: (icon: string) => agentsApi.update(agentLookupRef, { icon }, resolvedCompanyId ?? undefined),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(routeAgentRef) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agentLookupRef) });
-      if (resolvedCompanyId) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(resolvedCompanyId) });
-      }
-    },
-  });
-
-  const updatePermissions = useMutation({
-    mutationFn: (permissions: AgentPermissionUpdate) =>
-      agentsApi.updatePermissions(agentLookupRef, permissions, resolvedCompanyId ?? undefined),
-    onSuccess: () => {
-      setActionError(null);
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(routeAgentRef) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agentLookupRef) });
-      if (resolvedCompanyId) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(resolvedCompanyId) });
-      }
-    },
-    onError: (err) => {
-      setActionError(err instanceof Error ? err.message : "Failed to update permissions");
-    },
-  });
+  const { updateIcon, updatePermissions } = useAgentEditMutations({ queryClient, routeAgentRef, agentLookupRef, resolvedCompanyId, setActionError });
 
   useEffect(() => {
     const crumbs: { label: string; href?: string }[] = [
@@ -3045,67 +3021,18 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
                 {run.errorCode && <span className="text-muted-foreground ml-1">({run.errorCode})</span>}
               </div>
             )}
-            {isProviderAuthFailureCode(run.errorCode) && (
-              <div className="space-y-2">
-                {adapterType === "claude_local" ? <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={() => runClaudeLogin.mutate()}
-                  disabled={runClaudeLogin.isPending}
-                >
-                  {runClaudeLogin.isPending ? "Running claude login..." : "Reconnect Claude"}
-                </Button> : <Button variant="outline" size="sm" className="h-7 px-2 text-xs" asChild>
-                  <Link to={`/agents/${encodeURIComponent(agentRouteId)}/runtime`}>Reconnect {providerAuthLabel({ adapterType, adapterConfig })}</Link>
-                </Button>}
-                {runClaudeLogin.isError && ( // query-error-ok: mutation result, not a query
-                  <p className="text-xs text-destructive">
-                    {runClaudeLogin.error instanceof Error
-                      ? runClaudeLogin.error.message
-                      : "Failed to run Claude login"}
-                  </p>
-                )}
-                {claudeLoginResult?.loginUrl && (
-                  <p className="text-xs">
-                    Login URL:
-                    <a
-                      href={claudeLoginResult.loginUrl}
-                      className="text-blue-600 underline underline-offset-2 ml-1 break-all dark:text-blue-400"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {claudeLoginResult.loginUrl}
-                    </a>
-                  </p>
-                )}
-                {claudeLoginResult && (
-                  <>
-                    {!!claudeLoginResult.stdout && (
-                      <pre className="bg-neutral-100 dark:bg-neutral-950 rounded-md p-3 text-xs font-mono text-foreground overflow-x-auto whitespace-pre-wrap">
-                        {claudeLoginResult.stdout}
-                      </pre>
-                    )}
-                    {!!claudeLoginResult.stderr && (
-                      <pre className="bg-neutral-100 dark:bg-neutral-950 rounded-md p-3 text-xs font-mono text-red-700 dark:text-red-300 overflow-x-auto whitespace-pre-wrap">
-                        {claudeLoginResult.stderr}
-                      </pre>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-            {responsibleDenialCode && (
-              <ResponsibleUserDenialNotice
-                code={responsibleDenialCode}
-                userName={responsibleUserName}
-              />
-            )}
-            {hasNonZeroExit && (
-              <div className="text-xs text-red-600 dark:text-red-400">
-                Exit code {run.exitCode}
-                {run.signal && <span className="text-muted-foreground ml-1">(signal: {run.signal})</span>}
-              </div>
-            )}
+            <AgentRunFailureNotices
+              run={run}
+              adapterType={adapterType}
+              adapterConfig={adapterConfig}
+              runtimeHref={`/agents/${encodeURIComponent(agentRouteId)}/runtime`}
+              login={runClaudeLogin}
+              result={claudeLoginResult}
+              responsibleDenialCode={responsibleDenialCode}
+              responsibleUserName={responsibleUserName}
+              hasNonZeroExit={hasNonZeroExit}
+              providerAuthFailure={isProviderAuthFailureCode(run.errorCode)}
+            />
             {retryState && (
               <div className="rounded-md border border-border/70 bg-accent/20 px-3 py-2 text-xs leading-5">
                 <div className="flex flex-wrap items-center gap-2">

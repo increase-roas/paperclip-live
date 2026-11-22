@@ -3370,7 +3370,9 @@ span.paperclip-mention-chip[data-mention-kind="external-object"] {
    resemble what a real API response contains, without touching any
    rendered pixel. Each file is listed individually for reviewability.
    * allow ui/src/components/IssueFiltersPopover.test.tsx — mock label color prop
-   * allow ui/src/components/IssueProperties.test.tsx — mock label/project color fixtures
+   * allow ui/src/components/IssueProperties.panel.test.tsx — mock label/project color fixtures
+   * allow ui/src/components/IssueProperties.relationships.test.tsx — mock label/project color fixtures
+   * allow ui/src/components/IssueProperties.execution.test.tsx — mock label/project color fixtures
    * allow ui/src/components/MarkdownBody.test.tsx — mock project color fed through a mention-href builder
    * allow ui/src/components/MarkdownEditor.test.tsx — mock projectColor mention fixture
    * allow ui/src/components/NewIssueDialog.test.tsx — mock label color fixtures
