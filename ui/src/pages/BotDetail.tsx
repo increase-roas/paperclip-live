@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { CompanyBotDetail } from "@paperclipai/shared";
+import type { CompanyBotDetail, CompanyGatewayBotSummary, GatewayBotPolicy } from "@paperclipai/shared";
 import { ArrowLeft, Bot, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -86,6 +86,101 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+const GATEWAY_CAPABILITIES: Array<[string, (policy: GatewayBotPolicy) => boolean]> = [
+  ["outbound", (policy) => policy.allowOutbound],
+  ["delete", (policy) => policy.allowDelete],
+  ["agency write", (policy) => policy.allowAgencyWrite],
+  ["bulk", (policy) => policy.allowBulk],
+  ["spend", (policy) => policy.allowSpend],
+  ["build", (policy) => policy.allowBuild],
+];
+
+/**
+ * Live gateway data is optional. When the operator has not turned it on, or the
+ * gateway is unreachable, the page keeps the metadata it already has and says
+ * so plainly instead of showing an empty or broken panel.
+ */
+function GatewayLiveData({
+  gateway,
+  isFetching,
+  failed,
+}: {
+  gateway?: CompanyGatewayBotSummary;
+  isFetching: boolean;
+  failed: boolean;
+}) {
+  if (failed) {
+    return (
+      <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
+        Live gateway data is unavailable right now. The roster above comes from agent records.
+      </p>
+    );
+  }
+  if (!gateway) {
+    return isFetching ? (
+      <p className="mt-3 flex items-center gap-2 border-t border-border pt-3 text-xs text-muted-foreground" role="status">
+        <RefreshCw aria-hidden className="size-3 animate-spin" />
+        Reading gateway key and usage…
+      </p>
+    ) : null;
+  }
+  if (!gateway.connected) {
+    return (
+      <div className="mt-3 border-t border-border pt-3 text-xs">
+        <p className="font-medium text-foreground">Gateway not connected</p>
+        <p className="mt-1 text-muted-foreground">{gateway.message}</p>
+      </div>
+    );
+  }
+
+  const summary = gateway.summary;
+  const allowed = GATEWAY_CAPABILITIES.filter(([, on]) => on(summary.policy)).map(([name]) => name);
+  const providers = summary.grantedProviders.length > 0 ? summary.grantedProviders.join(", ") : "None granted";
+
+  return (
+    <div className="mt-3 border-t border-border pt-3 text-xs">
+      <p className="flex flex-wrap items-center gap-2">
+        <span className="font-medium text-foreground">Live gateway</span>
+        <Badge variant="outline">{summary.enabled ? "key enabled" : "key disabled"}</Badge>
+        {summary.policy.admin ? <Badge variant="outline">admin</Badge> : null}
+        {summary.preset ? <Badge variant="outline">{summary.preset.name}</Badge> : null}
+      </p>
+      <dl className="mt-2 grid gap-y-1" style={{ gridTemplateColumns: "var(--sz-6rem) 1fr" }}>
+        <dt className="text-muted-foreground">Fingerprint</dt>
+        <dd className="font-mono break-all text-foreground">{summary.key.fingerprint ?? "No key stored"}</dd>
+        <dt className="text-muted-foreground">Key created</dt>
+        <dd className="text-foreground"><Timestamp value={summary.key.createdAt} fallback="—" /></dd>
+        <dt className="text-muted-foreground">Rotated</dt>
+        <dd className="text-foreground"><Timestamp value={summary.key.rotatedAt} fallback="Never" /></dd>
+        <dt className="text-muted-foreground">Mode</dt>
+        <dd className="text-foreground">{summary.policy.mode ?? "—"}{summary.policy.role ? ` · ${summary.policy.role}` : ""}</dd>
+        <dt className="text-muted-foreground">Allows</dt>
+        <dd className="text-foreground">{allowed.length > 0 ? allowed.join(", ") : "Read only"}</dd>
+        <dt className="text-muted-foreground">Providers</dt>
+        <dd className="break-all text-foreground">{providers}</dd>
+        <dt className="text-muted-foreground">Last 24h</dt>
+        <dd className="text-foreground">
+          <span className="font-mono">{summary.usage.last24h.requests}</span> requests,{" "}
+          <span className="font-mono">{summary.usage.last24h.errors}</span> errors
+        </dd>
+        <dt className="text-muted-foreground">Last 7d</dt>
+        <dd className="text-foreground">
+          <span className="font-mono">{summary.usage.last7d.requests}</span> requests,{" "}
+          <span className="font-mono">{summary.usage.last7d.errors}</span> errors
+        </dd>
+        <dt className="text-muted-foreground">Last used</dt>
+        <dd className="text-foreground"><Timestamp value={summary.usage.lastUsedAt} fallback="Never" /></dd>
+      </dl>
+      {summary.policy.secrets.length > 0 ? (
+        <p className="mt-2 text-muted-foreground">
+          Secret names: <span className="font-mono text-foreground">{summary.policy.secrets.join(", ")}</span>
+        </p>
+      ) : null}
+      {summary.preset?.description ? <p className="mt-2 text-muted-foreground">{summary.preset.description}</p> : null}
+    </div>
+  );
+}
+
 export function BotDetail() {
   const { botId = "" } = useParams<{ botId?: string }>();
   const { selectedCompanyId, selectedCompany } = useCompany();
@@ -95,6 +190,16 @@ export function BotDetail() {
     queryKey: queryKeys.bots.detail(selectedCompanyId, botId),
     queryFn: () => botsApi.get(selectedCompanyId!, botId),
     enabled: Boolean(selectedCompanyId && botId),
+  });
+  // Live gateway key, policy and usage. The server answers "not connected"
+  // when the operator has not enabled gateway reads, so this never fails the
+  // page or exposes a key.
+  const gatewayQuery = useQuery({
+    queryKey: queryKeys.bots.gatewaySummary(selectedCompanyId, botId),
+    queryFn: () => botsApi.gatewaySummary(selectedCompanyId!, botId),
+    enabled: Boolean(selectedCompanyId && botId),
+    retry: false,
+    staleTime: 30_000,
   });
   const botsHref = selectedCompany?.issuePrefix ? `/${selectedCompany.issuePrefix}/bots` : "/bots";
 
@@ -153,6 +258,8 @@ export function BotDetail() {
   const bot = botView.data;
   if (!bot) return null;
   const description = bot.purpose ?? bot.note;
+  // Gateway audit rows are body-free: method, path, status and time only.
+  const gatewayAudit = gatewayQuery.data?.connected ? gatewayQuery.data.summary.audit.slice(0, 10) : [];
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -232,6 +339,11 @@ export function BotDetail() {
                 : "No gateway key is linked to this bot yet. Register the bot to record its key id and policy."}
             </p>
           )}
+          <GatewayLiveData
+            gateway={gatewayQuery.data}
+            isFetching={gatewayQuery.isFetching}
+            failed={gatewayQuery.isError}
+          />
         </Section>
 
         <Section title="Routines and schedules">
@@ -298,7 +410,7 @@ export function BotDetail() {
 
         <div className="lg:col-span-2">
           <Section title="Recent activity">
-            {bot.recentActivity.length === 0 ? (
+            {bot.recentActivity.length === 0 && gatewayAudit.length === 0 ? (
               <p className="text-muted-foreground">
                 {bot.registered
                   ? "No recorded activity. Runs and agent actions will appear here."
@@ -306,6 +418,26 @@ export function BotDetail() {
               </p>
             ) : (
               <ul className="flex flex-col text-xs">
+                {gatewayAudit.map((entry) => (
+                  <li
+                    key={`gateway-${entry.id}`}
+                    className="flex flex-col gap-1 border-b border-border py-2 first:pt-0 last:border-b-0 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2"
+                  >
+                    <span className="flex min-w-0 flex-wrap items-center gap-2">
+                      <Badge variant="outline">Gateway</Badge>
+                      <span className="font-mono break-all text-foreground">
+                        {entry.method} {entry.path}
+                      </span>
+                      <span className="min-w-0 break-all text-muted-foreground">
+                        {entry.status} {entry.ok ? "ok" : "failed"}
+                        {entry.source ? ` · ${entry.source}` : ""}
+                      </span>
+                    </span>
+                    <span className="text-muted-foreground sm:ml-auto">
+                      <Timestamp value={entry.at} />
+                    </span>
+                  </li>
+                ))}
                 {bot.recentActivity.map((entry) => (
                   <li
                     key={entry.id}

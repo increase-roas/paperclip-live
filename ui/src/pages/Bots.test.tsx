@@ -12,6 +12,7 @@ import { BotDetail } from "./BotDetail";
 
 const listMock = vi.hoisted(() => vi.fn());
 const getMock = vi.hoisted(() => vi.fn());
+const gatewaySummaryMock = vi.hoisted(() => vi.fn());
 const setBreadcrumbsMock = vi.hoisted(() => vi.fn());
 const navigateMock = vi.hoisted(() => vi.fn());
 const params = vi.hoisted(() => ({ botId: "" }));
@@ -20,6 +21,8 @@ vi.mock("@/api/bots", () => ({
   botsApi: {
     list: (companyId: string) => listMock(companyId),
     get: (companyId: string, botId: string) => getMock(companyId, botId),
+    gateway: vi.fn(),
+    gatewaySummary: (companyId: string, botId: string) => gatewaySummaryMock(companyId, botId),
   },
 }));
 
@@ -111,6 +114,12 @@ describe("Bots", () => {
     root = createRoot(container);
     listMock.mockReset();
     getMock.mockReset();
+    gatewaySummaryMock.mockReset();
+    gatewaySummaryMock.mockResolvedValue({
+      connected: false,
+      state: "disabled",
+      message: "Gateway bot pages are off. Set PAPERCLIP_GATEWAY_BOTS_ENABLED=true to read them.",
+    });
     setBreadcrumbsMock.mockReset();
     navigateMock.mockReset();
     params.botId = "";
@@ -153,6 +162,90 @@ describe("Bots", () => {
       { label: "Bots", href: "/bots" },
       { label: "Research Analyst" },
     ]);
+  });
+
+  it("shows the live gateway fingerprint, policy and usage when the gateway answers", async () => {
+    params.botId = "agent-1";
+    getMock.mockResolvedValue({ ...researchBot, routines: [], recentActivity: [] });
+    gatewaySummaryMock.mockResolvedValue({
+      connected: true,
+      summary: {
+        agent: "research-analyst",
+        name: "research-analyst",
+        preset: { name: "researcher", description: "Researches accounts." },
+        enabled: true,
+        hasKey: true,
+        key: {
+          present: true,
+          algorithm: "sha256",
+          fingerprint: "sha256:4b1d9c2e7a01",
+          createdAt: "2026-11-18T14:02:11.000Z",
+          rotatedAt: "2026-11-21T09:30:00.000Z",
+          updatedAt: "2026-11-21T09:30:00.000Z",
+        },
+        providers: { ghl: "read" },
+        grantedProviders: ["ghl"],
+        policy: {
+          mode: "drafts_only",
+          allowDelete: false,
+          allowOutbound: true,
+          allowAgencyWrite: false,
+          allowBulk: false,
+          allowSpend: false,
+          allowBuild: false,
+          outboundChannels: ["slack"],
+          locations: "*",
+          secrets: ["ghl-token"],
+          admin: false,
+          role: "researcher",
+        },
+        usage: {
+          last24h: { requests: 42, errors: 1 },
+          last7d: { requests: 310, errors: 4 },
+          lastUsedAt: "2026-11-22T05:10:58.000Z",
+        },
+        audit: [
+          {
+            id: 9182,
+            at: "2026-11-22T05:10:58.000Z",
+            method: "POST",
+            path: "/contacts/abc123def456/notes",
+            status: 201,
+            ok: true,
+            tokenType: "location",
+            source: "rest",
+            undoOf: null,
+            undoneBy: null,
+          },
+        ],
+        generatedAt: "2026-11-22T05:12:00.000Z",
+      },
+    });
+
+    await render(<BotDetail />);
+    const text = container.textContent ?? "";
+
+    expect(text).toContain("Live gateway");
+    expect(text).toContain("sha256:4b1d9c2e7a01");
+    expect(text).toContain("drafts_only");
+    expect(text).toContain("outbound");
+    expect(text).not.toContain("delete");
+    expect(text).toContain("ghl-token");
+    expect(text).toContain("POST /contacts/abc123def456/notes");
+    expect(gatewaySummaryMock).toHaveBeenCalledWith("company-1", "agent-1");
+  });
+
+  it("explains a gateway that is off without hiding the rest of the bot page", async () => {
+    params.botId = "agent-1";
+    getMock.mockResolvedValue({ ...researchBot, routines: [], recentActivity: [] });
+
+    await render(<BotDetail />);
+    const text = container.textContent ?? "";
+
+    expect(text).toContain("Gateway not connected");
+    expect(text).toContain("PAPERCLIP_GATEWAY_BOTS_ENABLED");
+    expect(text).toContain("gk_live_research");
+    expect(text).toContain("What it does");
   });
 
   it("splits registered bots from known bots that are not registered yet", async () => {

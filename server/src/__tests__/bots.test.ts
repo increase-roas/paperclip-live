@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import express from "express";
 import request from "supertest";
-import { beforeAll, afterAll, afterEach, describe, expect, it } from "vitest";
+import { beforeAll, afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import {
   activityLog,
   agents,
@@ -66,7 +66,7 @@ async function createAgent(db: Db, companyId: string, overrides: Partial<typeof 
     .then((rows) => rows[0]!);
 }
 
-async function createApp(db: Db, actor: Express.Request["actor"]) {
+async function createApp(db: Db, actor: Express.Request["actor"], options: Record<string, unknown> = {}) {
   const { botsRoutes } = await import("../routes/bots.js");
   const app = express();
   app.use(express.json());
@@ -74,7 +74,7 @@ async function createApp(db: Db, actor: Express.Request["actor"]) {
     req.actor = actor;
     next();
   });
-  app.use("/api", botsRoutes(db));
+  app.use("/api", botsRoutes(db, options));
   app.use((error: Error & { status?: number }, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     res.status(error.status ?? 500).json({ error: error.message });
   });
@@ -324,5 +324,100 @@ describePostgres("bots", () => {
     // A member of another company cannot read this roster, but its own reads.
     await request(memberApp).get(`/api/companies/${other.id}/bots`).expect(403);
     await request(memberApp).get(`/api/companies/${mine.id}/bots`).expect(200);
+  });
+
+  describe("gateway data", () => {
+    const gatewayBot = (agent: string) => ({
+      agent,
+      name: agent,
+      preset: null,
+      enabled: true,
+      hasKey: true,
+      key: {
+        present: true,
+        algorithm: "sha256",
+        fingerprint: "sha256:4b1d9c2e7a01",
+        createdAt: "2026-11-18T14:02:11.000Z",
+        rotatedAt: null,
+        updatedAt: "2026-11-18T14:02:11.000Z",
+      },
+      providers: {},
+      grantedProviders: [],
+      policy: {
+        mode: null,
+        allowDelete: false,
+        allowOutbound: false,
+        allowAgencyWrite: false,
+        allowBulk: false,
+        allowSpend: false,
+        allowBuild: false,
+        outboundChannels: null,
+        locations: "*",
+        secrets: [],
+        admin: false,
+        role: null,
+      },
+      usage: { last24h: { requests: 0, errors: 0 }, last7d: { requests: 0, errors: 0 }, lastUsedAt: null },
+      audit: [],
+      generatedAt: "2026-11-22T05:12:00.000Z",
+    }) as never;
+
+    it("keeps every other company's gateway bots out of the answer", async () => {
+      const company = await createCompanyNamed(db, "Increase Roas");
+      const list = vi.fn().mockResolvedValue({
+        connected: true,
+        generatedAt: "2026-11-22T05:12:00.000Z",
+        count: 2,
+        bots: [gatewayBot("funnel-builder"), gatewayBot("someone-elses-bot")],
+      });
+      const app = await createApp(db, boardActor(company.id), {
+        gateway: { enabled: () => true, list, summary: vi.fn() },
+      });
+
+      const response = await request(app).get(`/api/companies/${company.id}/bots/gateway`).expect(200);
+      expect(response.body).toMatchObject({ connected: true, count: 1 });
+      expect(response.body.bots.map((bot: { agent: string }) => bot.agent)).toEqual(["funnel-builder"]);
+      expect(list).toHaveBeenCalledTimes(1);
+    });
+
+    it("explains a disabled gateway instead of failing the page", async () => {
+      const company = await createCompanyNamed(db, "Increase Roas");
+      const app = await createApp(db, boardActor(company.id), {
+        gateway: {
+          enabled: () => false,
+          list: vi.fn().mockResolvedValue({
+            connected: false,
+            state: "disabled",
+            message: "Gateway bot pages are off.",
+          }),
+          summary: vi.fn(),
+        },
+      });
+
+      const response = await request(app).get(`/api/companies/${company.id}/bots/gateway`).expect(200);
+      expect(response.body).toEqual({
+        connected: false,
+        state: "disabled",
+        message: "Gateway bot pages are off.",
+        bots: [],
+      });
+    });
+
+    it("asks the gateway for one bot by slug and 404s for unknown bots", async () => {
+      const company = await createCompanyNamed(db, "Increase Roas");
+      const summary = vi.fn().mockResolvedValue({ connected: true, summary: gatewayBot("funnel-builder") });
+      const app = await createApp(db, boardActor(company.id), {
+        gateway: { enabled: () => true, list: vi.fn(), summary },
+      });
+
+      const response = await request(app)
+        .get(`/api/companies/${company.id}/bots/funnel-builder/gateway`)
+        .expect(200);
+      expect(response.body).toMatchObject({ connected: true });
+      expect(summary).toHaveBeenCalledWith("funnel-builder");
+
+      await request(app).get(`/api/companies/${company.id}/bots/no-such-bot/gateway`).expect(404);
+      expect(summary).toHaveBeenCalledTimes(1);
+    });
   });
 });
