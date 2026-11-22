@@ -4,20 +4,43 @@ import type { CompanyBotDetail } from "@paperclipai/shared";
 import { ArrowLeft, Bot, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/EmptyState";
 import { QueryErrorState, useQueryView } from "@/components/QueryView";
-import { Link, useParams } from "@/lib/router";
+import { StatusBadge } from "@/components/StatusBadge";
+import { Link, useNavigate, useParams } from "@/lib/router";
 import { formatDateTime } from "@/lib/utils";
+import { botStatusLabel } from "@/lib/bot-status";
 import { useCompany } from "@/context/CompanyContext";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
 import { queryKeys } from "@/lib/queryKeys";
 import { botsApi } from "@/api/bots";
 
-function formatTimestamp(value: string | null): string {
-  if (!value) return "Never";
+function formatTimestamp(value: string | null): string | null {
+  if (!value) return null;
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? "Never" : formatDateTime(parsed);
+  return Number.isNaN(parsed.getTime()) ? null : formatDateTime(parsed);
+}
+
+/** Timestamps are machine values: render them in the monospace token. */
+function Timestamp({ value, fallback = "Never" }: { value: string | null; fallback?: string }) {
+  const formatted = formatTimestamp(value);
+  if (!formatted || !value) return <span className="text-muted-foreground">{fallback}</span>;
+  return (
+    <time dateTime={value} className="font-mono">
+      {formatted}
+    </time>
+  );
+}
+
+/** Bot state in the shared agent status vocabulary, with a readable label. */
+function BotStatus({ status }: { status: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="sr-only">Status:</span>
+      <StatusBadge status={status} label={botStatusLabel(status)} />
+    </span>
+  );
 }
 
 function RegisterPanel({ bot }: { bot: CompanyBotDetail }) {
@@ -56,7 +79,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">{title}</CardTitle>
+        <h2 className="text-sm leading-none font-semibold">{title}</h2>
       </CardHeader>
       <CardContent className="pt-0 text-sm">{children}</CardContent>
     </Card>
@@ -67,6 +90,7 @@ export function BotDetail() {
   const { botId = "" } = useParams<{ botId?: string }>();
   const { selectedCompanyId, selectedCompany } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const navigate = useNavigate();
   const botQuery = useQuery({
     queryKey: queryKeys.bots.detail(selectedCompanyId, botId),
     queryFn: () => botsApi.get(selectedCompanyId!, botId),
@@ -93,7 +117,7 @@ export function BotDetail() {
 
   if (botView.kind === "loading" || botView.kind === "reconnecting") {
     return (
-      <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
+      <div role="status" className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
         <RefreshCw aria-hidden className="size-4 animate-spin" />
         Loading bot…
       </div>
@@ -108,6 +132,9 @@ export function BotDetail() {
             icon={Bot}
             title="Bot not found"
             message="This bot is not in the company roster. Check the link, or open Bots to see the bots this company runs."
+            action="Open Bots"
+            onAction={() => navigate("/bots")}
+            hideActionIcon
           />
         </div>
       );
@@ -125,6 +152,7 @@ export function BotDetail() {
 
   const bot = botView.data;
   if (!bot) return null;
+  const description = bot.purpose ?? bot.note;
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -144,7 +172,7 @@ export function BotDetail() {
             {bot.name}
             {bot.grokBotTwin ? <Badge variant="outline">Grok twin</Badge> : null}
             <Badge variant="outline">{bot.kind === "gateway" ? "Gateway bot" : "Agent bot"}</Badge>
-            <Badge variant="outline">{bot.status}</Badge>
+            <BotStatus status={bot.status} />
           </h1>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
             {bot.registered
@@ -167,19 +195,21 @@ export function BotDetail() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Section title="What it does">
-          <p>{bot.purpose ?? "No purpose recorded yet."}</p>
-          <dl
-            className="mt-3 grid gap-y-1 text-xs text-muted-foreground"
-            style={{ gridTemplateColumns: "var(--sz-7rem) 1fr" }}
-          >
-            <dt>Role</dt>
-            <dd className="text-foreground">{bot.role ?? "—"}</dd>
-            <dt>Title</dt>
-            <dd className="text-foreground">{bot.title ?? "—"}</dd>
-            <dt>Adapter</dt>
-            <dd className="font-mono text-foreground">{bot.adapterType ?? "—"}</dd>
-          </dl>
-          {bot.note ? <p className="mt-3 text-xs text-muted-foreground">{bot.note}</p> : null}
+          <p>{description ?? "No purpose recorded yet. Add it to the bot metadata so operators know what this bot does."}</p>
+          {bot.purpose && bot.note ? <p className="mt-3 text-xs text-muted-foreground">{bot.note}</p> : null}
+          {bot.registered ? (
+            <dl
+              className="mt-3 grid gap-y-1 text-xs text-muted-foreground"
+              style={{ gridTemplateColumns: "var(--sz-7rem) 1fr" }}
+            >
+              <dt>Role</dt>
+              <dd className="text-foreground">{bot.role ?? "—"}</dd>
+              <dt>Title</dt>
+              <dd className="text-foreground">{bot.title ?? "—"}</dd>
+              <dt>Adapter</dt>
+              <dd className="font-mono break-all text-foreground">{bot.adapterType ?? "—"}</dd>
+            </dl>
+          ) : null}
         </Section>
 
         <Section title="Gateway key and policy">
@@ -189,44 +219,58 @@ export function BotDetail() {
               style={{ gridTemplateColumns: "var(--sz-6rem) 1fr" }}
             >
               <dt className="text-muted-foreground">Key id</dt>
-              <dd className="font-mono text-foreground">{bot.gateway.keyId}</dd>
+              <dd className="font-mono break-all text-foreground">{bot.gateway.keyId}</dd>
               <dt className="text-muted-foreground">Policy</dt>
               <dd><Badge variant="outline">{bot.gateway.policy}</Badge></dd>
               <dt className="text-muted-foreground">Provider</dt>
-              <dd className="text-foreground">{bot.gateway.provider ?? "—"}</dd>
+              <dd className="break-all text-foreground">{bot.gateway.provider ?? "—"}</dd>
             </dl>
           ) : (
             <p className="text-muted-foreground">
               {bot.registered
                 ? "Not linked. Add the gateway key id and policy to this agent's metadata under bot.gateway."
-                : "No gateway key is linked to this bot yet."}
+                : "No gateway key is linked to this bot yet. Register the bot to record its key id and policy."}
             </p>
           )}
         </Section>
 
         <Section title="Routines and schedules">
           {bot.routines.length === 0 ? (
-            <p className="text-muted-foreground">No routines assigned.</p>
+            <p className="text-muted-foreground">
+              {bot.registered
+                ? "No routines assigned. Assign a routine to schedule this bot's work."
+                : "No routines assigned."}
+            </p>
           ) : (
             <ul className="flex flex-col gap-3">
               {bot.routines.map((routine) => (
                 <li key={routine.id}>
                   <p className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-foreground">{routine.title}</span>
-                    <Badge variant="outline">{routine.status}</Badge>
+                    <Badge variant="outline">{botStatusLabel(routine.status)}</Badge>
                   </p>
                   {routine.triggers.length === 0 ? (
                     <p className="text-xs text-muted-foreground">No active trigger.</p>
                   ) : (
                     <ul className="mt-1 flex flex-col gap-1 text-xs text-muted-foreground">
                       {routine.triggers.map((trigger, index) => (
-                        <li key={`${routine.id}-${index}`} className="flex flex-wrap items-center gap-2">
+                        <li key={`${routine.id}-${index}`} className="flex flex-wrap items-center gap-x-2 gap-y-1">
                           <span className="font-mono text-foreground">{trigger.kind}</span>
                           {trigger.cronExpression ? <span className="font-mono">{trigger.cronExpression}</span> : null}
                           {trigger.timezone ? <span>{trigger.timezone}</span> : null}
                           <span>{trigger.enabled ? "enabled" : "disabled"}</span>
-                          <span>next {formatTimestamp(trigger.nextRunAt)}</span>
-                          <span>last {formatTimestamp(trigger.lastFiredAt)}</span>
+                          {trigger.nextRunAt ? (
+                            <span>
+                              next <Timestamp value={trigger.nextRunAt} />
+                            </span>
+                          ) : (
+                            <span>no next run</span>
+                          )}
+                          {trigger.lastFiredAt ? (
+                            <span>
+                              last <Timestamp value={trigger.lastFiredAt} />
+                            </span>
+                          ) : null}
                         </li>
                       ))}
                     </ul>
@@ -238,28 +282,45 @@ export function BotDetail() {
         </Section>
 
         <Section title="Status">
-          <p className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">{bot.status}</Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            <BotStatus status={bot.status} />
             <span className="text-xs text-muted-foreground">
-              {bot.registered ? `Updated ${formatTimestamp(bot.updatedAt)}` : "Not registered"}
+              {bot.registered ? (
+                <>
+                  Updated <Timestamp value={bot.updatedAt} fallback="never" />
+                </>
+              ) : (
+                "No agent row yet, so there is no live status to report."
+              )}
             </span>
-          </p>
+          </div>
         </Section>
 
         <div className="lg:col-span-2">
           <Section title="Recent activity">
             {bot.recentActivity.length === 0 ? (
-              <p className="text-muted-foreground">No recorded activity.</p>
+              <p className="text-muted-foreground">
+                {bot.registered
+                  ? "No recorded activity. Runs and agent actions will appear here."
+                  : "No recorded activity."}
+              </p>
             ) : (
-              <ul className="flex flex-col gap-1 text-xs">
+              <ul className="flex flex-col text-xs">
                 {bot.recentActivity.map((entry) => (
-                  <li key={entry.id} className="flex flex-wrap items-center gap-2 border-b border-border py-1 last:border-b-0">
-                    <Badge variant="outline">{entry.source === "run" ? "Run" : "Activity"}</Badge>
-                    <span className="font-mono text-foreground">{entry.action}</span>
-                    <span className="text-muted-foreground">
-                      {entry.entityType} {entry.entityId}
+                  <li
+                    key={entry.id}
+                    className="flex flex-col gap-1 border-b border-border py-2 first:pt-0 last:border-b-0 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2"
+                  >
+                    <span className="flex min-w-0 flex-wrap items-center gap-2">
+                      <Badge variant="outline">{entry.source === "run" ? "Run" : "Activity"}</Badge>
+                      <span className="font-mono break-all text-foreground">{entry.action}</span>
+                      <span className="min-w-0 break-all text-muted-foreground">
+                        {entry.entityType} {entry.entityId}
+                      </span>
                     </span>
-                    <span className="ml-auto text-muted-foreground">{formatTimestamp(entry.createdAt)}</span>
+                    <span className="text-muted-foreground sm:ml-auto">
+                      <Timestamp value={entry.createdAt} />
+                    </span>
                   </li>
                 ))}
               </ul>
