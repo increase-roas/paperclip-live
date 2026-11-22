@@ -1,4 +1,5 @@
 import { QueryErrorState } from "./QueryView";
+import { ActiveFilterChip } from "./ActiveFilterChip";
 import { ISSUE_SORT_FIELDS, sortIssues, type IssueSort, type IssueSortField } from "../lib/issue-sort";
 import { saveTaskCollectionPreferences } from "../lib/task-collection-preferences";
 import { useWarmTaskDetailCode } from "@/hooks/useWarmTaskDetailCode";
@@ -464,6 +465,9 @@ interface IssuesListProps {
   issueBadgeById?: Map<string, string>;
   onLoadMoreIssues?: () => void;
   onSearchChange?: (search: string) => void;
+  /** A URL-scoped participant agent filter passed by an agent task link. */
+  participantAgentId?: string;
+  onClearParticipantAgentId?: () => void;
   onUpdateIssue: (id: string, data: Record<string, unknown>) => void;
 }
 
@@ -682,6 +686,8 @@ export function IssuesList({
   issueBadgeById,
   onLoadMoreIssues,
   onSearchChange,
+  participantAgentId,
+  onClearParticipantAgentId,
   onUpdateIssue,
 }: IssuesListProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -1820,6 +1826,14 @@ export function IssuesList({
           )}
         </div>
       </div>
+
+      {participantAgentId && onClearParticipantAgentId ? (
+        <ActiveFilterChip
+          label={`Participant: ${agents?.find((agent) => agent.id === participantAgentId)?.name ?? "Selected agent"}`}
+          onRemove={onClearParticipantAgentId}
+          testId="task-participant-filter"
+        />
+      ) : null}
 
       {(isLoading || externalObjectFilterLoading) && <PageSkeleton variant="issues-list" />}
       {error ? <QueryErrorState error={error} action="load tasks" onRetry={onRetry} retrying={retrying} /> : null}

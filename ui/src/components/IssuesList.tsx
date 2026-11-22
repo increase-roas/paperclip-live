@@ -74,6 +74,7 @@ import { IssueGroupHeader } from "./IssueGroupHeader";
 import { IssueFiltersPopover } from "./IssueFiltersPopover";
 import { IssueRow, type IssueRowPresentation } from "./IssueRow";
 import { CollectionToolbar, type CollectionToolbarProps } from "./CollectionToolbar";
+import { ActiveFilterChip } from "./ActiveFilterChip";
 import { IssuesList as LegacyIssuesList } from "./LegacyIssuesList";
 import { useStreamlinedUiEnabled } from "../hooks/useStreamlinedUiEnabled";
 import { PageSkeleton } from "./PageSkeleton";
@@ -497,19 +498,28 @@ interface IssuesListProps {
    * the merged Tasks surface uses to put its Views control there (PAP-670).
    */
   toolbarContext?: ReactNode;
+  /**
+   * A URL-scoped participant agent filter passed by an agent task link. It has
+   * no control in the filter popover, so the toolbar surfaces it as a chip.
+   */
+  participantAgentId?: string;
+  onClearParticipantAgentId?: () => void;
   onUpdateIssue: (id: string, data: Record<string, unknown>) => void;
 }
 
-function LegacyIssuesToolbar({ context, search, controls }: CollectionToolbarProps) {
+function LegacyIssuesToolbar({ context, search, controls, feedback }: CollectionToolbarProps) {
   return (
-    <div className="flex items-center justify-between gap-2 sm:gap-3">
-      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-        {context}
-        {search}
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2 sm:gap-3">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          {context}
+          {search}
+        </div>
+        <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+          {controls}
+        </div>
       </div>
-      <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
-        {controls}
-      </div>
+      {feedback ? <div className="min-w-0">{feedback}</div> : null}
     </div>
   );
 }
@@ -740,6 +750,8 @@ function StreamlinedIssuesList({
   rowPresentation = "legacy",
   toolbarContext,
   toolbarPresentation = "legacy",
+  participantAgentId,
+  onClearParticipantAgentId,
   onUpdateIssue,
 }: IssuesListProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -1687,6 +1699,13 @@ function StreamlinedIssuesList({
 
   let remainingRowsToRender = viewState.viewMode === "list" ? renderedIssueRowLimit : Number.POSITIVE_INFINITY;
   const IssuesToolbar = toolbarPresentation === "collection" ? CollectionToolbar : LegacyIssuesToolbar;
+  const participantFilterChip = participantAgentId && onClearParticipantAgentId ? (
+    <ActiveFilterChip
+      label={`Participant: ${agents?.find((agent) => agent.id === participantAgentId)?.name ?? "Selected agent"}`}
+      onRemove={onClearParticipantAgentId}
+      testId="task-participant-filter"
+    />
+  ) : null;
 
   return (
     <div ref={rootRef} className="space-y-4">
@@ -1955,6 +1974,7 @@ function StreamlinedIssuesList({
           )}
           </>
         )}
+        feedback={participantFilterChip}
       />
 
       {collectionLoading && !externalObjectFilterError && <PageSkeleton variant="issues-list" collectionHeading={viewState.groupBy !== "none" ? "group"

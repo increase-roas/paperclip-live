@@ -217,6 +217,13 @@ function OrganizationIssues({
     }, { replace: true });
   }, [setSearchParams, syncedSearch]);
   const participantAgentId = searchParams.get("participantAgentId") ?? undefined;
+  const clearParticipantAgentId = useCallback(() => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete("participantAgentId");
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
   const initialWorkspaces = searchParams.getAll("workspace").filter((workspaceId) => workspaceId.length > 0);
   const workspaceIdFilter = initialWorkspaces.length === 1 ? initialWorkspaces[0] : undefined;
   const handleSearchChange = useCallback((search: string) => {
@@ -371,6 +378,8 @@ function OrganizationIssues({
       onRetryLoadMore={loadMoreServerIssues}
       onUpdateIssue={(id, data) => updateIssue.mutate({ id, data })}
       searchFilters={participantAgentId || workspaceIdFilter || originKind || includeBlockedBy ? { participantAgentId, workspaceId: workspaceIdFilter, originKind, ...(includeBlockedBy ? { includeBlockedBy: true } : {}) } : undefined}
+      participantAgentId={participantAgentId}
+      onClearParticipantAgentId={clearParticipantAgentId}
     />
   );
 }

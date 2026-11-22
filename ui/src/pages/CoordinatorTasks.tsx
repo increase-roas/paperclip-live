@@ -11,6 +11,7 @@ import { heartbeatsApi } from "@/api/heartbeats";
 import { issuesApi } from "@/api/issues";
 import { projectsApi } from "@/api/projects";
 import { EmptyState } from "@/components/EmptyState";
+import { ActiveFilterChip } from "@/components/ActiveFilterChip";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { TaskList, type TaskListItem } from "@/components/TaskList";
 import { TaskListToolbar } from "@/components/TaskListToolbar";
@@ -101,6 +102,11 @@ export function CoordinatorTasks({ viewControl }: { viewControl?: ReactNode } = 
   const serverSortField = useListSort && sort?.column === "created" ? "created" : "updated";
   const serverSortDir = useListSort && (sort?.column === "created" || sort?.column === "lastUpdated") && sort.direction === "ascending" ? "asc" : "desc";
   const participantAgentId = params.get("participantAgentId") ?? undefined;
+  const clearParticipantAgentId = () => setParams((current) => {
+    const next = new URLSearchParams(current);
+    next.delete("participantAgentId");
+    return next;
+  }, { replace: true });
   const workspaces = params.getAll("workspace").filter(Boolean);
   const workspaceIds = [...new Set(workspaces.length ? workspaces : params.getAll("workspaceId").filter(Boolean))];
   const setQuery = (value: string) => setParams(current => {
@@ -286,6 +292,13 @@ export function CoordinatorTasks({ viewControl }: { viewControl?: ReactNode } = 
       allExpanded={collection.allExpanded} onToggleExpanded={collection.toggleExpanded} onNewTask={() => openNewIssue()}
       filters={{ enableRoutineTasksFilter: true, state: collection.filters, onChange: updateFilters, activeFilterCount: collection.activeFilterCount,
         agents: agents.data ?? [], projects: projects.data ?? [], labels: labels.data ?? [], currentUserId: userId, creators: collection.creators }} />
+    {participantAgentId ? (
+      <ActiveFilterChip
+        label={`Participant: ${agents.data?.find((agent) => agent.id === participantAgentId)?.name ?? "Selected agent"}`}
+        onRemove={clearParticipantAgentId}
+        testId="task-participant-filter"
+      />
+    ) : null}
     {error ? <div role="alert" className="flex items-center gap-2 text-sm text-destructive"><span>Couldn’t load tasks. {describeError(error).body}</span><Button variant="outline" size="sm" onClick={retry}>Retry</Button></div> : null}
     {rowDetailsError ? <div role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><span>Task details couldn’t load.</span><Button variant="ghost" size="sm" onClick={() => void retryRowDetails()}>Retry</Button></div> : null}
     {pending ? <p role="status" className="text-sm text-muted-foreground">Loading tasks…</p> : !error && <>

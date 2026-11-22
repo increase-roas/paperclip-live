@@ -408,6 +408,36 @@ describe("IssuesList", () => {
     } finally { act(() => root.unmount()); queryClient.clear(); }
   });
 
+  it.each([true, false])("shows a URL participant filter as a removable chip (streamlined=%s)", async (enableStreamlinedUi) => {
+    mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableStreamlinedUi, enableExternalObjects: false });
+    const onClearParticipantAgentId = vi.fn();
+    const { root, queryClient } = renderWithQueryClient(
+      <IssuesList
+        issues={[]}
+        agents={[{ id: "agent-1", name: "Nova" }]}
+        projects={[]}
+        viewStateKey="participant-filter"
+        participantAgentId="agent-1"
+        onClearParticipantAgentId={onClearParticipantAgentId}
+        onUpdateIssue={() => undefined}
+      />,
+      container,
+    );
+
+    await waitForAssertion(() => {
+      const chip = container.querySelector('[data-testid="task-participant-filter"]');
+      expect(chip?.textContent).toContain("Participant: Nova");
+    });
+
+    act(() => {
+      container.querySelector<HTMLButtonElement>('button[aria-label="Remove filter Participant: Nova"]')!.click();
+    });
+    expect(onClearParticipantAgentId).toHaveBeenCalledTimes(1);
+
+    act(() => root.unmount());
+    queryClient.clear();
+  });
+
   it("waits for the initial tree but keeps loaded rows visible while new ancestors load", async () => {
     const first = createIssue({ id: "child-one", parentId: "parent-one", title: "First nested task" });
     const second = createIssue({ id: "child-two", parentId: "parent-two", title: "Second nested task" });
