@@ -154,6 +154,17 @@ describePostgres("bots", () => {
     expect(workflow).toMatchObject({ name: "Workflow Builder", registered: false, gateway: null });
     expect(workflow.note).toContain("workflows and routines");
 
+    // The dr eggbot purpose came from Alex; Kiwi still has no recorded source,
+    // so it keeps an explicit TODO rather than an invented sentence.
+    const eggbot = before.body.bots.find((bot: { slug: string }) => bot.slug === "dr-eggbot");
+    expect(eggbot).toMatchObject({
+      registered: false,
+      purpose: "Designs tight, single-job Grok Bots. Bring a job you want off your plate and it interviews you for the goal and process, then builds a bot that runs it on its own.",
+    });
+    const kiwi = before.body.bots.find((bot: { slug: string }) => bot.slug === "kiwi");
+    expect(kiwi?.purpose ?? null).toBeNull();
+    expect(kiwi?.note).toContain("TODO");
+
     const detail = await request(app).get(`/api/companies/${company.id}/bots/funnel-builder`).expect(200);
     expect(detail.body).toMatchObject({ slug: "funnel-builder", registered: false, routines: [], recentActivity: [] });
 

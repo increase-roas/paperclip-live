@@ -44,7 +44,8 @@ export const KNOWN_GATEWAY_BOTS = [
     company: "Increase Roas",
     slug: "dr-eggbot",
     name: "dr eggbot",
-    note: "No agent, gateway key id or policy recorded in Paperclip yet.",
+    purpose: "Designs tight, single-job Grok Bots. Bring a job you want off your plate and it interviews you for the goal and process, then builds a bot that runs it on its own.",
+    note: "Purpose supplied by Alex on 2026-11-22. No agent, gateway key id or policy recorded in Paperclip yet.",
   },
   {
     company: "Increase Roas",
