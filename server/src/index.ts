@@ -1883,6 +1883,7 @@ async function startServerWithDatabaseTeardown(
         () => !isIdleTaskDrainActive() && !isWarmStandby() && !heartbeatSchedulerStopped).ready);
       await step("aggregator_app_sync", () => registerAggregatorAppSyncWork(deliveryWork, {
         sweep: staleAfterMs => tools.sweepAggregatorAppSyncs({ staleAfterMs }),
+        nextDueAt: () => tools.nextAggregatorAppSyncDueAt(),
       }, () => !isIdleTaskDrainActive() && !isWarmStandby() && !heartbeatSchedulerStopped).ready);
       await step("decision_continuation_worker", () => registerDecisionContinuationWork(deliveryWork, decisionExecutor,
         () => !isIdleTaskDrainActive() && !isWarmStandby() && !heartbeatSchedulerStopped).ready);

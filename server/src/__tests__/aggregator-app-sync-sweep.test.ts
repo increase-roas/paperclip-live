@@ -13,6 +13,7 @@ import {
   toolConnectionAppSyncs,
 } from "@paperclipai/db";
 import { toolAccessService } from "../services/tool-access.js";
+import { AGGREGATOR_APP_SYNC_TTL_MS } from "@paperclipai/shared/aggregator-apps";
 import { getEmbeddedPostgresTestSupport, startEmbeddedPostgresTestDatabase } from "./helpers/embedded-postgres.js";
 
 const support = await getEmbeddedPostgresTestSupport();
@@ -161,6 +162,31 @@ const support = await getEmbeddedPostgresTestSupport();
     expect((await rowFor(dead!.id)).lastCompletedAt!.getTime()).toBeGreaterThan(older.getTime());
     const next = await fixture.access.sweepAggregatorAppSyncs({ timeBudgetMs: 60_000 });
     expect(next).toMatchObject({ checked: 0 });
+  }, 120_000);
+
+  // The scheduler waits for this deadline instead of polling, so an instance
+  // with nothing cached reports no deadline and issues no further queries.
+  it("reports no deadline while nothing is cached", async () => {
+    const access = toolAccessService(db);
+    expect(await access.nextAggregatorAppSyncDueAt()).toBeNull();
+  });
+
+  it("reports the freshness deadline of the oldest cached list", async () => {
+    const fixture = await setup(2);
+    const [first, second] = fixture.connections;
+    const oldest = new Date(Date.now() - 4 * 60_000);
+    await db.update(toolConnectionAppSyncs).set({ lastCompletedAt: oldest, updatedAt: oldest })
+      .where(eq(toolConnectionAppSyncs.connectionId, first!.id));
+
+    const due = await fixture.access.nextAggregatorAppSyncDueAt();
+
+    expect(due).toBe(oldest.getTime() + AGGREGATOR_APP_SYNC_TTL_MS);
+    // A disabled gateway stops owning a deadline.
+    await db.update(toolConnections).set({ enabled: false }).where(eq(toolConnections.id, first!.id));
+    const next = await fixture.access.nextAggregatorAppSyncDueAt();
+    const secondRow = await rowFor(second!.id);
+    expect(next).toBe(secondRow.lastCompletedAt!.getTime() + AGGREGATOR_APP_SYNC_TTL_MS);
+    expect(next!).toBeGreaterThan(due!);
   }, 120_000);
 
   it("marks a refresh that cannot start as failed and reports the gateway", async () => {

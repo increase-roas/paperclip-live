@@ -17,6 +17,7 @@ import { logActivity } from "../../activity-log.js";
 import { initializeMcpHttpSession, getMcpHttpSession, readMcpHttpResponse, mcpHttpRequestHeaders } from "../../mcp-http.js";
 import { secretService } from "../../secrets.js";
 import { writeConnectionCredential } from "../../connection-credentials.js";
+import { DELIVERY_QUEUES, notifyDeliveryWork } from "../../delivery-work-notifications.js";
 
 import type { ToolAccessAudit } from "../audit.js";
 import type { ConnectionCredentialAccess } from "../credential-access.js";
@@ -268,6 +269,29 @@ export function createAggregatorAccounts(db: Db, { options, secrets, audit, cred
       .limit(limit);
   }
 
+  /**
+   * When the oldest ready row next needs a refresh.
+   *
+   * The scheduler waits for this deadline instead of polling, so an instance
+   * that has nothing cached issues no database work while it is idle.
+   */
+  async function nextComposioAppSyncDueAt(): Promise<number | null> {
+    const [oldest] = await db.select({ lastCompletedAt: toolConnectionAppSyncs.lastCompletedAt }).from(toolConnectionAppSyncs)
+      .innerJoin(toolConnections, and(
+        eq(toolConnections.id, toolConnectionAppSyncs.connectionId),
+        eq(toolConnections.companyId, toolConnectionAppSyncs.companyId),
+      ))
+      .where(and(
+        eq(toolConnectionAppSyncs.status, "ready"),
+        eq(toolConnections.enabled, true),
+        eq(toolConnections.status, "active"),
+        sql`${toolConnections.config}->>'sourceTemplateKey' = 'composio'`,
+      ))
+      .orderBy(asc(toolConnectionAppSyncs.lastCompletedAt))
+      .limit(1);
+    return oldest?.lastCompletedAt ? oldest.lastCompletedAt.getTime() + composioSyncTtlMs : null;
+  }
+
   async function sweepComposioAppSyncs(input: {
     staleAfterMs?: number;
     limit?: number;
@@ -451,6 +475,9 @@ export function createAggregatorAccounts(db: Db, { options, secrets, audit, cred
     if (discovery.availability !== "available") return aggregatorAppsResponse(connection, actor);
     if (provider === "composio") {
       await startComposioAppSync(connectionId, force, actor);
+      // A new or refreshed row moves the scheduled deadline, and a row created
+      // after startup is not otherwise visible to the deadline worker.
+      await db.transaction(transaction => notifyDeliveryWork(transaction, DELIVERY_QUEUES.aggregatorAppSync));
       return aggregatorAppsResponse(await getConnectionRow(connectionId), actor);
     }
     // Resolve/refresh the caller's gateway credentials before fingerprinting the lease.
@@ -557,6 +584,7 @@ export function createAggregatorAccounts(db: Db, { options, secrets, audit, cred
     },
     syncComposioApps: startComposioAppSync,
     sweepComposioAppSyncs,
+    nextComposioAppSyncDueAt,
     async listComposioApps(connectionId: string, actor: ActorInfo) {
       const connection = await getConnectionRow(connectionId);
       await actor.managementContext?.reauthorize();
