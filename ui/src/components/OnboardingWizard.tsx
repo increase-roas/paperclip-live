@@ -2900,6 +2900,20 @@ function OnboardingWizardInner({
           className="fixed inset-0 z-50 flex"
           onKeyDown={handleKeyDown}
         >
+          {/* The wizard is an offer, not a gate. Closing it hands control back
+              to the dashboard, whose empty state keeps the first-agent action
+              available. The dashboard offers onboarding only once per visit,
+              so declining does not reopen it. */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="absolute right-4 top-4 z-10"
+            onClick={handleClose}
+            disabled={loading}
+          >
+            Do this later
+          </Button>
           {/* Form column — the wizard opens directly on step 1, so there is no
               front-door choice ahead of it, and it fills the width on every
               step (the mission step's half-width split is gone). */}

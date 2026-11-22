@@ -630,4 +630,23 @@ describe("OnboardingWizard — which step it lands on", () => {
       expect(document.body.textContent).not.toContain("Name your organization");
     });
   });
+
+  it("lets the customer leave the first-agent offer without creating an agent", async () => {
+    routerState.pathname = "/PC1/onboarding";
+    await render();
+    await settle();
+
+    expect(currentStep()).toBe("agent");
+    const leave = [...document.querySelectorAll<HTMLButtonElement>("button")]
+      .find((button) => button.textContent?.trim() === "Do this later");
+    expect(leave).toBeTruthy();
+
+    await act(async () => {
+      leave!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(dialogState.closeOnboarding).toHaveBeenCalledTimes(1);
+    expect(dialogState.setOnboardingRouteDismissed).toHaveBeenCalledWith(true);
+    expect(mockAgentsApi.hire).not.toHaveBeenCalled();
+  });
 });
