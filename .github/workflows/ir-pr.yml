@@ -1,0 +1,30 @@
+# Fork-local pull request gate for increase-roas/paperclip-live.
+#
+# Upstream's pr.yml reuses paperclipai/paperclip's
+# .github/workflows/pr-trusted.yml@master. That workflow targets Paperclip's
+# private runner group and depends on their secrets, so it cannot run on this
+# fork; ir-guard.yml keeps it switched off on purpose.
+#
+# This workflow is the fork's PR entry point. It runs the same GitHub-hosted
+# checks as master pushes by calling ir-ci.yml, so the PR path has no dependency
+# on upstream runners or secrets. The repository setting Settings -> Actions ->
+# General must also be enabled; a workflow cannot run while Actions is disabled.
+name: IR PR
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+# A new push supersedes the previous run for the same pull request.
+concurrency:
+  group: ir-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read   # upstream-sync dry run lists existing sync PRs
+
+jobs:
+  ci:
+    name: IR CI
+    uses: ./.github/workflows/ir-ci.yml
