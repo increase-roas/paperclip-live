@@ -34,6 +34,7 @@ import { AgentStatusBadge } from "./StatusBadge";
 import { agentsApi } from "../api/agents";
 import { ApiError } from "../api/client";
 import { queryKeys } from "../lib/queryKeys";
+import { invalidateBotViewsForAgent } from "../lib/invalidate-bot-views";
 import { agentRouteRef, cn } from "../lib/utils";
 import { pendingAgentSetupChoice } from "../lib/agent-setup-choice";
 import { copyTextToClipboard } from "../lib/clipboard";
@@ -276,6 +277,7 @@ export function AgentActionButtons({
       queryClient.invalidateQueries({ queryKey: queryKeys.liveRuns(resolvedCompanyId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.heartbeats(resolvedCompanyId, agent.id) });
     }
+    invalidateBotViewsForAgent(queryClient, resolvedCompanyId, agent.id);
   }, [agent.id, canonicalAgentRef, queryClient, resolvedCompanyId]);
 
   const agentAction = useMutation({

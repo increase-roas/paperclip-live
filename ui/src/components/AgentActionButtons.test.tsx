@@ -358,6 +358,9 @@ describe("AgentActionButtons", () => {
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["agents", "company-1"] });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["live-runs", "company-1"] });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["heartbeats", "company-1", "agent-1"] });
+    // Bots are a projection of the agent row, so their cached views go stale too.
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["bots", "company-1"] });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["bots", "company-1", "agent-1"] });
   });
 
   it("keeps the normal pause action for non-error agents", async () => {

@@ -36,6 +36,7 @@ import { useCompany } from "../context/CompanyContext";
 import { useToastActions } from "../context/ToastContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
+import { invalidateBotViewsForAgent } from "../lib/invalidate-bot-views";
 import { copyTextToClipboard } from "../lib/clipboard";
 import { AgentSkillsTab } from "./agent-skills/AgentSkillsTab";
 import { AgentConfigForm } from "../components/AgentConfigForm";
@@ -531,6 +532,7 @@ export function AgentDetail() {
     onSuccess: (updated, { target }) => {
       if (resolvedCompanyId) queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(resolvedCompanyId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.agents.configRevisions(target.id) });
+      invalidateBotViewsForAgent(queryClient, resolvedCompanyId, target.id);
       if (!syncAgentRouteAfterRename(queryClient, navigate, target, updated, urlTab ?? "overview")) {
         queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(target.id) });
         queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agentRouteRef(target)) });
@@ -607,6 +609,7 @@ export function AgentDetail() {
           queryClient.invalidateQueries({ queryKey: queryKeys.heartbeats(resolvedCompanyId, agent.id) });
         }
       }
+      invalidateBotViewsForAgent(queryClient, resolvedCompanyId, agentLookupRef);
     },
     onError: (err) => {
       setActionError(err instanceof Error ? err.message : "Action failed");
@@ -624,6 +627,7 @@ export function AgentDetail() {
       queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agentLookupRef) });
       queryClient.invalidateQueries({ queryKey: [...queryKeys.agents.detail(agentLookupRef), "lifecycle"] });
       if (resolvedCompanyId) queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(resolvedCompanyId) });
+      invalidateBotViewsForAgent(queryClient, resolvedCompanyId, agentLookupRef);
     },
     onError: (err) => setActionError(err instanceof Error ? err.message : "Could not resume the agent"),
   });

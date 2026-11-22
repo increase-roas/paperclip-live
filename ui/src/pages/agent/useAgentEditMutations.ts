@@ -1,6 +1,7 @@
 import { useMutation, type QueryClient } from "@tanstack/react-query";
 import { agentsApi, type AgentPermissionUpdate } from "@/api/agents";
 import { queryKeys } from "@/lib/queryKeys";
+import { invalidateBotViewsForAgent } from "@/lib/invalidate-bot-views";
 
 /**
  * Icon and permission edits shared by the current agent page and the production
@@ -25,6 +26,7 @@ export function useAgentEditMutations({
     if (resolvedCompanyId) {
       queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(resolvedCompanyId) });
     }
+    invalidateBotViewsForAgent(queryClient, resolvedCompanyId, agentLookupRef);
   };
 
   const updateIcon = useMutation({
