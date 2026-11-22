@@ -98,6 +98,13 @@ rather than a defect; the report says "the page cannot show this". Purpose and
 the bot tag are the two gaps an operator fixes from metadata. `--fail-on-gaps`
 exits 1, which is how a seeded fixture or a migration check can gate on it.
 
+`--proposals <file>` takes a drafted write per bot slug
+(`{ "kiwi": { "purpose": "…" }, "funnel-builder": { "gateway": { "policy": "website-builder" } } }`)
+and reports the gaps that write would fill as **proposed** instead of missing.
+Nothing applies the draft; it only keeps a reviewed plan visible next to the gaps.
+`--fail-on-gaps` ignores proposed gaps, so a gate fails only on data nobody has a
+plan for.
+
 The gateway never exposes a key id: it stores a SHA-256 hash per agent
 (`agent_keys.key_hash`) and its read-only admin list returns `{agent, hasKey,
 policy, enabled, opRef}`. `bot.gateway.keyId` is therefore an operator-recorded

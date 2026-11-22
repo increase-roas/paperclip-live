@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { findBotCoverageGaps, renderBotCoverageReport, toCoverageBot, type BotCoverageBot } from "./bots-coverage.js";
+import {
+  findBotCoverageGaps,
+  renderBotCoverageReport,
+  toCoverageBot,
+  type BotCoverageBot,
+  type BotCoverageProposals,
+} from "./bots-coverage.js";
 
 function bot(overrides: Partial<BotCoverageBot> = {}): BotCoverageBot {
   return {
@@ -49,7 +55,7 @@ describe("bot page coverage", () => {
     const report = renderBotCoverageReport(findings, "Live bots");
     expect(report).toContain("## Live bots");
     expect(report).toContain("1 bot with a page gap");
-    expect(report).toContain("| Kiwi (`kiwi`) | idle | purpose, gateway_policy, routines, activity |");
+    expect(report).toContain("| Kiwi (`kiwi`) | idle | purpose, gateway_policy, routines, activity | — |");
   });
 
   it("says so when every page is complete", () => {
@@ -96,5 +102,62 @@ describe("mapping the Bots API onto coverage", () => {
   it("ignores a gateway link without a policy string", () => {
     const mapped = toCoverageBot({ id: "a", name: "B", status: "idle", gateway: { keyId: "gk_x" } }, {});
     expect(mapped.gateway).toBeNull();
+  });
+});
+
+describe("drafted metadata writes", () => {
+  const proposals: BotCoverageProposals = {
+    kiwi: { purpose: "Drafted purpose from Alex." },
+    "web-builder": { gateway: { policy: "website-builder" }, botTag: true },
+  };
+
+  it("moves a gap from missing to proposed", () => {
+    const [kiwi] = findBotCoverageGaps([bot({ name: "Kiwi", slug: "kiwi" })], proposals);
+    expect(kiwi).toMatchObject({
+      gaps: ["gateway_policy", "routines", "activity"],
+      proposed: ["purpose"],
+    });
+  });
+
+  it("proposes a gateway policy and a bot tag together", () => {
+    const [web] = findBotCoverageGaps(
+      [bot({ name: "Web Builder", slug: "web-builder", taggedAsBot: false })],
+      proposals,
+    );
+    expect(web?.proposed).toEqual(["bot_tag", "gateway_policy"]);
+    expect(web?.gaps).toEqual(["purpose", "routines", "activity"]);
+  });
+
+  it("ignores a proposal for a gap the bot does not have", () => {
+    const [web] = findBotCoverageGaps(
+      [bot({ name: "Web Builder", slug: "web-builder", purpose: "Builds pages." })],
+      proposals,
+    );
+    expect(web?.proposed).toEqual(["gateway_policy"]);
+  });
+
+  it("ignores blank drafted values", () => {
+    const [kiwi] = findBotCoverageGaps([bot({ name: "Kiwi", slug: "kiwi" })], {
+      kiwi: { purpose: "   ", gateway: { policy: "" } },
+    });
+    expect(kiwi?.proposed).toEqual([]);
+    expect(kiwi?.gaps).toContain("purpose");
+  });
+
+  it("counts proposed gaps in the summary and shows them in their own column", () => {
+    const findings = findBotCoverageGaps(
+      [bot({ name: "Kiwi", slug: "kiwi" }), bot({ name: "Javar", slug: "javar" })],
+      proposals,
+    );
+    const report = renderBotCoverageReport(findings, "Live bots");
+    expect(report).toContain("2 without a purpose");
+    expect(report).toContain("(1 with a drafted write)");
+    expect(report).toContain("| Kiwi (`kiwi`) | idle | gateway_policy, routines, activity | purpose |");
+  });
+
+  it("keeps a bot with no drafted write fully missing", () => {
+    const findings = findBotCoverageGaps([bot({ name: "Javar", slug: "javar" })], proposals);
+    expect(findings[0]?.proposed).toEqual([]);
+    expect(findings[0]?.gaps).toHaveLength(4);
   });
 });

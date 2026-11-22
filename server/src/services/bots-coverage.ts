@@ -23,15 +23,6 @@ export interface BotCoverageBot {
   activityCount: number;
 }
 
-export interface BotCoverageFinding {
-  id: string;
-  slug: string;
-  name: string;
-  status: string;
-  /** Empty findings are omitted, so a finding means the page has a gap. */
-  gaps: BotCoverageGapKind[];
-}
-
 /**
  * Lists what each bot's page cannot show, using only what the API records.
  *
@@ -41,17 +32,70 @@ export interface BotCoverageFinding {
  * fix from metadata; routines follow from assigning work, activity from running
  * it.
  */
-export function findBotCoverageGaps(bots: BotCoverageBot[]): BotCoverageFinding[] {
+/**
+ * A metadata write an operator could make, keyed by bot slug.
+ *
+ * This is a draft: nothing in Paperclip applies it. The coverage report marks a
+ * gap as "proposed" when one of these would fill it, so a plan can be reviewed
+ * without pretending the data exists yet.
+ */
+export interface BotCoverageProposal {
+  purpose?: string;
+  botTag?: boolean;
+  gateway?: { policy: string; keyId?: string | null };
+}
+
+export type BotCoverageProposals = Record<string, BotCoverageProposal>;
+
+export interface BotCoverageFinding {
+  id: string;
+  slug: string;
+  name: string;
+  status: string;
+  /** Gaps nothing proposes to fill. */
+  gaps: BotCoverageGapKind[];
+  /** Gaps a drafted metadata write would fill. */
+  proposed: BotCoverageGapKind[];
+}
+
+function gapKinds(bot: BotCoverageBot): BotCoverageGapKind[] {
+  const gaps: BotCoverageGapKind[] = [];
+  if (!bot.taggedAsBot) gaps.push("bot_tag");
+  if (!bot.purpose) gaps.push("purpose");
+  if (!bot.gateway) gaps.push("gateway_policy");
+  if (bot.routineCount === 0) gaps.push("routines");
+  if (bot.activityCount === 0) gaps.push("activity");
+  return gaps;
+}
+
+function proposedKinds(gaps: BotCoverageGapKind[], proposal: BotCoverageProposal | undefined): BotCoverageGapKind[] {
+  if (!proposal) return [];
+  const proposed: BotCoverageGapKind[] = [];
+  for (const gap of gaps) {
+    if (gap === "bot_tag" && proposal.botTag) proposed.push(gap);
+    if (gap === "purpose" && proposal.purpose?.trim()) proposed.push(gap);
+    if (gap === "gateway_policy" && proposal.gateway?.policy?.trim()) proposed.push(gap);
+  }
+  return proposed;
+}
+
+export function findBotCoverageGaps(
+  bots: BotCoverageBot[],
+  proposals: BotCoverageProposals = {},
+): BotCoverageFinding[] {
   const findings: BotCoverageFinding[] = [];
   for (const bot of bots) {
-    const gaps: BotCoverageGapKind[] = [];
-    if (!bot.taggedAsBot) gaps.push("bot_tag");
-    if (!bot.purpose) gaps.push("purpose");
-    if (!bot.gateway) gaps.push("gateway_policy");
-    if (bot.routineCount === 0) gaps.push("routines");
-    if (bot.activityCount === 0) gaps.push("activity");
+    const gaps = gapKinds(bot);
     if (gaps.length === 0) continue;
-    findings.push({ id: bot.id, slug: bot.slug, name: bot.name, status: bot.status, gaps });
+    const proposed = proposedKinds(gaps, proposals[bot.slug]);
+    findings.push({
+      id: bot.id,
+      slug: bot.slug,
+      name: bot.name,
+      status: bot.status,
+      gaps: gaps.filter((gap) => !proposed.includes(gap)),
+      proposed,
+    });
   }
   return findings.sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -81,22 +125,31 @@ export function toCoverageBot(summary: Record<string, unknown>, detail: Record<s
 /** Human-readable report, one table row per bot with gaps. */
 export function renderBotCoverageReport(findings: BotCoverageFinding[], title = "Bot page coverage"): string {
   const count = (kind: BotCoverageGapKind) => findings.filter((finding) => finding.gaps.includes(kind)).length;
+  const proposedCount = (kind: BotCoverageGapKind) =>
+    findings.filter((finding) => finding.proposed.includes(kind)).length;
+  const total = (kind: BotCoverageGapKind) => count(kind) + proposedCount(kind);
   const lines = [
     `## ${title}`,
     "",
     `${findings.length} bot${findings.length === 1 ? "" : "s"} with a page gap: ` +
-      `${count("bot_tag")} untagged, ${count("purpose")} without a purpose, ` +
-      `${count("gateway_policy")} without a gateway policy, ${count("routines")} without routines, ` +
-      `${count("activity")} without activity.`,
+      `${total("bot_tag")} untagged, ${total("purpose")} without a purpose, ` +
+      `${total("gateway_policy")} without a gateway policy, ${total("routines")} without routines, ` +
+      `${total("activity")} without activity` +
+      (findings.some((finding) => finding.proposed.length > 0)
+        ? ` (${findings.filter((finding) => finding.proposed.length > 0).length} with a drafted write).`
+        : "."),
     "",
   ];
   if (findings.length === 0) {
     lines.push("Every bot page has everything Paperclip records.");
     return lines.join("\n");
   }
-  lines.push("| Bot | Status | Missing |", "| --- | --- | --- |");
+  lines.push("| Bot | Status | Missing | Proposed |", "| --- | --- | --- | --- |");
   for (const finding of findings) {
-    lines.push(`| ${finding.name} (\`${finding.slug}\`) | ${finding.status} | ${finding.gaps.join(", ")} |`);
+    lines.push(
+      `| ${finding.name} (\`${finding.slug}\`) | ${finding.status} | ${finding.gaps.join(", ") || "—"} | ` +
+        `${finding.proposed.join(", ") || "—"} |`,
+    );
   }
   return lines.join("\n");
 }

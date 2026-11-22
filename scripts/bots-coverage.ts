@@ -7,6 +7,7 @@
  *   pnpm bots:coverage --company <companyId> --header-file ~/.config/paperclip/auth.hdr
  *   pnpm bots:coverage --company <companyId> --base-url http://localhost:3100
  *   pnpm bots:coverage --company <companyId> --json --fail-on-gaps
+ *   pnpm bots:coverage --company <companyId> --proposals doc/plans/bot-writes.json
  *
  * `--fail-on-gaps` exits 1 when any page is missing a field, which makes the
  * check usable as a regression gate after a seed or a migration. Nothing is
@@ -20,6 +21,7 @@ import {
   renderBotCoverageReport,
   toCoverageBot,
   type BotCoverageBot,
+  type BotCoverageProposals,
 } from "../server/src/services/bots-coverage.js";
 
 function flag(name: string): string | null {
@@ -69,10 +71,16 @@ async function main() {
     const detail = await getJson(`${baseUrl}/api/companies/${companyId}/bots/${encodeURIComponent(summary.slug ?? summary.id)}`, headers);
     bots.push(toCoverageBot(summary, detail));
   }
-  const findings = findBotCoverageGaps(bots);
+  const proposalsPath = flag("--proposals");
+  const proposals: BotCoverageProposals = proposalsPath
+    ? JSON.parse(readFileSync(proposalsPath, "utf8"))
+    : {};
+  const findings = findBotCoverageGaps(bots, proposals);
   if (has("--json")) console.log(JSON.stringify({ companyId, bots: bots.length, findings }, null, 2));
   else console.log(`${renderBotCoverageReport(findings, `Bot page coverage (${bots.length} bots)`)}\n`);
-  if (has("--fail-on-gaps") && findings.length > 0) process.exitCode = 1;
+  // A drafted write is not a gap: --fail-on-gaps gates on data nobody has a
+  // plan for, which is what a seed or migration regression looks like.
+  if (has("--fail-on-gaps") && findings.some((finding) => finding.gaps.length > 0)) process.exitCode = 1;
 }
 
 await main();
