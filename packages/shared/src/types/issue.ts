@@ -363,7 +363,13 @@ export interface IssueWakeDiagnosticWakeRequest {
   claimedAt: string | null;
   finishedAt: string | null;
   failureClass: IssueWakeDiagnosticWakeFailureClass | null;
-  /** Server-recorded wait or skip reason, so diagnostics do not show only "other". */
+  /**
+   * Reserved for a server-recorded wait or skip reason.
+   *
+   * Always null today: the only text available was the raw `agent_wakeup_requests.error`,
+   * which can carry provider output or a secret. Diagnostics report `failureClass`
+   * instead; a future version may fill this from a bounded, safe vocabulary.
+   */
   detail: string | null;
 }
 

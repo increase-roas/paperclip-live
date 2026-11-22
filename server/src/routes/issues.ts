@@ -1541,7 +1541,9 @@ function projectIssueWakeRequest(
     claimedAt: dateToIso(row.claimedAt),
     finishedAt: dateToIso(row.finishedAt),
     failureClass: wakeFailureClass(status, row.error),
-    detail: row.error ? row.error.slice(0, 500) : null,
+    // The raw error can carry provider output or a secret; the failure class is
+    // the only part a diagnostic reader needs and the only part that is safe.
+    detail: null,
   };
 }
 
