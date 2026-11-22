@@ -9,7 +9,7 @@ import {
   ModalReturnFocusProvider,
   useModalReturnFocus,
   useModalReturnFocusTarget,
-} from "@/components/ui/modal-return-focus"
+} from "@/components/ui/ModalReturnFocus"
 
 function Sheet({ open, ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   const returnFocusTarget = useModalReturnFocusTarget(open)

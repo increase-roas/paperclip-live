@@ -8,7 +8,7 @@ import {
   ModalReturnFocusProvider,
   useModalReturnFocus,
   useModalReturnFocusTarget,
-} from "@/components/ui/modal-return-focus"
+} from "@/components/ui/ModalReturnFocus"
 
 function Dialog({
   open,
