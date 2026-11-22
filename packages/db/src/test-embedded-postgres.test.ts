@@ -15,6 +15,7 @@ import {
   __startEmbeddedPostgresWithRetryForTests as startWithRetry,
   computeEmbeddedPostgresTemplateKey,
   EMBEDDED_POSTGRES_TEST_TIMEOUT_MS,
+  embeddedPostgresRootSkipReason,
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
 } from "./test-embedded-postgres.js";
@@ -476,6 +477,18 @@ describeWithPostgres("startEmbeddedPostgresTestDatabase template path", () => {
   });
 });
 
+describe("embeddedPostgresRootSkipReason", () => {
+  it("skips embedded Postgres for a root process with an actionable reason", () => {
+    const reason = embeddedPostgresRootSkipReason(0);
+    expect(reason).toContain("Embedded PostgreSQL cannot run as root");
+    expect(reason).toContain("PAPERCLIP_TEST_POSTGRES_ADMIN_URL");
+  });
+
+  it("does not skip an unprivileged process", () => {
+    expect(embeddedPostgresRootSkipReason(1000)).toBeNull();
+  });
+});
+
 describe("support probe when the template cannot be built", () => {
   afterEach(() => {
     __setEmbeddedPostgresCtorProviderForTests(null);
@@ -496,6 +509,30 @@ describe("support probe when the template cannot be built", () => {
     try {
       await expect(getEmbeddedPostgresTestSupport()).rejects.toThrow("could not create semaphores");
       expect(constructed).toHaveLength(1);
+    } finally {
+      if (original === undefined) delete process.env.PAPERCLIP_TEST_POSTGRES_TEMPLATE;
+      else process.env.PAPERCLIP_TEST_POSTGRES_TEMPLATE = original;
+    }
+  });
+
+  it("reports a root refusal as unsupported instead of failing the suite", { timeout: EMBEDDED_POSTGRES_TEST_TIMEOUT_MS }, async () => {
+    const original = process.env.PAPERCLIP_TEST_POSTGRES_TEMPLATE;
+    process.env.PAPERCLIP_TEST_POSTGRES_TEMPLATE = "0";
+    const { ctor } = makeFakeCtor(0);
+    class RootPostgres extends ctor {
+      async start(): Promise<void> {
+        throw new Error(
+          "You are running this script as root. Postgres does not support running as root.",
+        );
+      }
+    }
+    __setEmbeddedPostgresCtorProviderForTests(async () => RootPostgres);
+    resetTemplateState();
+    try {
+      expect(await getEmbeddedPostgresTestSupport()).toMatchObject({
+        supported: false,
+        reason: expect.stringContaining("PAPERCLIP_TEST_POSTGRES_ADMIN_URL"),
+      });
     } finally {
       if (original === undefined) delete process.env.PAPERCLIP_TEST_POSTGRES_TEMPLATE;
       else process.env.PAPERCLIP_TEST_POSTGRES_TEMPLATE = original;

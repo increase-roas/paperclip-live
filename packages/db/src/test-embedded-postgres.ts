@@ -602,6 +602,15 @@ async function probeEmbeddedPostgresSupport(): Promise<EmbeddedPostgresTestSuppo
     if (/Unsupported (?:arch|platform) "/.test(failure.message)) {
       return { supported: false, reason: failure.message };
     }
+    // A nested `initdb` can refuse the root user even when the support probe
+    // itself ran under another user. Classify that refusal as this host being
+    // unsupported, the same as the guard in startEmbeddedPostgresTestDatabase.
+    if (/running .*as root/i.test(failure.message)) {
+      return {
+        supported: false,
+        reason: embeddedPostgresRootSkipReason() ?? embeddedPostgresRootReason(),
+      };
+    }
     throw failure;
   } finally {
     if (started) {
@@ -609,6 +618,24 @@ async function probeEmbeddedPostgresSupport(): Promise<EmbeddedPostgresTestSuppo
       await stopEmbeddedPostgresBounded(instance, () => cleanupEmbeddedPostgresTestDirs(dataDir));
     }
   }
+}
+
+// Postgres refuses to run as root, so `initdb` and `pg_ctl` fail under a root
+// process. Report the host as unsupported instead of failing the suite: the
+// caller skips its embedded-Postgres tests, while an operator who needs them
+// can point the suite at a disposable server with
+// PAPERCLIP_TEST_POSTGRES_ADMIN_URL.
+const EMBEDDED_POSTGRES_ROOT_ADVICE =
+  "Set PAPERCLIP_TEST_POSTGRES_ADMIN_URL to a disposable PostgreSQL admin URL " +
+  "or run the tests as an unprivileged user.";
+
+function embeddedPostgresRootReason(): string {
+  return `Embedded PostgreSQL cannot run as root. ${EMBEDDED_POSTGRES_ROOT_ADVICE}`;
+}
+
+export function embeddedPostgresRootSkipReason(uid: number | undefined = process.getuid?.()): string | null {
+  if (uid !== 0) return null;
+  return embeddedPostgresRootReason();
 }
 
 export async function getEmbeddedPostgresTestSupport(): Promise<EmbeddedPostgresTestSupport> {
@@ -660,6 +687,8 @@ export async function startEmbeddedPostgresTestDatabase(
 ): Promise<EmbeddedPostgresTestDatabase> {
   const adminUrl = testPostgresAdminUrl();
   if (adminUrl) return startTestPostgresDatabase(adminUrl);
+  const rootSkipReason = embeddedPostgresRootSkipReason();
+  if (rootSkipReason) throw new Error(rootSkipReason);
   const { port, dataDir, instance, mode } = await startEmbeddedPostgresClusterForSuite(tempDirPrefix);
   lastStartMode = mode;
 
