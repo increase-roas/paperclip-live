@@ -22,7 +22,7 @@ import { runRetainsIssueIdentity } from "../services/task-repository-acquisition
 import { withConversationReadState } from "../services/agent-chat-read-state.js";
 import { markIssueReadSchema } from "@paperclipai/shared";
 import { enqueueFastResponse } from "../services/fast-responses.js";
-import { hasRequiredWorkspaceRecovery, LEGACY_WORKSPACE_RECOVERY_SCHEMA } from "../services/workspace-restore-recovery-state.js";
+import { hasRequiredWorkspaceRecovery } from "../services/workspace-restore-recovery-state.js";
 import { hasUnverifiedNativeWorkspaceFinalizationOwner } from "../services/native-runtime/native-workspace-finalization-recovery-state.js";
 import { monitorPoliciesEqual, applyActorMonitorScheduledBy, assertCanManageIssueMonitor, summarizeIssueMonitor } from "../services/issue-monitors.js";
 import type { IssuePrivacyConstraints } from "@paperclipai/shared";
@@ -54,10 +54,11 @@ import { resolveChatTaskAssignment } from "../services/chat-task-assignment.js";
 import { issueRecoveryActionReadModel } from "../services/issue-recovery-actions.js";
 import { inspectWorkspaceSource } from "../services/workspace-source-inspection.js";
 import { getExecutionBlocker } from "../services/execution-blocker.js";
-import { EXECUTION_RECONCILIATION_CAUSES, requiresExecutionReconciliation } from "@paperclipai/shared";
+import { requiresExecutionReconciliation } from "@paperclipai/shared";
 import {
   validateExecutionReconciliation,
   markExecutionReconciliation,
+  deliverReconciledExecutions,
 } from "../services/execution-recovery-resolution.js";
 import {
   storedSteeringAcknowledgement,
@@ -70,7 +71,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { Router, type Request, type Response } from "express";
 import multer from "multer";
 import { z } from "zod";
-import { and, asc, desc, eq, inArray, isNull, notInArray, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, not, notInArray, or, sql, type SQL } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import type { ChatChannelService } from "../services/chat-channels.js";
 import {
@@ -84,6 +85,7 @@ import {
   chatPublications,
   companyMemberships,
   documents,
+  environmentLeases,
   executionWorkspaces,
   heartbeatRuns,
   issueApprovals,
@@ -421,6 +423,10 @@ const MAX_ISSUE_COMMENT_LIMIT = 500;
 const updateIssueRouteSchema = updateIssueSchema.extend({
   interrupt: z.boolean().optional(),
 });
+const clearIssueExecutionHoldSchema = z.object({
+  actionId: z.string().uuid().optional(),
+  note: z.string().trim().max(2000).optional(),
+}).strict();
 /**
  * Sent only to a caller that did not write the queued comment: its author is the
  * only one who can discard it, and no board, admin or agent override exists. Say so with the task link, so an agent that tried can
@@ -1444,6 +1450,11 @@ const ISSUE_WAKE_DIAGNOSTIC_KNOWN_SOURCES = new Set([
 
 const ISSUE_WAKE_DIAGNOSTIC_KNOWN_REASONS = new Set([
   "issue_execution_deferred",
+  "execution_reconciliation_required",
+  "execution_review_requested",
+  "execution_approval_requested",
+  "execution_changes_requested",
+  "issue_recovery_action_restored",
   "chat_task_completed",
   "issue_assigned",
   "issue_blockers_resolved",
@@ -1530,6 +1541,7 @@ function projectIssueWakeRequest(
     claimedAt: dateToIso(row.claimedAt),
     finishedAt: dateToIso(row.finishedAt),
     failureClass: wakeFailureClass(status, row.error),
+    detail: row.error ? row.error.slice(0, 500) : null,
   };
 }
 
@@ -10059,12 +10071,10 @@ export function issueRoutes(
     });
     const retainedHolds = await db.select().from(issueRecoveryActions).where(and(
       eq(issueRecoveryActions.companyId, issue.companyId), eq(issueRecoveryActions.sourceIssueId, issue.id),
-      or(unreconciledNativeExportPredicate(), and(
-        sql`${issueRecoveryActions.evidence}->'automaticRecovery'->>'replay' = 'blocked'`, or(
-        sql`${issueRecoveryActions.evidence}->'workspaceRestoreRecovery'->>'schema' = ${LEGACY_WORKSPACE_RECOVERY_SCHEMA}`,
-        inArray(issueRecoveryActions.cause, [...EXECUTION_RECONCILIATION_CAUSES]),
-      ))),
-    )).orderBy(desc(issueRecoveryActions.createdAt));
+      or(
+        unreconciledNativeExportPredicate(),
+        sql`${issueRecoveryActions.evidence}->'automaticRecovery'->>'replay' = 'blocked'`,
+      ))).orderBy(desc(issueRecoveryActions.createdAt)).limit(50);
     res.json({
       active,
       actions: [...(active ? [active] : []), ...retainedHolds
@@ -10850,6 +10860,231 @@ export function issueRoutes(
             : null,
         },
         recoveryAction: result.recoveryAction,
+      });
+    },
+  );
+
+  /**
+   * Board-only escape path for a settled no-replay hold whose recorded run
+   * provably never started. The ordinary reconciliation route needs the
+   * operator to prove an outcome; this route accepts only the subset where
+   * "not performed" is already proven by the run record, then resumes the
+   * task. A run with any start, process, session, or lease evidence is
+   * refused so an unknown outcome cannot be cleared from this shortcut.
+   */
+  router.post(
+    "/issues/:id/recovery-actions/clear-hold",
+    validate(clearIssueExecutionHoldSchema),
+    async (req, res) => {
+      assertBoard(req);
+      const issue = await getAccessibleResource(
+        req,
+        res,
+        svc.getById(req.params.id as string),
+        "Issue not found",
+      );
+      if (!issue) return;
+      if (!(await assertIssueReadAllowed(req, res, issue))) return;
+      const blocker = await getExecutionBlocker(db, issue.companyId, issue.id);
+      const actionId = req.body.actionId ?? blocker?.recoveryActionId ?? null;
+      if (!actionId) throw notFound("No execution hold is recorded on this task.");
+      const actor = getActorInfo(req);
+      const result = await db.transaction(async (tx) => {
+        const [lockedIssue] = await tx
+          .select()
+          .from(issueRows)
+          .where(and(eq(issueRows.companyId, issue.companyId), eq(issueRows.id, issue.id)))
+          .for("update");
+        if (!lockedIssue) throw notFound("Issue not found");
+        if (!["todo", "in_progress"].includes(lockedIssue.status)) {
+          throw conflict(
+            "Clear this hold from todo or in_progress. A review, approval, or blocker decision owns the current state.",
+            { code: "execution_hold_status_unsupported" },
+          );
+        }
+        if (lockedIssue.executionRunId || lockedIssue.checkoutRunId) {
+          throw conflict("This task still owns live execution. Stop it before clearing its hold.", {
+            code: "execution_hold_task_active",
+          });
+        }
+        const [action] = await tx
+          .select()
+          .from(issueRecoveryActions)
+          .where(and(
+            eq(issueRecoveryActions.companyId, lockedIssue.companyId),
+            eq(issueRecoveryActions.sourceIssueId, lockedIssue.id),
+            eq(issueRecoveryActions.id, actionId),
+          ))
+          .for("update");
+        if (!action) throw notFound("Recovery action not found.");
+        const replay = (action.evidence as {
+          automaticRecovery?: { replay?: string };
+        }).automaticRecovery?.replay;
+        if (!requiresExecutionReconciliation(action.cause) && replay !== "blocked") {
+          throw conflict(
+            "This recovery action is not an execution hold. Use its own recovery flow.",
+            { code: "execution_hold_action_unsupported" },
+          );
+        }
+        const [liveRun] = await tx
+          .select({ id: heartbeatRuns.id })
+          .from(heartbeatRuns)
+          .where(and(
+            eq(heartbeatRuns.companyId, lockedIssue.companyId),
+            or(
+              eq(heartbeatRuns.issueId, lockedIssue.id),
+              eq(heartbeatRuns.nativeIssueId, lockedIssue.id),
+              sql`${heartbeatRuns.contextSnapshot}->>'issueId' = ${lockedIssue.id}`,
+            ),
+            inArray(heartbeatRuns.status, ["queued", "running", "scheduled_retry"]),
+          ))
+          .limit(1);
+        if (liveRun) {
+          throw conflict("A run is active for this task. Stop it before clearing the hold.", {
+            code: "execution_hold_run_active",
+          });
+        }
+        const runId =
+          typeof action.evidence.runId === "string" ? action.evidence.runId :
+          typeof action.evidence.sourceRunId === "string" ? action.evidence.sourceRunId :
+          null;
+        if (!runId || !isUuidLike(runId)) {
+          throw conflict("The hold does not name a recorded run. Use the recovery card evidence.", {
+            code: "execution_hold_run_missing",
+          });
+        }
+        const [run] = await tx
+          .select({
+            id: heartbeatRuns.id,
+            status: heartbeatRuns.status,
+            errorCode: heartbeatRuns.errorCode,
+            error: heartbeatRuns.error,
+            startedAt: heartbeatRuns.startedAt,
+            processPid: heartbeatRuns.processPid,
+            processGroupId: heartbeatRuns.processGroupId,
+            processStartedAt: heartbeatRuns.processStartedAt,
+            nativeSessionId: heartbeatRuns.nativeSessionId,
+          })
+          .from(heartbeatRuns)
+          .where(and(eq(heartbeatRuns.companyId, lockedIssue.companyId), eq(heartbeatRuns.id, runId)))
+          .limit(1);
+        if (!run) {
+          throw conflict("The recorded run no longer exists. Inspect the task diagnostics.", {
+            code: "execution_hold_run_missing",
+          });
+        }
+        if (!["cancelled", "failed", "timed_out", "interrupted"].includes(run.status)) {
+          throw conflict("The recorded run has not finished. Wait for it before clearing the hold.", {
+            code: "execution_hold_run_active",
+          });
+        }
+        const [lease] = await tx
+          .select({ id: environmentLeases.id })
+          .from(environmentLeases)
+          .where(and(
+            eq(environmentLeases.companyId, lockedIssue.companyId),
+            eq(environmentLeases.heartbeatRunId, runId),
+          ))
+          .limit(1);
+        const neverStarted = !run.startedAt
+          && !run.processPid
+          && !run.processGroupId
+          && !run.processStartedAt
+          && !run.nativeSessionId
+          && !lease;
+        if (!neverStarted) {
+          throw conflict(
+            "This run may have performed work. Use the recovery card reconciliation so the outcome is recorded with evidence.",
+            { code: "execution_hold_requires_reconciliation" },
+          );
+        }
+        const now = new Date();
+        const note = req.body.note?.trim() || null;
+        const returnOwnerAgentId = action.returnOwnerAgentId ?? lockedIssue.assigneeAgentId;
+        if (returnOwnerAgentId && action.returnOwnerAgentId !== returnOwnerAgentId) {
+          await tx
+            .update(issueRecoveryActions)
+            .set({ returnOwnerAgentId, updatedAt: now })
+            .where(eq(issueRecoveryActions.id, action.id));
+        }
+        const evidence = [
+          `Board cleared a no-replay hold for run ${runId}.`,
+          `The recorded run never started: no start time, process identity, native session, or environment lease.`,
+          run.error ? `Recorded stop reason: ${run.error}` : null,
+          note,
+        ].filter(Boolean).join(" ");
+        await markExecutionReconciliation(
+          tx as unknown as Db,
+          action,
+          {
+            runId,
+            providerStopped: true,
+            actionOutcome: "not_performed",
+            outcomeEvidence: evidence,
+          },
+          actor.actorId,
+        );
+        const [cleared] = await tx
+          .update(issueRecoveryActions)
+          .set({
+            status: "resolved",
+            outcome: "restored",
+            resolutionNote: evidence,
+            resolvedAt: now,
+            updatedAt: now,
+            wakePolicy: null,
+            monitorPolicy: null,
+          })
+          .where(eq(issueRecoveryActions.id, action.id))
+          .returning();
+        await tx
+          .update(issueRecoveryActions)
+          .set({
+            status: "cancelled",
+            outcome: "cancelled",
+            resolutionNote: "Coalesced into a cleared execution hold.",
+            resolvedAt: now,
+            updatedAt: now,
+            evidence: sql`jsonb_set(${issueRecoveryActions.evidence}, '{automaticRecovery,replay}', '"cleared"'::jsonb, true) || ${JSON.stringify({
+              coalescedIntoRecoveryActionId: action.id,
+            })}::jsonb`,
+          })
+          .where(and(
+            eq(issueRecoveryActions.companyId, lockedIssue.companyId),
+            eq(issueRecoveryActions.sourceIssueId, lockedIssue.id),
+            not(eq(issueRecoveryActions.id, action.id)),
+            not(eq(issueRecoveryActions.status, "resolved")),
+            sql`${issueRecoveryActions.evidence}->>'runId' = ${runId}`,
+            sql`${issueRecoveryActions.evidence}->'automaticRecovery'->>'replay' = 'blocked'`,
+          ));
+        return { cleared: cleared!, issue: lockedIssue };
+      });
+      await logActivity(db, {
+        companyId: result.issue.companyId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        agentId: actor.agentId,
+        runId: actor.runId,
+        agentApiKeyId: actor.agentApiKeyId,
+        action: "issue.recovery_action_resolved",
+        entityType: "issue",
+        entityId: result.issue.id,
+        details: {
+          identifier: result.issue.identifier,
+          recoveryActionId: result.cleared.id,
+          recoveryActionStatus: result.cleared.status,
+          outcome: result.cleared.outcome,
+          source: "board_clear_hold",
+          cause: result.cleared.cause,
+          runId: result.cleared.evidence.runId ?? null,
+        },
+      });
+      await deliverReconciledExecutions(db, heartbeat.wakeup).catch((err) => {
+        logger.warn({ err, issueId: result.issue.id }, "reconciled continuation delivery remains pending");
+      });
+      res.json({
+        issue: { ...result.issue, activeRecoveryAction: null },
+        recoveryAction: issueRecoveryActionReadModel(result.cleared),
       });
     },
   );

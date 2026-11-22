@@ -618,6 +618,8 @@ function renderRecoveryChip(
   const lineage = readRecoveryRetryLineage(action, liveness);
   const label = recoveryChipLabel(state, action.kind, lineage);
   const detail = lineage ? formatRecoveryLineageSummary(lineage) : null;
+  const reason = action.nextAction?.trim() || null;
+  const readable = [label, detail, reason].filter(Boolean).join(" — ");
   return (
     <Badge variant="outline"
       data-testid="issue-row-recovery-indicator"
@@ -625,15 +627,13 @@ function renderRecoveryChip(
       data-recovery-kind={action.kind}
       data-recovery-lane={lineage?.lane}
       role="status"
-      aria-label={detail ? `${label} — ${detail}` : label}
+      aria-label={readable}
       className={cn(
         "shrink-0 gap-0.5 text-(length:--text-nano)",
         tone.className,
         selected ? "!border-muted-foreground !text-muted-foreground" : null,
       )}
-      title={detail
-        ? `${label} — ${detail}. Open the source task to act.`
-        : `${label} — open the source task to act.`}
+      title={`${readable}. Open the source task to act.`}
     >
       <Icon className="h-2.5 w-2.5" aria-hidden />
       {label}

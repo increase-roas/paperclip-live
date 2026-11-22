@@ -456,6 +456,14 @@ export const issuesApi = {
       `/issues/${id}/recovery-actions/resolve`,
       data,
     ),
+  clearRecoveryHold: (
+    id: string,
+    data: { actionId?: string; note?: string },
+  ) =>
+    api.post<{ issue: Issue; recoveryAction: IssueRecoveryAction }>(
+      `/issues/${id}/recovery-actions/clear-hold`,
+      data,
+    ),
   previewTreeControl: (id: string, data: PreviewIssueTreeControl) =>
     api.post<IssueTreeControlPreview>(
       `/issues/${id}/tree-control/preview`,
