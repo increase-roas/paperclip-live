@@ -4506,6 +4506,33 @@ describe("IssueAssigneePausedNotice", () => {
     act(() => root.unmount());
   });
 
+  it("treats an onboarding hire that is still verifying as pending setup", () => {
+    const root = createRoot(container);
+    const agent = {
+      ...pausedAgent("manual"),
+      pauseReason: null,
+      lifecycleState: "verifying",
+      metadata: { setupAdapterPending: true },
+      urlKey: "ceo",
+    } as unknown as Agent;
+
+    act(() => {
+      root.render(
+        <MemoryRouter initialEntries={["/ONB/issues/ONB-1"]}>
+          <IssueAssigneePausedNotice agent={agent} issueStatus="todo" onResume={vi.fn()} resuming={false} />
+        </MemoryRouter>,
+      );
+    });
+
+    const text = container.textContent ?? "";
+    expect(text).toContain("CEO is still being set up");
+    expect(text).not.toContain("is paused");
+    expect(container.querySelector('[data-testid="issue-assignee-paused-resume"]')).toBeNull();
+    expect(container.querySelector('[data-testid="issue-assignee-finish-setup"]')?.getAttribute("href"))
+      .toBe("/ONB/agents/ceo");
+    act(() => root.unmount());
+  });
+
   it("explains a company-archive pause instead of calling it manual", () => {
     const root = createRoot(container);
     act(() => {

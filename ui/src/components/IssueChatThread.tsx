@@ -831,7 +831,13 @@ export function IssueAssigneePausedNotice({
   // A freshly created agent is stored as paused with pauseReason "setup" until
   // its setup finishes. That is not an operator pause, so say what is actually
   // happening and point at the real recovery path instead of "Resume agent".
-  if (agent.pauseReason === "setup") {
+  // Onboarding can also leave an agent paused with no pauseReason while the
+  // hire is still verifying; the setup flag and lifecycle state identify it.
+  const setupPending =
+    agent.pauseReason === "setup"
+    || agent.metadata?.setupAdapterPending === true
+    || ["preparing", "verifying"].includes(agent.lifecycleState ?? "");
+  if (setupPending) {
     // Only computer preparation advances on its own (matches NewAgentSetup).
     // A "verifying" or parked draft waits for the user to finish the wizard.
     const stillPreparing = ["preparing", "pausing"].includes(agent.lifecycleState ?? "");
