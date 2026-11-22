@@ -229,7 +229,7 @@ export function SearchableSelect<
             }
           }}
           aria-expanded={open}
-          aria-label={triggerAriaLabel}
+          aria-label={triggerAriaLabel ?? placeholder}
           role="combobox"
           className={cn("w-full justify-between overflow-hidden", className, triggerClassName)}
         >

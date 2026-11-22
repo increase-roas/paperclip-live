@@ -136,6 +136,21 @@ describe("SearchableSelect", () => {
     expect(container.querySelector('button[aria-label="Close selector"]')).not.toBeNull();
   });
 
+  it("names an unnamed combobox from its placeholder", () => {
+    root = render(
+      <SearchableSelect
+        value=""
+        groups={[]}
+        onValueChange={vi.fn()}
+        placeholder="Choose a person or agent…"
+      />,
+      container,
+    );
+
+    const trigger = container.querySelector("button[role='combobox']");
+    expect(trigger?.getAttribute("aria-label")).toBe("Choose a person or agent…");
+  });
+
   it("filters options and returns the selected option object", async () => {
     const onValueChange = vi.fn();
     const bravo = { key: "all:bravo", value: "bravo", label: "Bravo", searchText: "secondary branch" };
