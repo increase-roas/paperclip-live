@@ -5,9 +5,10 @@ Owner: Lane D
 Base: `origin/master` (`6de064ea94` when this runbook was written)
 
 This page is the single source of truth for the usability train: the 42-PR
-initial batch plus the four follow-up PRs from the same round. It lists
-the exact merge order, which PRs are superseded, what to check after each batch,
-and one command that proves the whole order still merges cleanly.
+initial batch, the four follow-up PRs from the same round, and the three newer
+lane A PRs added on the next pass. It lists the exact merge order, which PRs
+are superseded, what to check after each batch, and one command that proves the
+whole order still merges cleanly.
 
 ## One-command verification
 
@@ -22,8 +23,10 @@ pushes nothing. It merges each PR head into a running tree with
 first conflict with the conflicted paths. Exit code `0` means the whole order is
 clean; `1` means a conflict; `2` means a usage or git error.
 
-Last verified: 2026-11-22, 46 of 46 merged, no conflicts, base `6de064ea94`.
-#158 was rebased onto #118 to clear the one conflict (see below).
+Last verified: 2026-11-22 (second pass), 49 of 49 merged, no conflicts, base
+`6de064ea94`. #158 was rebased onto #118 to clear the one conflict (see below).
+#167 is a draft combo branch and must be marked ready before it merges. #145 and
+#162 are covered by #167; do not merge all three.
 
 Useful variants:
 
@@ -73,6 +76,7 @@ node scripts/merge-train-simulate.mjs --json
 #155
 #156
 #158
+#167
 #159
 #160
 #161
@@ -82,10 +86,13 @@ node scripts/merge-train-simulate.mjs --json
 #168
 #169
 #170
+#157
+#165
 ```
 
 Keep `#115` before `#149` and `#136` before `#148`; those pairs touch the same
-files and the later PR expects the earlier copy.
+files and the later PR expects the earlier copy. Keep `#158` immediately before
+`#167`: the combo branch contains #158 and applies #162 (plus #145) on top of it.
 
 ### Batches and what to check after each
 
@@ -105,6 +112,7 @@ files and the later PR expects the earlier copy.
 | L. Bots loading, copy, forms, approvals | #158 #159 #160 #161 | Bot roster and bot page reserve their shape; file-panel controls are labelled; empty routine title blocks save with a message; one approval decision locks the others. |
 | M. Bots invalidation and links | #163 #164 | Renaming an agent refreshes the roster and bot page; every bot back link stays inside `/<prefix>/bots`. |
 | N. Follow-up batch | #166 #168 #169 #170 | #166 is this runbook and simulator. #168 restores keyboard focus rings on toolbars and dialogs. #169 explains failed loads on adapters, the timeline and user profiles. #170 names direct fields that have no htmlFor association and the inbox search. Run the keyboard and state Playwright specs named in each PR. |
+| O. Newer lane A gates | #167 #157 #165 | #167 is the draft combo of #158 + #145 + #162; mark it ready, then open one tagged and one untagged bot page and run `pnpm --filter @paperclipai/ui exec vitest run src/pages/Bots.test.tsx`. #157: `node scripts/agent-preflight.mjs` logs the plugin-sdk build. #165: `node --test scripts/__tests__/chat-shard-workers.test.mjs`. |
 
 ## What supersedes what
 
@@ -117,20 +125,24 @@ files and the later PR expects the earlier copy.
   instead of the drawer. It is deliberately outside the train and stays
   `MERGEABLE` alone. If Alex prefers the rail, merge #152 instead of #147/#155
   and drop those two; do not merge all three.
-- **#162 supersedes nothing but conflicts with #158.** #162 adds the bots
-  coverage report and gateway UI; #158 replaces the inline spinners in
-  `Bots.tsx` and `BotDetail.tsx` with skeletons. A draft combo PR applies #162
-  on top of #158 with both changes kept (see the PR link on #158 and #162).
-  If #162 is accepted first, merge #162 then the combo; otherwise merge the
-  train and close #162 as covered.
-- **#158 must precede #162** if both are merged manually. Reversing them
-  conflicts in `ui/src/pages/Bots.tsx` and `ui/src/pages/BotDetail.tsx`.
+- **#167 contains #158, #145 and #162.** #167 is the conflict-resolved combo:
+  it carries #158's skeleton loading, #145's gateway-policy derivation and #162's
+  coverage report. Merge #158 first, then #167, and close #145 and #162 as
+  covered. Do not merge all four.
+- **#167 was the only branch edited in this pass.** Its `bots:coverage` script
+  moved next to `bots:register` so #165's `test:chat-shard-workers` entry no
+  longer contests the same `package.json` slot. Both additions are kept.
+- **#158 must precede #167** (and must have preceded #162 if merged directly).
+  Reversing them conflicts in `ui/src/pages/Bots.tsx` and
+  `ui/src/pages/BotDetail.tsx`.
 - **#158 is stacked on #118.** Lane A's #100/#108 changed the same `BotDetail`
   import line that #158 shortened. #158 was rebased onto a base that contains
   #118, so it now carries lane A's bot commits until #118 merges. That is the
   only stacked lane-D PR; it must merge after #118, as the order says. The
   resolution keeps `RefreshCw` (the gateway live-data block uses it) and adds
   `Skeleton` and `QueryPlaceholder`.
+- **#145 is stacked on #118 and #162 is stacked on #145.** #167 is the only
+  branch in the train that contains all three; that is why it replaces them.
 
 ### Standalone (draft) order
 
@@ -146,8 +158,8 @@ files and the later PR expects the earlier copy.
    `git fetch origin && git rebase origin/<previous-branch>`.
 3. Resolve by keeping both sides unless the PR explicitly supersedes the other
    one. For #158/#118 specifically: keep `RefreshCw` (the gateway block uses it)
-   and add `Skeleton` and `QueryPlaceholder`. For #158/#162: add the coverage
-   UI on top of the skeleton loading state.
+   and add `Skeleton` and `QueryPlaceholder`. For #158/#145/#162: merge #158,
+   then #167, and close #145 and #162 as covered.
 4. Push the rebased branch and rerun the script from PR 1. Your local branch
    must be the PR's head branch; do not force-push a branch another lane owns.
 
