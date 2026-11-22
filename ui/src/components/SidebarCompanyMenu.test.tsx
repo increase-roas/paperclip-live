@@ -445,12 +445,12 @@ describe("SidebarCompanyMenu", () => {
     expect(document.body.textContent).toContain("Create organization");
     expect(document.body.textContent).not.toContain("Add company...");
 
-    const editButton = Array.from(document.body.querySelectorAll("button"))
+    const editItem = Array.from(document.body.querySelectorAll('[data-slot="dropdown-menu-item"]'))
       .find((element) => element.textContent === "Edit");
-    expect(editButton).toBeTruthy();
+    expect(editItem).toBeTruthy();
 
     act(() => {
-      editButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      editItem?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     await flushReact();
 

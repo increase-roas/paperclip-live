@@ -252,7 +252,7 @@ function BuiltinCompanyMenu({ open: controlledOpen, onOpenChange }: SidebarCompa
   );
 
   return (
-    <DropdownMenu open={open} onOpenChange={handleOpenChange}>
+    <DropdownMenu open={open} onOpenChange={handleOpenChange} modal={false}>
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
@@ -299,22 +299,22 @@ function BuiltinCompanyMenu({ open: controlledOpen, onOpenChange }: SidebarCompa
           <DropdownMenuLabel className="p-0 text-(length:--text-compact) font-semibold text-foreground">
             Organizations
           </DropdownMenuLabel>
-          <button
-            type="button"
-            onClick={(event) => {
+          <DropdownMenuItem
+            onSelect={(event) => {
+              // Keep the switcher open while the list switches to reorder mode.
               event.preventDefault();
-              event.stopPropagation();
               setIsEditingOrder((current) => !current);
             }}
-            className="rounded px-1.5 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="rounded px-1.5 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus:bg-accent focus:text-foreground"
           >
             {isEditingOrder ? "Done" : "Edit"}
-          </button>
+          </DropdownMenuItem>
         </div>
         <div className="flex max-h-96 flex-col gap-0.5 overflow-y-auto px-2.5 pb-2 pt-1">
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
+            accessibility={typeof document === "undefined" ? undefined : { container: document.body }}
             onDragEnd={handleDragEnd}
           >
             <SortableContext

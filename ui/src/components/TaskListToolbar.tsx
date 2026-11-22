@@ -26,7 +26,7 @@ export function TaskListToolbar({ view, onViewChange, viewOptions = views, viewC
 }) {
   return (
     <div data-canonical-toolbar="tasks" className="design-page-toolbar" role="toolbar" aria-label="Task list controls">
-      {viewControl ?? <DropdownMenu>
+      {viewControl ?? <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild><Button variant="outline" className="design-toolbar-button design-view-trigger" aria-label={`Task view: ${viewOptions.find(option => option.value === view)!.label}`}>{viewOptions.find(option => option.value === view)!.label}<ChevronDown aria-hidden /></Button></DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="task-list-options" aria-label="Task views">
           <DropdownMenuLabel asChild><FlyoutHeader className="task-list-options-heading">Views</FlyoutHeader></DropdownMenuLabel>
