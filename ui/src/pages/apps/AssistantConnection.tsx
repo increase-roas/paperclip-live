@@ -35,9 +35,12 @@ export function useAssistantConnections(poll = false) {
     enabled: Boolean(selectedCompanyId), refetchInterval: poll ? 5000 : false,
   });
   const view = useQueryView(query);
+  const unavailable = view.kind === "error" && view.errorKind === "not_found";
   return {
     ...query,
     view,
+    /** The management routes are absent when the instance has no public MCP origin. */
+    unavailable,
     /** Loaded rows are shown through a transient refetch failure (`stale`) as well as `ready`. */
     loaded: view.kind === "ready" || view.kind === "stale",
     rows: (query.data ?? []).filter(row => row.companyId === selectedCompanyId && !row.revokedAt && !row.scopes.includes("paperclip:agent")),
@@ -48,7 +51,10 @@ export function useAssistantConnections(poll = false) {
 export function AssistantConnectionCard({ onNavigate }: { onNavigate: (href: string) => void }) {
   const connections = useAssistantConnections();
   const active = connections.rows;
-  const action = !connections.loaded ? "Open" : active.length ? "Manage" : "Set up";
+  // A missing management route means this instance has no assistant endpoint.
+  // That is configuration, not a failed read: do not show an error the person
+  // cannot fix from here.
+  const action = !connections.loaded || connections.unavailable ? "Open" : active.length ? "Manage" : "Set up";
   return <div role="listitem" data-app-slug="assistant-connection" data-connected={connections.loaded ? String(active.length > 0) : undefined} className="overflow-hidden rounded-xl border border-border">
     <div className="flex flex-wrap items-center gap-3 px-4 py-4">
       <Paperclip className="size-9 shrink-0 p-1 text-foreground" aria-hidden="true" />
@@ -59,9 +65,10 @@ export function AssistantConnectionCard({ onNavigate }: { onNavigate: (href: str
       <Button type="button" size="sm" variant="outline" onClick={() => onNavigate(ASSISTANT_CONNECTION_PATH)} aria-label={`${action} Assistant Connection (MCP)`}>{action}</Button>
     </div>
     {(connections.isPending || connections.view.kind === "reconnecting") && <p className="border-t border-border px-4 py-3 text-xs text-muted-foreground">Checking your connection status…</p>}
-    {connections.view.kind === "error" && <div className="border-t border-border px-4 py-3">
+    {connections.view.kind === "error" && !connections.unavailable && <div className="border-t border-border px-4 py-3">
       <QueryErrorState error={connections.error} action="load your connection status" onRetry={connections.view.retry} retrying={connections.view.isFetching} />
     </div>}
+    {connections.unavailable && <p className="border-t border-border px-4 py-3 text-xs text-muted-foreground">Assistant connections are unavailable on this instance. Open the card to see the administrator steps.</p>}
     {connections.loaded && active.length > 0 && <div className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-3 text-sm">
       {active.map(row => <Identity key={row.id} name={assistantConnectionDisplayName(row)} avatarUrl={row.user?.image} initials={deriveInitials(row.user?.name ?? "You")} size="sm" />)}
     </div>}
@@ -85,10 +92,9 @@ function CopyValue({ value, label }: { value: string; label: string }) {
   </div>;
 }
 
-/** Setup copy that depends on the instance, not on the request: signed out, or no public URL configured. */
-function setupUnavailableCopy(errorKind: "auth" | "not_found"): string {
-  if (errorKind === "auth") return "Sign in to connect an assistant. This requires a Paperclip instance with authenticated user accounts.";
-  return "Assistant connections need an authenticated instance with a public HTTPS URL. Ask your instance administrator to configure the public URL, then try again.";
+/** Setup copy for a request that needs an authenticated human session. */
+function setupUnavailableCopy(): string {
+  return "Sign in to connect an assistant. This requires a Paperclip instance with authenticated user accounts.";
 }
 
 export function AssistantConnection({ initialAssistant = "codex" }: { initialAssistant?: Assistant } = {}) {
@@ -119,12 +125,15 @@ export function AssistantConnection({ initialAssistant = "codex" }: { initialAss
       </div>
     </header>
     {(setup.isPending || setupView.kind === "reconnecting") && <p className="text-sm text-muted-foreground">Loading assistant setup…</p>}
-    {setupView.kind === "error" && (setupView.errorKind === "auth" || setupView.errorKind === "not_found"
-      ? <div role="alert" className="space-y-3"><p className="text-sm text-destructive">{setupUnavailableCopy(setupView.errorKind)}</p><Button variant="outline" disabled={setupView.isFetching} onClick={setupView.retry}>Try again</Button></div>
-      : <QueryErrorState error={setup.error} action="load assistant setup" onRetry={setupView.retry} retrying={setupView.isFetching} />)}
-    {setup.data && !setup.data.enabled && <section className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
+    {setupView.kind === "error" && setupView.errorKind === "auth" && (
+      <div role="alert" className="space-y-3"><p className="text-sm text-destructive">{setupUnavailableCopy()}</p><Button variant="outline" disabled={setupView.isFetching} onClick={setupView.retry}>Try again</Button></div>
+    )}
+    {setupView.kind === "error" && setupView.errorKind !== "auth" && setupView.errorKind !== "not_found" && <QueryErrorState error={setup.error} action="load assistant setup" onRetry={setupView.retry} retrying={setupView.isFetching} />}
+    {(setupView.errorKind === "not_found" || (setup.data && !setup.data.enabled)) && <section className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
       <h2 className="text-sm font-semibold">Enable assistant connections</h2>
-      <p className="text-sm text-muted-foreground">An instance administrator must turn on Assistant connections (MCP) in Experimental settings. Then return here to connect your assistant.</p>
+      <p className="text-sm text-muted-foreground">{setupView.errorKind === "not_found"
+        ? "This instance has no public assistant endpoint yet. An instance administrator must configure a public HTTPS URL and turn on Assistant connections (MCP) in Experimental settings. Then return here to connect your assistant."
+        : "An instance administrator must turn on Assistant connections (MCP) in Experimental settings. Then return here to connect your assistant."}</p>
       <Button variant="outline" asChild><Link to="/company/settings/instance/experimental">Open Experimental settings</Link></Button>
     </section>}
     {setup.data?.enabled && <>
@@ -146,7 +155,7 @@ export function AssistantConnection({ initialAssistant = "codex" }: { initialAss
         <CopyValue value={serverUrl} label="MCP server URL" />
       </details>
     </>}
-    <section className="space-y-3" aria-labelledby="connected-assistants">
+    {setup.data?.enabled && <section className="space-y-3" aria-labelledby="connected-assistants">
       <h2 id="connected-assistants" className="text-sm font-semibold">Your connected assistants</h2>
       {(connections.isPending || connections.view.kind === "reconnecting") && <p className="text-sm text-muted-foreground">Loading connections…</p>}
       {revoke.error && <p role="alert" className="text-sm text-destructive">Couldn’t revoke this connection. Try again. <button type="button" className="underline" onClick={() => void connections.refetch()}>Refresh</button></p>}
@@ -156,7 +165,7 @@ export function AssistantConnection({ initialAssistant = "codex" }: { initialAss
         <div className="min-w-0 flex-1 space-y-1"><Identity name={assistantConnectionDisplayName(row)} avatarUrl={row.user?.image} initials={deriveInitials(row.user?.name ?? "You")} className="font-medium" /><p className="text-xs text-muted-foreground">{`Connected as you · ${row.scopes.includes("paperclip:write") ? "Read and write" : "Read only"}${row.scopes.includes("paperclip:configure") ? " · Configure agents, projects and skills" : ""}`}</p></div>
         <Button variant="outline" size="sm" disabled={revoke.isPending} onClick={() => revoke.mutate(row.id)} aria-label={`Revoke ${assistantConnectionDisplayName(row)}`}>Revoke</Button>
       </div>)}</div>
-    </section>
+    </section>}
     <footer className="flex items-center justify-between gap-3 border-t border-border pt-4"><Button variant="ghost" asChild><Link to="/apps">Back to Connections</Link></Button><a className="inline-flex items-center gap-1 text-xs text-muted-foreground underline" href={assistant === "opencode" ? "https://opencode.ai/docs/mcp-servers/" : assistant === "claude" ? "https://code.claude.com/docs/en/mcp" : "https://developers.openai.com/codex/mcp"} target="_blank" rel="noreferrer">Setup documentation <ExternalLink className="size-3" /></a></footer>
   </div>;
 }
