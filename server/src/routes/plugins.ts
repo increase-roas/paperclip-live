@@ -26,6 +26,7 @@ import { pluginApiUpgrade, proxyPluginApiWebSocket } from "../realtime/plugin-ap
 import { trustedBoardMutationOrigin } from "../middleware/board-mutation-guard.js";
 import { authorizationService } from "../services/authorization.js";
 import { fileURLToPath } from "node:url";
+import { toolCallFailure } from "./tool-call-failure.js";
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { and, desc, eq, gte, inArray } from "drizzle-orm";
@@ -1117,12 +1118,8 @@ export function pluginRoutes(
           res.status(err.status).json({ error: err.message, reasonCode: err.reasonCode, ...err.details });
           return;
         }
-        const message = err instanceof Error ? err.message : String(err);
-        if (message.includes("not running") || message.includes("worker")) {
-          res.status(502).json({ error: message });
-        } else {
-          res.status(500).json({ error: message });
-        }
+        const failure = toolCallFailure(err);
+        res.status(failure.status).json(failure.body);
       }
       return;
     }
@@ -1142,14 +1139,8 @@ export function pluginRoutes(
       );
       res.json(result);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-
-      // Distinguish between "worker not running" (502) and other errors (500)
-      if (message.includes("not running") || message.includes("worker")) {
-        res.status(502).json({ error: message });
-      } else {
-        res.status(500).json({ error: message });
-      }
+      const failure = toolCallFailure(err);
+      res.status(failure.status).json(failure.body);
     }
   });
 

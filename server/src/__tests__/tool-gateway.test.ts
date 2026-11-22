@@ -6284,4 +6284,23 @@ rl.on("line", (line) => {
       (error) => expectGatewayError(error, 403, "run_context_mismatch"),
     );
   });
+
+  // An unexpected failure can carry SQL text, filesystem paths or provider URLs.
+  // The caller gets a stable message; the server log keeps the detail.
+  it("answers an unexpected gateway failure without echoing its message", async () => {
+    const failure = new Error("ENOENT: /root/.paperclip/company-secrets/master.key");
+    const gateway = {
+      listToolsForSession: vi.fn(async () => { throw failure; }),
+    } as unknown as ReturnType<typeof createTestToolGatewayService>;
+    const app = createGatewayRouteApp(db, gateway);
+    const response = await request(app)
+      .get("/api/tool-gateway/tools")
+      .set("x-paperclip-tool-gateway-token", "session-token");
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({
+      error: "The tool gateway could not complete the request. Try again, then check the server log.",
+    });
+    expect(JSON.stringify(response.body)).not.toContain("master.key");
+  });
+
 });
