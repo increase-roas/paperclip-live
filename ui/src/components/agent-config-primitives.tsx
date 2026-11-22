@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { cloneElement, isValidElement, useState, useRef, useEffect, useCallback } from "react";
 import {
   Tooltip,
   TooltipTrigger,
@@ -94,9 +94,23 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
         <label className="text-xs text-muted-foreground">{label}</label>
         {hint && <HintIcon text={hint} />}
       </div>
-      {children}
+      {labeledFieldChild(children, label)}
     </div>
   );
+}
+
+/**
+ * A bare `<label>` does not name its control. Name a direct
+ * input/select/textarea from the visible label; composite children keep their
+ * own labels, so do not invent a name for a wrapper.
+ */
+function labeledFieldChild(children: React.ReactNode, label: string): React.ReactNode {
+  if (!isValidElement(children) || typeof children.type !== "string" || !/^(input|select|textarea)$/.test(children.type)) {
+    return children;
+  }
+  const props = children.props as { "aria-label"?: string; "aria-labelledby"?: string };
+  if (props["aria-label"] || props["aria-labelledby"]) return children;
+  return cloneElement(children as React.ReactElement<Record<string, unknown>>, { "aria-label": label });
 }
 
 export function ToggleField({

@@ -710,7 +710,9 @@ describe("Inbox toolbar", () => {
       );
     });
 
-    expect(container.querySelector('input[placeholder="Search inbox…"]')).not.toBeNull();
+    const inboxSearch = container.querySelector<HTMLInputElement>('input[placeholder="Search inbox…"]');
+    expect(inboxSearch).not.toBeNull();
+    expect(inboxSearch?.getAttribute("aria-label")).toBe("Search inbox");
     expect(container.querySelector('[data-testid="inbox-blocked-tab-badge"]')).toBeNull();
     expect(container.querySelector('button[title="Filter"]')).not.toBeNull();
     expect(container.querySelector('button[title="Group"]')).not.toBeNull();

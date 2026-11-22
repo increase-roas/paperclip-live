@@ -2626,6 +2626,7 @@ function StreamlinedInbox({
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="search"
+              aria-label={`Search ${surfaceLabel.toLowerCase()}`}
               placeholder={`Search ${surfaceLabel.toLowerCase()}…`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
