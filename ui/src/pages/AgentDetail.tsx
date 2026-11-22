@@ -1,9 +1,11 @@
 import { useAgentEditMutations } from "./agent/useAgentEditMutations";
 import { AgentRunFailureNotices } from "@/components/agent/AgentRunFailureNotices";
-import { describeError } from "../api/errors";
+import { AgentKeysTab } from "@/components/agent/AgentKeysTab";
+import { GrokBotWorkSummary } from "@/components/GrokBotWorkSummary";
+
 import { useSelectedHeartbeatRun } from "../hooks/useSelectedHeartbeatRun";
 import { grokBotApi } from "@/api/grokBot";
-import { GrokBotWorkSummary } from "@/components/GrokBotWorkSummary";
+
 import { PrimaryAgentCrownButton } from "@/components/primary-agent/PrimaryAgentPresentation";
 import { AiConnectionPoolRunDetails } from "@/components/ai-connections/AiConnectionPoolRunDetails";
 import { ProviderFailureNotice } from "@/components/ProviderFailureNotice";
@@ -14,14 +16,9 @@ import { InstructionHistory } from "../components/InstructionHistory";
 import { AgentCharacter } from "../components/AgentCharacter";
 import { characterStateForAgent, HEARTBEAT_RUN_LIST_DEFAULT_LIMIT } from "@paperclipai/shared";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState, useRef } from "react";
-import { useParams, useNavigate, useLocation, Link, Navigate, useBeforeUnload, type NavigateFunction } from "@/lib/router";
-import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import {
-  agentsApi,
-  type AgentKey,
-  type ClaudeLoginResult,
-  type AgentPermissionUpdate,
-} from "../api/agents";
+import { useParams, useNavigate, useLocation, Link, Navigate, useBeforeUnload } from "@/lib/router";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { agentsApi, type ClaudeLoginResult, type AgentPermissionUpdate } from "../api/agents";
 import { builtInAgentsApi, type BuiltInManagedResourceKind } from "../api/builtInAgents";
 import { companySkillsApi } from "../api/companySkills";
 import { heartbeatsApi } from "../api/heartbeats";
@@ -43,10 +40,10 @@ import { copyTextToClipboard } from "../lib/clipboard";
 import { AgentSkillsTab } from "./agent-skills/AgentSkillsTab";
 import { AgentConfigForm } from "../components/AgentConfigForm";
 import { agentDisplayAdapterType, getAdapterDisplay } from "../adapters/adapter-display-registry";
-import { adapterLabels, roleLabels, help } from "../components/agent-config-primitives";
+import { roleLabels } from "../components/agent-config-primitives";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import { useAdapterCapabilities } from "@/adapters/use-adapter-capabilities";
-import { MarkdownEditor } from "../components/MarkdownEditor";
+
 import { assetsApi } from "../api/assets";
 import { StatusBadge } from "../components/StatusBadge";
 import { AgentLifecycleStatus, useAgentLifecycleStatus } from "../components/AgentLifecycleStatus";
@@ -54,13 +51,12 @@ import { AgentAuthReconnectNotice } from "../components/AgentAuthReconnectNotice
 import { agentNeedsAuthReconnect, isProviderAuthFailureCode, providerAuthLabel } from "../lib/provider-auth";
 import { MarkdownBody } from "../components/MarkdownBody";
 import { CopyText } from "../components/CopyText";
-import { IssueRow } from "../components/IssueRow";
+
 import { TaskSummaryList } from "../components/TaskSummaryList";
-import { useDesignSandbox } from "../context/DesignSandboxContext";
+
 import { StatusGlyph } from "../components/StatusGlyph";
 import { MembershipAction } from "../components/MembershipAction";
-import { StarToggle } from "../components/StarToggle";
-import { Identity } from "../components/Identity";
+
 import { PageSkeleton } from "../components/PageSkeleton";
 import { QueryErrorState, queryViewKind, useQueryView } from "../components/QueryView";
 import { AgentActionButtons } from "../components/AgentActionButtons";
@@ -78,54 +74,15 @@ import { formatCents, formatDate, relativeTime, formatTokens, visibleRunCostUsd,
 import { cn } from "../lib/utils";
 import { RunRetryDetails } from "../components/RunRetryDetails";
 import { Button } from "@/components/ui/button";
-import { Tabs } from "@/components/ui/tabs";
-import { PageTabBar } from "../components/PageTabBar";
-import { AuditFeed } from "./audit/AuditFeed";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import {
-  CheckCircle2,
-  XCircle,
-  Clock,
-  Timer,
-  Loader2,
-  Slash,
-  RotateCcw,
-  Plus,
-  Key,
-  Eye,
-  EyeOff,
-  Copy,
-  ChevronRight,
-  ChevronDown,
-  ArrowLeft,
-  HelpCircle,
-  FolderOpen,
-  AlertTriangle,
-  History as HistoryIcon,
-  Activity as ActivityIcon,
-  PlayCircle,
-  ReceiptText,
-  Gauge,
-  Pencil,
-  Trash2,
-} from "lucide-react";
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { CheckCircle2, XCircle, Clock, Timer, Loader2, Slash, RotateCcw, Plus, Eye, Copy, ChevronRight, ArrowLeft, FolderOpen, AlertTriangle, History as HistoryIcon, Activity as ActivityIcon, PlayCircle, ReceiptText, Gauge, Pencil, Trash2 } from "lucide-react";
+
 import { Input } from "@/components/ui/input";
 import { AgentToolsTab } from "./AgentToolsTab";
 import { AgentChannelsPanel } from "../components/chat/AgentChannelsPanel";
-import {
-  isUuidLike,
-  type Agent,
-  type AgentDetail as AgentDetailRecord,
-  type HeartbeatRun,
-  type AgentRuntimeState,
-  type Issue,
-  type LiveEvent,
-  isResponsibleUserDenialCode,
-  responsibleUserLabel,
-} from "@paperclipai/shared";
+import { isUuidLike, type Agent, type AgentDetail as AgentDetailRecord, type HeartbeatRun, type AgentRuntimeState, type Issue, isResponsibleUserDenialCode, responsibleUserLabel } from "@paperclipai/shared";
 import { RunWorkspaceRecoverySurface } from "../components/RunWorkspaceRecoverySurface";
 import { RunnerInspector } from "../components/RunnerInspector";
 import { HoneycombRunLink } from "../components/HoneycombRunLink";
@@ -3471,215 +3428,7 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
 
 /* ---- Keys Tab ---- */
 
+/** Thin wrapper kept for the agent-keys test; the keys UI is shared. */
 export function KeysTab({ agentId, companyId }: { agentId: string; companyId?: string }) {
-  const queryClient = useQueryClient();
-  const { pushToast } = useToastActions();
-  const [newKeyName, setNewKeyName] = useState("");
-  const [newToken, setNewToken] = useState<string | null>(null);
-  const [tokenVisible, setTokenVisible] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [revokeTarget, setRevokeTarget] = useState<AgentKey | null>(null);
-
-  const { data: keys, isLoading } = useQuery({
-    queryKey: queryKeys.agents.keys(agentId),
-    queryFn: () => agentsApi.listKeys(agentId, companyId),
-  });
-
-  const createKey = useMutation({
-    mutationFn: () => agentsApi.createKey(agentId, newKeyName.trim() || "Default", companyId),
-    onSuccess: (data) => {
-      setNewToken(data.token);
-      setTokenVisible(true);
-      setNewKeyName("");
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.keys(agentId) });
-    },
-  });
-
-  const revokeKey = useMutation({
-    mutationFn: (keyId: string) => agentsApi.revokeKey(agentId, keyId, companyId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.keys(agentId) });
-    },
-    onError: (error) => {
-      pushToast({
-        title: "Failed to revoke the API key",
-        body: describeError(error, { action: "revoke the API key" }).body,
-        tone: "error",
-      });
-    },
-  });
-
-  function copyToken() {
-    if (!newToken) return;
-    void copyTextToClipboard(newToken)
-      .then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      })
-      .catch(() => {
-        pushToast({ title: "Copy failed", body: "Clipboard access is unavailable.", tone: "error" });
-      });
-  }
-
-  const activeKeys = (keys ?? []).filter((k: AgentKey) => !k.revokedAt);
-  const revokedKeys = (keys ?? []).filter((k: AgentKey) => k.revokedAt);
-
-  return (
-    <div className="space-y-6">
-      {/* New token banner */}
-      {newToken && (
-        <div className="border border-yellow-300 dark:border-yellow-600/40 bg-yellow-50 dark:bg-yellow-500/5 rounded-lg p-4 space-y-2">
-          <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
-            API key created — copy it now, it will not be shown again.
-          </p>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 bg-neutral-100 dark:bg-neutral-950 rounded px-3 py-1.5 text-xs font-mono text-green-700 dark:text-green-300 truncate">
-              {tokenVisible ? newToken : newToken.replace(/./g, "•")}
-            </code>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setTokenVisible((v) => !v)}
-              title={tokenVisible ? "Hide" : "Show"}
-            >
-              {tokenVisible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={copyToken}
-              title="Copy"
-            >
-              <Copy className="h-3.5 w-3.5" />
-            </Button>
-            {copied && <span className="text-xs text-green-400">Copied!</span>}
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground text-xs"
-            onClick={() => setNewToken(null)}
-          >
-            Dismiss
-          </Button>
-        </div>
-      )}
-
-      {/* Create new key */}
-      <div className="border border-border rounded-lg p-4 space-y-3">
-        <h3 className="text-xs font-medium text-muted-foreground flex items-center gap-2">
-          <Key className="h-3.5 w-3.5" />
-          Create API Key
-        </h3>
-        <p className="text-xs text-muted-foreground">
-          API keys allow this agent to authenticate calls to the Paperclip server.
-        </p>
-        <div className="flex items-center gap-2">
-          <Input
-            placeholder="Key name (e.g. production)"
-            value={newKeyName}
-            onChange={(e) => setNewKeyName(e.target.value)}
-            className="h-8 text-sm"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") createKey.mutate();
-            }}
-          />
-          <Button
-            size="sm"
-            onClick={() => createKey.mutate()}
-            disabled={createKey.isPending}
-          >
-            <Plus className="h-3.5 w-3.5 mr-1" />
-            Create
-          </Button>
-        </div>
-      </div>
-
-      {/* Active keys */}
-      {isLoading && <p className="text-sm text-muted-foreground">Loading keys...</p>}
-
-      {!isLoading && activeKeys.length === 0 && !newToken && (
-        <p className="text-sm text-muted-foreground">No active API keys.</p>
-      )}
-
-      {activeKeys.length > 0 && (
-        <div>
-          <h3 className="text-xs font-medium text-muted-foreground mb-2">
-            Active Keys
-          </h3>
-          <div className="border border-border rounded-lg divide-y divide-border">
-            {activeKeys.map((key: AgentKey) => (
-              <div key={key.id} className="flex items-center justify-between px-4 py-2.5">
-                <div>
-                  <span className="text-sm font-medium">{key.name}</span>
-                  <span className="text-xs text-muted-foreground ml-3">
-                    Created {formatDate(key.createdAt)}
-                  </span>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive hover:text-destructive text-xs"
-                  onClick={() => setRevokeTarget(key)}
-                  disabled={revokeKey.isPending}
-                >
-                  Revoke
-                </Button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Revoked keys */}
-      {revokedKeys.length > 0 && (
-        <div>
-          <h3 className="text-xs font-medium text-muted-foreground mb-2">
-            Revoked Keys
-          </h3>
-          <div className="border border-border rounded-lg divide-y divide-border opacity-50">
-            {revokedKeys.map((key: AgentKey) => (
-              <div key={key.id} className="flex items-center justify-between px-4 py-2.5">
-                <div>
-                  <span className="text-sm line-through">{key.name}</span>
-                  <span className="text-xs text-muted-foreground ml-3">
-                    Revoked {key.revokedAt ? formatDate(key.revokedAt) : ""}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <AlertDialog
-        open={revokeTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setRevokeTarget(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Revoke this API key?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {revokeTarget
-                ? `${revokeTarget.name} stops working immediately. Agents and scripts that use it must switch to another key.`
-                : "This key stops working immediately."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep key</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-white hover:bg-destructive/90"
-              onClick={() => {
-                if (revokeTarget) revokeKey.mutate(revokeTarget.id);
-              }}
-            >
-              Revoke key
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  );
+  return <AgentKeysTab agentId={agentId} companyId={companyId} confirmRevoke />;
 }

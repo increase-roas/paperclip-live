@@ -1,5 +1,5 @@
 {
-  "$comment": "Duplicate-code scope for scripts/check-duplicate-code.mjs. Generated code, fixtures, browser suites and declarations are excluded because their repetition is intentional or machine-produced. The broker and native Runner are standalone packages that cannot import the workspace observability runtime at run time; their dependency-free observability modules intentionally mirror the shared Sentry/analytics adapters and are reviewed as a pair.",
+  "$comment": "Duplicate-code scope for scripts/check-duplicate-code.mjs. Generated code, fixtures, browser suites and declarations are excluded because their repetition is intentional or machine-produced. The broker and native Runner are standalone packages that cannot import the workspace observability runtime at run time; their dependency-free observability modules intentionally mirror the shared Sentry/analytics adapters and are reviewed as a pair. The Routines.production.tsx page is the flag-off surface kept beside Routines.tsx until the streamlined flag is removed; the two pages share the banner, bulk bar and empty states by design and are reviewed as a pair.",
   "exclude": [
     "packages/tailscale-https-broker/src/observability.ts",
     "packages/paperclip-runner/src/observability.ts",
@@ -16,6 +16,7 @@
     "**/migrations/**",
     "ui/storybook/**",
     "tests/**",
-    "scripts/**"
+    "scripts/**",
+    "ui/src/pages/Routines.production.tsx"
   ]
 }

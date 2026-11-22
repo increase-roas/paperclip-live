@@ -1,6 +1,7 @@
 import { useAgentEditMutations } from "./agent/useAgentEditMutations";
 import { AgentRunFailureNotices } from "@/components/agent/AgentRunFailureNotices";
-import { describeError } from "../api/errors";
+import { AgentKeysTab } from "@/components/agent/AgentKeysTab";
+
 import { useSelectedHeartbeatRun } from "../hooks/useSelectedHeartbeatRun";
 import { AgentCharacter } from "../components/AgentCharacter";
 import { characterStateForAgent } from "@paperclipai/shared";
@@ -8,14 +9,9 @@ import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useNavigate, useLocation, Link, Navigate, useBeforeUnload, type NavigateFunction } from "@/lib/router";
 import { isProviderAuthFailureCode } from "../lib/provider-auth";
 import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import {
-  agentsApi,
-  type AgentKey,
-  type ClaudeLoginResult,
-  type AgentPermissionUpdate,
-} from "../api/agents";
+import { agentsApi, type ClaudeLoginResult, type AgentPermissionUpdate } from "../api/agents";
 import { builtInAgentsApi, type BuiltInManagedResourceKind } from "../api/builtInAgents";
-import { companySkillsApi } from "../api/companySkills";
+
 import { budgetsApi } from "../api/budgets";
 import { heartbeatsApi } from "../api/heartbeats";
 import { runCancellationLabel } from "../lib/run-cancellation-label";
@@ -34,11 +30,11 @@ import { useCompany } from "../context/CompanyContext";
 import { useToastActions } from "../context/ToastContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
-import { copyTextToClipboard } from "../lib/clipboard";
+
 import { AgentSkillsTab } from "./agent-skills/AgentSkillsTab";
 import { AgentConfigForm } from "../components/AgentConfigForm";
 import { PageTabBar } from "../components/PageTabBar";
-import { adapterLabels, roleLabels, help } from "../components/agent-config-primitives";
+import { roleLabels } from "../components/agent-config-primitives";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import { useAdapterCapabilities } from "@/adapters/use-adapter-capabilities";
 import { MarkdownEditor } from "../components/MarkdownEditor";
@@ -50,7 +46,7 @@ import { EntityRow } from "../components/EntityRow";
 import { StatusGlyph } from "../components/StatusGlyph";
 import { MembershipAction } from "../components/MembershipAction";
 import { StarToggle } from "../components/StarToggle";
-import { Identity } from "../components/Identity";
+
 import { AuditFeed } from "./audit/AuditFeed.production";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { QueryErrorState, useQueryView } from "../components/QueryView";
@@ -73,43 +69,14 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import {
-  CheckCircle2,
-  XCircle,
-  Clock,
-  Timer,
-  Loader2,
-  Slash,
-  RotateCcw,
-  Plus,
-  Key,
-  Eye,
-  EyeOff,
-  Copy,
-  ChevronRight,
-  ChevronDown,
-  ArrowLeft,
-  HelpCircle,
-  FolderOpen,
-  AlertTriangle,
-} from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Timer, Loader2, Slash, RotateCcw, Copy, ChevronRight, ChevronDown, ArrowLeft, HelpCircle, FolderOpen, AlertTriangle } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { AgentToolsTab } from "./AgentToolsTab";
 import { AgentChannelsPanel } from "../components/chat/AgentChannelsPanel";
 import { useChatConnectorsEnabled } from "@/hooks/useChatConnectorsEnabled";
-import {
-  isUuidLike,
-  type Agent,
-  type AgentDetail as AgentDetailRecord,
-  type BudgetPolicySummary,
-  type HeartbeatRun,
-  type AgentRuntimeState,
-  type LiveEvent,
-  isResponsibleUserDenialCode,
-  responsibleUserLabel,
-} from "@paperclipai/shared";
+import { isUuidLike, type Agent, type AgentDetail as AgentDetailRecord, type BudgetPolicySummary, type HeartbeatRun, type AgentRuntimeState, isResponsibleUserDenialCode, responsibleUserLabel } from "@paperclipai/shared";
 import { RunWorkspaceRecoverySurface } from "../components/RunWorkspaceRecoverySurface";
 import { buildPermissionsForTrustPreset, getTrustPreset } from "../lib/trust-policy-ui";
 import { agentRouteRef } from "../lib/utils";
@@ -1521,7 +1488,7 @@ function AgentConfigurePage({
       />
       <div>
         <h3 className="text-sm font-medium mb-3">API Keys</h3>
-        <KeysTab agentId={agentId} companyId={companyId} />
+        <AgentKeysTab agentId={agentId} companyId={companyId} />
       </div>
 
       {/* Configuration Revisions — collapsible at the bottom */}
@@ -3194,179 +3161,3 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
 }
 
 /* ---- Keys Tab ---- */
-
-function KeysTab({ agentId, companyId }: { agentId: string; companyId?: string }) {
-  const queryClient = useQueryClient();
-  const { pushToast } = useToastActions();
-  const [newKeyName, setNewKeyName] = useState("");
-  const [newToken, setNewToken] = useState<string | null>(null);
-  const [tokenVisible, setTokenVisible] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  const { data: keys, isLoading } = useQuery({
-    queryKey: queryKeys.agents.keys(agentId),
-    queryFn: () => agentsApi.listKeys(agentId, companyId),
-  });
-
-  const createKey = useMutation({
-    mutationFn: () => agentsApi.createKey(agentId, newKeyName.trim() || "Default", companyId),
-    onSuccess: (data) => {
-      setNewToken(data.token);
-      setTokenVisible(true);
-      setNewKeyName("");
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.keys(agentId) });
-    },
-  });
-
-  const revokeKey = useMutation({
-    mutationFn: (keyId: string) => agentsApi.revokeKey(agentId, keyId, companyId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.keys(agentId) });
-    },
-  });
-
-  function copyToken() {
-    if (!newToken) return;
-    void copyTextToClipboard(newToken)
-      .then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      })
-      .catch(() => {
-        pushToast({ title: "Copy failed", body: "Clipboard access is unavailable.", tone: "error" });
-      });
-  }
-
-  const activeKeys = (keys ?? []).filter((k: AgentKey) => !k.revokedAt);
-  const revokedKeys = (keys ?? []).filter((k: AgentKey) => k.revokedAt);
-
-  return (
-    <div className="space-y-6">
-      {/* New token banner */}
-      {newToken && (
-        <div className="border border-yellow-300 dark:border-yellow-600/40 bg-yellow-50 dark:bg-yellow-500/5 rounded-lg p-4 space-y-2">
-          <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
-            API key created — copy it now, it will not be shown again.
-          </p>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 bg-neutral-100 dark:bg-neutral-950 rounded px-3 py-1.5 text-xs font-mono text-green-700 dark:text-green-300 truncate">
-              {tokenVisible ? newToken : newToken.replace(/./g, "•")}
-            </code>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setTokenVisible((v) => !v)}
-              title={tokenVisible ? "Hide" : "Show"}
-            >
-              {tokenVisible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={copyToken}
-              title="Copy"
-            >
-              <Copy className="h-3.5 w-3.5" />
-            </Button>
-            {copied && <span className="text-xs text-green-400">Copied!</span>}
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground text-xs"
-            onClick={() => setNewToken(null)}
-          >
-            Dismiss
-          </Button>
-        </div>
-      )}
-
-      {/* Create new key */}
-      <div className="border border-border rounded-lg p-4 space-y-3">
-        <h3 className="text-xs font-medium text-muted-foreground flex items-center gap-2">
-          <Key className="h-3.5 w-3.5" />
-          Create API Key
-        </h3>
-        <p className="text-xs text-muted-foreground">
-          API keys allow this agent to authenticate calls to the Paperclip server.
-        </p>
-        <div className="flex items-center gap-2">
-          <Input
-            placeholder="Key name (e.g. production)"
-            value={newKeyName}
-            onChange={(e) => setNewKeyName(e.target.value)}
-            className="h-8 text-sm"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") createKey.mutate();
-            }}
-          />
-          <Button
-            size="sm"
-            onClick={() => createKey.mutate()}
-            disabled={createKey.isPending}
-          >
-            <Plus className="h-3.5 w-3.5 mr-1" />
-            Create
-          </Button>
-        </div>
-      </div>
-
-      {/* Active keys */}
-      {isLoading && <p className="text-sm text-muted-foreground">Loading keys...</p>}
-
-      {!isLoading && activeKeys.length === 0 && !newToken && (
-        <p className="text-sm text-muted-foreground">No active API keys.</p>
-      )}
-
-      {activeKeys.length > 0 && (
-        <div>
-          <h3 className="text-xs font-medium text-muted-foreground mb-2">
-            Active Keys
-          </h3>
-          <div className="border border-border rounded-lg divide-y divide-border">
-            {activeKeys.map((key: AgentKey) => (
-              <div key={key.id} className="flex items-center justify-between px-4 py-2.5">
-                <div>
-                  <span className="text-sm font-medium">{key.name}</span>
-                  <span className="text-xs text-muted-foreground ml-3">
-                    Created {formatDate(key.createdAt)}
-                  </span>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive hover:text-destructive text-xs"
-                  onClick={() => revokeKey.mutate(key.id)}
-                  disabled={revokeKey.isPending}
-                >
-                  Revoke
-                </Button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Revoked keys */}
-      {revokedKeys.length > 0 && (
-        <div>
-          <h3 className="text-xs font-medium text-muted-foreground mb-2">
-            Revoked Keys
-          </h3>
-          <div className="border border-border rounded-lg divide-y divide-border opacity-50">
-            {revokedKeys.map((key: AgentKey) => (
-              <div key={key.id} className="flex items-center justify-between px-4 py-2.5">
-                <div>
-                  <span className="text-sm line-through">{key.name}</span>
-                  <span className="text-xs text-muted-foreground ml-3">
-                    Revoked {key.revokedAt ? formatDate(key.revokedAt) : ""}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
