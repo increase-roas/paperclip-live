@@ -5369,6 +5369,10 @@ html:not(.dark) .coordinator-sidebar {
 .inline-editor-fit > * { grid-area: 1 / 1; min-width: 0; }
 .inline-editor-fit > textarea { width: 0; min-width: calc(100% + var(--spacing) * 2); }
 .agent-roster .agent-roster-identity { padding-inline: 0; background: transparent; border: 0; }
+/* A wide roster table scrolls inside this box. Paint containment keeps its
+   intrinsic width from leaking a few pixels into the page's scroll width on
+   phones. */
+.agent-roster-scroll { contain: paint; }
 .agent-roster [scope="col"] { vertical-align: middle; }
 [data-canonical-toolbar="agent-filters"], [data-canonical-toolbar="gateways"] { justify-content: space-between; }
 [data-canonical-toolbar="audit-activity"], [data-canonical-toolbar="audit-runs"] { align-items: flex-end; }

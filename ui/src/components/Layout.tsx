@@ -150,6 +150,9 @@ export function Layout({ sidebarSections }: { sidebarSections?: ReactNode }) {
   const onboardingTriggered = useRef(false);
   const previousPathname = useRef<string | null>(null);
   const mainContentRef = useRef<HTMLElement | null>(null);
+  const mobileDrawerRef = useRef<HTMLDivElement | null>(null);
+  const pathnameRef = useRef(location.pathname);
+  pathnameRef.current = location.pathname;
   const scrollMemory = useRef(new NavigationScrollMemory());
   const activeScrollKey = useRef<string>(location.key);
   const mobileNavVisible = useMobileNavVisibility(isMobile, location.pathname);
@@ -460,6 +463,35 @@ export function Layout({ sidebarSections }: { sidebarSections?: ReactNode }) {
 
   useCompanyPageMemory();
 
+  // The phone drawer is not a Radix dialog, so it owns its own keyboard
+  // contract: move focus into the drawer on open, close on Escape, and return
+  // focus to the trigger when it closes without navigating.
+  useEffect(() => {
+    if (!isMobile || !sidebarOpen) return;
+    const drawer = mobileDrawerRef.current;
+    if (!drawer) return;
+    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const openedAtPath = pathnameRef.current;
+    drawer.focus({ preventScroll: true });
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      const target = event.target;
+      if (target instanceof Node && !drawer.contains(target)) return;
+      event.preventDefault();
+      setSidebarOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      // A nav choice closes the drawer and changes the route; the new page
+      // owns focus then. An explicit close returns to the menu trigger.
+      if (pathnameRef.current === openedAtPath && returnFocus?.isConnected) {
+        returnFocus.focus({ preventScroll: true });
+      }
+    };
+  }, [isMobile, sidebarOpen, setSidebarOpen]);
+
   useKeyboardShortcuts({
     onNewIssue: () => openNewIssue(),
     onSearch: openSearch,
@@ -600,6 +632,13 @@ export function Layout({ sidebarSections }: { sidebarSections?: ReactNode }) {
       >
       <a
         href="#main-content"
+        onClick={(event) => {
+          const main = document.getElementById("main-content");
+          if (!main) return;
+          event.preventDefault();
+          main.focus({ preventScroll: true });
+          main.scrollIntoView({ block: "start" });
+        }}
         className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-(--z-200) focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         Skip to Main Content
@@ -618,8 +657,15 @@ export function Layout({ sidebarSections }: { sidebarSections?: ReactNode }) {
 
         {isMobile ? (
           <div
+            ref={mobileDrawerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Navigation"
+            tabIndex={-1}
+            data-mobile-drawer=""
+            inert={!sidebarOpen}
             className={cn(
-              "fixed inset-y-0 left-0 z-50 flex flex-col overflow-hidden pt-(--sz-safe-top) transition-transform duration-100 ease-out",
+              "fixed inset-y-0 left-0 z-50 flex flex-col overflow-hidden pt-(--sz-safe-top) transition-transform duration-100 ease-out outline-none",
               sidebarOpen ? "translate-x-0" : "-translate-x-full"
             )}
           >
@@ -735,7 +781,7 @@ export function Layout({ sidebarSections }: { sidebarSections?: ReactNode }) {
                   : undefined
               }
               className={cn(
-                "flex-1 p-4 outline-none md:p-6",
+                "flex-1 scroll-mt-(--sz-60px) p-4 outline-none md:p-6",
                 // The task thread owns its scrollable top spacing. Leaving the
                 // page shell's top padding in place creates a stationary dark
                 // strip below the breadcrumb while messages scroll behind it.

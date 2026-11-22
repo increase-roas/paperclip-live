@@ -117,6 +117,7 @@ export function BreadcrumbBar({ taskDetailLayout = false, showPropertiesToggle =
       className="mr-2 shrink-0"
       onClick={toggleSidebar}
       aria-label="Open sidebar"
+      data-sidebar-trigger=""
     >
       <Menu className="h-5 w-5" />
     </Button>
