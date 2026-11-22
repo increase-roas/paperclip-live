@@ -1754,6 +1754,7 @@ export function ConfigurationTab({
               </p>
             </div>
             <ToggleSwitch
+              aria-label="Can create new agents"
               checked={canCreateAgents}
               onCheckedChange={() =>
                 updatePermissions.mutate({
@@ -1773,6 +1774,7 @@ export function ConfigurationTab({
               </p>
             </div>
             <ToggleSwitch
+              aria-label="Can create/import skills"
               checked={canCreateSkills}
               onCheckedChange={() =>
                 updatePermissions.mutate({
@@ -1792,6 +1794,7 @@ export function ConfigurationTab({
               </p>
             </div>
             <ToggleSwitch
+              aria-label="Can assign tasks"
               checked={canAssignTasks}
               onCheckedChange={() =>
                 updatePermissions.mutate({
