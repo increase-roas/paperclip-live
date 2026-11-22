@@ -68,7 +68,7 @@ import {
   issueTrailingColumns,
 } from "./IssueColumns";
 import { StatusIcon } from "./StatusIcon";
-import { EmptyState } from "./EmptyState";
+import { TaskListEmptyState } from "./TaskListEmptyState";
 import { Identity } from "./Identity";
 import { IssueGroupHeader } from "./IssueGroupHeader";
 import { IssueFiltersPopover } from "./IssueFiltersPopover";
@@ -81,7 +81,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
-import { CircleDot, Plus, ArrowUpDown, Layers, Check, ChevronRight, List, ListTree, User, Search, CircleSlash2, ChevronsDownUp, PanelTopClose, RotateCcw, ListCollapse, FilterX,
+import { CircleDot, Plus, ArrowUpDown, Layers, Check, ChevronRight, List, ListTree, User, Search, CircleSlash2, ChevronsDownUp, PanelTopClose, RotateCcw, ListCollapse,
   SquareKanban,
 } from "lucide-react";
 import {
@@ -2126,17 +2126,11 @@ function StreamlinedIssuesList({
       )}
       {hierarchy.error ? <div role="alert" className="flex items-center gap-2 text-sm text-destructive"><p>{describeError(hierarchy.error, { action: "load task hierarchy" }).body}</p><Button variant="outline" size="sm" onClick={hierarchy.refetch}>Retry hierarchy</Button></div> : null}
       {!collectionLoading && !error && !externalObjectFilterError && visibleListRowCount === 0 && viewState.viewMode === "list" && (
-        <EmptyState
-          icon={CircleDot}
-          title={hasActiveSearchOrFilters ? "No tasks match" : "No tasks yet"}
-          message={hasActiveSearchOrFilters
-            ? "Nothing matches this search and filter combination."
-            : "Create a task to start work."}
-          action={hasActiveSearchOrFilters ? "Clear filters & search" : createActionLabel}
-          actionIcon={hasActiveSearchOrFilters ? FilterX : undefined}
-          onAction={hasActiveSearchOrFilters ? clearTaskFilters : () => openCreateIssueDialog()}
-          secondaryAction={hasActiveSearchOrFilters ? createActionLabel : undefined}
-          onSecondaryAction={hasActiveSearchOrFilters ? () => openCreateIssueDialog() : undefined}
+        <TaskListEmptyState
+          filtered={hasActiveSearchOrFilters}
+          createActionLabel={createActionLabel}
+          onClearFilters={clearTaskFilters}
+          onCreateIssue={() => openCreateIssueDialog()}
         />
       )}
 

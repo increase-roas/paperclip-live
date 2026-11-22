@@ -239,6 +239,35 @@ export function createAggregatorAccounts(db: Db, { options, secrets, audit, cred
    * or the time budget runs out, so a backlog larger than one batch still clears
    * instead of trickling ten rows per tick.
    */
+  /**
+   * One page of due sync rows. Kept outside the sweep loop so the loop body has
+   * no awaited query of its own; each call excludes the rows already visited.
+   */
+  async function dueComposioSyncBatch(cutoff: Date, excludeIds: string[], limit: number) {
+    return db.select({
+      id: toolConnectionAppSyncs.id,
+      companyId: toolConnectionAppSyncs.companyId,
+      connectionId: toolConnectionAppSyncs.connectionId,
+      userId: toolConnectionAppSyncs.userId,
+      credentialKey: toolConnectionAppSyncs.credentialKey,
+      connection: toolConnections,
+    }).from(toolConnectionAppSyncs)
+      .innerJoin(toolConnections, and(
+        eq(toolConnections.id, toolConnectionAppSyncs.connectionId),
+        eq(toolConnections.companyId, toolConnectionAppSyncs.companyId),
+      ))
+      .where(and(
+        eq(toolConnectionAppSyncs.status, "ready"),
+        lt(toolConnectionAppSyncs.lastCompletedAt, cutoff),
+        eq(toolConnections.enabled, true),
+        eq(toolConnections.status, "active"),
+        sql`${toolConnections.config}->>'sourceTemplateKey' = 'composio'`,
+        excludeIds.length > 0 ? notInArray(toolConnectionAppSyncs.id, excludeIds) : undefined,
+      ))
+      .orderBy(asc(toolConnectionAppSyncs.lastCompletedAt))
+      .limit(limit);
+  }
+
   async function sweepComposioAppSyncs(input: {
     staleAfterMs?: number;
     limit?: number;
@@ -257,28 +286,7 @@ export function createAggregatorAccounts(db: Db, { options, secrets, audit, cred
     const failedConnectionIds: string[] = [];
     const seen: string[] = [];
     while (checked < maxRows && Date.now() < deadline) {
-      const due = await db.select({
-        id: toolConnectionAppSyncs.id,
-        companyId: toolConnectionAppSyncs.companyId,
-        connectionId: toolConnectionAppSyncs.connectionId,
-        userId: toolConnectionAppSyncs.userId,
-        credentialKey: toolConnectionAppSyncs.credentialKey,
-        connection: toolConnections,
-      }).from(toolConnectionAppSyncs)
-        .innerJoin(toolConnections, and(
-          eq(toolConnections.id, toolConnectionAppSyncs.connectionId),
-          eq(toolConnections.companyId, toolConnectionAppSyncs.companyId),
-        ))
-        .where(and(
-          eq(toolConnectionAppSyncs.status, "ready"),
-          lt(toolConnectionAppSyncs.lastCompletedAt, cutoff),
-          eq(toolConnections.enabled, true),
-          eq(toolConnections.status, "active"),
-          sql`${toolConnections.config}->>'sourceTemplateKey' = 'composio'`,
-          seen.length > 0 ? notInArray(toolConnectionAppSyncs.id, seen) : undefined,
-        ))
-        .orderBy(asc(toolConnectionAppSyncs.lastCompletedAt))
-        .limit(Math.min(batchSize, maxRows - checked));
+      const due = await dueComposioSyncBatch(cutoff, seen, Math.min(batchSize, maxRows - checked));
       if (due.length === 0) break;
       batches += 1;
       for (const row of due) {
