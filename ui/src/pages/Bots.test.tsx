@@ -647,6 +647,58 @@ describe("Bots", () => {
     }
   });
 
+  it("tells the owner which facts the page still needs, and where each one goes", async () => {
+    params.botId = "agent-1";
+    getMock.mockResolvedValue({
+      ...researchBot,
+      purpose: null,
+      grokBotTwin: false,
+      gateway: null,
+      routines: [],
+      recentActivity: [],
+    });
+
+    await render(<BotDetail />);
+
+    const text = container.textContent ?? "";
+    expect(text).toContain("Needs owner input (3)");
+    expect(text).toContain("What it does:");
+    expect(text).toContain("bot.purpose");
+    expect(text).toContain("Gateway key id:");
+    expect(text).toContain("bot.gateway.keyId");
+    expect(text).toContain("Grok twin:");
+    expect(text).toContain("grokBotTwin");
+    expect(text).toContain("Nothing here is guessed.");
+  });
+
+  it("hides the owner-input callout when the page has nothing missing", async () => {
+    params.botId = "agent-1";
+    getMock.mockResolvedValue({ ...researchBot, routines: [], recentActivity: [] });
+
+    await render(<BotDetail />);
+
+    expect(container.textContent).not.toContain("Needs owner input");
+  });
+
+  it("keeps the owner-input callout on a catalog bot without asking for a twin tag", async () => {
+    params.botId = "catalog:funnel-builder";
+    getMock.mockResolvedValue({ ...funnelCatalogBot, routines: [], recentActivity: [] });
+
+    await render(<BotDetail />);
+
+    const text = container.textContent ?? "";
+    expect(text).toContain("Needs owner input (2)");
+    expect(text).toContain("bot.purpose");
+    expect(text).toContain("bot.gateway.keyId");
+    // The registration panel may mention the twin key; the callout must not ask a
+    // catalog bot for a tag it has no agent row to carry.
+    expect(text).not.toContain("Grok twin:");
+    // Catalog pages still render status, routines and activity.
+    expect(text).toContain("Not registered");
+    expect(text).toContain("No routines assigned.");
+    expect(text).toContain("No recorded activity.");
+  });
+
   it("recovers a failed bot roster with a retry and readable copy", async () => {
     listMock
       .mockRejectedValueOnce(new ApiError("Service unavailable", 503, null))
@@ -709,6 +761,7 @@ describe("Bots", () => {
     const headings = [...container.querySelectorAll("h2")].map((heading) => heading.textContent);
     expect(headings).toEqual([
       "How to register",
+      "Needs owner input (2)",
       "What it does",
       "Gateway key and policy",
       "Routines and schedules",

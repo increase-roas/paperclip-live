@@ -199,6 +199,60 @@ export interface CompanyBotDetail extends CompanyBotSummary {
   recentActivity: BotActivityEntry[];
 }
 
+/** One fact a bot page cannot state because nothing records it yet. */
+export type BotNeedsInputKind = "purpose" | "gateway_key_id" | "grok_twin";
+
+export interface BotNeedsInput {
+  kind: BotNeedsInputKind;
+  /** Section name the operator sees. */
+  label: string;
+  /** Why the page cannot answer, in one sentence. */
+  detail: string;
+  /** Metadata key that fills it, or the owner action when it has no key. */
+  metadataKey: string;
+}
+
+/**
+ * Lists what a bot page still needs from its owner.
+ *
+ * Derived from the API payload only, so the page never guesses: a purpose that
+ * no one wrote, a key id the gateway cannot return, and the twin tag a person
+ * must set. A fully recorded bot returns an empty list and the page shows no
+ * callout.
+ */
+export function botNeedsInput(
+  bot: Pick<CompanyBotSummary, "purpose" | "gateway" | "kind" | "grokBotTwin">,
+): BotNeedsInput[] {
+  const needs: BotNeedsInput[] = [];
+  if (!bot.purpose) {
+    needs.push({
+      kind: "purpose",
+      label: "What it does",
+      detail: "No purpose sentence is recorded, so the page cannot say what this bot is for.",
+      metadataKey: "bot.purpose",
+    });
+  }
+  if (!bot.gateway?.keyId) {
+    needs.push({
+      kind: "gateway_key_id",
+      label: "Gateway key id",
+      detail: bot.gateway
+        ? "The policy is known, but no key id is recorded and the gateway keeps only a hash of each key."
+        : "No gateway key or policy is recorded for this bot.",
+      metadataKey: "bot.gateway.keyId",
+    });
+  }
+  if (bot.kind === "agent" && !bot.grokBotTwin) {
+    needs.push({
+      kind: "grok_twin",
+      label: "Grok twin",
+      detail: "Not marked as the Hermes twin of a Grok bot. Set it only if this agent is the twin.",
+      metadataKey: "grokBotTwin",
+    });
+  }
+  return needs;
+}
+
 const MAX_NAME = 120;
 const MAX_TEXT = 300;
 const MAX_ID = 200;

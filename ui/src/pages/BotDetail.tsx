@@ -11,6 +11,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Link, useNavigate, useParams } from "@/lib/router";
 import { formatDateTime } from "@/lib/utils";
 import { botStatusLabel } from "@/lib/bot-status";
+import { botNeedsInput } from "@paperclipai/shared";
 import { useCompany } from "@/context/CompanyContext";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
 import { queryKeys } from "@/lib/queryKeys";
@@ -256,6 +257,7 @@ export function BotDetail() {
 
   const bot = botView.data;
   if (!bot) return null;
+  const needsInput = botNeedsInput(bot);
   const description = bot.purpose ?? bot.note;
   // Gateway audit rows are body-free: method, path, status and time only.
   const gatewayAudit = gatewayQuery.data?.connected ? gatewayQuery.data.summary.audit.slice(0, 10) : [];
@@ -300,6 +302,22 @@ export function BotDetail() {
         <div>
           <RegisterPanel bot={bot} />
         </div>
+      ) : null}
+
+      {needsInput.length > 0 ? (
+        <Section title={`Needs owner input (${needsInput.length})`}>
+          <p className="text-muted-foreground">
+            These rows stay unknown until someone records them. Nothing here is guessed.
+          </p>
+          <ul className="mt-3 flex flex-col gap-2">
+            {needsInput.map((need) => (
+              <li key={need.kind} className="text-sm">
+                <span className="font-semibold text-foreground">{need.label}:</span> {need.detail}{" "}
+                <code className="font-mono text-xs text-muted-foreground">{need.metadataKey}</code>
+              </li>
+            ))}
+          </ul>
+        </Section>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-2">

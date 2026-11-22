@@ -78,6 +78,25 @@ pnpm bots:register -- --company <companyId> --apply  # create the rows
   the Bots page shows it under **Registration plan** with the apply action
   disabled: applying stays an operator step with the runbook.
 
+## What a page still needs from its owner
+
+A page never leaves a required fact blank. `botNeedsInput` in
+`packages/shared/src/bots.ts` derives the list from the same payload the page
+renders, and `<BotDetail>` shows it as a "Needs owner input (n)" card above the
+sections:
+
+- **What it does** — no `bot.purpose` recorded.
+- **Gateway key id** — no key id recorded. The detail says whether the policy is
+  known, because a known policy with a missing id is a different state from no
+  gateway link at all.
+- **Grok twin** — an agent bot without `grokBotTwin`. Catalog bots have no agent
+  row to tag, so they never get this row.
+
+Each row names the metadata key that fills it, so an operator can act without
+reading this document. A fully recorded bot returns an empty list and the card is
+not rendered. Routines, status and recent activity render the same way for a
+catalog bot; the server returns empty arrays for a bot with no agent row.
+
 ## Pages for untagged Hermes agents
 
 A Hermes gateway agent with no `grokBotTwin` or `agentKind: "bot"` metadata is

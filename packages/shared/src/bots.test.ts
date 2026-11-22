@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   agentGatewayLinkFromConfig,
+  botNeedsInput,
   catalogGatewayLink,
   gatewayPolicyFromBaseUrl,
   KNOWN_GATEWAY_BOTS,
@@ -159,5 +160,64 @@ describe("catalog gateway link", () => {
   it("returns no link when a bot has no preset, so the page keeps its honest empty state", () => {
     expect(catalogGatewayLink({ slug: "unpreset-bot", policy: null })).toBeNull();
     expect(catalogGatewayLink({ slug: "unpreset-bot" })).toBeNull();
+  });
+});
+
+describe("what a bot page still needs from its owner", () => {
+  it("asks nothing when the purpose, key id and twin tag are recorded", () => {
+    expect(
+      botNeedsInput({
+        kind: "agent",
+        purpose: "Runs the daily ad check.",
+        grokBotTwin: true,
+        gateway: { keyId: "gk_live_ads", policy: "ads-checker", provider: "gateway", source: "metadata" },
+      }),
+    ).toEqual([]);
+  });
+
+  it("lists every missing fact for an agent bot, with the metadata key that fills it", () => {
+    expect(
+      botNeedsInput({ kind: "agent", purpose: null, grokBotTwin: false, gateway: null }),
+    ).toEqual([
+      {
+        kind: "purpose",
+        label: "What it does",
+        detail: "No purpose sentence is recorded, so the page cannot say what this bot is for.",
+        metadataKey: "bot.purpose",
+      },
+      {
+        kind: "gateway_key_id",
+        label: "Gateway key id",
+        detail: "No gateway key or policy is recorded for this bot.",
+        metadataKey: "bot.gateway.keyId",
+      },
+      {
+        kind: "grok_twin",
+        label: "Grok twin",
+        detail: "Not marked as the Hermes twin of a Grok bot. Set it only if this agent is the twin.",
+        metadataKey: "grokBotTwin",
+      },
+    ]);
+  });
+
+  it("keeps the twin tag out of a catalog bot, which has no agent row to tag", () => {
+    expect(
+      botNeedsInput({
+        kind: "gateway",
+        purpose: null,
+        grokBotTwin: false,
+        gateway: { keyId: null, policy: "kiwi", provider: "gateway", source: "catalog_preset" },
+      }).map((need) => need.kind),
+    ).toEqual(["purpose", "gateway_key_id"]);
+  });
+
+  it("says the policy is known when only the key id is missing", () => {
+    const keyId = botNeedsInput({
+      kind: "gateway",
+      purpose: "Keeps the drive organized.",
+      grokBotTwin: false,
+      gateway: { keyId: null, policy: "drive-organizer", provider: "gateway", source: "catalog_preset" },
+    }).find((need) => need.kind === "gateway_key_id");
+    expect(keyId?.detail).toContain("policy is known");
   });
 });
