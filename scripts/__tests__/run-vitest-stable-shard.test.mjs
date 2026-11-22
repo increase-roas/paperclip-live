@@ -850,3 +850,14 @@ for (const [group, parallelWorkers, shardArgs] of [
     }
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });
+
+test("skipping the chat integration suite removes its shards and its suite from general-server", () => {
+  const json = dryRunJson(["--skip-chat-integration"]);
+
+  assert.equal(json.skipChatIntegration, true);
+  assert.equal(json.chatVitestShards, null);
+  assert.ok(
+    !json.selectedGeneralServerSuites.includes("server/src/__tests__/chat-channels.integration.test.ts"),
+    "the chat suite must not move into a general-server group",
+  );
+});

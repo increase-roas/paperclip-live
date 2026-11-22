@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { STEPS, parseArguments, selectSteps } from "../check-local.mjs";
+import { STEPS, parseArguments, selectSteps, stepCommand } from "../check-local.mjs";
 import { assetFor, PINNED_VERSION, versionAtLeast } from "../check-actionlint.mjs";
 
 test("default gate runs every step in the documented order", () => {
@@ -62,4 +62,12 @@ test("actionlint versions below the pin are rejected", () => {
   assert.equal(versionAtLeast("1.8.0", PINNED_VERSION), true);
   assert.equal(versionAtLeast("1.7.7", PINNED_VERSION), false);
   assert.equal(versionAtLeast("1.6.9", PINNED_VERSION), false);
+});
+
+test("root skips the embedded-Postgres chat shard only for the tests step", () => {
+  const tests = STEPS.find((step) => step.name === "tests");
+  const lint = STEPS.find((step) => step.name === "lint");
+  assert.deepEqual(stepCommand(tests, { isRoot: true }).slice(-2), ["--", "--skip-chat-integration"]);
+  assert.ok(!stepCommand(tests, { isRoot: false }).includes("--skip-chat-integration"));
+  assert.ok(!stepCommand(lint, { isRoot: true }).includes("--skip-chat-integration"));
 });

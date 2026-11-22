@@ -271,6 +271,7 @@ function parseCliOptions(argv) {
   let group = null;
   let dryRun = false;
   let serialChat = false;
+  let skipChatIntegration = false;
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -321,6 +322,11 @@ function parseCliOptions(argv) {
       continue;
     }
 
+    if (arg === "--skip-chat-integration") {
+      skipChatIntegration = true;
+      continue;
+    }
+
     if (arg === "--group") {
       group = readOptionValue(argv, index, arg);
       index += 1;
@@ -363,6 +369,10 @@ function parseCliOptions(argv) {
     fail(`Unknown group "${group}". Expected one of: ${allowedGeneralGroupNames.join(", ")}.`);
   }
 
+  if (skipChatIntegration && group === generalChatGroupName) {
+    fail("--skip-chat-integration cannot be combined with the general-chat group.");
+  }
+
   if (serialChat && (mode !== generalModeName || group !== generalChatGroupName)) {
     fail("--serial-chat is only valid with --mode general --group general-chat.");
   }
@@ -385,6 +395,7 @@ function parseCliOptions(argv) {
 
   return {
     mode,
+    skipChatIntegration,
     shardIndex,
     shardCount,
     group,
@@ -486,13 +497,17 @@ async function runVitest(args, label, testShard = null, exactFiles = false) {
   });
 }
 
-async function runGeneralSuites(routeTests, chatShards) {
+async function runGeneralSuites(routeTests, chatShards, skipChatIntegration = false) {
+  if (skipChatIntegration) {
+    console.log("[test:run] skipping the chat-channel integration suite (requested)");
+  }
   for (const shard of chatShards ?? []) {
     await runVitest(["--project", "@paperclipai/server", ...serializedServerVitestArgs, chatSuite],
       "chat integration test shard", shard);
   }
   for (const groupName of generalGroupNames) {
-    await runGeneralGroup(routeTests, groupName, null, null, chatShards ? [chatSuite] : []);
+    await runGeneralGroup(routeTests, groupName, null, null,
+      chatShards || skipChatIntegration ? [chatSuite] : []);
   }
 }
 
@@ -679,7 +694,8 @@ if (selection && options.dryRun) {
   writeFileSync(1, JSON.stringify({ selection }));
   process.exit(0);
 }
-const defaultChatShards = !selection && options.group === null && options.mode !== serializedModeName && !hasSharedTestDatabase
+const defaultChatShards = !selection && options.group === null && options.mode !== serializedModeName
+  && !hasSharedTestDatabase && !options.skipChatIntegration
   ? Array.from({ length: 6 }, (_, index) => ({ index, count: 6 }))
   : null;
 if (options.dryRun) {
@@ -692,6 +708,7 @@ if (options.dryRun) {
     JSON.stringify(
       {
         mode: options.mode,
+        skipChatIntegration: options.skipChatIntegration,
         shardIndex: options.shardIndex,
         shardCount: options.shardCount,
         group: options.group,
@@ -700,7 +717,7 @@ if (options.dryRun) {
         selectedSerializedSuites: serializedSuites.map((routeTest) => routeTest.repoPath),
         generalServerSuiteCount: generalServerTestFiles.length,
         selectedGeneralServerSuites:
-          defaultChatShards
+          defaultChatShards || options.skipChatIntegration
             ? generalServerTestFiles.filter(file => file !== chatSuite)
             : options.mode === generalModeName && options.group === generalServerNativeRunnerGroupName
             ? nativeRunnerSuites
@@ -752,7 +769,7 @@ try {
     if (options.group) {
       await runGeneralGroup(routeTests, options.group, options.shardIndex, options.shardCount);
     } else {
-      await runGeneralSuites(routeTests, defaultChatShards);
+      await runGeneralSuites(routeTests, defaultChatShards, options.skipChatIntegration);
     }
   }
 

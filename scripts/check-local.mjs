@@ -115,9 +115,24 @@ function seconds(startedAt) {
   return `${(Number(process.hrtime.bigint() - startedAt) / 1e9).toFixed(1)}s`;
 }
 
-function runStep(step, { noDownload }) {
+export function stepCommand(step, { noDownload = false, isRoot = isRootUser() } = {}) {
   const command = [...step.command];
   if (step.name === "actionlint" && noDownload) command.push("--no-download");
+  // The embedded-Postgres chat shard cannot start as root. The runner can
+  // skip it cleanly so the rest of the unit/jsdom gate still runs.
+  if (step.name === "tests" && isRoot) command.push("--", "--skip-chat-integration");
+  return command;
+}
+
+function isRootUser() {
+  return typeof process.getuid === "function" && process.getuid() === 0;
+}
+
+function runStep(step, { noDownload }) {
+  const command = stepCommand(step, { noDownload });
+  if (step.name === "tests" && isRootUser()) {
+    process.stdout.write("  Root run: skipping the embedded-Postgres chat integration shard. Run as a non-root user to include it.\n");
+  }
   const printable = command
     .map((part) => (part === process.execPath ? "node" : part))
     .map((part) => (/\s/.test(part) ? JSON.stringify(part) : part))

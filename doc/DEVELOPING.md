@@ -1249,9 +1249,11 @@ published SHA-256. Set `ACTIONLINT_BIN` to force a specific binary, or pass
 `--no-download` for an offline run.
 
 Run the full gate as a non-root account when the embedded PostgreSQL integration
-suites must execute; a root run skips them. Browser suites remain separate
-(`pnpm test:e2e`, `pnpm test:release-smoke`). A local pass does not replace
-required CI on the final revision when hosted Actions are available.
+suites must execute. As root, the tests step passes `--skip-chat-integration` to
+`pnpm test:run` so the rest of the suite still runs and the chat-channel
+integration shard is skipped instead of failing collection. Browser suites
+remain separate (`pnpm test:e2e`, `pnpm test:release-smoke`). A local pass does
+not replace required CI on the final revision when hosted Actions are available.
 
 The full local Vitest commands remain available:
 
