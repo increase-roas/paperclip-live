@@ -65,18 +65,19 @@ export function AgentChatSidebar({
   };
   return (
     <section aria-label="Chats" className="group/chats flex flex-col gap-0.5">
-      <div className="relative flex min-h-9 items-center px-4 py-1.5">
+      <div className="flex min-h-9 items-center justify-between gap-2 px-4 py-1.5">
         <span className={cn("font-mono text-(length:--text-nano) font-medium uppercase tracking-widest text-muted-foreground/60", rail && "sr-only")}>Chats</span>
         <Button
           type="button"
           variant="ghost"
-          size="icon-xs"
-          aria-label="Chat with an agent"
-          title="Chat with an agent"
+          size="sm"
+          aria-label="New chat"
+          title="New chat"
           onClick={onOpenChat}
-          className="absolute right-2 top-(--pct-50) -translate-y-(--pct-50) text-muted-foreground opacity-0 group-hover/chats:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
+          className="h-7 gap-1.5 px-2 text-muted-foreground hover:text-foreground"
         >
           <SquarePen aria-hidden="true" className="size-3.5" />
+          <span className={cn(rail && "sr-only")}>New chat</span>
         </Button>
       </div>
       {ordered.map(row)}

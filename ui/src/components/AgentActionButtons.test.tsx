@@ -207,6 +207,15 @@ describe("AgentActionButtons", () => {
     expect(mockAgentsApi.invoke).toHaveBeenCalledWith("agent-1", "company-1");
   });
 
+  it("offers a labelled New chat action that opens the agent conversation", async () => {
+    render(makeAgent(), { showChat: true, workActionsInMenu: true });
+    await flushReact();
+    const chat = [...container.querySelectorAll("button")].find(button => button.textContent === "New chat");
+    expect(chat?.getAttribute("aria-label")).toBe("New chat with Alpha Agent");
+    await act(() => chat!.click());
+    expect(mockNavigate).toHaveBeenCalledWith("/chats/alpha");
+  });
+
   it("checks unsaved changes before leaving to finish setup", async () => {
     const onBeforeNavigate = vi.fn(() => false);
     render(makeAgent({ status: "paused", lifecycleState: "paused", pauseReason: "setup" }), { hasPendingNavigationChanges: true, onBeforeNavigate });
