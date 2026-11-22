@@ -303,4 +303,20 @@ describe("<QueryErrorState>", () => {
     expect(container.textContent).not.toContain("stale_revision");
     expect(container.querySelector("button")?.textContent).toContain("Retry");
   });
+
+  it("keeps the action context in an inline error", () => {
+    act(() => {
+      root.render(
+        <QueryErrorState
+          error={new ApiError("boom", 500, { error: "boom", message: "Upstream failed" })}
+          action="load tasks"
+          size="inline"
+          onRetry={() => undefined}
+        />,
+      );
+    });
+    // A retry cannot infer what failed from a terse server message.
+    expect(container.textContent).toContain("Couldn't load tasks");
+    expect(container.textContent).toContain("Upstream failed");
+  });
 });

@@ -156,7 +156,10 @@ export function QueryErrorState({ error, size = "panel", action, onRetry, retryi
   if (size === "inline") {
     return (
       <span role="alert" data-query-view="error" className={cn("inline-flex flex-wrap items-center gap-2 text-sm text-muted-foreground", className)}>
-        <span>{body}</span>
+        {/* An inline error sits next to the control it replaces, so it must keep
+            the action context. A bare server message such as "boom" does not
+            tell the user what failed. */}
+        <span>{title}{body && body !== title ? ` ${body}` : ""}</span>
         {retryButton}
       </span>
     );

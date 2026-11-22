@@ -13,7 +13,24 @@ interface PageSkeletonProps {
     | "org-chart";
 }
 
-export function PageSkeleton({ variant = "list", collectionHeading }: PageSkeletonProps) {
+type SkeletonVariant = NonNullable<PageSkeletonProps["variant"]>;
+
+/**
+ * The placeholders are decorative. A screen reader needs one named status for
+ * the page while the request is pending, not a silent empty surface.
+ */
+const LOADING_LABELS: Record<SkeletonVariant, string> = {
+  list: "Loading page",
+  "issues-list": "Loading tasks",
+  detail: "Loading details",
+  dashboard: "Loading dashboard",
+  approvals: "Loading approvals",
+  costs: "Loading costs",
+  inbox: "Loading tasks",
+  "org-chart": "Loading organization chart",
+};
+
+function SkeletonBody({ variant, collectionHeading }: { variant: SkeletonVariant; collectionHeading?: PageSkeletonProps["collectionHeading"] }) {
   if (variant === "dashboard") {
     return (
       <div className="space-y-6">
@@ -114,7 +131,7 @@ export function PageSkeleton({ variant = "list", collectionHeading }: PageSkelet
 
   if (variant === "issues-list" || variant === "inbox") {
     return (
-      <div role="status" aria-label="Loading tasks" className="-mx-2 sm:mx-0">
+      <div className="-mx-2 sm:mx-0">
         {collectionHeading ? (
           <div aria-hidden="true" className={collectionHeading === "date"
             ? "flex items-center justify-center py-1.5 text-(length:--text-nano)"
@@ -150,6 +167,14 @@ export function PageSkeleton({ variant = "list", collectionHeading }: PageSkelet
           <Skeleton key={i} className="h-11 w-full rounded-none" />
         ))}
       </div>
+    </div>
+  );
+}
+
+export function PageSkeleton({ variant = "list", collectionHeading }: PageSkeletonProps) {
+  return (
+    <div role="status" aria-label={LOADING_LABELS[variant]}>
+      <SkeletonBody variant={variant} collectionHeading={collectionHeading} />
     </div>
   );
 }

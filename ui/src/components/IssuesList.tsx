@@ -1976,7 +1976,7 @@ function StreamlinedIssuesList({
           Some board columns are showing up to {ISSUE_BOARD_COLUMN_RESULT_LIMIT} tasks. Refine filters or search to reveal the rest.
         </p>
       )}
-      {hierarchy.error ? <div role="alert" className="flex items-center gap-2 text-sm text-destructive"><p>{describeError(hierarchy.error, { action: "load task hierarchy" }).body}</p><Button variant="outline" size="sm" onClick={hierarchy.refetch}>Retry hierarchy</Button></div> : null}
+      {hierarchy.error ? <div role="alert" className="flex items-center gap-2 text-sm text-destructive"><p>Couldn&rsquo;t load the task hierarchy. {describeError(hierarchy.error, { action: "load task hierarchy" }).body}</p><Button variant="outline" size="sm" onClick={hierarchy.refetch}>Retry hierarchy</Button></div> : null}
       {!collectionLoading && !error && !externalObjectFilterError && visibleListRowCount === 0 && viewState.viewMode === "list" && (
         <TaskListEmptyState
           filtered={hasActiveSearchOrFilters}

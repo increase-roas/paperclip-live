@@ -6,6 +6,7 @@ import { ListChecks, SearchX } from "lucide-react";
 import { accessApi } from "@/api/access";
 import { agentsApi } from "@/api/agents";
 import { attentionApi } from "@/api/attention";
+import { describeError } from "@/api/errors";
 import { heartbeatsApi } from "@/api/heartbeats";
 import { issuesApi } from "@/api/issues";
 import { projectsApi } from "@/api/projects";
@@ -285,7 +286,7 @@ export function CoordinatorTasks({ viewControl }: { viewControl?: ReactNode } = 
       allExpanded={collection.allExpanded} onToggleExpanded={collection.toggleExpanded} onNewTask={() => openNewIssue()}
       filters={{ enableRoutineTasksFilter: true, state: collection.filters, onChange: updateFilters, activeFilterCount: collection.activeFilterCount,
         agents: agents.data ?? [], projects: projects.data ?? [], labels: labels.data ?? [], currentUserId: userId, creators: collection.creators }} />
-    {error ? <div role="alert" className="flex items-center gap-2 text-sm text-destructive"><span>{error instanceof Error ? error.message : "Could not load tasks"}</span><Button variant="outline" size="sm" onClick={retry}>Retry</Button></div> : null}
+    {error ? <div role="alert" className="flex items-center gap-2 text-sm text-destructive"><span>Couldn’t load tasks. {describeError(error).body}</span><Button variant="outline" size="sm" onClick={retry}>Retry</Button></div> : null}
     {rowDetailsError ? <div role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><span>Task details couldn’t load.</span><Button variant="ghost" size="sm" onClick={() => void retryRowDetails()}>Retry</Button></div> : null}
     {pending ? <p role="status" className="text-sm text-muted-foreground">Loading tasks…</p> : !error && <>
       <div hidden={collection.layout !== "list"} className="design-task-list-panel">{collection.matchingItems.length ? <TaskList key={companyId}
