@@ -493,9 +493,13 @@ interface IssuesListProps {
   enableAgentCreatedVisibilityFilter?: boolean;
   hasMoreIssues?: boolean;
   isLoadingMoreIssues?: boolean;
+  /** A failed request for the next server page. Stops the automatic scroll retry. */
+  loadMoreError?: unknown;
   mutedIssueIds?: Set<string>;
   issueBadgeById?: Map<string, string>;
   onLoadMoreIssues?: () => void;
+  /** Retry a failed next-page request without waiting for another scroll. */
+  onRetryLoadMore?: () => void;
   onSearchChange?: (search: string) => void;
   /** Opt in per surface while the canonical task row rolls out across collections. */
   rowPresentation?: IssueRowPresentation;
@@ -740,9 +744,11 @@ function StreamlinedIssuesList({
   enableAgentCreatedVisibilityFilter = false,
   hasMoreIssues = false,
   isLoadingMoreIssues = false,
+  loadMoreError,
   mutedIssueIds,
   issueBadgeById,
   onLoadMoreIssues,
+  onRetryLoadMore,
   onSearchChange,
   rowPresentation = "legacy",
   toolbarContext,
@@ -1663,6 +1669,9 @@ function StreamlinedIssuesList({
   const remainingIssueRowCount = Math.max(visibleListRowCount - renderedIssueRowLimit, 0);
   const loadMoreIssueRows = useCallback(() => {
     if (viewState.viewMode !== "list") return;
+    // A failed page waits for an explicit retry. Without this gate every
+    // scroll event next to the sentinel would send the same failing request.
+    if (loadMoreError) return;
     if (hasMoreHierarchyRows && !hierarchy.isFetching) {
       setHierarchyRowBudget((current) => current + ISSUE_ROW_RENDER_BATCH_SIZE);
       setRenderedIssueRowLimit((current) => current + ISSUE_ROW_RENDER_BATCH_SIZE);
@@ -1682,12 +1691,14 @@ function StreamlinedIssuesList({
     hasMoreHierarchyRows,
     hierarchy.isFetching,
     isLoadingMoreIssues,
+    loadMoreError,
     onLoadMoreIssues,
     viewState.viewMode,
   ]);
 
   const canLoadMoreIssues = viewState.viewMode === "list"
     && !isLoading
+    && !loadMoreError
     && (hasMoreRenderedRows || (hasMoreHierarchyRows && !hierarchy.isFetching) || (hasMoreIssues && !isLoadingMoreIssues));
 
   useEffect(() => {
@@ -2621,15 +2632,26 @@ function StreamlinedIssuesList({
           </Collapsible>
           );
           })}
-          {(remainingIssueRowCount > 0 || hasMoreHierarchyRows || hasMoreIssues || isLoadingMoreIssues) && (
+          {(remainingIssueRowCount > 0 || hasMoreHierarchyRows || hasMoreIssues || isLoadingMoreIssues || Boolean(loadMoreError)) && (
             <div className="py-2" data-testid="issues-load-more-sentinel">
-              <p className="text-xs text-muted-foreground">
-                {isLoadingMoreIssues || (hierarchyEnabled && hierarchy.isFetching)
-                  ? "Loading more tasks..."
-                  : remainingIssueRowCount > 0
-                    ? `Rendering ${Math.min(renderedIssueRowLimit, visibleListRowCount)} of ${visibleListRowCount} tasks`
-                    : "Scroll to load more tasks"}
-              </p>
+              {loadMoreError ? (
+                <div role="alert" className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="text-destructive">Could not load more tasks.</span>
+                  {onRetryLoadMore ? (
+                    <Button variant="outline" size="sm" onClick={onRetryLoadMore}>
+                      Retry
+                    </Button>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {isLoadingMoreIssues || (hierarchyEnabled && hierarchy.isFetching)
+                    ? "Loading more tasks..."
+                    : remainingIssueRowCount > 0
+                      ? `Rendering ${Math.min(renderedIssueRowLimit, visibleListRowCount)} of ${visibleListRowCount} tasks`
+                      : "Scroll to load more tasks"}
+                </p>
+              )}
             </div>
           )}
         </div>

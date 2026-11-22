@@ -2006,6 +2006,58 @@ describe("IssuesList", () => {
     });
   });
 
+  it("stops automatic load-more after a failure and retries on request", async () => {
+    const visibleIssues = Array.from({ length: 100 }, (_, index) =>
+      createIssue({
+        id: `issue-${index + 1}`,
+        identifier: `PAP-${index + 1}`,
+        title: `Issue ${index + 1}`,
+      }),
+    );
+    const onLoadMoreIssues = vi.fn();
+    const onRetryLoadMore = vi.fn();
+    setDocumentScrollMetrics({ innerHeight: 2000, scrollY: 0, scrollHeight: 1000 });
+
+    const { root } = renderWithQueryClient(
+      <IssuesList
+        issues={visibleIssues}
+        agents={[]}
+        projects={[]}
+        viewStateKey="paperclip:test-issues"
+        hasMoreIssues
+        loadMoreError={new Error("offline")}
+        onLoadMoreIssues={onLoadMoreIssues}
+        onRetryLoadMore={onRetryLoadMore}
+        onUpdateIssue={() => undefined}
+      />,
+      container,
+    );
+
+    await waitForAssertion(() => {
+      expect(container.querySelector('[role="alert"]')?.textContent).toContain("Could not load more tasks.");
+    });
+    await flush();
+    expect(onLoadMoreIssues).not.toHaveBeenCalled();
+
+    act(() => {
+      setDocumentScrollMetrics({ innerHeight: 600, scrollY: 1500, scrollHeight: 2000 });
+      window.dispatchEvent(new Event("scroll"));
+    });
+    await flushAnimationFrame();
+    expect(onLoadMoreIssues).not.toHaveBeenCalled();
+
+    const retry = Array.from(container.querySelectorAll("button")).find(
+      (candidate) => candidate.textContent?.trim() === "Retry",
+    );
+    expect(retry).toBeDefined();
+    act(() => retry!.click());
+    expect(onRetryLoadMore).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
   it("skips deferred row sizing for expanded parent rows with visible children", async () => {
     const parentIssue = createIssue({
       id: "issue-parent",
