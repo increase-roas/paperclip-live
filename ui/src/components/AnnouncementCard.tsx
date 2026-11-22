@@ -1,5 +1,5 @@
 import { useId, useState, type MouseEvent } from "react";
-import { ArrowUpRight, X } from "lucide-react";
+import { ArrowUpRight, ChevronDown, X } from "lucide-react";
 import type { Announcement, AnnouncementAction } from "@paperclipai/shared";
 import { Link } from "@/lib/router";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,8 @@ import { useAnnouncementAnimation } from "@/hooks/useAnnouncementAnimation";
 export interface AnnouncementCardProps {
   announcement: Announcement;
   onDismiss: () => void;
+  /** Returns the phone card to its compact bar. */
+  onCollapse?: () => void;
   imageSrc?: string;
   animationSrc?: string;
   className?: string;
@@ -27,7 +29,7 @@ function Action({ action, primary, onClick }: { action: AnnouncementAction; prim
   );
 }
 
-export function AnnouncementCard({ announcement, onDismiss, imageSrc, animationSrc, className }: AnnouncementCardProps) {
+export function AnnouncementCard({ announcement, onDismiss, onCollapse, imageSrc, animationSrc, className }: AnnouncementCardProps) {
   const titleId = useId();
   const [failedImage, setFailedImage] = useState<string | null>(null);
   const src = imageSrc ?? `/api/announcements/${encodeURIComponent(announcement.id)}/image`;
@@ -49,10 +51,17 @@ export function AnnouncementCard({ announcement, onDismiss, imageSrc, animationS
           <iframe title={announcement.animation!.alt} aria-hidden="true" tabIndex={-1} sandbox="" referrerPolicy="no-referrer" srcDoc={animationDocument!} className="h-full w-full border-0" />
         </div>}
       </div>}
-      <Button variant="secondary" size="icon" aria-label="Dismiss announcement" onClick={onDismiss} className="absolute right-2 top-2 z-10 size-8 rounded-full shadow-sm">
-        <X className="size-4" aria-hidden="true" />
-      </Button>
-      <div className={cn("flex flex-col gap-1 px-4 py-4", !showImage && !animationDocument && "pr-12")}>
+      <div className="absolute right-2 top-2 z-10 flex items-center gap-1">
+        {onCollapse ? (
+          <Button variant="secondary" size="icon" aria-label="Collapse announcement" aria-expanded={true} onClick={onCollapse} className="size-8 rounded-full shadow-sm">
+            <ChevronDown className="size-4" aria-hidden="true" />
+          </Button>
+        ) : null}
+        <Button variant="secondary" size="icon" aria-label="Dismiss announcement" onClick={onDismiss} className="size-8 rounded-full shadow-sm">
+          <X className="size-4" aria-hidden="true" />
+        </Button>
+      </div>
+      <div className={cn("flex flex-col gap-1 px-4 py-4", !showImage && !animationDocument && (onCollapse ? "pr-24" : "pr-12"))}>
         <p className="text-xs text-muted-foreground">{announcement.eyebrow}</p>
         <h2 id={titleId} className="break-words text-base font-semibold leading-snug">{announcement.title}</h2>
         <p className="break-words text-sm leading-snug text-muted-foreground">{announcement.description}</p>

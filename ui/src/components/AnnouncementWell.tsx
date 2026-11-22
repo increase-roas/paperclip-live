@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { ChevronUp, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { ONBOARDING_FIRST_TASK_ORIGIN_KIND } from "@paperclipai/shared";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAccountIdentity } from "@/api/companies-query";
 import type { HealthStatus } from "@/api/health";
@@ -72,7 +74,14 @@ export function AnnouncementWell({ health, placement = "floating" }: { health?: 
   });
   const modalOpen = useModalOpen(Boolean(announcement));
   const wellRef = useRef<HTMLElement | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  // A new announcement starts compact again. The compact bar is a phone-only
+  // resting state; tapping it opens the full card.
+  useEffect(() => {
+    setExpanded(false);
+  }, [announcement?.id]);
   const visible = Boolean(announcement) && !modalOpen && (toasts?.length ?? 0) === 0;
+  const compact = placement === "floating" && !expanded;
   // A floating card is fixed above the bottom navigation, so page content
   // scrolls underneath it. Publish its height so the page shell can reserve
   // that space and keep the last controls reachable without a dismissal.
@@ -99,14 +108,55 @@ export function AnnouncementWell({ health, placement = "floating" }: { health?: 
       ref={wellRef}
       aria-label="Paperclip announcements"
       data-placement={placement}
+      data-compact={compact || undefined}
+      data-expanded={placement === "floating" && expanded ? "true" : undefined}
+      onKeyDown={(event) => {
+        if (event.key !== "Escape") return;
+        event.preventDefault();
+        dismiss(announcement.id);
+      }}
       className={cn(
         "announcement-well",
         placement === "sidebar"
           ? "shrink-0 overflow-y-auto px-3 pb-2 max-h-(--announcement-sidebar-max-height)"
-          : "fixed left-3 bottom-(--announcement-mobile-bottom) z-40 w-(--announcement-available-width) max-w-(--announcement-width) max-h-(--announcement-mobile-max-height) overflow-y-auto md:bottom-3 md:max-h-(--announcement-max-height)",
+          : compact
+            ? "fixed left-3 bottom-(--announcement-mobile-bottom) z-40 w-(--announcement-available-width) max-w-(--announcement-width) max-h-(--announcement-compact-max-height) overflow-hidden rounded-xl border border-border bg-card shadow-sm"
+            : "fixed left-3 bottom-(--announcement-mobile-bottom) z-40 w-(--announcement-available-width) max-w-(--announcement-width) max-h-(--announcement-mobile-max-height) overflow-y-auto md:bottom-3 md:max-h-(--announcement-max-height)",
       )}
     >
-      <AnnouncementCard key={announcement.id} announcement={announcement} onDismiss={() => dismiss(announcement.id)} />
+      {compact ? (
+        <div className="flex min-h-(--announcement-compact-height) items-center gap-2 py-2 pl-3 pr-2">
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            aria-expanded={false}
+            aria-label={`Expand announcement: ${announcement.title}`}
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-xs text-muted-foreground">{announcement.eyebrow}</span>
+              <span className="block truncate text-sm font-semibold">{announcement.title}</span>
+            </span>
+            <ChevronUp className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          </button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Dismiss announcement"
+            onClick={() => dismiss(announcement.id)}
+            className="shrink-0"
+          >
+            <X className="size-4" aria-hidden="true" />
+          </Button>
+        </div>
+      ) : (
+        <AnnouncementCard
+          key={announcement.id}
+          announcement={announcement}
+          onDismiss={() => dismiss(announcement.id)}
+          onCollapse={placement === "floating" ? () => setExpanded(false) : undefined}
+        />
+      )}
     </aside>
   );
 }
