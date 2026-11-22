@@ -243,7 +243,7 @@ export function ApprovalDetail() {
           <div className="flex items-center gap-2">
             <TypeIcon className="h-5 w-5 text-muted-foreground shrink-0" />
             <div>
-              <h2 className="text-lg font-semibold">{approvalLabel(approval.type, approval.payload as Record<string, unknown> | null)}</h2>
+              <h1 className="text-lg font-semibold">{approvalLabel(approval.type, approval.payload as Record<string, unknown> | null)}</h1>
               <p className="text-xs text-muted-foreground font-mono">{approval.id}</p>
             </div>
           </div>
@@ -381,7 +381,7 @@ export function ApprovalDetail() {
       </div>
 
       <div className="border border-border rounded-lg p-4 space-y-3">
-        <h3 className="text-sm font-medium">Comments ({comments?.length ?? 0})</h3>
+        <h2 className="text-sm font-medium">Comments ({comments?.length ?? 0})</h2>
         <div className="space-y-2">
           {(comments ?? []).map((comment: ApprovalComment) => (
             <div key={comment.id} className="border border-border/60 rounded-md p-3">

@@ -57,7 +57,11 @@ function RegisterPanel({ bot }: { bot: CompanyBotDetail }) {
           and <code className="font-mono text-xs">bot.gateway.policy</code>. The key itself stays in the gateway.
         </li>
       </ol>
-      <pre className="mt-3 overflow-x-auto rounded-md bg-muted/50 p-3 font-mono text-xs leading-5 text-foreground">
+      <pre
+        tabIndex={0}
+        aria-label="Bot metadata example"
+        className="mt-3 overflow-x-auto rounded-md bg-muted/50 p-3 font-mono text-xs leading-5 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
 {`{
   "grokBotTwin": true,
   "bot": {
