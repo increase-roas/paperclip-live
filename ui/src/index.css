@@ -3603,6 +3603,15 @@ span.paperclip-mention-chip[data-mention-kind="external-object"] {
 .announcement-well {
   animation: announcement-enter var(--motion-duration-fast) var(--motion-ease-standard) both;
 }
+/* A floating announcement sits above the bottom navigation while the page
+   scrolls underneath it. Reserve the measured card height in the page so the
+   last controls can scroll clear of the card. Task detail and agent chat do not
+   render the floating card, so their pinned composer keeps its own inset. */
+@media (max-width: 767px) {
+  html[data-floating-announcement="true"] #main-content {
+    padding-bottom: calc(var(--floating-announcement-height, 0px) + var(--spacing) * 8);
+  }
+}
 /* Docked in the narrow sidebar column: keep the image band compact so the
    sidebar navigation keeps most of its height. */
 .announcement-well[data-placement="sidebar"] {

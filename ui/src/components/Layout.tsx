@@ -771,7 +771,10 @@ export function Layout({ sidebarSections }: { sidebarSections?: ReactNode }) {
       <BoardDialogs />
       <KeyboardShortcutsCheatsheet open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <ToastViewport />
-      {isMobile ? <AnnouncementWell health={health} placement="floating" /> : null}
+      {/* The floating card must never cover a pinned composer. Task detail and
+          agent chat keep their conversation readable; the card still shows on
+          the other mobile surfaces. */}
+      {isMobile && !isTaskDetailRoute && !isAgentChatRoute ? <AnnouncementWell health={health} placement="floating" /> : null}
       <PluginAppShellOverlays localTrusted={health?.deploymentMode === "local_trusted"} />
       </div>
     </ChatSetupSidebarProvider>

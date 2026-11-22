@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ONBOARDING_FIRST_TASK_ORIGIN_KIND } from "@paperclipai/shared";
 import { cn } from "@/lib/utils";
@@ -71,9 +71,32 @@ export function AnnouncementWell({ health, placement = "floating" }: { health?: 
     }),
   });
   const modalOpen = useModalOpen(Boolean(announcement));
-  if (!announcement || modalOpen || (toasts?.length ?? 0) > 0) return null;
+  const wellRef = useRef<HTMLElement | null>(null);
+  const visible = Boolean(announcement) && !modalOpen && (toasts?.length ?? 0) === 0;
+  // A floating card is fixed above the bottom navigation, so page content
+  // scrolls underneath it. Publish its height so the page shell can reserve
+  // that space and keep the last controls reachable without a dismissal.
+  useEffect(() => {
+    if (placement !== "floating" || !visible) return;
+    const root = document.documentElement;
+    const update = () => {
+      const height = wellRef.current?.getBoundingClientRect().height ?? 0;
+      root.style.setProperty("--floating-announcement-height", `${Math.ceil(height)}px`);
+      root.dataset.floatingAnnouncement = "true";
+    };
+    update();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
+    if (wellRef.current) observer?.observe(wellRef.current);
+    return () => {
+      observer?.disconnect();
+      root.style.removeProperty("--floating-announcement-height");
+      delete root.dataset.floatingAnnouncement;
+    };
+  }, [placement, visible]);
+  if (!visible || !announcement) return null;
   return (
     <aside
+      ref={wellRef}
       aria-label="Paperclip announcements"
       data-placement={placement}
       className={cn(
