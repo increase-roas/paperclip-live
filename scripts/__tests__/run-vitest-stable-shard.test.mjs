@@ -108,23 +108,35 @@ test("workspace lanes cover every non-server project in the root Vitest configur
   assert.deepEqual(actual, expected, "no configured project may be silently omitted or run twice");
 });
 
-test("the bounded general-unit lane covers workspaces-a and workspaces-b only", () => {
+test("the bounded general-unit lane covers the core app unit projects", () => {
   const unit = dryRunJson(["--mode", "general", "--group", "general-unit"]);
-  const a = dryRunJson(["--mode", "general", "--group", "general-workspaces-a"]);
-  const b = dryRunJson(["--mode", "general", "--group", "general-workspaces-b"]);
   assert.deepEqual(
     [...unit.workspaceProjects].sort(),
-    [...a.workspaceProjects, ...b.workspaceProjects].sort(),
-    "general-unit must be exactly the non-database workspace projects",
+    [
+      "@paperclipai/adapter-utils",
+      "@paperclipai/shared",
+      "@paperclipai/skills-catalog",
+      "@paperclipai/ui",
+      "paperclipai",
+    ].sort(),
+    "general-unit must be exactly the core app unit/jsdom projects",
   );
-  assert.ok(unit.workspaceProjects.includes("@paperclipai/ui"), "expected the UI jsdom project");
   assert.ok(!unit.workspaceProjects.includes("@paperclipai/server"), "server belongs to the full suite");
   assert.ok(!unit.workspaceProjects.includes("@paperclipai/db"), "db needs embedded PostgreSQL");
+  assert.ok(!unit.workspaceProjects.includes("@paperclipai/adapter-codex-local"),
+    "provider adapters keep their socket and permission fixtures out of the bounded lane");
 });
 
 test("the general-unit lane rejects shard flags", () => {
   const result = dryRun(["--mode", "general", "--group", "general-unit", "--shard-index", "0", "--shard-count", "2"]);
   assert.notEqual(result.status, 0, "general-unit must not accept shard flags");
+});
+
+test("the root-incompatible skip flag is accepted and reported", () => {
+  const plan = dryRunJson(["--mode", "general", "--group", "general-unit", "--skip-root-incompatible-tests"]);
+  assert.equal(plan.skipRootIncompatibleTests, true);
+  const plain = dryRunJson(["--mode", "general", "--group", "general-unit"]);
+  assert.equal(plain.skipRootIncompatibleTests, false);
 });
 
 // Collects every `- group:` matrix entry in a workflow with the keys it sets.

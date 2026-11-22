@@ -84,10 +84,22 @@ test("actionlint versions below the pin are rejected", () => {
 test("root skips the embedded-Postgres chat shard only for the full tests step", () => {
   const tests = STEPS.find((step) => step.name === "tests");
   const lint = STEPS.find((step) => step.name === "lint");
-  assert.deepEqual(stepCommand(tests, { isRoot: true, full: true }).slice(-2), ["--", "--skip-chat-integration"]);
+  const fullRoot = stepCommand(tests, { isRoot: true, full: true });
+  const boundedRoot = stepCommand(tests, { isRoot: true, full: false });
+  assert.ok(fullRoot.includes("--skip-chat-integration"));
+  assert.ok(!boundedRoot.includes("--skip-chat-integration"));
   assert.ok(!stepCommand(tests, { isRoot: false, full: true }).includes("--skip-chat-integration"));
-  assert.ok(!stepCommand(tests, { isRoot: true, full: false }).includes("--skip-chat-integration"));
   assert.ok(!stepCommand(lint, { isRoot: true }).includes("--skip-chat-integration"));
+});
+
+test("root skips suites that need non-root SSH or file permissions", () => {
+  const tests = STEPS.find((step) => step.name === "tests");
+  const lint = STEPS.find((step) => step.name === "lint");
+  assert.ok(stepCommand(tests, { isRoot: true, full: false }).includes("--skip-root-incompatible-tests"));
+  assert.ok(stepCommand(tests, { isRoot: true, full: true }).includes("--skip-root-incompatible-tests"));
+  assert.ok(!stepCommand(tests, { isRoot: false, full: false }).includes("--skip-root-incompatible-tests"));
+  assert.ok(!stepCommand(tests, { isRoot: false, full: true }).includes("--skip-root-incompatible-tests"));
+  assert.ok(!stepCommand(lint, { isRoot: true }).includes("--skip-root-incompatible-tests"));
 });
 
 test("the tests step carries PR CI's one-retry contention safety net", () => {

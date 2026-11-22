@@ -242,7 +242,7 @@ When hosted CI is unavailable, run the non-browser gate with one
 command instead:
 
 ```sh
-pnpm check:local        # bounded: non-server unit/jsdom projects
+pnpm check:local        # bounded: core app unit/jsdom projects
 pnpm check:local --full # complete Vitest suite, including server and db
 ```
 

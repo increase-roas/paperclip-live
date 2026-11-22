@@ -21,11 +21,13 @@ import { fileURLToPath, pathToFileURL } from "node:url";
  *   pnpm check:local --no-download      # actionlint must already be installed
  *
  * The default tests step is bounded so the gate finishes in about 15 minutes on
- * a laptop-class machine: it runs the non-server workspace projects only (ui,
- * cli, shared, adapters and plugins). `--full` runs the complete `test:run`
- * path, including the server shards, embedded-Postgres suites and chat
- * integration. Run a full gate as a non-root account when you need the
- * embedded PostgreSQL tests; root runs skip the chat integration shard.
+ * a laptop-class machine: it runs the core app unit/jsdom projects (UI, CLI,
+ * shared, skills catalog and adapter utilities). `--full` runs the complete
+ * `test:run` path, including the server shards, embedded-Postgres suites,
+ * provider adapters and chat integration. Run a full gate as a non-root account
+ * when you need the embedded PostgreSQL tests; root runs skip the chat
+ * integration shard and two adapter-utils suites that require non-root SSH and
+ * file permissions.
  */
 
 const repoRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -38,8 +40,9 @@ export const STEPS = [
   { name: "typecheck", command: [pnpm, "run", "typecheck"] },
   {
     name: "tests",
-    // The bounded lane is the non-server workspace projects. It needs no
-    // embedded PostgreSQL and stays well inside a single local command budget.
+    // The bounded lane is the core app unit/jsdom projects. It needs no
+    // embedded PostgreSQL and avoids provider fixtures that need non-root
+    // sockets, SSH or file permissions.
     command: [pnpm, "run", "test:run", "--", "--mode", "general", "--group", "general-unit"],
   },
 ];
@@ -124,8 +127,9 @@ function usage() {
     "  --list             Print the steps and exit.",
     "  --help             Print this help.",
     "",
-    "The bounded tests step runs the non-server workspace projects only. Use",
-    "--full for server shards, embedded-Postgres suites and chat integration.",
+    "The bounded tests step runs the core app unit/jsdom projects only. Use",
+    "--full for server shards, embedded-Postgres suites, provider adapters and",
+    "chat integration.",
     "",
     `Steps: ${STEPS.map((step) => step.name).join(", ")}`,
   ].join("\n");
@@ -140,10 +144,16 @@ export function stepCommand(step, { noDownload = false, isRoot = isRootUser(), f
     ? [...FULL_TEST_COMMAND]
     : [...step.command];
   if (step.name === "actionlint" && noDownload) command.push("--no-download");
-  // The embedded-Postgres chat shard cannot start as root. The runner can
-  // skip it cleanly so the rest of the full unit/jsdom gate still runs. The
-  // bounded lane never includes the chat suite.
-  if (step.name === "tests" && full && isRoot) command.push("--", "--skip-chat-integration");
+  if (step.name === "tests" && isRoot) {
+    // Root bypasses the semantics two adapter-utils suites assert: an
+    // ephemeral sshd rejects root login, and chmod 000 does not deny reads.
+    // Skip them explicitly so the rest of the gate still runs. A non-root
+    // full run still covers them.
+    command.push("--", "--skip-root-incompatible-tests");
+    // The embedded-Postgres chat shard cannot start as root. The bounded lane
+    // never includes the chat suite.
+    if (full) command.push("--skip-chat-integration");
+  }
   return command;
 }
 
@@ -164,8 +174,11 @@ export function stepEnv(step, baseEnv = process.env) {
 
 function runStep(step, { noDownload, full }) {
   const command = stepCommand(step, { noDownload, full });
-  if (step.name === "tests" && full && isRootUser()) {
-    process.stdout.write("  Root run: skipping the embedded-Postgres chat integration shard. Run as a non-root user to include it.\n");
+  if (step.name === "tests" && isRootUser()) {
+    process.stdout.write("  Root run: skipping suites that require non-root SSH or file permissions.\n");
+    if (full) {
+      process.stdout.write("  Root run: skipping the embedded-Postgres chat integration shard. Run as a non-root user to include it.\n");
+    }
   }
   const printable = command
     .map((part) => (part === process.execPath ? "node" : part))

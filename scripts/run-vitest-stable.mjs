@@ -151,11 +151,18 @@ const generalWorkspacesCProjects = ["@paperclipai/db"];
 const generalWorkspacesBProjects = nonServerProjects.filter(
   (project) => !generalWorkspacesAProjects.includes(project) && !generalWorkspacesCProjects.includes(project),
 );
-// Bounded local-gate lane: every non-server project that needs no embedded
-// PostgreSQL. `pnpm check:local` defaults to this group; `--full` runs the
-// complete suite. Kept out of generalGroupNames so all mode is unchanged.
+// Bounded local-gate lane: the core app unit/jsdom projects. It needs no
+// embedded PostgreSQL and avoids the adapter/provider suites whose socket,
+// SSH and permission fixtures need a non-root machine. `pnpm check:local`
+// defaults to this group; `--full` runs every project. Kept out of
+// generalGroupNames so all mode is unchanged.
 const generalUnitGroupName = "general-unit";
-const generalUnitProjects = [...generalWorkspacesAProjects, ...generalWorkspacesBProjects];
+const generalUnitProjects = [
+  ...generalWorkspacesAProjects,
+  "@paperclipai/shared",
+  "@paperclipai/skills-catalog",
+  "@paperclipai/adapter-utils",
+];
 const generalGroupNames = [
   generalServerGroupName,
   generalWorkspacesAGroupName,
@@ -175,6 +182,19 @@ const serializedServerVitestArgs = [
   "--maxWorkers=1",
 ];
 const sourceOnlyVitestArgs = ["--exclude", "**/dist/**"];
+// These suites assert semantics that root bypasses: one signs in to an
+// ephemeral sshd as root (root login is disabled), and the stdin-race cases
+// need chmod 000 to deny reads. The local gate can skip them explicitly; a
+// non-root full run still covers them.
+const rootIncompatibleSuites = [
+  "**/execution-target-stdin-race.test.ts",
+  "**/managed-clone-staging.test.ts",
+];
+const rootIncompatibleVitestArgs = rootIncompatibleSuites.flatMap((file) => ["--exclude", file]);
+// The bounded local lane runs on developer machines that already carry other
+// work. A 30s test/hook budget preserves the default 5s contract in CI while
+// stopping a loaded machine from failing a real test on its first pass.
+const localUnitTimeoutArgs = ["--testTimeout=30000", "--hookTimeout=30000"];
 
 function walk(dir) {
   const entries = readdirSync(dir);
@@ -278,6 +298,7 @@ function parseCliOptions(argv) {
   let dryRun = false;
   let serialChat = false;
   let skipChatIntegration = false;
+  let skipRootIncompatibleTests = false;
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -330,6 +351,11 @@ function parseCliOptions(argv) {
 
     if (arg === "--skip-chat-integration") {
       skipChatIntegration = true;
+      continue;
+    }
+
+    if (arg === "--skip-root-incompatible-tests") {
+      skipRootIncompatibleTests = true;
       continue;
     }
 
@@ -402,6 +428,7 @@ function parseCliOptions(argv) {
   return {
     mode,
     skipChatIntegration,
+    skipRootIncompatibleTests,
     shardIndex,
     shardCount,
     group,
@@ -490,7 +517,7 @@ async function runVitest(args, label, testShard = null, exactFiles = false) {
     const command = exactFiles ? process.execPath : "pnpm";
     const prefix = exactFiles ? [path.join(scriptsDir, "ci/run-selected-vitest.mjs")] : ["exec", "vitest", "run"];
     // `vitest list` collection above never retries; only the run does.
-    const child = spawn(command, [...prefix, ...sourceOnlyVitestArgs, ...vitestRetryArgs(), ...args], {
+    const child = spawn(command, [...prefix, ...sourceOnlyVitestArgs, ...(options.skipRootIncompatibleTests ? rootIncompatibleVitestArgs : []), ...(options.mode === generalModeName && options.group === generalUnitGroupName ? localUnitTimeoutArgs : []), ...vitestRetryArgs(), ...args], {
       cwd: repoRoot,
       env: invocationEnv("vitest", env),
       stdio: "inherit",
@@ -721,6 +748,7 @@ if (options.dryRun) {
       {
         mode: options.mode,
         skipChatIntegration: options.skipChatIntegration,
+        skipRootIncompatibleTests: options.skipRootIncompatibleTests,
         shardIndex: options.shardIndex,
         shardCount: options.shardCount,
         group: options.group,
