@@ -438,7 +438,7 @@ export function Timeline({ embedded = false }: { embedded?: boolean } = {}) {
   const toolbar = (
     <div className="flex flex-wrap items-start gap-3">
       {summary && <TimelineSummaryStats summary={summary} />}
-      <div data-canonical-toolbar="timeline-zoom" role="toolbar" className="ml-auto flex items-center gap-1 pt-3" aria-label="Timeline zoom controls">
+      <div data-canonical-toolbar="timeline-zoom" role="toolbar" className="ml-auto flex w-full items-center justify-end gap-1 pt-3 sm:w-auto" aria-label="Timeline zoom controls">
         <Button
           type="button"
           variant="outline"

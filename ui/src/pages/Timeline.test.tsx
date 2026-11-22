@@ -223,6 +223,25 @@ describe("Timeline", () => {
     expect(footer).not.toBeUndefined();
   });
 
+  it("wraps the zoom controls below the summary on a phone", async () => {
+    root = createRoot(container);
+
+    flushSync(() => {
+      root?.render(
+        <QueryClientProvider client={queryClient}>
+          <Timeline />
+        </QueryClientProvider>,
+      );
+    });
+    await flushReact();
+
+    const summary = container.querySelector("dl");
+    const zoom = container.querySelector('[data-canonical-toolbar="timeline-zoom"]');
+    expect(summary?.className).toContain("grid-cols-2");
+    expect(summary?.textContent).toContain("Not tracked");
+    expect(zoom?.className.split(/\s+/)).toEqual(expect.arrayContaining(["w-full", "sm:w-auto"]));
+  });
+
   it("loads every timeline page in the selected window", async () => {
     mockWorkTimelineApi.get
       .mockResolvedValueOnce({
