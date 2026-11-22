@@ -281,7 +281,11 @@ describeEmbeddedPostgres("heartbeat stale queued-run invalidation", () => {
     expect(countExecuteCallsForRun(delivered.runId!)).toBe(1);
     expect((await db.select().from(issueComments).where(eq(issueComments.id, comment.id)))[0]?.body).toBe(comment.body);
     expect((await db.select().from(issues).where(eq(issues.id, issue.id)))[0]?.assigneeAgentId).toBe(agentId);
-  });
+    // The drain bound above has to fit inside this test's own budget. Under CPU
+    // contention the whole body (embedded DB boot, admission, finalization) needs
+    // more than the suite default, and a 15s timeout masks a real assertion
+    // failure as "Test timed out in 15000ms".
+  }, 60_000);
 
   it.each(["preparing", "verifying", "resuming"] as const)("keeps assigned work queued through %s, including recovery with timers disabled", async lifecycleState => {
     const { companyId, agentId } = await seedCompanyAndAgent({ heartbeatConfig: { enabled: false } });
