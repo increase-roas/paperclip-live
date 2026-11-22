@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AgentIdentity } from "@/components/AgentIdentity";
 import { CheckCircle2, XCircle, Clock } from "lucide-react";
 import { Link } from "@/lib/router";
@@ -60,6 +60,14 @@ export function ApprovalCard({
   const showDecisionNoteField = allowDecisionNote && showResolutionButtons;
   const decisionNoteId = `approval-decision-note-${approval.id}`;
   const hasFooter = showResolutionButtons || Boolean(detailLink || onOpen);
+  // Rejecting from a list is destructive and easy to hit by accident, so the
+  // first click arms an inline confirmation instead of deciding immediately.
+  // Approve stays a single click. Arming never survives a decision or a new
+  // approval landing in the same card position.
+  const [rejectArmed, setRejectArmed] = useState(false);
+  useEffect(() => {
+    setRejectArmed(false);
+  }, [approval.id, approval.status]);
 
   const submitDecision = (handler?: (note?: string) => void) => {
     if (!handler) return;
@@ -148,19 +156,46 @@ export function ApprovalCard({
                   <Button
                     size="sm"
                     className="bg-green-700 hover:bg-green-600 text-white"
-                    onClick={() => submitDecision(onApprove)}
+                    onClick={() => {
+                      setRejectArmed(false);
+                      submitDecision(onApprove);
+                    }}
                     disabled={isPending}
                   >
                     {pendingAction === "approve" ? "Approving..." : "Approve"}
                   </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => submitDecision(onReject)}
-                    disabled={isPending}
-                  >
-                    {pendingAction === "reject" ? "Rejecting..." : "Reject"}
-                  </Button>
+                  {rejectArmed ? (
+                    <>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          setRejectArmed(false);
+                          submitDecision(onReject);
+                        }}
+                        disabled={isPending}
+                      >
+                        {pendingAction === "reject" ? "Rejecting..." : "Confirm reject"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setRejectArmed(false)}
+                        disabled={isPending}
+                      >
+                        Cancel
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setRejectArmed(true)}
+                      disabled={isPending}
+                    >
+                      Reject
+                    </Button>
+                  )}
                   {showDecisionNoteField && (
                     <Button
                       variant="ghost"

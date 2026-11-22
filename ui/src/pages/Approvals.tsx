@@ -49,10 +49,12 @@ export function Approvals() {
   const approveMutation = useMutation({
     mutationFn: ({ id, note }: { id: string; note?: string }) =>
       approvalsApi.approve(id, note),
-    onSuccess: (_approval, { id }) => {
+    onSuccess: () => {
       setActionError(null);
+      // Deciding from the queue keeps the operator on the queue. The resolved
+      // card leaves the pending list on the refetch, and "View details" stays
+      // available for anyone who wants the full record.
       queryClient.invalidateQueries({ queryKey: queryKeys.approvals.list(selectedCompanyId!) });
-      navigate(`/approvals/${id}?resolved=approved`);
     },
     onError: (err) => {
       setActionError(describeError(err, { action: "approve this request" }).body);

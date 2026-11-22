@@ -151,6 +151,10 @@ describe("Approvals page decision notes", () => {
       findButton(container, "Reject").click();
       await Promise.resolve();
     });
+    await act(async () => {
+      findButton(container, "Confirm reject").click();
+      await Promise.resolve();
+    });
 
     await act(async () => {
       await vi.waitFor(() => {
