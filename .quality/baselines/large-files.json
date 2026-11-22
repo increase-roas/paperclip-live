@@ -1,7 +1,7 @@
 {
   "version": 1,
   "description": "Files already over the size budget when the check was introduced. New or growing files fail the check.",
-  "generatedAt": "2026-11-21",
+  "generatedAt": "2026-11-22",
   "entries": [
     {
       "key": "cli/src/__tests__/worktree.test.ts#lines:5#bytes:0",
@@ -264,10 +264,6 @@
       "file": "packages/shared/src/index.ts"
     },
     {
-      "key": "scripts/typecheck-sandbox-providers/pnpm-lock.yaml#lines:5#bytes:0",
-      "file": "scripts/typecheck-sandbox-providers/pnpm-lock.yaml"
-    },
-    {
       "key": "server/src/__tests__/agent-permissions-routes.test.ts#lines:5#bytes:0",
       "file": "server/src/__tests__/agent-permissions-routes.test.ts"
     },
@@ -282,10 +278,6 @@
     {
       "key": "server/src/__tests__/authorization-service.test.ts#lines:6#bytes:0",
       "file": "server/src/__tests__/authorization-service.test.ts"
-    },
-    {
-      "key": "server/src/__tests__/chat-channels.integration.test.ts#lines:170#bytes:14",
-      "file": "server/src/__tests__/chat-channels.integration.test.ts"
     },
     {
       "key": "server/src/__tests__/company-portability.test.ts#lines:12#bytes:0",
@@ -592,10 +584,6 @@
       "file": "ui/src/components/IssueChatThread.tsx"
     },
     {
-      "key": "ui/src/components/IssueProperties.test.tsx#lines:7#bytes:0",
-      "file": "ui/src/components/IssueProperties.test.tsx"
-    },
-    {
       "key": "ui/src/components/IssuesList.test.tsx#lines:5#bytes:0",
       "file": "ui/src/components/IssuesList.test.tsx"
     },
@@ -610,10 +598,6 @@
     {
       "key": "ui/src/components/NewIssueDialog.test.tsx#lines:5#bytes:0",
       "file": "ui/src/components/NewIssueDialog.test.tsx"
-    },
-    {
-      "key": "ui/src/components/OnboardingWizard.test.tsx#lines:9#bytes:1",
-      "file": "ui/src/components/OnboardingWizard.test.tsx"
     },
     {
       "key": "ui/src/components/OnboardingWizard.tsx#lines:7#bytes:0",
@@ -652,7 +636,7 @@
       "file": "ui/src/pages/AgentDetail.production.tsx"
     },
     {
-      "key": "ui/src/pages/AgentDetail.tsx#lines:7#bytes:0",
+      "key": "ui/src/pages/AgentDetail.tsx#lines:6#bytes:0",
       "file": "ui/src/pages/AgentDetail.tsx"
     },
     {

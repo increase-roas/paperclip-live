@@ -6,64 +6,186 @@
  * `describeChatChannelsSuite(name, () => { ...describes })`; the helpers are
  * module-level exports bound to this file's own database instance.
  */
-import { reconcilePersistedRuntimeServicesOnStartup, readWorkspaceRuntimeIdleWork } from "../../services/workspace-runtime.js";
-
-import { readIdleLocalWork } from "../../services/idle-local-work.js";
-import { requestTaskRetry } from "../../services/task-retry.js";
-import { withQueuedCommentIdsInWakePayload } from "../../services/issue-queued-comment-queue.js";
-import { createSystemRecovery } from "../../services/system-recovery-state.js";
-import { createDeliveryWorkCoordinator } from "../../services/delivery-work-coordinator.js";
-import { githubChatManagementService } from "../../services/chat-github-management.js";
-import { githubResponseCommentService } from "../../services/chat-github-response-comments.js";
-import { syncGitHubBotTools } from "../../services/chat-github-tools.js";
-import { agentWakeupRequests, agents, applyPendingMigrations, authUsers, chatActions, chatConversations, chatDeliveries, chatEndpointLeases, chatEndpointResources, chatEndpoints, chatExternalPrincipals, chatGitHubConfigurations, chatGitHubRegistrations, chatGitHubReviews, chatIdentityLinks, chatMessageLinks, chatPublications, chatSdkState, chatTeamsFileTransfers, closeCheckpointDb, closeFileStorageDb, closeLivenessDb, companies, companyMemberships, completionContracts, createDb, environmentLeases, heartbeatRunEvents, heartbeatRuns, issueComments, issueRecoveryActions, issueThreadInteractions, issues, nativeRunFinalizations, nativeRunResults, principalPermissionGrants, toolConnections } from "@paperclipai/db";
+import {
+  reconcilePersistedRuntimeServicesOnStartup,
+  readWorkspaceRuntimeIdleWork,
+} from "../../services/workspace-runtime.js";
+import {
+  readIdleLocalWork,
+} from "../../services/idle-local-work.js";
+import {
+  requestTaskRetry,
+} from "../../services/task-retry.js";
+import {
+  withQueuedCommentIdsInWakePayload,
+} from "../../services/issue-queued-comment-queue.js";
+import {
+  createSystemRecovery,
+} from "../../services/system-recovery-state.js";
+import {
+  createDeliveryWorkCoordinator,
+} from "../../services/delivery-work-coordinator.js";
+import {
+  githubChatManagementService,
+} from "../../services/chat-github-management.js";
+import {
+  githubResponseCommentService,
+} from "../../services/chat-github-response-comments.js";
+import {
+  syncGitHubBotTools,
+} from "../../services/chat-github-tools.js";
+import {
+  agentWakeupRequests,
+  agents,
+  applyPendingMigrations,
+  authUsers,
+  chatActions,
+  chatConversations,
+  chatDeliveries,
+  chatEndpointLeases,
+  chatEndpointResources,
+  chatEndpoints,
+  chatExternalPrincipals,
+  chatGitHubConfigurations,
+  chatGitHubRegistrations,
+  chatGitHubReviews,
+  chatIdentityLinks,
+  chatMessageLinks,
+  chatPublications,
+  chatTeamsFileTransfers,
+  closeCheckpointDb,
+  closeFileStorageDb,
+  closeLivenessDb,
+  companies,
+  companyMemberships,
+  completionContracts,
+  createDb,
+  environmentLeases,
+  heartbeatRunEvents,
+  heartbeatRuns,
+  issueComments,
+  issueRecoveryActions,
+  issues,
+  nativeRunFinalizations,
+  nativeRunResults,
+  principalPermissionGrants,
+  toolConnections,
+} from "@paperclipai/db";
 import {
   createHash,
   createHmac,
   generateKeyPairSync,
   randomUUID,
 } from "node:crypto";
-import { mkdirSync, rmSync } from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import { Readable } from "node:stream";
-import express from "express";
-
-import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
-import { afterAll, afterEach, beforeAll, expect, vi } from "vitest";
-import { type ChatProvider } from "@paperclipai/shared";
-import type { Message, Thread } from "chat";
-import { errorHandler } from "../../middleware/index.js";
-
+import {
+  mkdirSync,
+  rmSync,
+} from "node:fs";
+import {
+  Readable,
+} from "node:stream";
+import {
+  and,
+  eq,
+  inArray,
+  notInArray,
+  sql,
+} from "drizzle-orm";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  expect,
+  vi,
+} from "vitest";
+import {
+  type ChatProvider,
+} from "@paperclipai/shared";
+import {
+  errorHandler,
+} from "../../middleware/index.js";
 import {
   chatChannelService,
   type ChatChannelServiceOptions,
   type ChatChannelService,
 } from "../../services/chat-channels.js";
-import type { CreateChatSdkEndpointRuntimeOptions, ChatSdkMessageTrigger, ChatSdkRuntime } from "../../services/chat-sdk-runtime.js";
-import { createTeamsAdapter } from "@chat-adapter/teams";
-import { issueService } from "../../services/issues.js";
-import { issueThreadInteractionService } from "../../services/issue-thread-interactions.js";
-import type { StorageService } from "../../storage/types.js";
 import {
-  TELEGRAM_CALLBACK_DATA_LIMIT_BYTES,
-  telegramChatSdkCallbackData,
+
+} from "@chat-adapter/teams";
+import {
+  issueService,
+} from "../../services/issues.js";
+import {
+
+} from "../../services/issue-thread-interactions.js";
+import {
+
 } from "../../services/chat-interaction-publications.js";
-import { resolveChatRunPresentationAuthorizationReason } from "../../services/chat-run-publications.js";
-import { heartbeatService } from "../../services/heartbeat.js";
-import { githubPublicAttachmentsFromMessage } from "../../services/chat-github-attachments.js";
+import {
+  resolveChatRunPresentationAuthorizationReason,
+} from "../../services/chat-run-publications.js";
+import {
+  heartbeatService,
+} from "../../services/heartbeat.js";
+import {
+  githubPublicAttachmentsFromMessage,
+} from "../../services/chat-github-attachments.js";
+import {
+  finalizeNativeRun,
+  repairCommittedNativeChatResponse,
+} from "../../services/native-runtime/native-run-finalizer.js";
+import {
+  NativeRunCoordinatorStore,
+} from "../../services/native-runtime/native-run-coordinator-store.js";
+import {
+  PaperclipControlPlanePort,
+} from "../../services/native-runtime/paperclip-control-plane-port.js";
+import {
+  startEmbeddedPostgresTestDatabase,
+} from "./embedded-postgres.js";
+import {
+  slackProtocolCapture,
+  slackProtocolDatabaseUrl,
+  externalTestDatabaseUrl,
+  describeEmbeddedPostgres,
+  TestDb,
+  FakeEndpointRuntime,
+  FakeChatSdkRuntime,
+  uniqueDiscordApplicationId,
+  fakeSlackFetch,
+  fakeDiscordFetch,
+  fakeTelegramFetch,
+  chatSdkProvider,
+  makeThread,
+  makeMessage,
+  boardActor,
+} from "./chat-channels-fixture.js";
+import {
+
+} from "../../services/chat-github-reviews.js";
+import {
+
+} from "../../services/chat-github-events.js";
+import {
+
+} from "../../services/chat-github-checks.js";
+import {
+
+} from "@chat-adapter/discord";
+import {
+
+} from "../../services/chat-sdk-runtime.js";
+import os from "node:os";
+import path from "node:path";
+import express from "express";
+import type { Message, Thread } from "chat";
+import type { CreateChatSdkEndpointRuntimeOptions, ChatSdkMessageTrigger, ChatSdkRuntime } from "../../services/chat-sdk-runtime.js";
+import type { StorageService } from "../../storage/types.js";
 import * as attachmentEgress from "../../services/remote-http-fetch.js";
 import type {
   PrpStructuredRunResult,
   PrpTerminalState,
 } from "../../vendor/paperclip-runner/index.js";
-import { finalizeNativeRun, repairCommittedNativeChatResponse } from "../../services/native-runtime/native-run-finalizer.js";
-import { NativeRunCoordinatorStore } from "../../services/native-runtime/native-run-coordinator-store.js";
-import { PaperclipControlPlanePort } from "../../services/native-runtime/paperclip-control-plane-port.js";
-import {
-  startEmbeddedPostgresTestDatabase,
-} from "./embedded-postgres.js";
-import { slackProtocolCapture, slackProtocolDatabaseUrl, externalTestDatabaseUrl, describeEmbeddedPostgres, TestDb, FakeEndpointRuntime, FakeChatSdkRuntime, uniqueDiscordApplicationId, fakeSlackFetch, fakeDiscordFetch, fakeTelegramFetch, chatSdkProvider, makeThread, makeMessage, boardActor } from "./chat-channels-fixture.js";
 
 export function describeChatChannelsSuite(name: string, body: () => void) {
   describeEmbeddedPostgres(name, () => {
@@ -96,7 +218,7 @@ export function describeChatChannelsSuite(name: string, body: () => void) {
         });
         expect(readWorkspaceRuntimeIdleWork()).toBe("none");
       }, 90_000);
-    
+
       afterAll(async () => {
         if (slackProtocolCapture && db) { await closeCheckpointDb(db, 1); await closeFileStorageDb(db, 1); await closeLivenessDb(db, 1); }
         await db?.$client.end();
@@ -106,7 +228,7 @@ export function describeChatChannelsSuite(name: string, body: () => void) {
         else process.env.PAPERCLIP_SECRETS_MASTER_KEY_FILE = previousKeyFile;
         rmSync(secretsTmpDir, { recursive: true, force: true });
       });
-    
+
       afterEach(async () => {
         try {
           await Promise.all([...fixtureServices].map((service) => service.shutdown()));
@@ -990,325 +1112,6 @@ export function describeChatChannelsSuite(name: string, body: () => void) {
     return { ...context, endpoint, callbacks };
   }
 
-  export async function configuredGitHubEndpoint(
-    fixture: Awaited<ReturnType<typeof seedCompany>>,
-    overrides: Partial<
-      Pick<
-        ChatChannelServiceOptions,
-        | "deferWebhookProcessing"
-        | "githubWebhookAuthenticationBarrier"
-        | "githubWebhookReplayBarrier"
-        | "githubWebhookResponseBudgetMs"
-        | "publicBaseUrl"
-        | "webhookPublicBaseUrl"
-        | "scheduleDeferredWork"
-        | "setupSecretActivityLogger"
-        | "setupSecretCredentialPersistBarrier"
-        | "receiptReactionTransportBarrier"
-        | "storage"
-      >
-    > & { wakeup?: ChatChannelServiceOptions["heartbeat"]["wakeup"] } = {},
-    useVerifiedAppId = false,
-    registerWithManifest = false,
-    connectExistingApp = false,
-    interruptAppVault = false,
-  ) {
-    let setupComplete = false;
-    const deferredSchedule = overrides.scheduleDeferredWork;
-    let installationId = 2468;
-    let additionalInstallationIds: number[] = [];
-    let installationAvailable = true;
-    let repositories = [
-      {
-        id: 97531,
-        full_name: "paperclipai/paperclip",
-        html_url: "https://github.com/paperclipai/paperclip",
-        owner: { id: 1357, login: "paperclipai" },
-        private: false,
-      },
-    ];
-    let appPermissions: Record<string, string> = {
-      contents: "read",
-      checks: "write",
-      issues: "write",
-      metadata: "read",
-      pull_requests: "write",
-    };
-    let installationPermissions: Record<string, string> = {
-      contents: "read",
-      checks: "write",
-      issues: "write",
-      metadata: "read",
-      pull_requests: "write",
-    };
-    let appEvents = [
-      "pull_request",
-      "github_app_authorization",
-      "installation",
-      "installation_repositories",
-      "issue_comment",
-      "pull_request_review_comment",
-    ];
-    const webhookSyncRequests: Array<Record<string, unknown>> = [];
-    let webhookSyncResponse: (() => Promise<Response>) | null = null;
-    let supplementalProviderFetch:
-      | ((
-          input: string | URL | Request,
-          init?: RequestInit,
-        ) => Promise<Response | undefined>)
-      | null = null;
-    const appRegistrationId = Number.parseInt(
-      fixture.companyId.replaceAll("-", "").slice(0, 8),
-      16,
-    );
-    const privateKey = generateKeyPairSync("rsa", { modulusLength: 2048 })
-      .privateKey.export({ type: "pkcs8", format: "pem" })
-      .toString();
-    const responseComments = new Map<number, { id: number; body: string; html_url: string; user: { login: string }; thread: string }>();
-    const responseWrites: Array<{ method: string; id: number; body: string }> = [];
-    let nextResponseId = 800000;
-    const providerFetch = (async (
-      input: string | URL | Request,
-      init?: RequestInit,
-    ) => {
-      const url = String(input);
-      const supplemental = await supplementalProviderFetch?.(input, init);
-      if (supplemental) return supplemental;
-      const list = /\/repos\/paperclipai\/paperclip\/(issues|pulls)\/([1-9][0-9]*)\/comments(?:\?.*)?$/.exec(url);
-      const reply = /\/repos\/paperclipai\/paperclip\/pulls\/([1-9][0-9]*)\/comments\/[1-9][0-9]*\/replies$/.exec(url);
-      const item = /\/repos\/paperclipai\/paperclip\/(issues|pulls)\/comments\/([1-9][0-9]*)$/.exec(url);
-      if (item) {
-        const comment = responseComments.get(Number(item[2]));
-        if (!comment) return Response.json({ message: "Not Found" }, { status: 404 });
-        if (init?.method === "PATCH") {
-          comment.body = JSON.parse(String(init.body)).body;
-          responseWrites.push({ method: "PATCH", id: comment.id, body: comment.body });
-        }
-        return Response.json(comment);
-      }
-      if ((list || reply) && init?.method === "POST") {
-        const id = ++nextResponseId;
-        const thread = list ? `${list[1]}:${list[2]}` : `pulls:${reply![1]}`;
-        const body = JSON.parse(String(init.body)).body;
-        const comment = { id, body, thread, html_url: `https://github.com/paperclipai/paperclip/issues/${list?.[2] ?? reply![1]}#issuecomment-${id}`,
-          user: { login: `maya-${fixture.companyId.slice(0, 8)}[bot]` } };
-        responseComments.set(id, comment);
-        responseWrites.push({ method: "POST", id, body });
-        return Response.json(comment, { status: 201 });
-      }
-      if (list && (!init?.method || init.method === "GET")) return Response.json([...responseComments.values()].filter(row => row.thread === `${list[1]}:${list[2]}`));
-      if (url === "https://api.github.com/app/hook/config") {
-        expect(init?.method).toBe("PATCH");
-        const config = JSON.parse(String(init?.body)) as Record<
-          string,
-          unknown
-        >;
-        webhookSyncRequests.push(config);
-        if (webhookSyncResponse) return webhookSyncResponse();
-        return new Response(
-          JSON.stringify({
-            url: config.url,
-            content_type: config.content_type,
-            insecure_ssl: config.insecure_ssl,
-          }),
-          { status: 200 },
-        );
-      }
-      if (url === "https://api.github.com/app") {
-        return new Response(
-          JSON.stringify({
-            id: appRegistrationId,
-            slug: `maya-${fixture.companyId.slice(0, 8)}`,
-            name: "Maya Paperclip",
-            owner: { login: "paperclipai" },
-            permissions: appPermissions,
-            events: appEvents,
-          }),
-          { status: 200, headers: { "content-type": "application/json" } },
-        );
-      }
-      if (url === `https://api.github.com/app/installations/${installationId}`)
-        return Response.json({ permissions: installationPermissions, suspended_at: null });
-      if (url === "https://api.github.com/app/installations?per_page=100") {
-        return new Response(
-          JSON.stringify(
-            installationAvailable
-              ? [
-                  {
-                    id: installationId,
-                    account: {
-                      id: 1357,
-                      login: "paperclipai",
-                      type: "Organization",
-                    },
-                    permissions: installationPermissions,
-                    suspended_at: null,
-                  },
-                  ...additionalInstallationIds.map((id) => ({
-                    id,
-                    account: {
-                      id: id + 10_000,
-                      login: `additional-${id}`,
-                      type: "Organization",
-                    },
-                    permissions: installationPermissions,
-                    suspended_at: null,
-                  })),
-                ]
-              : [],
-          ),
-          { status: 200, headers: { "content-type": "application/json" } },
-        );
-      }
-      if (
-        url ===
-        `https://api.github.com/app/installations/${installationId}/access_tokens`
-      ) {
-        return new Response(JSON.stringify({ token: "installation-token" }), {
-          status: 201,
-          headers: { "content-type": "application/json" },
-        });
-      }
-      if (
-        url ===
-        "https://api.github.com/installation/repositories?per_page=100&page=1"
-      ) {
-        return new Response(JSON.stringify({ repositories }), {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        });
-      }
-      throw new Error(`Unexpected provider request: ${url}`);
-    }) as typeof globalThis.fetch;
-    const context = createService(
-      new FakeChatSdkRuntime(),
-      providerFetch,
-      deferredSchedule
-        ? {
-            ...overrides,
-            scheduleDeferredWork: (task) => {
-              if (setupComplete) deferredSchedule(task);
-              else setImmediate(task);
-            },
-          }
-        : overrides,
-    );
-    const endpoint = await context.service.create(
-      fixture.companyId,
-      {
-        provider: "github",
-        assignedAgentId: fixture.assignedAgentId,
-        name: "Maya in GitHub",
-      },
-      "owner-user",
-    );
-    const { webhookSecret } = await context.service.generateSetupSecret(
-      endpoint.id,
-      "owner-user",
-    );
-    await recordGitHubWebhookVerification(
-      context.service,
-      endpoint.publicId,
-      webhookSecret,
-    );
-    if (registerWithManifest)
-      await context.service.startGitHubRegistration(endpoint.id, "owner-user", "Maya");
-    if (connectExistingApp) {
-      const credentials = { appId: String(appRegistrationId), privateKey, webhookSecret };
-      if (interruptAppVault) {
-        // Fail the real vault write after App identity has been durably claimed.
-        await db.execute(sql.raw("CREATE FUNCTION github_wizard_fail_vault() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'Simulated App vault failure'; END $$"));
-        await db.execute(sql.raw("CREATE TRIGGER github_wizard_fail_vault BEFORE INSERT ON company_secrets FOR EACH ROW WHEN (lower(NEW.key) LIKE '%privatekey%') EXECUTE FUNCTION github_wizard_fail_vault()"));
-        try {
-          await expect(context.service.storeGitHubApp(endpoint.id, "owner-user", credentials)).rejects.toThrow();
-          expect(await context.service.githubWizard.advance(endpoint.id, "owner-user")).toMatchObject({ state: "recovery" });
-          expect((await context.service.get(endpoint.id)).setup.github).toMatchObject({ initialSetupPending: true, initialRepositoryImportPending: true });
-          expect((await context.service.get(endpoint.id)).setup.github?.initialRepositoriesImported).not.toBe(true);
-          expect(await context.service.listResources(endpoint.id)).toHaveLength(0);
-          expect((await githubChatManagementService(db, providerFetch).configuration(endpoint.id, "owner-user")).revision).toBe(0);
-        } finally {
-          await db.execute(sql.raw("DROP TRIGGER github_wizard_fail_vault ON company_secrets"));
-          await db.execute(sql.raw("DROP FUNCTION github_wizard_fail_vault()"));
-        }
-      }
-      await context.service.storeGitHubApp(endpoint.id, "owner-user", credentials);
-    }
-    await context.service.configure(
-      endpoint.id,
-      {
-        action: "configure",
-        credentials: {
-          appId: useVerifiedAppId ? String(appRegistrationId) : "123456",
-          privateKey,
-        },
-      },
-      "owner-user",
-    );
-    if (!useVerifiedAppId) {
-      const [configured] = await readChatEndpointsById(endpoint.id);
-      // Legacy transport fixtures already have explicit tool authority. Do not
-      // save a review configuration: that would switch their admission model.
-      await db.transaction((tx) => syncGitHubBotTools(tx, configured!, "owner-user", true));
-    }
-    const resources = await context.service.listResources(endpoint.id);
-    if (!registerWithManifest && !connectExistingApp)
-      await context.service.replaceResources(endpoint.id, [
-        { id: resources[0]!.id, enabled: true },
-      ]);
-    setupComplete = true;
-    const callbacks = context.runtime.configurations.get(
-      endpoint.id,
-    )?.callbacks;
-    if (!callbacks)
-      throw new Error("Fake runtime did not receive GitHub callbacks");
-    return {
-      ...context,
-      endpoint,
-      callbacks,
-      webhookSecret,
-      providerFetch,
-      responseComments,
-      responseWrites,
-      webhookSyncRequests,
-      privateKey,
-      setSupplementalProviderFetch(value: typeof supplementalProviderFetch) {
-        supplementalProviderFetch = value;
-      },
-      setWebhookSyncResponse(value: (() => Promise<Response>) | null) {
-        webhookSyncResponse = value;
-      },
-      setInstallationId(value: number) {
-        installationId = value;
-      },
-      setAdditionalInstallationIds(value: number[]) {
-        additionalInstallationIds = value;
-      },
-      setInstallationAvailable(value: boolean) {
-        installationAvailable = value;
-      },
-      setRepositories(
-        value: Array<{
-          id: number;
-          full_name: string;
-          html_url: string;
-          owner: { id: number; login: string };
-          private: boolean;
-        }>,
-      ) {
-        repositories = value;
-      },
-      setAppAccess(input: {
-        permissions?: Record<string, string>;
-        events?: string[];
-      }) {
-        if (input.permissions) appPermissions = input.permissions;
-        if (input.events) appEvents = input.events;
-      },
-      setInstallationAccess(permissions: Record<string, string>) {
-        installationPermissions = permissions;
-      },
-    };
-  }
 
   export async function configuredTelegramEndpoint(
     fixture: Awaited<ReturnType<typeof seedCompany>>,
@@ -1516,280 +1319,6 @@ export function describeChatChannelsSuite(name: string, body: () => void) {
     };
   }
 
-  export async function githubPreIngressRecoveryFixture(
-    event: "issue_comment" | "pull_request_review_comment" = "issue_comment",
-    replayBarrier?: ChatChannelServiceOptions["githubWebhookReplayBarrier"],
-  ) {
-    const fixture = await seedCompany();
-    const deferred: Array<() => void> = [];
-    const configured = await configuredGitHubEndpoint(
-      fixture,
-      {
-        deferWebhookProcessing: true,
-        githubWebhookReplayBarrier: replayBarrier,
-        scheduleDeferredWork: (task) => deferred.push(task),
-      },
-      true,
-    );
-    const { service, endpoint, runtime, callbacks } = configured;
-    // Setup admission is covered separately. Recovery is intentionally only
-    // eligible for an active endpoint with an explicitly enabled repository.
-    await db
-      .update(chatEndpoints)
-      .set({ status: "active" })
-      .where(eq(chatEndpoints.id, endpoint.id));
-    const current = await service.get(endpoint.id);
-    const providerRuntime = runtime.endpoints.get(endpoint.id)!;
-    attachFakeGitHubIssueCommentWebhook({
-      botUsername: current.botUsername!,
-      callbacks,
-      endpointId: endpoint.id,
-      runtime: providerRuntime,
-    });
-    const guid = randomUUID();
-    const deliveryId = "9007199254740993";
-    const webhookUrl = `https://paperclip.example/api/chat-webhooks/${endpoint.publicId}/github`;
-    const createdAt = new Date(Date.now() - 30_000).toISOString();
-    const body = `@${current.botUsername} recover the original request ${randomUUID()}`;
-    const comment = {
-      id: 9191,
-      body,
-      created_at: createdAt,
-      updated_at: createdAt,
-      user: { id: 42, login: "octocat", type: "User" },
-      ...(event === "issue_comment"
-        ? {
-            issue_url:
-              "https://api.github.com/repos/paperclipai/paperclip/issues/91",
-          }
-        : {
-            pull_request_url:
-              "https://api.github.com/repos/paperclipai/paperclip/pulls/91",
-          }),
-    };
-    const payload = {
-      action: "created",
-      installation: { id: 2468 },
-      repository: {
-        id: 97531,
-        full_name: "paperclipai/paperclip",
-        name: "paperclip",
-        owner: { id: 1357, login: "paperclipai" },
-      },
-      ...(event === "issue_comment"
-        ? { issue: { id: 9190, number: 91 } }
-        : { pull_request: { id: 9190, number: 91 } }),
-      comment,
-      sender: { id: 42, login: "octocat", type: "User" },
-    };
-    const original = {
-      id: deliveryId,
-      guid,
-      delivered_at: createdAt,
-      redelivery: false,
-      status_code: 502 as number | null,
-      event,
-      action: "created",
-      installation_id: 2468,
-      repository_id: 97531,
-      throttled_at: null as string | null,
-    };
-    let deliveries = [original];
-    const extraDetails = new Map<
-      string,
-      { summary: typeof original; payload: unknown }
-    >();
-    let historyHasMore = false;
-    let historyPage = 0;
-    let canonicalComment = { ...comment };
-    let beforeList: (() => Promise<void>) | undefined;
-    let beforePost: (() => Promise<void>) | undefined;
-    const requests: Array<{ method: string; pathname: string }> = [];
-    const posts: string[] = [];
-    const commentPath = `/repos/paperclipai/paperclip/${event === "issue_comment" ? "issues" : "pulls"}/comments/9191`;
-    // Emit the actual unsafe JSON numeric literal, not a string-only mock.
-    const json = (value: unknown) =>
-      new Response(
-        JSON.stringify(value).replaceAll(`"${deliveryId}"`, deliveryId),
-        {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        },
-      );
-    configured.setSupplementalProviderFetch(async (input, init) => {
-      const url = new URL(String(input));
-      const method = init?.method ?? "GET";
-      const isRecovery =
-        url.pathname.startsWith("/app/hook/") ||
-        url.pathname === commentPath ||
-        url.pathname === "/installation/token";
-      if (!isRecovery) return undefined;
-      requests.push({ method, pathname: url.pathname });
-      if (url.pathname === "/app/hook/config" && method === "GET") {
-        return json({
-          url: webhookUrl,
-          content_type: "json",
-          insecure_ssl: "0",
-        });
-      }
-      if (url.pathname === "/app/hook/deliveries") {
-        await beforeList?.();
-        const response = json(deliveries);
-        if (historyHasMore)
-          response.headers.set(
-            "link",
-            `<https://api.github.com/app/hook/deliveries?per_page=100&cursor=page${++historyPage}>; rel="next"`,
-          );
-        return response;
-      }
-      if (url.pathname === `/app/hook/deliveries/${deliveryId}`) {
-        return json({
-          ...original,
-          url: webhookUrl,
-          request: {
-            headers: { authorization: "private-provider-header-canary" },
-            payload,
-          },
-          response: { payload: "private-proxy-body-canary" },
-        });
-      }
-      const extra = extraDetails.get(
-        url.pathname.replace(/^\/app\/hook\/deliveries\//, ""),
-      );
-      if (extra)
-        return json({
-          ...extra.summary,
-          url: webhookUrl,
-          request: { payload: extra.payload },
-        });
-      if (
-        url.pathname === `/app/hook/deliveries/${deliveryId}/attempts` &&
-        method === "POST"
-      ) {
-        posts.push(url.pathname);
-        await beforePost?.();
-        return new Response(null, { status: 202 });
-      }
-      if (url.pathname === commentPath) return json(canonicalComment);
-      if (url.pathname === "/installation/token" && method === "DELETE")
-        return new Response(null, { status: 204 });
-      return undefined;
-    });
-    const checkpoint = () =>
-      db
-        .select()
-        .from(chatSdkState)
-        .where(
-          and(
-            eq(chatSdkState.endpointId, endpoint.id),
-            eq(chatSdkState.stateKey, "paperclip:github-webhook-recovery:v1"),
-          ),
-        )
-        .then((rows) => rows[0]!);
-    const makeScanDue = async (includeOriginal = true) => {
-      const state = await checkpoint();
-      await db
-        .update(chatSdkState)
-        .set({
-          value: {
-            ...(state.value as Record<string, unknown>),
-            ...(includeOriginal
-              ? { floor: new Date(Date.now() - 120_000).toISOString() }
-              : {}),
-            nextScanAt: new Date(Date.now() - 1_000).toISOString(),
-          },
-        })
-        .where(eq(chatSdkState.id, state.id));
-    };
-    const ingress = () =>
-      db
-        .select()
-        .from(chatActions)
-        .where(
-          and(
-            eq(chatActions.endpointId, endpoint.id),
-            eq(chatActions.providerActionId, `github_webhook_ingress:${guid}`),
-          ),
-        )
-        .then((rows) => rows[0]);
-    const receipt = () =>
-      db
-        .select()
-        .from(chatActions)
-        .where(
-          and(
-            eq(chatActions.endpointId, endpoint.id),
-            eq(chatActions.providerActionId, `github_webhook_recovery:${guid}`),
-          ),
-        )
-        .then((rows) => rows[0]);
-    const callback = (
-      webhookSecret = configured.webhookSecret,
-      incomingPayload: unknown = payload,
-    ) =>
-      service.handleWebhook(
-        endpoint.publicId,
-        "github",
-        signedGitHubWebhookRequest({
-          delivery: guid,
-          event,
-          payload: incomingPayload,
-          webhookSecret,
-          url: webhookUrl,
-        }),
-      );
-    const initializedAt = Date.now();
-    await service.processFailedGitHubWebhookDeliveries(5, endpoint.id);
-    expect(requests).toEqual([]);
-    const initial = (await checkpoint()).value as Record<string, unknown>;
-    expect(initial).toMatchObject({
-      appId: current.botExternalId,
-      webhookUrl,
-      generation: expect.any(Number),
-    });
-    expect(Date.parse(String(initial.floor))).toBeGreaterThanOrEqual(
-      initializedAt,
-    );
-    expect(Date.parse(String(initial.nextScanAt))).toBeGreaterThanOrEqual(
-      initializedAt + 60_000,
-    );
-    return {
-      ...configured,
-      fixture,
-      body,
-      guid,
-      deliveryId,
-      original,
-      payload,
-      providerRuntime,
-      requests,
-      posts,
-      checkpoint,
-      makeScanDue,
-      ingress,
-      receipt,
-      callback,
-      deferred,
-      setDeliveries(value: typeof deliveries) {
-        deliveries = value;
-      },
-      setDetail(summary: typeof original, incomingPayload: unknown) {
-        extraDetails.set(summary.id, { summary, payload: incomingPayload });
-      },
-      setHistoryHasMore(value: boolean) {
-        historyHasMore = value;
-      },
-      setCanonicalComment(value: Partial<typeof comment>) {
-        canonicalComment = { ...canonicalComment, ...value };
-      },
-      setBeforeList(value: typeof beforeList) {
-        beforeList = value;
-      },
-      setBeforePost(value: typeof beforePost) {
-        beforePost = value;
-      },
-    };
-  }
 
   export async function waitForProcessedReceiptRemoval(
     endpointId: string,
@@ -1836,309 +1365,7 @@ export function describeChatChannelsSuite(name: string, body: () => void) {
     return removal.id;
   }
 
-  export async function publicationLaneFixture(count: number) {
-    const fixture = await seedCompany();
-    const storage = createStorageService();
-    const runtime = new FakeChatSdkRuntime();
-    const providerFetch = (input: string | URL | Request, init?: RequestInit) =>
-      fakeSlackFetch(
-        `U-LANE-${new Headers(init?.headers).get("authorization")}`,
-      )(input, init);
-    const { service } = createService(runtime, providerFetch as typeof fetch, {
-      storage: storage.storage,
-    });
-    const lanes: Array<{
-      endpoint: Awaited<ReturnType<typeof service.create>>;
-      conversation: typeof chatConversations.$inferSelect;
-      providerRuntime: FakeEndpointRuntime;
-    }> = [];
-    for (let index = 0; index < count; index += 1) {
-      const endpoint = await service.create(
-        fixture.companyId,
-        {
-          provider: "slack",
-          assignedAgentId: fixture.assignedAgentId,
-        },
-        "owner-user",
-      );
-      await service.update(endpoint.id, { allowUnlinkedPeople: true }, "owner-user");
-      await service.configure(
-        endpoint.id,
-        {
-          action: "configure",
-          credentials: {
-            botToken: `xoxb-lane-${endpoint.id}`,
-            signingSecret: `signing-${endpoint.id}`,
-          },
-        },
-        "owner-user",
-      );
-      await db
-        .update(chatEndpoints)
-        .set({ status: "active" })
-        .where(eq(chatEndpoints.id, endpoint.id));
-      const channelId = `C${endpoint.id.replaceAll("-", "").toUpperCase()}`;
-      await db.insert(chatEndpointResources).values({
-        companyId: fixture.companyId,
-        endpointId: endpoint.id,
-        type: "channel",
-        providerResourceId: channelId,
-        label: "publication-lane",
-        availability: "available",
-        enabled: true,
-      });
-      const callbacks = runtime.configurations.get(endpoint.id)?.callbacks;
-      if (!callbacks) throw new Error("Expected publication lane runtime");
-      await deliverMessage({
-        callbacks,
-        endpointId: endpoint.id,
-        thread: makeThread({
-          channelId,
-          id: `slack:${channelId}:5000.1`,
-          name: "publication-lane",
-        }).thread,
-        message: makeMessage({
-          id: "5000.1",
-          text: "@maya publication lane",
-          mentioned: true,
-        }),
-        trigger: "mention",
-      });
-      const [conversation] = await readChatConversationsByEndpointId(endpoint.id);
-      const providerRuntime = runtime.endpoints.get(endpoint.id);
-      if (!conversation || !providerRuntime)
-        throw new Error("Expected publication lane conversation");
-      lanes.push({ endpoint, conversation, providerRuntime });
-    }
-    const enqueue = async (
-      index: number,
-      text: string,
-      offset = index,
-      payload?: typeof chatPublications.$inferInsert.payload,
-    ) => {
-      const { endpoint, conversation } = lanes[index]!;
-      const [publication] = await db
-        .insert(chatPublications)
-        .values({
-          companyId: fixture.companyId,
-          endpointId: endpoint.id,
-          conversationId: conversation.id,
-          issueId: conversation.issueId,
-          idempotencyKey: `lane:${randomUUID()}`,
-          payload: payload ?? { text },
-          state: "pending",
-          createdAt: new Date(Date.UTC(2000, 0, 1) + offset),
-        })
-        .returning();
-      return publication!;
-    };
-    const cleanup = async () => {
-      await service.shutdown();
-      await db
-        .update(chatEndpoints)
-        .set({ status: "paused" })
-        .where(
-          inArray(
-            chatEndpoints.id,
-            lanes.map(({ endpoint }) => endpoint.id),
-          ),
-        );
-    };
-    return { ...fixture, storage, runtime, service, lanes, enqueue, cleanup };
-  }
 
-  export async function telegramConfirmationRecoveryFixture(decision: "accept" | "reject" = "accept") {
-    const fixture = await seedCompany();
-    let injectSettlementCrash = true;
-    const settlementBarrier = vi.fn(async () => {
-      if (!injectSettlementCrash) return;
-      injectSettlementCrash = false;
-      throw new Error(
-        "injected post-interaction confirmation settlement crash",
-      );
-    });
-    const { callbacks, endpoint, service, wakeup } =
-      await configuredTelegramEndpoint(fixture, {
-        confirmationResolutionPersistBarrier: settlementBarrier,
-      });
-    if (!callbacks.onAction)
-      throw new Error("Telegram action callback was not registered");
-    const externalUserId = "771234568";
-    const dm = makeThread({
-      channelId: externalUserId,
-      id: `telegram:${externalUserId}`,
-      isDM: true,
-      name: "Telegram confirmation DM",
-    });
-    await deliverMessage({
-      callbacks,
-      endpointId: endpoint.id,
-      provider: "telegram",
-      thread: dm.thread,
-      message: makeMessage({
-        id: `${externalUserId}:1`,
-        text: "Prepare a release confirmation",
-        userId: externalUserId,
-      }),
-      trigger: "direct_message",
-    });
-    await qualifySetupRoundTrip(service, endpoint.id, externalUserId);
-    await service.test(endpoint.id);
-    const [conversation] = await service.listConversations(endpoint.id);
-    if (!conversation)
-      throw new Error("Expected Telegram confirmation conversation");
-
-    const linkedUserId = `telegram-confirmation-user-${randomUUID()}`;
-    const now = new Date();
-    await db.insert(authUsers).values({
-      id: linkedUserId,
-      name: "Telegram Confirmation User",
-      email: `${linkedUserId}@example.com`,
-      emailVerified: true,
-      createdAt: now,
-      updatedAt: now,
-    });
-    await db.insert(companyMemberships).values({
-      companyId: fixture.companyId,
-      principalType: "user",
-      principalId: linkedUserId,
-      status: "active",
-      membershipRole: "operator",
-    });
-    const principal = await db
-      .select()
-      .from(chatExternalPrincipals)
-      .where(
-        and(
-          eq(chatExternalPrincipals.companyId, fixture.companyId),
-          eq(chatExternalPrincipals.provider, "telegram"),
-          eq(chatExternalPrincipals.externalId, externalUserId),
-        ),
-      )
-      .then((rows) => rows[0]);
-    if (!principal) throw new Error("Expected Telegram confirmation principal");
-    const linkIntent = await service.createLinkIntent(
-      endpoint.id,
-      principal.id,
-      1_800,
-    );
-    const linkToken = new URL(linkIntent.confirmationUrl).searchParams.get(
-      "token",
-    );
-    if (!linkToken) throw new Error("Telegram identity token was absent");
-    await service.confirmIdentityLink(linkToken, linkedUserId);
-
-    const interaction = await issueThreadInteractionService(db).create(
-      {
-        id: conversation.issueId,
-        companyId: fixture.companyId,
-      },
-      {
-        kind: "request_confirmation",
-        continuationPolicy: "wake_assignee",
-        title: "Release check",
-        payload: {
-          version: 1,
-          prompt: "Proceed with Telegram production qualification?",
-          acceptLabel: "Proceed",
-          rejectLabel: "Stop",
-        },
-      },
-      { agentId: fixture.assignedAgentId },
-    );
-    await service.processPendingPublications();
-    const publication = await db
-      .select()
-      .from(chatPublications)
-      .where(
-        and(
-          eq(chatPublications.endpointId, endpoint.id),
-          eq(
-            chatPublications.idempotencyKey,
-            `interaction:${interaction.id}:${endpoint.id}`,
-          ),
-        ),
-      )
-      .then((rows) => rows[0]);
-    expect(publication).toMatchObject({
-      state: "published",
-      payload: {
-        interactionId: interaction.id,
-        card: {
-          kind: "confirmation",
-          title: "Proceed with Telegram production qualification?",
-          actions: [
-            expect.objectContaining({
-              type: "callback",
-              label: "Proceed",
-              style: "primary",
-            }),
-            expect.objectContaining({
-              type: "callback",
-              label: "Stop",
-              style: "danger",
-            }),
-          ],
-        },
-      },
-    });
-    if (!publication.providerMessageId)
-      throw new Error("Telegram confirmation was not delivered");
-    const confirmationActions = await db
-      .select()
-      .from(chatActions)
-      .where(
-        and(
-          eq(chatActions.endpointId, endpoint.id),
-          eq(chatActions.kind, "confirmation_response"),
-        ),
-      );
-    expect(confirmationActions).toHaveLength(2);
-    expect(
-      confirmationActions.every(
-        (action) =>
-          action.providerActionId.startsWith("pcq:") &&
-          Buffer.byteLength(
-            telegramChatSdkCallbackData(action.providerActionId),
-            "utf8",
-          ) <= TELEGRAM_CALLBACK_DATA_LIMIT_BYTES,
-      ),
-    ).toBe(true);
-    const acceptAction = confirmationActions.find(
-      (action) => action.payload.decision === decision,
-    );
-    if (!acceptAction)
-      throw new Error("Telegram accept action was not persisted");
-
-    wakeup.mockClear();
-    const actionEvent = {
-      endpointId: endpoint.id,
-      provider: "telegram" as const,
-      event: {
-        actionId: acceptAction.providerActionId,
-        adapter: {} as never,
-        messageId: publication.providerMessageId,
-        openModal: async () => undefined,
-        raw: {
-          id: `callback-${randomUUID()}`,
-          data: telegramChatSdkCallbackData(acceptAction.providerActionId),
-          from: { id: Number(externalUserId), first_name: "Telegram User" },
-        },
-        thread: dm.thread,
-        threadId: dm.thread.id,
-        user: {
-          userId: externalUserId,
-          userName: "telegram-user",
-          fullName: "Telegram User",
-          isBot: false,
-          isMe: false,
-          isSystem: false,
-        },
-        value: undefined,
-      },
-    };
-    return { fixture, callbacks, onAction: callbacks.onAction, endpoint, service, wakeup, settlementBarrier, dm, conversation, linkedUserId, principal, interaction, publication, acceptAction, actionEvent };
-  }
 
   export async function registeredIdleProbeState() {
     let state: string | undefined;
@@ -2187,69 +1414,6 @@ export function describeChatChannelsSuite(name: string, body: () => void) {
     suffix: string;
   };
 
-  export async function failedChatRetryFixture(
-    provider: "slack" | "telegram" | "github",
-    externalActorId?: string,
-    linkedOriginalActor = false,
-    githubUnavailableFile = false,
-    currentGitHubPr = false,
-    shared?: SharedEndpointProgress,
-  ) {
-    // Keep the policy under which the source was admitted. Inserting an
-    // upgraded GitHub policy after receipt correctly invalidates retry proof.
-    const context = await safeNativeProgressFixture(
-      provider,
-      shared?.suffix ?? "91",
-      "channel",
-      externalActorId,
-      linkedOriginalActor,
-      githubUnavailableFile,
-      false,
-      currentGitHubPr,
-      shared,
-    );
-    const [issue] = await readIssuesById(context.conversation.issueId);
-    const [action] = await db
-      .select()
-      .from(chatActions)
-      .where(
-        and(
-          eq(chatActions.conversationId, context.conversation.id),
-          eq(chatActions.kind, "inbound_wakeup"),
-        ),
-      );
-    const [receipt] = await readAgentWakeupRequestsById(action.id);
-    const runId = randomUUID();
-    await db.insert(heartbeatRuns).values({
-      id: runId,
-      companyId: context.fixture.companyId,
-      agentId: context.fixture.assignedAgentId,
-      status: "failed",
-      errorCode: "adapter_failed",
-      finishedAt: new Date(),
-      wakeupRequestId: receipt.id,
-      contextSnapshot: {
-        issueId: issue.id,
-        taskKey: issue.identifier,
-        source: `chat:${provider}`,
-        wakeCommentId: action.payload.commentId,
-        wakeCommentIds: [action.payload.commentId],
-      },
-    });
-    await db
-      .update(agentWakeupRequests)
-      .set({ status: "failed", runId })
-      .where(eq(agentWakeupRequests.id, receipt.id));
-    await db
-      .update(issues)
-      .set({
-        description: "ORIGINAL task, not the failed request",
-        status: "blocked",
-        executionRunId: null,
-      })
-      .where(eq(issues.id, issue.id));
-    return { ...context, issue, action, receipt, runId };
-  }
 
   export async function currentGitHubTaskRetryFixture(withPending = false, pendingCount = 1) {
     const f = await failedChatRetryFixture("github", "42", true);
@@ -2406,243 +1570,6 @@ export function describeChatChannelsSuite(name: string, body: () => void) {
     return context;
   }
 
-  export async function safeNativeProgressFixture(
-    provider: ChatProvider,
-    suffix: string,
-    teamsSurface: "channel" | "personal" = "channel",
-    externalActorId?: string,
-    linkedOriginalActor = false,
-    githubUnavailableFile = false,
-    upgradedGitHub = true,
-    currentGitHubPr = false,
-    shared?: SharedEndpointProgress,
-  ) {
-    const fixture = shared?.fixture ?? await seedCompany();
-    const configured = shared?.configured ?? (
-      provider === "slack"
-        ? await configuredSlackEndpoint(fixture)
-        : provider === "github"
-          ? await configuredGitHubEndpoint(
-              fixture,
-              githubUnavailableFile
-                ? { storage: createStorageService().storage }
-                : {},
-            )
-          : provider === "discord"
-            ? await configuredDiscordEndpoint(fixture)
-            : provider === "microsoft-teams"
-              ? await configuredTeamsEndpoint(fixture)
-              : await configuredTelegramEndpoint(fixture));
-    const { callbacks, endpoint, runtime, service } = configured;
-    const telegramChatId = `77113${suffix.padStart(3, "0")}`;
-    const teamsConversationId = `19:safe-progress-${suffix}@thread.${teamsSurface === "channel" ? "tacv2" : "v2"}`;
-    const teamsServiceUrl = "https://smba.trafficmanager.net/amer/";
-    const messageId =
-      provider === "slack"
-        ? `1789000${suffix}.100001`
-        : provider === "github"
-          ? `9900${suffix}`
-          : provider === "discord"
-            ? `55555555555556${suffix.padStart(3, "0")}`
-            : provider === "microsoft-teams"
-              ? `17400000${suffix.padStart(5, "0")}`
-              : `${telegramChatId}:101`;
-    const thread =
-      provider === "slack"
-        ? makeThread({
-            channelId: `C-SAFE-PROGRESS-${suffix}`,
-            id: `slack:C-SAFE-PROGRESS-${suffix}:${messageId}`,
-            name: `safe-progress-${suffix}`,
-          })
-        : provider === "github"
-          ? makeThread({
-              channelId: currentGitHubPr ? "paperclipai/paperclip" : "github:paperclipai/paperclip",
-              id: currentGitHubPr ? `github:paperclipai/paperclip:${700 + Number(suffix)}` : `github:paperclipai/paperclip:issue:${700 + Number(suffix)}`,
-              name: "paperclipai/paperclip",
-            })
-          : provider === "discord"
-            ? makeThread({
-                channelId: `33333333333334${suffix.padStart(3, "0")}`,
-                id: `discord:1457808928258658549:33333333333334${suffix.padStart(3, "0")}:${messageId}`,
-                name: `safe-progress-${suffix}`,
-              })
-            : provider === "microsoft-teams"
-              ? makeThread({
-                  channelId: `teams:${Buffer.from(teamsConversationId).toString("base64url")}:${Buffer.from(teamsServiceUrl).toString("base64url")}`,
-                  id: `teams:${Buffer.from(`${teamsConversationId}${teamsSurface === "channel" ? `;messageid=${messageId}` : ""}`).toString("base64url")}:${Buffer.from(teamsServiceUrl).toString("base64url")}`,
-                  isDM: teamsSurface === "personal",
-                  name: `safe-progress-${suffix}`,
-                })
-              : makeThread({
-                  channelId: telegramChatId,
-                  id: `telegram:${telegramChatId}`,
-                  isDM: true,
-                  name: `safe-progress-${suffix}`,
-                });
-    if (provider === "microsoft-teams" && teamsSurface === "channel") {
-      await db.insert(chatEndpointResources).values({
-        companyId: fixture.companyId,
-        endpointId: endpoint.id,
-        type: "channel",
-        providerResourceId: teamsConversationId,
-        label: "Native progress channel",
-        availability: "available",
-        enabled: true,
-      });
-    }
-    if (linkedOriginalActor) {
-      const currentEndpoint = await service.get(endpoint.id);
-      const originalActorId =
-        externalActorId ??
-        (provider === "telegram" ? telegramChatId : "U-SAFE-PROGRESS");
-      await db.insert(chatExternalPrincipals).values({
-        companyId: fixture.companyId,
-        provider,
-        providerAccountId: currentEndpoint.providerAccountId!,
-        externalId: originalActorId,
-        kind: "user",
-        isBot: false,
-      });
-      await linkLifecycleFixtureActor({
-        companyId: fixture.companyId,
-        endpointId: endpoint.id,
-        externalId: originalActorId,
-      });
-    }
-    if (provider === "github" && currentGitHubPr) {
-      const config = await githubChatManagementService(db).configuration(endpoint.id, "owner-user");
-      await db.insert(chatGitHubConfigurations).values({ companyId: fixture.companyId, endpointId: endpoint.id,
-        configuration: { ...config.configuration, toolsEnabled: true, defaults: { ...config.configuration.defaults,
-          invocation: "mentions_only", events: [] } }, updatedByUserId: "owner-user" });
-    }
-    const sourceMessage = makeMessage({
-      id: messageId,
-      mentioned: !thread.thread.isDM,
-      text: thread.thread.isDM
-        ? "Show safe progress"
-        : "@maya show safe progress",
-      userId:
-        externalActorId ??
-        (provider === "telegram" ? telegramChatId : "U-SAFE-PROGRESS"),
-    });
-    if (currentGitHubPr) sourceMessage.raw = { action: "created", installation: { id: 2468 },
-      repository: { id: 97531, full_name: "paperclipai/paperclip" }, issue: { number: 791, pull_request: {} },
-      sender: { id: 42, login: "octocat", type: "User" }, comment: { id: Number(messageId), body: sourceMessage.text, user: { id: 42 } } };
-    if (githubUnavailableFile) {
-      const url =
-        "https://github.com/user-attachments/files/31967808/private-current.txt";
-      sourceMessage.text = `@maya inspect only this exact file: [file](${url})`;
-      Object.assign(sourceMessage, { threadId: thread.thread.id });
-      sourceMessage.raw = {
-        type: "issue_comment",
-        threadType: "issue",
-        prNumber: 700 + Number(suffix),
-        repository: { full_name: "paperclipai/paperclip" },
-        comment: {
-          id: Number(messageId),
-          body: sourceMessage.text,
-          user: { id: 42 },
-        },
-      };
-      sourceMessage.formatted = {
-        type: "root",
-        children: [{ type: "link", url, children: [] }],
-      };
-      sourceMessage.attachments.push(
-        ...githubPublicAttachmentsFromMessage(sourceMessage),
-      );
-    }
-    await deliverMessage({
-      callbacks,
-      endpointId: endpoint.id,
-      provider,
-      thread: thread.thread,
-      message: sourceMessage,
-      trigger: thread.thread.isDM ? "direct_message" : "mention",
-    });
-    const conversations = await readChatConversationsByEndpointId(endpoint.id);
-    const conversation = shared ? conversations.find(row => row.externalThreadId === thread.thread.id) : conversations[0];
-    if (!conversation) throw new Error("Expected safe-progress conversation");
-    const providerRuntime = runtime.endpoints.get(endpoint.id);
-    if (!providerRuntime) throw new Error("Expected safe-progress runtime");
-
-    if (provider === "github" && upgradedGitHub) {
-      // These fixtures exercise upgraded bots' tool-owned reply model.
-      const config = await githubChatManagementService(db).configuration(endpoint.id, "owner-user");
-      await db.insert(chatGitHubConfigurations).values({ companyId: fixture.companyId, endpointId: endpoint.id, configuration: config.configuration, updatedByUserId: "owner-user" });
-    }
-
-    const createRun = async (label: string) => {
-      const runId = randomUUID();
-      const baseCreatedAt = new Date(Date.now() - 60_000);
-      await db.insert(heartbeatRuns).values({
-        id: runId,
-        companyId: fixture.companyId,
-        agentId: fixture.assignedAgentId,
-        runtimeMode: "native",
-        status: "running",
-        contextSnapshot: await chatWakeContext({
-          endpointId: endpoint.id,
-          issueId: conversation.issueId,
-          provider,
-          providerMessageId: messageId,
-        }),
-      });
-      await db.insert(chatPublications).values({
-        companyId: fixture.companyId,
-        endpointId: endpoint.id,
-        conversationId: conversation.id,
-        issueId: conversation.issueId,
-        idempotencyKey: `run:${runId}:working:${endpoint.id}`,
-        payload: {
-          text: `Maya is working on ${label}…`,
-          progressState: "working",
-        },
-        state: "pending",
-        createdAt: baseCreatedAt,
-        updatedAt: baseCreatedAt,
-      });
-      await service.processPendingPublications(100);
-      return { baseCreatedAt, runId };
-    };
-    const addEvent = async (
-      run: Awaited<ReturnType<typeof createRun>>,
-      eventType = "item.completed",
-      seq = 1,
-      createdAt = new Date(run.baseCreatedAt.getTime() + 30_000 + seq),
-    ) => {
-      await db.insert(heartbeatRunEvents).values({
-        companyId: fixture.companyId,
-        runId: run.runId,
-        agentId: fixture.assignedAgentId,
-        seq,
-        eventType,
-        message: "PRIVATE native event prose must stay in Paperclip",
-        payload: {
-          toolName: "secret_internal_tool",
-          arguments: { token: "PRIVATE-NATIVE-TOKEN" },
-          result: "PRIVATE-NATIVE-RESULT",
-          target: "PRIVATE-NATIVE-TARGET",
-        },
-        createdAt,
-      });
-    };
-    return {
-      addEvent,
-      conversation,
-      createRun,
-      endpoint,
-      fixture,
-      messageId,
-      providerRuntime,
-      runtime,
-      service,
-      thread,
-      wakeup: configured.wakeup,
-      providerFetch:
-        "providerFetch" in configured ? (configured.providerFetch as typeof globalThis.fetch) : undefined,
-    };
-  }
 
   export async function committedChatResponseRecoveryFixture(
     provider: "slack" | "telegram" | "github",
@@ -2920,855 +1847,626 @@ export function describeChatChannelsSuite(name: string, body: () => void) {
     return failure;
   }
 
-  export async function committedNativeReviewPublicationFixture(label: string) {
-    const fixture = await seedCompany();
-    const storage = createStorageService();
-    const { callbacks, endpoint, runtime, service } =
-      await configuredSlackEndpoint(fixture, { storage: storage.storage });
-    const providerMessageId = `review-transport-${label}-${randomUUID()}`;
-    const channel = makeThread({
-      channelId: `C-REVIEW-${label.toUpperCase()}`,
-      id: `slack:C-REVIEW-${label.toUpperCase()}:${Date.now()}.1`,
-      name: `review-${label}`,
-    });
-    await deliverMessage({
-      callbacks,
-      endpointId: endpoint.id,
-      thread: channel.thread,
-      message: makeMessage({
-        id: providerMessageId,
-        text: "@maya return the exact response and files, then wait",
-        mentioned: true,
-      }),
-      trigger: "mention",
-    });
-    await qualifySetupRoundTrip(service, endpoint.id);
-    await service.test(endpoint.id);
-    const [conversation] = await readChatConversationsByEndpointId(endpoint.id);
-    if (!conversation)
-      throw new Error("Expected review transport conversation");
-    const inbound = await db
-      .select({
-        commentId: chatMessageLinks.commentId,
-        principalId: chatDeliveries.principalId,
-      })
-      .from(chatMessageLinks)
-      .innerJoin(
-        chatDeliveries,
-        eq(chatDeliveries.id, chatMessageLinks.deliveryId),
-      )
-      .where(
-        and(
-          eq(chatMessageLinks.endpointId, endpoint.id),
-          eq(chatMessageLinks.conversationId, conversation.id),
-          eq(chatMessageLinks.providerMessageId, providerMessageId),
-          eq(chatMessageLinks.direction, "inbound"),
-        ),
-      )
-      .then((rows) => rows[0] ?? null);
-    if (!inbound?.commentId || !inbound.principalId) {
-      throw new Error("Expected exact inbound requester lineage");
+
+
+export async function configuredGitHubEndpoint(
+  fixture: Awaited<ReturnType<typeof seedCompany>>,
+  overrides: Partial<
+    Pick<
+      ChatChannelServiceOptions,
+      | "deferWebhookProcessing"
+      | "githubWebhookAuthenticationBarrier"
+      | "githubWebhookReplayBarrier"
+      | "githubWebhookResponseBudgetMs"
+      | "publicBaseUrl"
+      | "webhookPublicBaseUrl"
+      | "scheduleDeferredWork"
+      | "setupSecretActivityLogger"
+      | "setupSecretCredentialPersistBarrier"
+      | "receiptReactionTransportBarrier"
+      | "storage"
+    >
+  > & { wakeup?: ChatChannelServiceOptions["heartbeat"]["wakeup"] } = {},
+  useVerifiedAppId = false,
+  registerWithManifest = false,
+  connectExistingApp = false,
+  interruptAppVault = false,
+) {
+  let setupComplete = false;
+  const deferredSchedule = overrides.scheduleDeferredWork;
+  let installationId = 2468;
+  let additionalInstallationIds: number[] = [];
+  let installationAvailable = true;
+  let repositories = [
+    {
+      id: 97531,
+      full_name: "paperclipai/paperclip",
+      html_url: "https://github.com/paperclipai/paperclip",
+      owner: { id: 1357, login: "paperclipai" },
+      private: false,
+    },
+  ];
+  let appPermissions: Record<string, string> = {
+    contents: "read",
+    checks: "write",
+    issues: "write",
+    metadata: "read",
+    pull_requests: "write",
+  };
+  let installationPermissions: Record<string, string> = {
+    contents: "read",
+    checks: "write",
+    issues: "write",
+    metadata: "read",
+    pull_requests: "write",
+  };
+  let appEvents = [
+    "pull_request",
+    "github_app_authorization",
+    "installation",
+    "installation_repositories",
+    "issue_comment",
+    "pull_request_review_comment",
+  ];
+  const webhookSyncRequests: Array<Record<string, unknown>> = [];
+  let webhookSyncResponse: (() => Promise<Response>) | null = null;
+  let supplementalProviderFetch:
+    | ((
+        input: string | URL | Request,
+        init?: RequestInit,
+      ) => Promise<Response | undefined>)
+    | null = null;
+  const appRegistrationId = Number.parseInt(
+    fixture.companyId.replaceAll("-", "").slice(0, 8),
+    16,
+  );
+  const privateKey = generateKeyPairSync("rsa", { modulusLength: 2048 })
+    .privateKey.export({ type: "pkcs8", format: "pem" })
+    .toString();
+  const responseComments = new Map<number, { id: number; body: string; html_url: string; user: { login: string }; thread: string }>();
+  const responseWrites: Array<{ method: string; id: number; body: string }> = [];
+  let nextResponseId = 800000;
+  const providerFetch = (async (
+    input: string | URL | Request,
+    init?: RequestInit,
+  ) => {
+    const url = String(input);
+    const supplemental = await supplementalProviderFetch?.(input, init);
+    if (supplemental) return supplemental;
+    const list = /\/repos\/paperclipai\/paperclip\/(issues|pulls)\/([1-9][0-9]*)\/comments(?:\?.*)?$/.exec(url);
+    const reply = /\/repos\/paperclipai\/paperclip\/pulls\/([1-9][0-9]*)\/comments\/[1-9][0-9]*\/replies$/.exec(url);
+    const item = /\/repos\/paperclipai\/paperclip\/(issues|pulls)\/comments\/([1-9][0-9]*)$/.exec(url);
+    if (item) {
+      const comment = responseComments.get(Number(item[2]));
+      if (!comment) return Response.json({ message: "Not Found" }, { status: 404 });
+      if (init?.method === "PATCH") {
+        comment.body = JSON.parse(String(init.body)).body;
+        responseWrites.push({ method: "PATCH", id: comment.id, body: comment.body });
+      }
+      return Response.json(comment);
     }
-    await db
-      .insert(chatIdentityLinks)
-      .values({
-        companyId: fixture.companyId,
-        endpointId: endpoint.id,
-        principalId: inbound.principalId,
-        paperclipUserId: "owner-user",
-        status: "linked",
-        confirmedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: [chatIdentityLinks.endpointId, chatIdentityLinks.principalId],
-        set: {
-          paperclipUserId: "owner-user",
-          status: "linked",
-          confirmedAt: new Date(),
-          revokedAt: null,
-          updatedAt: new Date(),
-        },
-      });
-
-    const issueId = conversation.issueId;
-    const runId = randomUUID();
-    const sessionId = randomUUID();
-    const runnerInstanceId = randomUUID();
-    const contractId = randomUUID();
-    const contractSha256 = `review-transport-${randomUUID()}`;
-    const contextSnapshot = {
-      issueId,
-      source: "chat:slack",
-      wakeCommentId: inbound.commentId,
-      wakeCommentIds: [inbound.commentId],
-      paperclipHarnessCheckedOut: true,
-      paperclipWake: {
-        reason: "External chat message received",
-        externalChatProvider: "slack",
-        checkedOutByHarness: true,
-        issue: { id: issueId, workMode: "standard" },
-        commentIds: [inbound.commentId],
-      },
-    };
-    await db.insert(completionContracts).values({
-      id: contractId,
-      companyId: fixture.companyId,
-      issueId,
-      revision: 1,
-      schemaVersion: "paperclip.completion-contract.v1",
-      policyVersion: "phase6-v3",
-      risk: "low",
-      completionAuthority: "agent_claim_policy",
-      incompleteCriteriaPolicy: "preserve_non_terminal",
-      contractJson: {
-        revision: "review-transport-v1",
-        objective: "Return the exact requested response and files",
-        criteria: [{ id: "response", requirement: "Return the response" }],
-      },
-      canonicalSha256: contractSha256,
-      createdByActorType: "system",
-      createdByActorId: "test",
-    });
-    await db.insert(heartbeatRuns).values({
-      id: runId,
-      companyId: fixture.companyId,
-      agentId: fixture.assignedAgentId,
-      status: "running",
-      runtimeMode: "native",
-      nativeIssueId: issueId,
-      nativeSessionId: sessionId,
-      runnerInstanceId,
-      completionContractId: contractId,
-      completionContractSha256: contractSha256,
-      contextSnapshot,
-    });
-    await db
-      .update(issues)
-      .set({
-        status: "in_progress",
-        assigneeAgentId: fixture.assignedAgentId,
-        executionRunId: runId,
-      })
-      .where(eq(issues.id, issueId));
-    const port = new PaperclipControlPlanePort(db, {
-      companyId: fixture.companyId,
-      issueId,
-      runId,
-      agentId: fixture.assignedAgentId,
-      sessionId,
-      completionContractId: contractId,
-      completionContractSha256: contractSha256,
-      sourceInstanceId: runnerInstanceId,
-      controlPlaneSourceInstanceId: `review-transport-${runId}`,
-    });
-    await port.openRun({
-      identity: {
-        companyId: fixture.companyId,
-        issueId,
-        runId,
-        agentId: fixture.assignedAgentId,
-        sessionId,
-      },
-      backendKind: "mock",
-      sourceInstanceId: runnerInstanceId,
-    });
-    const responseResult: PrpStructuredRunResult = {
-      schema: "paperclip.run_result.v1",
-      reportedWorkDisposition: "yielded",
-      summary: "The exact response and files are prepared. I will wait.",
-      completionClaim: {
-        contractRevision: "review-transport-v1",
-        objectiveSatisfied: true,
-        criteria: [
-          {
-            criterionId: "response",
-            status: "satisfied",
-            evidenceRefs: [],
-          },
-        ],
-        remainingWork: [],
-      },
-      evidence: [],
-      verification: [],
-      attentionRequests: [],
-      artifacts: [],
-      continuation: {
-        kind: "response_wake",
-        summary: "Wait for the next authorized Slack message.",
-        idempotencyKey: `review-transport-wait:${conversation.id}`,
-      },
-    };
-    const terminal: PrpTerminalState = {
-      schema: "paperclip.prp.terminal.v1",
-      turnTerminalState: "completed",
-      runTerminalState: "succeeded",
-      reportedWorkDisposition: "yielded",
-      workAssessmentId: randomUUID(),
-      statusDecisionId: randomUUID(),
-    };
-    await port.completeRun({
-      result: responseResult,
-      terminal,
-      callerResultId: `review-response-${runId}`,
-    });
-    await db
-      .update(heartbeatRuns)
-      .set({ resultJson: { nativeResult: responseResult } })
-      .where(eq(heartbeatRuns.id, runId));
-
-    const [accepted] = await db
-      .select()
-      .from(nativeRunResults)
-      .where(eq(nativeRunResults.runId, runId));
-    if (!accepted) throw new Error("Expected accepted native result");
-    const reviewRunId = randomUUID();
-    const reviewSessionId = randomUUID();
-    const reviewRunnerInstanceId = randomUUID();
-    await db.insert(heartbeatRuns).values({
-      id: reviewRunId,
-      companyId: fixture.companyId,
-      agentId: fixture.assignedAgentId,
-      status: "running",
-      runtimeMode: "native",
-      nativeIssueId: issueId,
-      nativeSessionId: reviewSessionId,
-      runnerInstanceId: reviewRunnerInstanceId,
-      completionContractId: contractId,
-      completionContractSha256: contractSha256,
-      contextSnapshot: {},
-      createdAt: new Date(Date.now() - 60_000),
-    });
-    await db
-      .update(issues)
-      .set({ executionRunId: reviewRunId })
-      .where(eq(issues.id, issueId));
-    const reviewPort = new PaperclipControlPlanePort(db, {
-      companyId: fixture.companyId,
-      issueId,
-      runId: reviewRunId,
-      agentId: fixture.assignedAgentId,
-      sessionId: reviewSessionId,
-      completionContractId: contractId,
-      completionContractSha256: contractSha256,
-      sourceInstanceId: reviewRunnerInstanceId,
-      controlPlaneSourceInstanceId: `review-gate-${reviewRunId}`,
-    });
-    await reviewPort.openRun({
-      identity: {
-        companyId: fixture.companyId,
-        issueId,
-        runId: reviewRunId,
-        agentId: fixture.assignedAgentId,
-        sessionId: reviewSessionId,
-      },
-      backendKind: "mock",
-      sourceInstanceId: reviewRunnerInstanceId,
-    });
-    const reviewResult = {
-      ...(accepted.resultJson.result as PrpStructuredRunResult),
-      reportedWorkDisposition: "needs_review" as const,
-      attentionRequests: [{ kind: "review" as const, ownerClass: "human" as const, summary: "Approve the prepared response and selected files." }],
-    };
-    delete reviewResult.continuation;
-    await reviewPort.completeRun({
-      result: reviewResult,
-      terminal: {
-        ...(accepted.resultJson.terminal as PrpTerminalState),
-        reportedWorkDisposition: "needs_review",
-      },
-      callerResultId: `review-gate-${reviewRunId}`,
-    });
-    await finalizeNativeRun({
-      db,
-      runId: reviewRunId,
-      workspaceFinalizeStatus: "succeeded",
-      projectRunStatus: true,
-    });
-    const [gate] = await db
-      .select()
-      .from(issueThreadInteractions)
-      .where(eq(issueThreadInteractions.sourceRunId, reviewRunId));
-    if (!gate) throw new Error("Expected genuine native completion review");
-    expect(gate).toMatchObject({
-      kind: "request_confirmation",
-      status: "pending",
-      effectiveResolverPolicy: "human_only",
-      createdByAgentId: null,
-      createdByUserId: null,
-    });
-    await db
-      .update(issues)
-      .set({ executionRunId: runId })
-      .where(eq(issues.id, issueId));
-    await db
-      .update(heartbeatRuns)
-      .set({
-        contextSnapshot,
-        startedAt: new Date(gate.createdAt.getTime() + 1),
-      })
-      .where(eq(heartbeatRuns.id, runId));
-
-    const selection = await issueService(db).addComment(
-      issueId,
-      "Prepared the exact requested files for this response.",
-      { agentId: fixture.assignedAgentId, runId },
-      { authorizationReason: "paperclip_runner_protocol" },
-    );
-    const attachments = [];
-    for (const [originalFilename, contentType, body] of [
-      ["review-note.txt", "text/plain", Buffer.from("review note", "utf8")],
-      ["review-image.png", "image/png", Buffer.from("review image", "utf8")],
-    ] as const) {
-      const stored = await storage.storage.putFile({
-        companyId: fixture.companyId,
-        namespace: `issues/${issueId}`,
-        originalFilename,
-        contentType,
-        body,
-      });
-      attachments.push(
-        await issueService(db).createAttachment({
-          issueId,
-          issueCommentId: selection.id,
-          provider: stored.provider,
-          objectKey: stored.objectKey,
-          contentType: stored.contentType,
-          byteSize: stored.byteSize,
-          sha256: stored.sha256,
-          originalFilename: stored.originalFilename,
-          createdByAgentId: fixture.assignedAgentId,
-          createdByRunId: runId,
-        }),
-      );
+    if ((list || reply) && init?.method === "POST") {
+      const id = ++nextResponseId;
+      const thread = list ? `${list[1]}:${list[2]}` : `pulls:${reply![1]}`;
+      const body = JSON.parse(String(init.body)).body;
+      const comment = { id, body, thread, html_url: `https://github.com/paperclipai/paperclip/issues/${list?.[2] ?? reply![1]}#issuecomment-${id}`,
+        user: { login: `maya-${fixture.companyId.slice(0, 8)}[bot]` } };
+      responseComments.set(id, comment);
+      responseWrites.push({ method: "POST", id, body });
+      return Response.json(comment, { status: 201 });
     }
-    await finalizeNativeRun({
-      db,
-      runId,
-      workspaceFinalizeStatus: "succeeded",
-      projectRunStatus: true,
-    });
-    const [committedRun] = await readHeartbeatRunsById(runId);
-    expect(committedRun).toMatchObject({
-      status: "succeeded",
-      resultJson: {
-        finalizationPhase: "committed",
-        finalizationReasonCode: "governed_response_waiting",
-        externalChatReviewPresentation: {
-          runId,
-          gateId: gate.id,
-        },
-      },
-    });
-    const publications = await db
-      .select()
-      .from(chatPublications)
-      .where(
-        and(
-          eq(chatPublications.issueId, issueId),
-          eq(chatPublications.state, "pending"),
-        ),
-      );
-    expect(publications).toHaveLength(3);
-    expect(publications).toEqual(
-      expect.arrayContaining(
-        attachments.map((attachment) =>
-          expect.objectContaining({
-            commentId: selection.id,
-            idempotencyKey: `attachment:${attachment.id}:${endpoint.id}`,
-            payload: expect.objectContaining({
-              attachmentIds: [attachment.id],
-            }),
-          }),
-        ),
-      ),
-    );
-    const providerRuntime = runtime.endpoints.get(endpoint.id);
-    if (!providerRuntime) throw new Error("Expected Slack provider runtime");
-    providerRuntime.posts.length = 0;
-    providerRuntime.edits.length = 0;
-    providerRuntime.slackFilePublicationAttempts = 0;
-    providerRuntime.slackFileReceiptLookups.length = 0;
-    return {
-      attachments,
-      conversation,
-      endpoint,
-      fixture,
-      gate,
-      providerRuntime,
-      publications,
-      runId,
-      service,
-    };
-  }
-
-  export async function deferredChatQueueFixture(admissionFails = false, beforeAdmission?: (service: ChatChannelService) => Promise<void>, linkedBoardUser = false) {
-    const fixture = await seedCompany();
-    let ownerId: string | null = null;
-    const configured = await configuredSlackEndpoint(fixture, {
-      linkedBoardUser,
-      wakeup: async (agentId, opts) => {
-        if (admissionFails)
-          throw new Error("PRIVATE admission failure token=do-not-publish");
-        const request = opts.durableChatRequest!;
-        await db.transaction(async (tx) => {
-          await request.authorize(
-            tx as unknown as Parameters<typeof request.authorize>[0],
-          );
-          const [owner] = ownerId
-            ? await tx
-                .select()
-                .from(agentWakeupRequests)
-                .where(eq(agentWakeupRequests.id, ownerId))
-            : [];
-          const existingContext = owner?.payload?._paperclipWakeContext as
-            Record<string, unknown> | undefined;
-          const commentIds = [
-            ...(Array.isArray(existingContext?.wakeCommentIds)
-              ? existingContext.wakeCommentIds
-              : []),
-            request.commentId,
-          ];
-          const payload = {
-            ...opts.payload,
-            _paperclipWakeContext: {
-              ...opts.contextSnapshot,
-              wakeCommentIds: commentIds,
-            },
-          };
-          if (owner)
-            await tx
-              .update(agentWakeupRequests)
-              .set({ payload, coalescedCount: owner.coalescedCount + 1 })
-              .where(eq(agentWakeupRequests.id, owner.id));
-          await tx.insert(agentWakeupRequests).values({
-            id: request.id,
-            companyId: fixture.companyId,
-            agentId,
-            source: "assignment",
-            reason: "issue_execution_deferred",
-            status: owner ? "coalesced" : "deferred_issue_execution",
-            payload: owner
-              ? { ...opts.payload, coalescedIntoWakeupRequestId: owner.id }
-              : payload,
-            requestedByActorType: request.requestedByActorType,
-            requestedByActorId: request.requestedByActorId,
-            requestedAt: request.requestedAt,
-            idempotencyKey: request.idempotencyKey,
-          });
-          ownerId ??= request.id;
-        });
-        return { accepted: true };
-      },
-    });
-    const thread = makeThread({
-      channelId: "CDEFERREDNOTICE",
-      id: "slack:CDEFERREDNOTICE:1999000.1",
-    });
-    const send = async (id = "1999000.1") =>
-      deliverMessage({
-        callbacks: configured.callbacks,
-        endpointId: configured.endpoint.id,
-        thread: thread.thread,
-        message: makeMessage({
-          id,
-          text: "@maya exact queued request",
-          userId: linkedBoardUser ? "UBOARD" : undefined,
-          mentioned: id === "1999000.1",
-        }),
-        trigger: id === "1999000.1" ? "mention" : "subscribed_message",
-      });
-    await beforeAdmission?.(configured.service);
-    await send();
-    const [conversation] = await readChatConversationsByEndpointId(configured.endpoint.id);
-    const [action] = await db
-      .select()
-      .from(chatActions)
-      .where(
-        and(
-          eq(chatActions.endpointId, configured.endpoint.id),
-          eq(chatActions.kind, "inbound_wakeup"),
-        ),
-      );
-    const promote = async () => {
-      const [owner] = await readAgentWakeupRequestsById(ownerId!);
-      const runId = randomUUID();
-      const contextSnapshot = owner.payload!._paperclipWakeContext as Record<
+    if (list && (!init?.method || init.method === "GET")) return Response.json([...responseComments.values()].filter(row => row.thread === `${list[1]}:${list[2]}`));
+    if (url === "https://api.github.com/app/hook/config") {
+      expect(init?.method).toBe("PATCH");
+      const config = JSON.parse(String(init?.body)) as Record<
         string,
         unknown
       >;
-      await db.transaction(async (tx) => {
-        await tx.insert(heartbeatRuns).values({
-          id: runId,
-          companyId: fixture.companyId,
-          agentId: fixture.assignedAgentId,
-          status: "running",
-          runtimeMode: "native",
-          wakeupRequestId: owner.id,
-          contextSnapshot,
-        });
-        await tx
-          .update(agentWakeupRequests)
-          .set({ runId, status: "claimed" })
-          .where(eq(agentWakeupRequests.id, owner.id));
-      });
-      return runId;
-    };
-    return {
-      ...configured,
-      action,
-      conversation,
-      fixture,
-      promote,
-      send,
-      thread,
-    };
-  }
-
-  export async function teamsFileAuthorityFixture(
-    settings: { linkedRecipient?: boolean; separateSponsor?: boolean } = {},
-  ) {
-    const { installTeamsFileConsentHook } =
-      await import("../../services/chat-teams-file-consent.js");
-    type ConsentCard = ReturnType<
-      typeof import("../../services/chat-teams-file-consent.js").buildTeamsFileConsentCard
-    >;
-    type FileCard = ReturnType<
-      typeof import("../../services/chat-teams-file-consent.js").buildTeamsUploadedFileCard
-    >;
-    const fixture = await seedCompany();
-    const storage = createStorageService();
-    const bytes = Buffer.from("Exact original Teams file bytes.\n", "utf8");
-    const consentCards: Array<{ threadId: string; card: ConsentCard }> = [];
-    const fileCards: Array<{ threadId: string; card: FileCard }> = [];
-    const controls: {
-      beforeConsentReceipt?: () => Promise<void>;
-      beforeFileInfoReceipt?: () => Promise<void>;
-    } = {};
-    const handlers = new Map<
-      string,
-      (context: { activity: unknown }) => Promise<{ status: number }>
-    >();
-    const runtime = new FakeChatSdkRuntime();
-    const replace = runtime.replaceEndpoint.bind(runtime);
-    vi.spyOn(runtime, "replaceEndpoint").mockImplementation(async (options) => {
-      const instance = await replace(options);
-      const thread = instance.thread.bind(instance);
-      vi.spyOn(instance, "thread").mockImplementation((id) => ({
-        ...thread(id),
-        isDM: true,
-      }));
-      Object.assign(instance, {
-        sendTeamsFileConsentCard: async (
-          threadId: string,
-          card: ConsentCard,
-        ) => {
-          consentCards.push({ threadId, card });
-          await controls.beforeConsentReceipt?.();
-          return { id: `native-consent-${consentCards.length}` };
-        },
-        sendTeamsUploadedFileCard: async (threadId: string, card: FileCard) => {
-          fileCards.push({ threadId, card });
-          await controls.beforeFileInfoReceipt?.();
-          return { id: `native-file-${fileCards.length}` };
-        },
-      });
-      if (
-        options.providerConfig.provider === "microsoft-teams" &&
-        options.callbacks.onTeamsFileConsent
-      ) {
-        handlers.clear();
-        installTeamsFileConsentHook(
-          { on: (name, callback) => handlers.set(name, callback) },
-          {
-            companyId: options.companyId,
-            endpointId: options.endpointId,
-            tenantId: String(options.providerConfig.credentials.appTenantId),
-            botAppId: String(options.providerConfig.credentials.appId),
-            onConsent: async (event) =>
-              options.callbacks.onTeamsFileConsent!({
-                endpointId: options.endpointId,
-                provider: "microsoft-teams",
-                event,
-              }),
-          },
-        );
-      }
-      return instance;
-    });
-    const uploadRequest = vi.fn<
-      NonNullable<ChatChannelServiceOptions["teamsFileUploadRequest"]>
-    >(async () =>
-      Response.json(
-        {
-          id: "teams-drive-item-1",
-          name: "authority-report.txt",
-          size: bytes.length,
-        },
-        { status: 201 },
-      ),
-    );
-    const wakeup = vi.fn<ChatChannelServiceOptions["heartbeat"]["wakeup"]>(
-      async () => ({ accepted: true }),
-    );
-    const cancelRun = vi.fn(async () => ({ status: "cancelled" }));
-    const service = chatChannelService(db, {
-      fetch: async () =>
-        Response.json({ access_token: "synthetic-teams-access" }),
-      runtime: runtime as unknown as ChatSdkRuntime,
-      heartbeat: { wakeup: receiptBackedWakeup(wakeup), cancelRun },
-      storage: storage.storage,
-      publicBaseUrl: "https://paperclip.example",
-      teamsFileUploadRequest: uploadRequest,
-      scheduleDeferredWork: () => undefined,
-    });
-    const endpoint = await service.create(
-      fixture.companyId,
-      {
-        provider: "microsoft-teams",
-        assignedAgentId: fixture.assignedAgentId,
-        name: "Teams native file authority",
-      },
-      "owner-user",
-    );
-    const tenantId = randomUUID();
-    const botAppId = randomUUID();
-    await service.configure(
-      endpoint.id,
-      {
-        action: "configure",
-        credentials: {
-          clientId: botAppId,
-          tenantId,
-          clientSecret: "synthetic-file-secret",
-        },
-      },
-      "owner-user",
-    );
-    const aadObjectId = randomUUID();
-    const recipientUserId = `teams-linked-${randomUUID()}`;
-    const sponsorUserId = settings.separateSponsor
-      ? `teams-sponsor-${randomUUID()}`
-      : "owner-user";
-    for (const userId of [
-      settings.linkedRecipient ? recipientUserId : null,
-      settings.separateSponsor ? sponsorUserId : null,
-    ]) {
-      if (!userId) continue;
-      await db.insert(authUsers).values({
-        id: userId,
-        name: "Teams authority member",
-        email: `${userId}@example.com`,
-        emailVerified: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-      await db.insert(companyMemberships).values({
-        companyId: fixture.companyId,
-        principalType: "user",
-        principalId: userId,
-        status: "active",
-        membershipRole: "operator",
-      });
-    }
-    if (settings.separateSponsor)
-      await db
-        .update(chatEndpoints)
-        .set({ sponsorUserId })
-        .where(eq(chatEndpoints.id, endpoint.id));
-    if (settings.linkedRecipient) {
-      const [principal] = await db
-        .insert(chatExternalPrincipals)
-        .values({
-          companyId: fixture.companyId,
-          provider: "microsoft-teams",
-          providerAccountId: tenantId,
-          externalId: aadObjectId,
-          kind: "user",
-          isBot: false,
-        })
-        .returning();
-      await db.insert(chatIdentityLinks).values({
-        companyId: fixture.companyId,
-        endpointId: endpoint.id,
-        principalId: principal!.id,
-        paperclipUserId: recipientUserId,
-        status: "linked",
-        confirmedAt: new Date(),
-      });
-    }
-    const providerUserId = `29:file-author-${randomUUID()}`;
-    const providerConversationId = `a:file-authority-${randomUUID()}`;
-    const adapter = createTeamsAdapter({
-      appId: botAppId,
-      appPassword: "unused-parser-only",
-      appTenantId: tenantId,
-      appType: "SingleTenant",
-    });
-    const raw = {
-      id: `file-source-${randomUUID()}`,
-      type: "message",
-      channelId: "msteams",
-      timestamp: new Date().toISOString(),
-      serviceUrl: "https://smba.trafficmanager.net/amer/",
-      from: { id: providerUserId, aadObjectId, name: "File recipient" },
-      recipient: { id: `28:${botAppId}` },
-      conversation: {
-        id: providerConversationId,
-        conversationType: "personal",
-        tenantId,
-      },
-      channelData: { tenant: { id: tenantId } },
-      text: "Use only my exact original personal conversation.",
-    };
-    const message = adapter.parseMessage(raw);
-    const sourceThread = makeThread({
-      id: message.threadId,
-      channelId: message.threadId,
-      isDM: true,
-      name: "Native personal file",
-    });
-    const deliver = async (activity = raw) => {
-      const callbacks = runtime.configurations.get(endpoint.id)!.callbacks;
-      await deliverMessage({
-        callbacks,
-        endpointId: endpoint.id,
-        provider: "microsoft-teams",
-        thread: sourceThread.thread,
-        message: adapter.parseMessage(activity),
-        trigger: "direct_message",
-      });
-    };
-    await deliver();
-    await qualifySetupRoundTrip(service, endpoint.id, aadObjectId);
-    await service.test(endpoint.id);
-    await service.processPendingPublications();
-    const [sourceDelivery] = await db
-      .select()
-      .from(chatDeliveries)
-      .where(
-        and(
-          eq(chatDeliveries.endpointId, endpoint.id),
-          sql`${chatDeliveries.normalizedEvent}->'message'->>'providerMessageId' = ${raw.id}`,
-        ),
+      webhookSyncRequests.push(config);
+      if (webhookSyncResponse) return webhookSyncResponse();
+      return new Response(
+        JSON.stringify({
+          url: config.url,
+          content_type: config.content_type,
+          insecure_ssl: config.insecure_ssl,
+        }),
+        { status: 200 },
       );
-    const [conversation] = await readChatConversationsById(sourceDelivery!.conversationId!);
-    const [issue] = await readIssuesById(conversation!.issueId);
-    const [sourceAction] = await db
-      .select()
-      .from(chatActions)
-      .where(
-        and(
-          eq(chatActions.deliveryId, sourceDelivery!.id),
-          eq(chatActions.kind, "inbound_wakeup"),
-        ),
+    }
+    if (url === "https://api.github.com/app") {
+      return new Response(
+        JSON.stringify({
+          id: appRegistrationId,
+          slug: `maya-${fixture.companyId.slice(0, 8)}`,
+          name: "Maya Paperclip",
+          owner: { login: "paperclipai" },
+          permissions: appPermissions,
+          events: appEvents,
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
       );
-    expect(sourceDelivery).toMatchObject({
-      state: "processed",
-      normalizedEvent: {
-        teamsPersonalRecipient: {
-          aadObjectId,
-          providerUserId,
-          providerConversationId,
-        },
-      },
-    });
-    expect(sourceAction).toMatchObject({ status: "processed" });
-    await expect(service.get(endpoint.id)).resolves.toMatchObject({
-      status: "active",
-    });
-    const createFile = async () => {
-      const stored = await storage.storage.putFile({
-        companyId: fixture.companyId,
-        namespace: `issues/${issue!.id}`,
-        originalFilename: "authority-report.txt",
-        contentType: "text/plain",
-        body: bytes,
-      });
-      return issueService(db).createAttachment({
-        issueId: issue!.id,
-        ...stored,
-        createdByUserId: "owner-user",
-      });
-    };
-    const dispatchConsent = async (
-      action: "accept" | "decline" = "accept",
-      patch: Record<string, unknown> = {},
-      retainedHandler?: (context: {
-        activity: unknown;
-      }) => Promise<{ status: number }>,
-    ) => {
-      const card = consentCards.at(-1)?.card;
-      if (!card)
-        throw new Error("Expected real service consent card before callback");
-      const activity = {
-        id: `consent-response-${randomUUID()}`,
-        type: "invoke",
-        name: "fileConsent/invoke",
-        channelId: "msteams",
-        from: raw.from,
-        recipient: raw.recipient,
-        conversation: raw.conversation,
-        channelData: raw.channelData,
-        replyToId: `native-consent-${consentCards.length}`,
-        value: {
-          type: "fileUpload",
-          action,
-          context:
-            action === "accept"
-              ? card.content.acceptContext
-              : card.content.declineContext,
-          ...(action === "accept"
-            ? {
-                uploadInfo: {
-                  name: card.name,
-                  fileType: "txt",
-                  uniqueId: "teams-drive-item-1",
-                  uploadUrl:
-                    "https://fixture.sharepoint.com/upload?secret=PRIVATE-UPLOAD-CANARY",
-                  contentUrl:
-                    "https://fixture.sharepoint.com/personal/authority-report.txt",
+    }
+    if (url === `https://api.github.com/app/installations/${installationId}`)
+      return Response.json({ permissions: installationPermissions, suspended_at: null });
+    if (url === "https://api.github.com/app/installations?per_page=100") {
+      return new Response(
+        JSON.stringify(
+          installationAvailable
+            ? [
+                {
+                  id: installationId,
+                  account: {
+                    id: 1357,
+                    login: "paperclipai",
+                    type: "Organization",
+                  },
+                  permissions: installationPermissions,
+                  suspended_at: null,
                 },
-              }
-            : {}),
-        },
-        ...patch,
-      };
-      const handler = retainedHandler ?? handlers.get(`file.consent.${action}`);
-      if (!handler)
-        throw new Error("Expected registered service consent callback");
-      return handler({ activity });
-    };
-    return {
-      fixture,
-      storage,
-      bytes,
-      runtime,
-      service,
-      endpoint,
-      tenantId,
-      botAppId,
-      aadObjectId,
-      providerUserId,
-      providerConversationId,
-      adapter,
-      raw,
-      message,
-      sourceThread,
-      sourceDelivery: sourceDelivery!,
-      sourceAction: sourceAction!,
-      conversation: conversation!,
-      issue: issue!,
-      consentCards,
-      fileCards,
-      uploadRequest,
-      wakeup,
-      cancelRun,
-      createFile,
-      deliver,
-      dispatchConsent,
-      controls,
-      handlers,
-      recipientUserId,
-      sponsorUserId,
-    };
+                ...additionalInstallationIds.map((id) => ({
+                  id,
+                  account: {
+                    id: id + 10_000,
+                    login: `additional-${id}`,
+                    type: "Organization",
+                  },
+                  permissions: installationPermissions,
+                  suspended_at: null,
+                })),
+              ]
+            : [],
+        ),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    if (
+      url ===
+      `https://api.github.com/app/installations/${installationId}/access_tokens`
+    ) {
+      return new Response(JSON.stringify({ token: "installation-token" }), {
+        status: 201,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (
+      url ===
+      "https://api.github.com/installation/repositories?per_page=100&page=1"
+    ) {
+      return new Response(JSON.stringify({ repositories }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    throw new Error(`Unexpected provider request: ${url}`);
+  }) as typeof globalThis.fetch;
+  const context = createService(
+    new FakeChatSdkRuntime(),
+    providerFetch,
+    deferredSchedule
+      ? {
+          ...overrides,
+          scheduleDeferredWork: (task) => {
+            if (setupComplete) deferredSchedule(task);
+            else setImmediate(task);
+          },
+        }
+      : overrides,
+  );
+  const endpoint = await context.service.create(
+    fixture.companyId,
+    {
+      provider: "github",
+      assignedAgentId: fixture.assignedAgentId,
+      name: "Maya in GitHub",
+    },
+    "owner-user",
+  );
+  const { webhookSecret } = await context.service.generateSetupSecret(
+    endpoint.id,
+    "owner-user",
+  );
+  await recordGitHubWebhookVerification(
+    context.service,
+    endpoint.publicId,
+    webhookSecret,
+  );
+  if (registerWithManifest)
+    await context.service.startGitHubRegistration(endpoint.id, "owner-user", "Maya");
+  if (connectExistingApp) {
+    const credentials = { appId: String(appRegistrationId), privateKey, webhookSecret };
+    if (interruptAppVault) {
+      // Fail the real vault write after App identity has been durably claimed.
+      await db.execute(sql.raw("CREATE FUNCTION github_wizard_fail_vault() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'Simulated App vault failure'; END $$"));
+      await db.execute(sql.raw("CREATE TRIGGER github_wizard_fail_vault BEFORE INSERT ON company_secrets FOR EACH ROW WHEN (lower(NEW.key) LIKE '%privatekey%') EXECUTE FUNCTION github_wizard_fail_vault()"));
+      try {
+        await expect(context.service.storeGitHubApp(endpoint.id, "owner-user", credentials)).rejects.toThrow();
+        expect(await context.service.githubWizard.advance(endpoint.id, "owner-user")).toMatchObject({ state: "recovery" });
+        expect((await context.service.get(endpoint.id)).setup.github).toMatchObject({ initialSetupPending: true, initialRepositoryImportPending: true });
+        expect((await context.service.get(endpoint.id)).setup.github?.initialRepositoriesImported).not.toBe(true);
+        expect(await context.service.listResources(endpoint.id)).toHaveLength(0);
+        expect((await githubChatManagementService(db, providerFetch).configuration(endpoint.id, "owner-user")).revision).toBe(0);
+      } finally {
+        await db.execute(sql.raw("DROP TRIGGER github_wizard_fail_vault ON company_secrets"));
+        await db.execute(sql.raw("DROP FUNCTION github_wizard_fail_vault()"));
+      }
+    }
+    await context.service.storeGitHubApp(endpoint.id, "owner-user", credentials);
   }
+  await context.service.configure(
+    endpoint.id,
+    {
+      action: "configure",
+      credentials: {
+        appId: useVerifiedAppId ? String(appRegistrationId) : "123456",
+        privateKey,
+      },
+    },
+    "owner-user",
+  );
+  if (!useVerifiedAppId) {
+    const [configured] = await readChatEndpointsById(endpoint.id);
+    // Legacy transport fixtures already have explicit tool authority. Do not
+    // save a review configuration: that would switch their admission model.
+    await db.transaction((tx) => syncGitHubBotTools(tx, configured!, "owner-user", true));
+  }
+  const resources = await context.service.listResources(endpoint.id);
+  if (!registerWithManifest && !connectExistingApp)
+    await context.service.replaceResources(endpoint.id, [
+      { id: resources[0]!.id, enabled: true },
+    ]);
+  setupComplete = true;
+  const callbacks = context.runtime.configurations.get(
+    endpoint.id,
+  )?.callbacks;
+  if (!callbacks)
+    throw new Error("Fake runtime did not receive GitHub callbacks");
+  return {
+    ...context,
+    endpoint,
+    callbacks,
+    webhookSecret,
+    providerFetch,
+    responseComments,
+    responseWrites,
+    webhookSyncRequests,
+    privateKey,
+    setSupplementalProviderFetch(value: typeof supplementalProviderFetch) {
+      supplementalProviderFetch = value;
+    },
+    setWebhookSyncResponse(value: (() => Promise<Response>) | null) {
+      webhookSyncResponse = value;
+    },
+    setInstallationId(value: number) {
+      installationId = value;
+    },
+    setAdditionalInstallationIds(value: number[]) {
+      additionalInstallationIds = value;
+    },
+    setInstallationAvailable(value: boolean) {
+      installationAvailable = value;
+    },
+    setRepositories(
+      value: Array<{
+        id: number;
+        full_name: string;
+        html_url: string;
+        owner: { id: number; login: string };
+        private: boolean;
+      }>,
+    ) {
+      repositories = value;
+    },
+    setAppAccess(input: {
+      permissions?: Record<string, string>;
+      events?: string[];
+    }) {
+      if (input.permissions) appPermissions = input.permissions;
+      if (input.events) appEvents = input.events;
+    },
+    setInstallationAccess(permissions: Record<string, string>) {
+      installationPermissions = permissions;
+    },
+  };
+}
+
+export async function safeNativeProgressFixture(
+provider: ChatProvider,
+suffix: string,
+teamsSurface: "channel" | "personal" = "channel",
+externalActorId?: string,
+linkedOriginalActor = false,
+githubUnavailableFile = false,
+upgradedGitHub = true,
+currentGitHubPr = false,
+shared?: SharedEndpointProgress,
+) {
+const fixture = shared?.fixture ?? await seedCompany();
+const configured = shared?.configured ?? (
+provider === "slack"
+  ? await configuredSlackEndpoint(fixture)
+  : provider === "github"
+    ? await configuredGitHubEndpoint(
+        fixture,
+        githubUnavailableFile
+          ? { storage: createStorageService().storage }
+          : {},
+      )
+    : provider === "discord"
+      ? await configuredDiscordEndpoint(fixture)
+      : provider === "microsoft-teams"
+        ? await configuredTeamsEndpoint(fixture)
+        : await configuredTelegramEndpoint(fixture));
+const { callbacks, endpoint, runtime, service } = configured;
+const telegramChatId = `77113${suffix.padStart(3, "0")}`;
+const teamsConversationId = `19:safe-progress-${suffix}@thread.${teamsSurface === "channel" ? "tacv2" : "v2"}`;
+const teamsServiceUrl = "https://smba.trafficmanager.net/amer/";
+const messageId =
+provider === "slack"
+  ? `1789000${suffix}.100001`
+  : provider === "github"
+    ? `9900${suffix}`
+    : provider === "discord"
+      ? `55555555555556${suffix.padStart(3, "0")}`
+      : provider === "microsoft-teams"
+        ? `17400000${suffix.padStart(5, "0")}`
+        : `${telegramChatId}:101`;
+const thread =
+provider === "slack"
+  ? makeThread({
+      channelId: `C-SAFE-PROGRESS-${suffix}`,
+      id: `slack:C-SAFE-PROGRESS-${suffix}:${messageId}`,
+      name: `safe-progress-${suffix}`,
+    })
+  : provider === "github"
+    ? makeThread({
+        channelId: currentGitHubPr ? "paperclipai/paperclip" : "github:paperclipai/paperclip",
+        id: currentGitHubPr ? `github:paperclipai/paperclip:${700 + Number(suffix)}` : `github:paperclipai/paperclip:issue:${700 + Number(suffix)}`,
+        name: "paperclipai/paperclip",
+      })
+    : provider === "discord"
+      ? makeThread({
+          channelId: `33333333333334${suffix.padStart(3, "0")}`,
+          id: `discord:1457808928258658549:33333333333334${suffix.padStart(3, "0")}:${messageId}`,
+          name: `safe-progress-${suffix}`,
+        })
+      : provider === "microsoft-teams"
+        ? makeThread({
+            channelId: `teams:${Buffer.from(teamsConversationId).toString("base64url")}:${Buffer.from(teamsServiceUrl).toString("base64url")}`,
+            id: `teams:${Buffer.from(`${teamsConversationId}${teamsSurface === "channel" ? `;messageid=${messageId}` : ""}`).toString("base64url")}:${Buffer.from(teamsServiceUrl).toString("base64url")}`,
+            isDM: teamsSurface === "personal",
+            name: `safe-progress-${suffix}`,
+          })
+        : makeThread({
+            channelId: telegramChatId,
+            id: `telegram:${telegramChatId}`,
+            isDM: true,
+            name: `safe-progress-${suffix}`,
+          });
+if (provider === "microsoft-teams" && teamsSurface === "channel") {
+await db.insert(chatEndpointResources).values({
+  companyId: fixture.companyId,
+  endpointId: endpoint.id,
+  type: "channel",
+  providerResourceId: teamsConversationId,
+  label: "Native progress channel",
+  availability: "available",
+  enabled: true,
+});
+}
+if (linkedOriginalActor) {
+const currentEndpoint = await service.get(endpoint.id);
+const originalActorId =
+  externalActorId ??
+  (provider === "telegram" ? telegramChatId : "U-SAFE-PROGRESS");
+await db.insert(chatExternalPrincipals).values({
+  companyId: fixture.companyId,
+  provider,
+  providerAccountId: currentEndpoint.providerAccountId!,
+  externalId: originalActorId,
+  kind: "user",
+  isBot: false,
+});
+await linkLifecycleFixtureActor({
+  companyId: fixture.companyId,
+  endpointId: endpoint.id,
+  externalId: originalActorId,
+});
+}
+if (provider === "github" && currentGitHubPr) {
+const config = await githubChatManagementService(db).configuration(endpoint.id, "owner-user");
+await db.insert(chatGitHubConfigurations).values({ companyId: fixture.companyId, endpointId: endpoint.id,
+  configuration: { ...config.configuration, toolsEnabled: true, defaults: { ...config.configuration.defaults,
+    invocation: "mentions_only", events: [] } }, updatedByUserId: "owner-user" });
+}
+const sourceMessage = makeMessage({
+id: messageId,
+mentioned: !thread.thread.isDM,
+text: thread.thread.isDM
+  ? "Show safe progress"
+  : "@maya show safe progress",
+userId:
+  externalActorId ??
+  (provider === "telegram" ? telegramChatId : "U-SAFE-PROGRESS"),
+});
+if (currentGitHubPr) sourceMessage.raw = { action: "created", installation: { id: 2468 },
+repository: { id: 97531, full_name: "paperclipai/paperclip" }, issue: { number: 791, pull_request: {} },
+sender: { id: 42, login: "octocat", type: "User" }, comment: { id: Number(messageId), body: sourceMessage.text, user: { id: 42 } } };
+if (githubUnavailableFile) {
+const url =
+  "https://github.com/user-attachments/files/31967808/private-current.txt";
+sourceMessage.text = `@maya inspect only this exact file: [file](${url})`;
+Object.assign(sourceMessage, { threadId: thread.thread.id });
+sourceMessage.raw = {
+  type: "issue_comment",
+  threadType: "issue",
+  prNumber: 700 + Number(suffix),
+  repository: { full_name: "paperclipai/paperclip" },
+  comment: {
+    id: Number(messageId),
+    body: sourceMessage.text,
+    user: { id: 42 },
+  },
+};
+sourceMessage.formatted = {
+  type: "root",
+  children: [{ type: "link", url, children: [] }],
+};
+sourceMessage.attachments.push(
+  ...githubPublicAttachmentsFromMessage(sourceMessage),
+);
+}
+await deliverMessage({
+callbacks,
+endpointId: endpoint.id,
+provider,
+thread: thread.thread,
+message: sourceMessage,
+trigger: thread.thread.isDM ? "direct_message" : "mention",
+});
+const conversations = await readChatConversationsByEndpointId(endpoint.id);
+const conversation = shared ? conversations.find(row => row.externalThreadId === thread.thread.id) : conversations[0];
+if (!conversation) throw new Error("Expected safe-progress conversation");
+const providerRuntime = runtime.endpoints.get(endpoint.id);
+if (!providerRuntime) throw new Error("Expected safe-progress runtime");
+
+if (provider === "github" && upgradedGitHub) {
+// These fixtures exercise upgraded bots' tool-owned reply model.
+const config = await githubChatManagementService(db).configuration(endpoint.id, "owner-user");
+await db.insert(chatGitHubConfigurations).values({ companyId: fixture.companyId, endpointId: endpoint.id, configuration: config.configuration, updatedByUserId: "owner-user" });
+}
+
+const createRun = async (label: string) => {
+const runId = randomUUID();
+const baseCreatedAt = new Date(Date.now() - 60_000);
+await db.insert(heartbeatRuns).values({
+  id: runId,
+  companyId: fixture.companyId,
+  agentId: fixture.assignedAgentId,
+  runtimeMode: "native",
+  status: "running",
+  contextSnapshot: await chatWakeContext({
+    endpointId: endpoint.id,
+    issueId: conversation.issueId,
+    provider,
+    providerMessageId: messageId,
+  }),
+});
+await db.insert(chatPublications).values({
+  companyId: fixture.companyId,
+  endpointId: endpoint.id,
+  conversationId: conversation.id,
+  issueId: conversation.issueId,
+  idempotencyKey: `run:${runId}:working:${endpoint.id}`,
+  payload: {
+    text: `Maya is working on ${label}…`,
+    progressState: "working",
+  },
+  state: "pending",
+  createdAt: baseCreatedAt,
+  updatedAt: baseCreatedAt,
+});
+await service.processPendingPublications(100);
+return { baseCreatedAt, runId };
+};
+const addEvent = async (
+run: Awaited<ReturnType<typeof createRun>>,
+eventType = "item.completed",
+seq = 1,
+createdAt = new Date(run.baseCreatedAt.getTime() + 30_000 + seq),
+) => {
+await db.insert(heartbeatRunEvents).values({
+  companyId: fixture.companyId,
+  runId: run.runId,
+  agentId: fixture.assignedAgentId,
+  seq,
+  eventType,
+  message: "PRIVATE native event prose must stay in Paperclip",
+  payload: {
+    toolName: "secret_internal_tool",
+    arguments: { token: "PRIVATE-NATIVE-TOKEN" },
+    result: "PRIVATE-NATIVE-RESULT",
+    target: "PRIVATE-NATIVE-TARGET",
+  },
+  createdAt,
+});
+};
+return {
+addEvent,
+conversation,
+createRun,
+endpoint,
+fixture,
+messageId,
+providerRuntime,
+runtime,
+service,
+thread,
+wakeup: configured.wakeup,
+providerFetch:
+  "providerFetch" in configured ? (configured.providerFetch as typeof globalThis.fetch) : undefined,
+};
+}
+
+export async function failedChatRetryFixture(
+provider: "slack" | "telegram" | "github",
+externalActorId?: string,
+linkedOriginalActor = false,
+githubUnavailableFile = false,
+currentGitHubPr = false,
+shared?: SharedEndpointProgress,
+) {
+// Keep the policy under which the source was admitted. Inserting an
+// upgraded GitHub policy after receipt correctly invalidates retry proof.
+const context = await safeNativeProgressFixture(
+  provider,
+  shared?.suffix ?? "91",
+  "channel",
+  externalActorId,
+  linkedOriginalActor,
+  githubUnavailableFile,
+  false,
+  currentGitHubPr,
+  shared,
+);
+const [issue] = await readIssuesById(context.conversation.issueId);
+const [action] = await db
+  .select()
+  .from(chatActions)
+  .where(
+    and(
+      eq(chatActions.conversationId, context.conversation.id),
+      eq(chatActions.kind, "inbound_wakeup"),
+    ),
+  );
+const [receipt] = await readAgentWakeupRequestsById(action.id);
+const runId = randomUUID();
+await db.insert(heartbeatRuns).values({
+  id: runId,
+  companyId: context.fixture.companyId,
+  agentId: context.fixture.assignedAgentId,
+  status: "failed",
+  errorCode: "adapter_failed",
+  finishedAt: new Date(),
+  wakeupRequestId: receipt.id,
+  contextSnapshot: {
+    issueId: issue.id,
+    taskKey: issue.identifier,
+    source: `chat:${provider}`,
+    wakeCommentId: action.payload.commentId,
+    wakeCommentIds: [action.payload.commentId],
+  },
+});
+await db
+  .update(agentWakeupRequests)
+  .set({ status: "failed", runId })
+  .where(eq(agentWakeupRequests.id, receipt.id));
+await db
+  .update(issues)
+  .set({
+    description: "ORIGINAL task, not the failed request",
+    status: "blocked",
+    executionRunId: null,
+  })
+  .where(eq(issues.id, issue.id));
+return { ...context, issue, action, receipt, runId };
+}
