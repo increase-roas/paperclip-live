@@ -302,7 +302,7 @@ test("production organization switcher changes selection without leaking task fi
   await openPage(page);
   await page.getByRole("button", { name: "Open Paperclip Storybook organization switcher", exact: true }).click();
   await expect(page.getByText("Organizations", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Edit", exact: true })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Edit", exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("task-list-organization-menu.png"), fullPage: true });
   await page.getByRole("menuitem", { name: /Research Bureau/ }).click();
   await expect(page.getByRole("button", { name: "Open Research Bureau organization switcher", exact: true })).toBeVisible();
