@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { NavigationTabBar } from "@/components/TabBar";
 import { Identity } from "@/components/Identity";
 import { cn, relativeTime } from "@/lib/utils";
 import { queryKeys } from "@/lib/queryKeys";
@@ -574,18 +574,21 @@ export function AuditFeed({
       ) : null}
 
       {showModeToggle ? (
-        <Tabs data-canonical-toolbar="audit-scope" value={resolvedMode} onValueChange={(value) => onModeChange?.(value as AuditFeedMode)}>
-          <TabsList className="design-view-toggle" aria-label="Activity scope">
-            <TabsTrigger value="all">Activity</TabsTrigger>
-            <TabsTrigger
-              value="agents"
-              disabled={accessTier === "basic"}
-              title={accessTier === "basic" ? "Agent Actions requires audit access" : undefined}
-            >
-              Agent Actions
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <NavigationTabBar
+          label="Activity scope"
+          current="true"
+          value={resolvedMode}
+          onValueChange={(value) => onModeChange?.(value as AuditFeedMode)}
+          items={[
+            { value: "all", label: "Activity" },
+            {
+              value: "agents",
+              label: "Agent Actions",
+              disabled: accessTier === "basic",
+              title: accessTier === "basic" ? "Agent Actions requires audit access" : undefined,
+            },
+          ]}
+        />
       ) : null}
 
       {hasLockedScope ? (

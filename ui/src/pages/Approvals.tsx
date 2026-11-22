@@ -9,7 +9,6 @@ import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { cn } from "../lib/utils";
 import { PageTabBar } from "../components/PageTabBar";
-import { Tabs } from "@/components/ui/tabs";
 import { ShieldCheck } from "lucide-react";
 import { ApprovalCard } from "../components/ApprovalCard";
 import { PageSkeleton } from "../components/PageSkeleton";
@@ -113,8 +112,12 @@ export function Approvals() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <Tabs value={statusFilter} onValueChange={(v) => navigate(`/approvals/${v}`)}>
-          <PageTabBar items={[
+        <PageTabBar
+          mode="navigation"
+          label="Approval status"
+          value={statusFilter}
+          onValueChange={(value) => navigate(`/approvals/${value}`)}
+          items={[
             { value: "pending", label: <>Pending{pendingCount > 0 && (
               <Badge variant="ghost" className={cn(
                 "ml-1.5 px-1.5 text-(length:--text-nano)",
@@ -124,8 +127,8 @@ export function Approvals() {
               </Badge>
             )}</> },
             { value: "all", label: "All" },
-          ]} />
-        </Tabs>
+          ]}
+        />
       </div>
 
       {actionError && <p role="alert" className="text-sm text-destructive">{actionError}</p>}

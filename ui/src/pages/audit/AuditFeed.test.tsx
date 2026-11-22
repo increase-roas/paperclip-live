@@ -188,14 +188,12 @@ describe("AuditFeed", () => {
     });
   }
 
-  /** Radix tabs activate on mousedown, so drive both events like a real click. */
   function clickTab(label: string) {
-    const tab = Array.from(container.querySelectorAll('[role="tab"]')).find(
+    const tab = Array.from(container.querySelectorAll('nav[aria-label="Activity scope"] button')).find(
       (el) => el.textContent?.trim() === label,
     );
     expect(tab, `tab "${label}"`).toBeTruthy();
     return act(async () => {
-      tab!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
       tab!.dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0 }));
     });
   }
@@ -511,7 +509,7 @@ describe("AuditFeed", () => {
     const onModeChange = vi.fn();
     await render({ lockedAgentId: "agent-1", mode: "all", onModeChange });
 
-    expect(container.querySelector('[role="tab"]')).toBeFalsy();
+    expect(container.querySelector('nav[aria-label="Activity scope"]')).toBeFalsy();
     expect(listAgentActionsMock.mock.calls[0]?.[1]).toEqual(
       expect.objectContaining({ actorScope: "agents", agentId: "agent-1" }),
     );
@@ -583,7 +581,7 @@ describe("AuditFeed", () => {
     listAgentActionsMock.mockResolvedValue({ items: [record()], nextCursor: null, accessTier: "basic" });
     await render({ mode: "all", onModeChange: vi.fn() });
 
-    const tabs = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+    const tabs = Array.from(container.querySelectorAll<HTMLButtonElement>('nav[aria-label="Activity scope"] button'));
     expect(tabs.map((tab) => tab.textContent?.trim())).toEqual(["Activity", "Agent Actions"]);
     expect(tabs.find((tab) => tab.textContent?.trim() === "Agent Actions")?.disabled).toBe(true);
     // The basic feed itself still renders.

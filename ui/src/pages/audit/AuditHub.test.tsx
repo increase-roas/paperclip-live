@@ -104,7 +104,7 @@ describe("AuditHub", () => {
     currentSearch = "mode=agents&agentId=agent-1&runId=run-1&action=tool_";
     render("activity");
 
-    expect(container.querySelectorAll('[role="tab"]')).toHaveLength(6);
+    expect(container.querySelectorAll('nav[aria-label="Audit sections"] button')).toHaveLength(6);
     expect(container.textContent).toContain("Activity");
     expect(container.textContent).toContain("Runs");
     expect(container.textContent).toContain("Commentary");
@@ -123,9 +123,9 @@ describe("AuditHub", () => {
   it("renders Commentary for the selected company without an experimental gate", () => {
     render("commentary");
     expect(container.querySelector<HTMLElement>('[data-testid="agent-commentary"]')?.dataset.company).toBe("company-1");
-    const tab = Array.from(container.querySelectorAll<HTMLElement>('[role="tab"]'))
+    const tab = Array.from(container.querySelectorAll<HTMLElement>('nav[aria-label="Audit sections"] button'))
       .find((item) => item.textContent?.trim() === "Commentary");
-    expect(tab?.getAttribute("aria-selected")).toBe("true");
+    expect(tab?.getAttribute("aria-current")).toBe("page");
     expect(setBreadcrumbsMock).toHaveBeenCalledWith([
       { label: "Audit", href: "/activity" }, { label: "Commentary" },
     ]);
@@ -187,7 +187,7 @@ describe("AuditHub", () => {
   it("renders Timeline as the section after Budgets", () => {
     render("timeline");
 
-    const labels = Array.from(container.querySelectorAll<HTMLElement>('[role="tab"]'))
+    const labels = Array.from(container.querySelectorAll<HTMLElement>('nav[aria-label="Audit sections"] button'))
       .map((tab) => tab.textContent?.trim());
     expect(labels).toEqual(["Activity", "Runs", "Commentary", "Costs", "Budgets", "Timeline"]);
     expect(container.querySelector<HTMLElement>('[data-testid="audit-timeline"]')?.dataset.embedded)
@@ -211,7 +211,7 @@ describe("AuditHub", () => {
     currentSearch = "entityType=routine&entityId=routine-1";
     render("activity");
 
-    const runsTab = Array.from(container.querySelectorAll<HTMLElement>('[role="tab"]'))
+    const runsTab = Array.from(container.querySelectorAll<HTMLElement>('nav[aria-label="Audit sections"] button'))
       .find((tab) => tab.textContent?.trim() === "Runs");
     expect(runsTab).toBeTruthy();
     flushSync(() => {

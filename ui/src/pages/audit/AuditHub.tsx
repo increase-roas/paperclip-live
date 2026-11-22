@@ -2,7 +2,6 @@ import { useCallback, useEffect } from "react";
 import { History } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { PageTabBar } from "@/components/PageTabBar";
-import { Tabs } from "@/components/ui/tabs";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
 import { useCompany } from "@/context/CompanyContext";
 import { useNavigate, useSearchParams } from "@/lib/router";
@@ -118,15 +117,14 @@ export function AuditHub({ section }: { section: AuditSection }) {
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">Audit</h1>
       </div>
 
-      <Tabs
+      <PageTabBar
+        mode="navigation"
+        label="Audit sections"
+        items={AUDIT_SECTIONS}
         value={section}
-        onValueChange={(value) => {
-          const next = value as AuditSection;
-          navigate(auditSectionHref(next, scope));
-        }}
-      >
-        <PageTabBar items={AUDIT_SECTIONS} value={section} align="start" />
-      </Tabs>
+        align="start"
+        onValueChange={(value) => navigate(auditSectionHref(value as AuditSection, scope))}
+      />
 
       {section === "commentary" ? (
         <AgentCommentary key={selectedCompanyId} companyId={selectedCompanyId} />
