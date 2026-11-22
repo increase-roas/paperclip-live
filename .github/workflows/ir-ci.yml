@@ -28,8 +28,41 @@ env:
   npm_config_workspace_concurrency: "1"
 
 jobs:
+  changes:
+    name: detect changed paths
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: filter
+        name: Classify the change set
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            files=$(git diff --name-only "${{ github.event.pull_request.base.sha }}...HEAD")
+          elif [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            files=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}")
+          else
+            files=$(git ls-files)
+          fi
+          printf 'changed files (first 20):\n%s\n' "$(printf '%s\n' "$files" | head -20)"
+          code=false
+          # Docs, plans, logs and announcements do not need the build or the
+          # suites. Anything else (code, workflows, configs, lockfile) does.
+          if printf '%s\n' "$files" | grep -vE '^(doc|docs|logs|announcements)/' | grep -vE '\.(md|mdx|txt)$' | grep -q .; then
+            code=true
+          fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
   build:
     name: build + typecheck
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -42,8 +75,12 @@ jobs:
 
   test:
     name: test (${{ matrix.mode }}${{ matrix.mode == 'serialized' && format(' {0}/{1}', matrix.shard_index + 1, matrix.shard_count) || '' }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    # Six serialized shards plus one general job; 120 minutes was the single-job
+    # ceiling before sharding.
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -93,8 +130,20 @@ jobs:
   ci-passed:
     name: IR CI passed
     if: always()
-    needs: [build, test, ir-scripts]
+    needs: [changes, build, test, ir-scripts]
     runs-on: ubuntu-latest
     steps:
-      - run: |
-          [ "${{ needs.build.result }}" = success ] && [ "${{ needs.test.result }}" = success ] && [ "${{ needs.ir-scripts.result }}" = success ]
+      - name: Aggregate the required jobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ "${{ needs.changes.result }}" = "success" ]
+          [ "${{ needs.ir-scripts.result }}" = "success" ]
+          if [ "${{ needs.changes.outputs.code }}" = "true" ]; then
+            [ "${{ needs.build.result }}" = "success" ]
+            [ "${{ needs.test.result }}" = "success" ]
+          else
+            echo "docs-only change: build and test were skipped"
+            [ "${{ needs.build.result }}" = "skipped" ]
+            [ "${{ needs.test.result }}" = "skipped" ]
+          fi
