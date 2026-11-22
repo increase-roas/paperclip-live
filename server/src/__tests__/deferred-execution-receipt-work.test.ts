@@ -812,7 +812,10 @@ describe("deferred receipt durable dispatch", () => {
         expect(coordinator.nextWakeAt()).toBeNull(); expect(idleWorkSnapshot().active).toBe(0);
       }, { timeout: 40_000 });
       const idleStatements = statements.length;
-      await new Promise(resolve => setTimeout(resolve, 31_000));
+      // The claim is "nothing happens for 31 s". Advance the case's own clock
+      // instead of sleeping for 31 real seconds; a timer scheduled in that
+      // window would still fire here, so the assertion is not weaker.
+      await vi.advanceTimersByTimeAsync(31_000);
       expect(statements).toHaveLength(idleStatements);
       const read = async () => (await db.select().from(agentWakeupRequests).where(eq(agentWakeupRequests.id, wake.id)))[0];
       expect(await read()).toMatchObject({ status: "deferred_issue_execution", runId: null });
