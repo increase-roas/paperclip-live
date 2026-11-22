@@ -12,9 +12,7 @@ import {
 import { secretsApi } from "../api/secrets";
 import { type RoutineHistoryDirtyFieldDescriptor } from "../components/RoutineHistoryTab";
 import { heartbeatsApi } from "../api/heartbeats";
-import { agentsApi } from "../api/agents";
-import { projectsApi } from "../api/projects";
-import { accessApi } from "../api/access";
+
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useToastActions } from "../context/ToastContext";
@@ -71,6 +69,7 @@ import type {
   RoutineEnvConfig,
   RoutineVariable,
 } from "@paperclipai/shared";
+import { useCompanyAgents, useCompanyMembers, useCompanyProjects } from "@/hooks/useCompanyDirectoryQueries";
 
 const LAST_SECTION_STORAGE_KEY = "paperclip.routineLastSection";
 
@@ -235,21 +234,9 @@ export function RoutineDetail() {
     queryFn: () => routinesApi.activity(selectedCompanyId!, routineId!, relatedActivityIds),
     enabled: !!selectedCompanyId && !!routineId && !!routine,
   });
-  const { data: agents } = useQuery({
-    queryKey: queryKeys.agents.list(selectedCompanyId!),
-    queryFn: () => agentsApi.list(selectedCompanyId!),
-    enabled: !!selectedCompanyId,
-  });
-  const { data: projects } = useQuery({
-    queryKey: queryKeys.projects.list(selectedCompanyId!, { includeArchived: true }),
-    queryFn: () => projectsApi.list(selectedCompanyId!, { includeArchived: true }),
-    enabled: !!selectedCompanyId,
-  });
-  const { data: companyMembers } = useQuery({
-    queryKey: queryKeys.access.companyUserDirectory(selectedCompanyId!),
-    queryFn: () => accessApi.listUserDirectory(selectedCompanyId!),
-    enabled: !!selectedCompanyId,
-  });
+  const { data: agents } = useCompanyAgents(selectedCompanyId);
+  const { data: projects } = useCompanyProjects(selectedCompanyId);
+  const { data: companyMembers } = useCompanyMembers(selectedCompanyId);
   const { data: availableSecrets = [] } = useQuery({
     queryKey: selectedCompanyId ? queryKeys.secrets.list(selectedCompanyId) : ["secrets", "none"],
     queryFn: () => secretsApi.list(selectedCompanyId!),

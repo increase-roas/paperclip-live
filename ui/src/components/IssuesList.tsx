@@ -95,7 +95,10 @@ import {
 import { buildIssueTree, countDescendants } from "../lib/issue-tree";
 import { getInboxKeyboardSelectionIndex } from "../lib/inbox";
 import { hasBlockingShortcutDialog, isKeyboardShortcutTextInputTarget } from "../lib/keyboardShortcuts";
-import { buildSubIssueDefaultsForViewer } from "../lib/subIssueDefaults";
+import { useIssueListPaging } from "./issue-list/useIssueListPaging";
+import { useNewIssueDefaults } from "./issue-list/newIssueDefaults";
+import { useTaskCreateActions } from "./issue-list/useTaskCreateActions";
+import { useIssueColumns } from "./issue-list/useIssueColumns";
 import { statusBadge } from "../lib/status-colors";
 import { isSuccessfulRunHandoffRequired } from "../lib/successful-run-handoff";
 import {
@@ -126,21 +129,6 @@ function escapeAttrValue(value: string): string {
 }
 
 const INITIAL_ISSUE_ROW_RENDER_LIMIT = 100;
-const ISSUE_ROW_RENDER_BATCH_SIZE = 150;
-const ISSUE_SCROLL_LOAD_THRESHOLD_PX = 320;
-
-function findIssuesScrollContainer(element: HTMLElement | null): HTMLElement | null {
-  if (!element || typeof window === "undefined") return null;
-  let current = element.parentElement;
-  while (current && current !== document.body && current !== document.documentElement) {
-    const overflowY = window.getComputedStyle(current).overflowY;
-    if (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay") {
-      return current;
-    }
-    current = current.parentElement;
-  }
-  return null;
-}
 const boardIssueStatuses = [...ISSUE_STATUSES, "monitoring"] as const;
 const issueStatusLabels: Record<IssueDisplayStatus, string> = {
   backlog: "Backlog",
@@ -292,7 +280,6 @@ function loadIssueCollectionPreferences(
     normalizeColumns: (value) => normalizeInboxIssueColumns(Array.isArray(value) ? value : []),
   });
 }
-
 
 // Only recency sorts (newest first) get date separators — for any other
 // sort/direction the boundaries would be meaningless.
@@ -848,7 +835,6 @@ function StreamlinedIssuesList({
   const [hierarchyRowBudget, setHierarchyRowBudget] = useState(INITIAL_ISSUE_ROW_RENDER_LIMIT);
   const [visibleIssueColumns, setVisibleIssueColumns] = useState<InboxIssueColumn[]>(initialPreferences.columns);
   const renderedIssueIdsRef = useRef("");
-  const initialServerFillRequestedRef = useRef(false);
   const deferredIssueSearch = useDeferredValue(issueSearch);
   const normalizedIssueSearch = deferredIssueSearch.trim().toLowerCase();
 
@@ -1456,7 +1442,6 @@ function StreamlinedIssuesList({
   })), [baseGroupedContent, hierarchy.issues, issues, enableAgentCreatedVisibilityFilter, viewState.showAgentCreatedTasks, viewState.routineTasksOnly, viewState.nestingEnabled, viewState.viewMode]);
   const visibleListRowCount = groupedContent.reduce((total, group) => total + group.items.length, 0);
 
-
   // Flattened visible order (group headers, then tree DFS per group —
   // collapsed groups keep their header entry but skip their rows) — must
   // match render order below for keyboard traversal. `budgetOrdinal` counts
@@ -1665,167 +1650,34 @@ function StreamlinedIssuesList({
   }, [filtered, visibleListRowCount, viewState.viewMode, hierarchyEnabled]);
 
   const hasMoreHierarchyRows = hierarchyEnabled && hierarchy.hasMore;
-  const hasMoreRenderedRows = viewState.viewMode === "list" && renderedIssueRowLimit < visibleListRowCount;
-  const remainingIssueRowCount = Math.max(visibleListRowCount - renderedIssueRowLimit, 0);
-  const loadMoreIssueRows = useCallback(() => {
-    if (viewState.viewMode !== "list") return;
-    // A failed page waits for an explicit retry. Without this gate every
-    // scroll event next to the sentinel would send the same failing request.
-    if (loadMoreError) return;
-    if (hasMoreHierarchyRows && !hierarchy.isFetching) {
-      setHierarchyRowBudget((current) => current + ISSUE_ROW_RENDER_BATCH_SIZE);
-      setRenderedIssueRowLimit((current) => current + ISSUE_ROW_RENDER_BATCH_SIZE);
-      return;
-    }
-    if (hasMoreRenderedRows) {
-      setRenderedIssueRowLimit((current) => Math.min(visibleListRowCount, current + ISSUE_ROW_RENDER_BATCH_SIZE));
-      return;
-    }
-    if (hasMoreIssues && !isLoadingMoreIssues) {
-      onLoadMoreIssues?.();
-    }
-  }, [
+  const { remainingIssueRowCount } = useIssueListPaging({
+    viewMode: viewState.viewMode,
+    renderedIssueRowLimit,
+    setRenderedIssueRowLimit,
+    setHierarchyRowBudget,
     visibleListRowCount,
-    hasMoreIssues,
-    hasMoreRenderedRows,
     hasMoreHierarchyRows,
-    hierarchy.isFetching,
+    hierarchyFetching: hierarchy.isFetching,
+    hasMoreIssues,
     isLoadingMoreIssues,
+    isLoading,
     loadMoreError,
     onLoadMoreIssues,
-    viewState.viewMode,
-  ]);
+    rootRef,
+  });
 
-  const canLoadMoreIssues = viewState.viewMode === "list"
-    && !isLoading
-    && !loadMoreError
-    && (hasMoreRenderedRows || (hasMoreHierarchyRows && !hierarchy.isFetching) || (hasMoreIssues && !isLoadingMoreIssues));
+  const newIssueDefaults = useNewIssueDefaults({
+    baseCreateIssueDefaults, projectId, currentUserId, viewState,
+    executionWorkspaceById, projectWorkspaceById, issueById,
+  });
+  const { createActionLabel, createButtonLabel, openCreateIssueDialog, filterToWorkspace } = useTaskCreateActions({
+    createIssueLabel, newIssueDefaults, openNewIssue, updateView,
+  });
 
-  useEffect(() => {
-    if (!canLoadMoreIssues) return;
-    let animationFrameId: number | null = null;
-    const scrollContainer = findIssuesScrollContainer(rootRef.current);
-    const scrollTarget: Window | HTMLElement = scrollContainer ?? window;
-
-    const checkScrollPosition = (trigger: "initial" | "scroll" | "resize" = "scroll") => {
-      if (animationFrameId !== null) return;
-      animationFrameId = window.requestAnimationFrame(() => {
-        animationFrameId = null;
-        const scrollHeight = scrollContainer?.scrollHeight ?? document.documentElement.scrollHeight;
-        if (scrollHeight === 0) return;
-        const viewportHeight = scrollContainer?.clientHeight ?? window.innerHeight;
-        const scrollBottom = scrollContainer
-          ? scrollContainer.scrollTop + scrollContainer.clientHeight
-          : window.scrollY + window.innerHeight;
-        const hasScrollableOverflow = scrollHeight > viewportHeight + 1;
-        const threshold = scrollHeight - ISSUE_SCROLL_LOAD_THRESHOLD_PX;
-        if (scrollBottom >= threshold) {
-          if (trigger === "initial" && !hasMoreRenderedRows && hasMoreIssues && !hasScrollableOverflow) {
-            if (initialServerFillRequestedRef.current) return;
-            initialServerFillRequestedRef.current = true;
-          }
-          loadMoreIssueRows();
-        }
-      });
-    };
-
-    const handleScroll = () => checkScrollPosition("scroll");
-    const handleResize = () => checkScrollPosition("resize");
-    scrollTarget.addEventListener("scroll", handleScroll, { passive: true });
-    window.addEventListener("resize", handleResize);
-    checkScrollPosition("initial");
-
-    return () => {
-      scrollTarget.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("resize", handleResize);
-      if (animationFrameId !== null) window.cancelAnimationFrame(animationFrameId);
-    };
-  }, [canLoadMoreIssues, hasMoreIssues, hasMoreRenderedRows, loadMoreIssueRows]);
-
-  const newIssueDefaults = useCallback((group?: { key: string; items: Issue[] }) => {
-    const groupKey = group?.key;
-    const defaults: Record<string, unknown> = { ...(baseCreateIssueDefaults ?? {}) };
-    if (projectId && defaults.projectId === undefined) defaults.projectId = projectId;
-    if (groupKey) {
-      if (viewState.groupBy === "status") defaults.status = groupKey === "monitoring" ? "todo" : groupKey;
-      else if (viewState.groupBy === "priority") defaults.priority = groupKey;
-      else if (viewState.groupBy === "assignee" && groupKey !== "__unassigned") {
-        if (groupKey.startsWith("__user:")) defaults.assigneeUserId = groupKey.slice("__user:".length);
-        else defaults.assigneeAgentId = groupKey;
-      }
-      else if (viewState.groupBy === "project" && groupKey !== "__no_project") defaults.projectId = groupKey;
-      else if (viewState.groupBy === "workspace" && groupKey !== "__no_workspace") {
-        const representativeIssue = group?.items.find((issue) =>
-          issue.executionWorkspaceId === groupKey || issue.projectWorkspaceId === groupKey,
-        ) ?? null;
-        const executionWorkspace = executionWorkspaceById.get(groupKey);
-        if (executionWorkspace) {
-          defaults.executionWorkspaceId = groupKey;
-          defaults.executionWorkspaceMode = "reuse_existing";
-          if (executionWorkspace.projectWorkspaceId) defaults.projectWorkspaceId = executionWorkspace.projectWorkspaceId;
-          const groupedProjectId = executionWorkspace.projectId
-            ?? (executionWorkspace.projectWorkspaceId
-              ? projectWorkspaceById.get(executionWorkspace.projectWorkspaceId)?.projectId
-              : null)
-            ?? (representativeIssue?.executionWorkspaceId === groupKey ? representativeIssue.projectId : null);
-          if (groupedProjectId) defaults.projectId = groupedProjectId;
-        } else {
-          const projectWorkspace = projectWorkspaceById.get(groupKey);
-          if (projectWorkspace) {
-            defaults.projectWorkspaceId = groupKey;
-            defaults.projectId = projectWorkspace.projectId;
-          }
-        }
-      }
-      else if (viewState.groupBy === "parent" && groupKey !== "__no_parent") {
-        const parentIssue = issueById.get(groupKey);
-        if (parentIssue) Object.assign(defaults, buildSubIssueDefaultsForViewer(parentIssue, currentUserId));
-        else defaults.parentId = groupKey;
-      }
-    }
-    return defaults;
-  }, [
-    baseCreateIssueDefaults,
-    currentUserId,
-    executionWorkspaceById,
-    issueById,
-    projectId,
-    projectWorkspaceById,
-    viewState.groupBy,
-  ]);
-
-  const createActionLabel = createIssueLabel ? `Create ${createIssueLabel}` : "Create Task";
-  const createButtonLabel = createIssueLabel ? `New ${createIssueLabel}` : "New Task";
-  const openCreateIssueDialog = useCallback((group?: { key: string; items: Issue[] }) => {
-    openNewIssue(newIssueDefaults(group));
-  }, [newIssueDefaults, openNewIssue]);
-
-  const filterToWorkspace = useCallback((workspaceId: string) => {
-    updateView({ workspaces: [workspaceId] });
-  }, [updateView]);
-
-  const setIssueColumns = useCallback((next: InboxIssueColumn[]) => {
-    const normalized = normalizeInboxIssueColumns(next);
-    setVisibleIssueColumns(normalized);
-    saveTaskCollectionPreferences(preferenceLocation, {
-      viewState,
-      columns: normalized,
-    });
-  }, [
-    preferenceLocation.companyId,
-    preferenceLocation.collectionKey,
-    preferenceLocation.legacyColumnsStorageKey,
-    preferenceLocation.legacyViewStorageKey,
-    viewState,
-  ]);
-
-  const toggleIssueColumn = useCallback((column: InboxIssueColumn, enabled: boolean) => {
-    if (enabled) {
-      setIssueColumns([...visibleIssueColumns, column]);
-      return;
-    }
-    setIssueColumns(visibleIssueColumns.filter((value) => value !== column));
-  }, [setIssueColumns, visibleIssueColumns]);
+  const { setIssueColumns, toggleIssueColumn } = useIssueColumns({
+    setVisibleIssueColumns, visibleIssueColumns,
+    save: (normalized) => saveTaskCollectionPreferences(preferenceLocation, { viewState, columns: normalized }),
+  });
 
   const assignIssue = useCallback((issueId: string, assigneeAgentId: string | null, assigneeUserId: string | null = null) => {
     onUpdateIssue(issueId, { assigneeAgentId, assigneeUserId });
