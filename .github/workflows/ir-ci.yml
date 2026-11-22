@@ -74,7 +74,10 @@ jobs:
         run: pnpm typecheck
 
   test:
-    name: test (${{ matrix.mode }}${{ matrix.mode == 'serialized' && format(' {0}/{1}', matrix.shard_index + 1, matrix.shard_count) || '' }})
+    # GitHub expressions have no arithmetic operators, so the 1-based shard
+    # number is a matrix field. `matrix.shard_index + 1` made this workflow
+    # invalid and every run failed before a job could start.
+    name: test (${{ matrix.mode }}${{ matrix.mode == 'serialized' && format(' {0}/{1}', matrix.shard_number, matrix.shard_count) || '' }})
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
@@ -90,12 +93,12 @@ jobs:
             shard_count: 1
           # The serialized shard needs more than two hours on an eight-core host,
           # so it runs as six parallel jobs here. Same flags as pr-trusted.yml.
-          - { mode: serialized, shard_index: 0, shard_count: 6 }
-          - { mode: serialized, shard_index: 1, shard_count: 6 }
-          - { mode: serialized, shard_index: 2, shard_count: 6 }
-          - { mode: serialized, shard_index: 3, shard_count: 6 }
-          - { mode: serialized, shard_index: 4, shard_count: 6 }
-          - { mode: serialized, shard_index: 5, shard_count: 6 }
+          - { mode: serialized, shard_index: 0, shard_number: 1, shard_count: 6 }
+          - { mode: serialized, shard_index: 1, shard_number: 2, shard_count: 6 }
+          - { mode: serialized, shard_index: 2, shard_number: 3, shard_count: 6 }
+          - { mode: serialized, shard_index: 3, shard_number: 4, shard_count: 6 }
+          - { mode: serialized, shard_index: 4, shard_number: 5, shard_count: 6 }
+          - { mode: serialized, shard_index: 5, shard_number: 6, shard_count: 6 }
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/ir-setup
