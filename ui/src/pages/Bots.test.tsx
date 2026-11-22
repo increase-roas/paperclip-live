@@ -4,6 +4,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { KNOWN_GATEWAY_BOTS } from "@paperclipai/shared";
 import type { CompanyBotDetail, CompanyBotSummary } from "@paperclipai/shared";
 import { Bots } from "./Bots";
 import { BotDetail } from "./BotDetail";
@@ -66,6 +67,31 @@ const funnelCatalogBot: CompanyBotSummary = {
   note: "Runs on the gateway website-builder policy with the full GHL scope set.",
   updatedAt: null,
 };
+
+/**
+ * The roster entry the server derives for a known gateway bot that has no
+ * agent row yet. `<BotDetail>` must render every one of them, so the fixtures
+ * come from the shipped catalog rather than a hand-written pair.
+ */
+function catalogFixture(known: (typeof KNOWN_GATEWAY_BOTS)[number]): CompanyBotSummary {
+  return {
+    id: `catalog:${known.slug}`,
+    slug: known.slug,
+    name: known.name,
+    purpose: null,
+    kind: "gateway",
+    registered: false,
+    agentId: null,
+    role: null,
+    title: null,
+    status: "unregistered",
+    adapterType: null,
+    grokBotTwin: false,
+    gateway: null,
+    note: known.note,
+    updatedAt: null,
+  };
+}
 
 describe("Bots", () => {
   let container: HTMLDivElement;
@@ -247,5 +273,45 @@ describe("Bots", () => {
     expect(text).toContain("bot.gateway.keyId");
     const link = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent?.includes("Open the agent to add the key"));
     expect(link?.getAttribute("href")).toBe("/agents/agent-1");
+  });
+
+  it("gives every known gateway bot its own roster link", async () => {
+    listMock.mockResolvedValue({ bots: KNOWN_GATEWAY_BOTS.map(catalogFixture) });
+
+    await render(<Bots />);
+
+    for (const known of KNOWN_GATEWAY_BOTS) {
+      const link = [...container.querySelectorAll("a")].find(
+        (anchor) => anchor.getAttribute("href") === `/bots/catalog:${known.slug}`,
+      );
+      expect(link, `${known.name} should link to its own page`).toBeTruthy();
+      expect(link?.textContent).toContain(known.name);
+    }
+  });
+
+  it("renders the five bot sections on every known gateway bot page", async () => {
+    for (const known of KNOWN_GATEWAY_BOTS) {
+      params.botId = `catalog:${known.slug}`;
+      getMock.mockResolvedValue({
+        ...catalogFixture(known),
+        routines: [],
+        recentActivity: [],
+      });
+
+      await render(<BotDetail />);
+
+      expect(getMock).toHaveBeenLastCalledWith("company-1", `catalog:${known.slug}`);
+      const text = container.textContent ?? "";
+      expect(text, `${known.name} page`).toContain(known.name);
+      expect(text).toContain("What it does");
+      expect(text).toContain("Gateway key and policy");
+      expect(text).toContain("Routines and schedules");
+      expect(text).toContain("Status");
+      expect(text).toContain("Recent activity");
+      expect(text).toContain(known.note);
+      expect(text).toContain("No gateway key is linked to this bot yet.");
+      expect(text).toContain("No routines assigned.");
+      expect(text).toContain("No recorded activity.");
+    }
   });
 });

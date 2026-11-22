@@ -12,6 +12,7 @@ import {
   routines,
 } from "@paperclipai/db";
 import { getEmbeddedPostgresTestSupport, startEmbeddedPostgresTestDatabase } from "./helpers/embedded-postgres.js";
+import { KNOWN_GATEWAY_BOTS } from "@paperclipai/shared";
 
 const support = await getEmbeddedPostgresTestSupport();
 const describePostgres = support.supported ? describe : describe.skip;
@@ -165,6 +166,40 @@ describePostgres("bots", () => {
     const funnelEntries = after.body.bots.filter((bot: { slug: string }) => bot.slug === "funnel-builder");
     expect(funnelEntries).toHaveLength(1);
     expect(funnelEntries[0]).toMatchObject({ registered: true, name: "Funnel Builder" });
+  });
+
+  it("serves a page for every known gateway bot", async () => {
+    const company = await createCompanyNamed(db, "Increase Roas");
+    const app = await createApp(db, boardActor(company.id));
+
+    const listed = await request(app).get(`/api/companies/${company.id}/bots`).expect(200);
+    for (const known of KNOWN_GATEWAY_BOTS) {
+      const summary = listed.body.bots.find((bot: { slug: string }) => bot.slug === known.slug);
+      expect(summary, `${known.name} should be listed`).toMatchObject({
+        id: `catalog:${known.slug}`,
+        name: known.name,
+        kind: "gateway",
+        registered: false,
+        status: "unregistered",
+        note: known.note,
+      });
+
+      const bySlug = await request(app)
+        .get(`/api/companies/${company.id}/bots/${known.slug}`)
+        .expect(200);
+      expect(bySlug.body).toMatchObject({
+        id: `catalog:${known.slug}`,
+        slug: known.slug,
+        name: known.name,
+        routines: [],
+        recentActivity: [],
+      });
+
+      const byId = await request(app)
+        .get(`/api/companies/${company.id}/bots/catalog:${known.slug}`)
+        .expect(200);
+      expect(byId.body.slug).toBe(known.slug);
+    }
   });
 
   it("returns routines, schedules and recent activity for a bot page", async () => {
