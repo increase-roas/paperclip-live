@@ -473,7 +473,7 @@ export interface WorkerStartOptions {
    * Callback for stream notifications from the worker (streams.open/emit/close).
    * The host wires this to the PluginStreamBus to fan out events to SSE clients.
    */
-  onStreamNotification?: (method: string, params: Record<string, unknown>) => void;
+  onStreamNotification?: (pluginId: string, method: string, params: Record<string, unknown>) => void;
   /**
    * Framing and flood limits for the `execute.log` route. The defaults bound
    * one incoming line before the JSON parse and the total streamed output for
@@ -3042,7 +3042,7 @@ export function createPluginWorkerHandle(
 
       if (options.onStreamNotification) {
         try {
-          options.onStreamNotification(notification.method, params);
+          options.onStreamNotification(pluginId, notification.method, params);
         } catch (err) {
           log.error(
             {
@@ -3184,7 +3184,7 @@ export function createPluginWorkerHandle(
     if (openStreamChannels.size > 0 && options.onStreamNotification) {
       for (const [channel, companyId] of openStreamChannels) {
         try {
-          options.onStreamNotification("streams.close", { channel, companyId });
+          options.onStreamNotification(pluginId, "streams.close", { channel, companyId });
         } catch {
           // Best-effort cleanup — don't let it interfere with exit handling
         }
@@ -3963,6 +3963,12 @@ export interface PluginWorkerManagerOptions {
    * stays upstream admission only.
    */
   maxConcurrentDuplexRoutes?: number | null;
+  /**
+   * Default stream-notification handler injected into every worker start, so
+   * the host can fan worker streams out to the PluginStreamBus without every
+   * start call repeating it. A per-worker `WorkerStartOptions` value wins.
+   */
+  onStreamNotification?: (pluginId: string, method: string, params: Record<string, unknown>) => void;
 }
 
 /**
@@ -4120,6 +4126,7 @@ export function createPluginWorkerManager(
         // caller already supplied its own (a test may inject its own).
         duplexRouteSlots,
         ...options,
+        onStreamNotification: options.onStreamNotification ?? managerOptions?.onStreamNotification,
       }, () => pruneStartupWorker(handle));
       idleWorkerManifests.set(handle, pluginIdleManifestGeneration(options.manifest));
       if (existing) retainStartupWorker(existing);

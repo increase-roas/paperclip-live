@@ -79,3 +79,30 @@ export function createPluginStreamBus(): PluginStreamBus {
     },
   };
 }
+
+/**
+ * Adapt worker stream notifications (`streams.open` / `streams.emit` /
+ * `streams.close`) to bus publishes. The worker manager calls this for every
+ * notification a worker sends; a notification without a channel or company is
+ * dropped instead of fanning out to every subscriber.
+ */
+export function createPluginStreamPublisher(
+  bus: PluginStreamBus,
+): (pluginId: string, method: string, params: Record<string, unknown>) => void {
+  return (pluginId, method, params) => {
+    const channel = typeof params.channel === "string" ? params.channel : "";
+    const companyId = typeof params.companyId === "string" ? params.companyId : "";
+    if (!pluginId || !channel || !companyId) return;
+    if (method === "streams.open") {
+      bus.publish(pluginId, channel, companyId, { channel, companyId }, "open");
+      return;
+    }
+    if (method === "streams.close") {
+      bus.publish(pluginId, channel, companyId, { channel, companyId }, "close");
+      return;
+    }
+    if (method === "streams.emit") {
+      bus.publish(pluginId, channel, companyId, params.event, "message");
+    }
+  };
+}
