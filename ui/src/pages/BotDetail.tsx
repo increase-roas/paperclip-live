@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/EmptyState";
-import { QueryErrorState, useQueryView } from "@/components/QueryView";
+import { QueryErrorState, QueryPlaceholder, useQueryView } from "@/components/QueryView";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Link, useNavigate, useParams } from "@/lib/router";
 import { formatDateTime } from "@/lib/utils";
@@ -222,9 +222,8 @@ export function BotDetail() {
 
   if (botView.kind === "loading" || botView.kind === "reconnecting") {
     return (
-      <div role="status" className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
-        <RefreshCw aria-hidden className="size-4 animate-spin" />
-        Loading bot…
+      <div className="p-4">
+        <QueryPlaceholder size="page" label="Loading bot" />
       </div>
     );
   }

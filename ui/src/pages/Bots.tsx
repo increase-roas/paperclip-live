@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Bot, RefreshCw, SearchX } from "lucide-react";
+import { Bot, SearchX } from "lucide-react";
 import type { CompanyBotSummary, SuggestedAgentBot } from "@paperclipai/shared";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/EmptyState";
 import { QueryErrorState, useQueryView } from "@/components/QueryView";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -95,6 +96,36 @@ function BotSection({ title, bots }: { title: string; bots: CompanyBotSummary[] 
   );
 }
 
+/** Holds the roster's shape while the first read lands, so the page does not jump. */
+function BotsLoadingSkeleton() {
+  return (
+    <div role="status" aria-busy="true" aria-label="Loading bots" className="flex flex-col gap-4 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <Skeleton className="h-8 w-40" />
+          <Skeleton className="h-4 w-full max-w-3xl" />
+          <Skeleton className="h-4 w-3/4 max-w-2xl" />
+        </div>
+        <Skeleton className="h-10 w-full sm:w-80 sm:shrink-0" />
+      </div>
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-4 w-20" />
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3 pt-0">
+          <Skeleton className="h-4 w-32" />
+          {Array.from({ length: 4 }, (_, index) => (
+            <div key={index} className="flex flex-col gap-1.5 px-2 py-3">
+              <Skeleton className="h-4 w-56" />
+              <Skeleton className="h-3 w-full max-w-xl" />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export function Bots() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
@@ -133,12 +164,7 @@ export function Bots() {
   }
 
   if (botsView.kind === "loading" || botsView.kind === "reconnecting") {
-    return (
-      <div role="status" className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
-        <RefreshCw aria-hidden className="size-4 animate-spin" />
-        Loading bots…
-      </div>
-    );
+    return <BotsLoadingSkeleton />;
   }
 
   if (botsView.kind === "error") {

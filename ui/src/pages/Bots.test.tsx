@@ -725,4 +725,45 @@ describe("Bots", () => {
     const status = container.querySelector('[role="status"]');
     expect(status?.textContent).toContain("2 bots.");
   });
+
+  it("reserves the roster with a skeleton while the bots load", async () => {
+    let resolveList: (value: { bots: CompanyBotSummary[]; suggestedAgents: [] }) => void = () => {};
+    listMock.mockReturnValue(new Promise((resolve) => { resolveList = resolve; }));
+
+    await render(<Bots />);
+
+    const placeholder = container.querySelector('[role="status"][aria-busy="true"]');
+    expect(placeholder, "the roster should own a busy placeholder while it loads").toBeTruthy();
+    expect(placeholder!.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(3);
+    expect(container.querySelector(".animate-spin")).toBeNull();
+    expect(container.textContent).not.toContain("Loading bots…");
+
+    await act(async () => {
+      resolveList({ bots: [researchBot], suggestedAgents: [] });
+    });
+    await flush();
+
+    expect(container.textContent).toContain("Research Analyst");
+  });
+
+  it("reserves the bot page with a skeleton while the bot loads", async () => {
+    params.botId = "agent-1";
+    let resolveGet: (value: CompanyBotDetail) => void = () => {};
+    getMock.mockReturnValue(new Promise((resolve) => { resolveGet = resolve; }));
+
+    await render(<BotDetail />);
+
+    const placeholder = container.querySelector('[role="status"][aria-busy="true"]');
+    expect(placeholder, "the bot page should own a busy placeholder while it loads").toBeTruthy();
+    expect(placeholder!.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(3);
+    expect(container.querySelector(".animate-spin")).toBeNull();
+    expect(container.textContent).not.toContain("Loading bot…");
+
+    await act(async () => {
+      resolveGet({ ...researchBot, routines: [], recentActivity: [] });
+    });
+    await flush();
+
+    expect(container.textContent).toContain("What it does");
+  });
 });
