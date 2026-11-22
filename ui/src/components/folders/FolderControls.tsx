@@ -386,17 +386,21 @@ export function AllUnfiledBanner({
   }
 
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
-      <FolderIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 text-muted-foreground">
-        Group these {itemLabelPlural} into folders to keep things tidy.
-      </span>
-      <Button size="sm" variant="outline" onClick={onCreateFolder}>
-        Create your first folder
-      </Button>
-      <Button size="icon-sm" variant="ghost" aria-label="Dismiss folder suggestion" onClick={dismiss}>
-        <X className="h-3.5 w-3.5" />
-      </Button>
+    <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
+      <div className="flex min-w-0 flex-1 basis-full items-center gap-2 sm:basis-0">
+        <FolderIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 flex-1 text-muted-foreground">
+          Group these {itemLabelPlural} into folders to keep things tidy.
+        </span>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <Button size="sm" variant="outline" onClick={onCreateFolder}>
+          Create your first folder
+        </Button>
+        <Button size="icon-sm" variant="ghost" aria-label="Dismiss folder suggestion" onClick={dismiss}>
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
     </div>
   );
 }

@@ -11,6 +11,7 @@ import { BotDetail } from "./BotDetail";
 
 const listMock = vi.hoisted(() => vi.fn());
 const getMock = vi.hoisted(() => vi.fn());
+const setBreadcrumbsMock = vi.hoisted(() => vi.fn());
 const params = vi.hoisted(() => ({ botId: "" }));
 
 vi.mock("@/api/bots", () => ({
@@ -22,6 +23,10 @@ vi.mock("@/api/bots", () => ({
 
 vi.mock("@/context/CompanyContext", () => ({
   useCompany: () => ({ selectedCompanyId: "company-1", selectedCompany: { id: "company-1", name: "Paperclip" } }),
+}));
+
+vi.mock("@/context/BreadcrumbContext", () => ({
+  useBreadcrumbs: () => ({ setBreadcrumbs: setBreadcrumbsMock }),
 }));
 
 vi.mock("@/lib/router", () => ({
@@ -103,6 +108,7 @@ describe("Bots", () => {
     root = createRoot(container);
     listMock.mockReset();
     getMock.mockReset();
+    setBreadcrumbsMock.mockReset();
     params.botId = "";
   });
 
@@ -124,6 +130,26 @@ describe("Bots", () => {
     });
     await flush();
   }
+
+  it("sets a Bots breadcrumb so the mobile header keeps its title and menu", async () => {
+    listMock.mockResolvedValue({ bots: [] });
+
+    await render(<Bots />);
+
+    expect(setBreadcrumbsMock).toHaveBeenCalledWith([{ label: "Bots" }]);
+  });
+
+  it("sets a bot breadcrumb with a link back to the roster", async () => {
+    params.botId = "agent-1";
+    getMock.mockResolvedValue({ ...researchBot, routines: [], recentActivity: [] });
+
+    await render(<BotDetail />);
+
+    expect(setBreadcrumbsMock).toHaveBeenCalledWith([
+      { label: "Bots", href: "/bots" },
+      { label: "Research Analyst" },
+    ]);
+  });
 
   it("splits registered bots from known bots that are not registered yet", async () => {
     listMock.mockResolvedValue({ bots: [researchBot, funnelCatalogBot] });
