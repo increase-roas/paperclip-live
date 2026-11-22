@@ -2541,7 +2541,12 @@ function OnboardingWizardInner({
         if (!grantId) throw new Error("Choose a connected API account before continuing.");
         if (!await selectManagedDefault(createdCompanyId, selectedApiKey.aiConnection.provider, grantId, isCurrent, grantId)) return;
       }
-      if (credentialMode !== "api" && canUseLocalLogin && managedProvider && !managedBindingForStep() && !savedSubscription && !savedKeys.storedLogin.data) {
+      // Skip means "create the agent without testing a provider". A local
+      // sign-in attempt cannot satisfy that path: the harness may not have
+      // finished preparing one, and `connect` would reject the hire with
+      // "Prepare local sign-in before connecting." Leave the agent
+      // unconnected so the customer can add a provider later.
+      if (!options.skipConnectionCheck && credentialMode !== "api" && canUseLocalLogin && managedProvider && !managedBindingForStep() && !savedSubscription && !savedKeys.storedLogin.data) {
         const account = await localLogin.connect();
         if (!isCurrent()) return;
         managedSubscriptionRef.current = { companyId: createdCompanyId, binding: { provider: managedProvider, method: "subscription", mode: "responsible_user" }, grantId: account.grantId };

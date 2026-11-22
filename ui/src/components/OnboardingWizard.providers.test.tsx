@@ -557,6 +557,25 @@ describe("OnboardingWizard provider choices and step 1", () => {
       } finally { await act(async () => root.unmount()); }
     });
 
+    it("skips the local sign-in attempt when the customer chooses Skip for now", async () => {
+      mockEnvironmentsApi.list.mockResolvedValue([{
+        id: "env-local",
+        name: "Local",
+        driver: "local",
+        metadata: { defaultForInstance: true },
+        config: {},
+      }]);
+      localHealth.get.mockResolvedValue({ deploymentMode: "authenticated", localAiLoginSupported: true });
+      const root = await openProviderChoices({ adapterType: "claude_local", runner: "legacy" });
+      try {
+        mockAgentsApi.hire.mockClear();
+        await clickProviderSource((text) => text.trim() === "Skip for now");
+        for (let index = 0; index < 10; index++) await flushReact();
+        expect(document.body.textContent).not.toContain("Prepare local sign-in before connecting.");
+        expect(mockAgentsApi.hire).toHaveBeenCalled();
+      } finally { await act(async () => root.unmount()); }
+    });
+
     it("requires a new choice when resuming a Copilot draft", async () => {
       const root = await openProviderChoices({
         adapterType: "paperclip_runner", onboardingCopilot: true, model: "copilot-model",

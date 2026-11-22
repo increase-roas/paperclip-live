@@ -252,6 +252,24 @@ describe.each(["legacy", "native"] as const)("historical %s system status", (run
     expect(props.onResumeAssignee).not.toHaveBeenCalled();
   });
 
+  it("reserves the composer dock height above the paused-agent notice", () => {
+    const pausedAgent = { id: "agent", name: "Assistant", status: "paused", pauseReason: "manual" } as Agent;
+    render(<TaskChatThread
+      agentMap={new Map([[pausedAgent.id, pausedAgent]])}
+      currentAssigneeValue={`agent:${pausedAgent.id}`}
+      onResumeAssignee={vi.fn()}
+      comments={[]}
+      linkedRuns={[]}
+      onAdd={async () => {}}
+      issueStatus="todo"
+    />);
+
+    const notice = container.querySelector('[data-testid="issue-assignee-paused-notice"]');
+    expect(notice).not.toBeNull();
+    expect(notice?.parentElement?.style.marginBottom).toBe("var(--task-composer-dock-height, 0px)");
+    expect(container.querySelector('[data-testid="issue-assignee-paused-resume"]')).not.toBeNull();
+  });
+
   it.runIf(runtimeMode === "native")("keeps a failed MCP start on a historical settled run while hiding other notices", () => {
     const prp = (seq: number, eventType: string, payload: Record<string, unknown>) => ({
       id: seq, companyId: "company", runId: "mcp", agentId: "agent", seq, eventType, stream: "system", level: "info",

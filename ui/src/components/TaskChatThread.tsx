@@ -3512,7 +3512,14 @@ export function TaskChatThread(props: TaskChatThreadProps) {
               </div>
             </div>
             {assignedAgentForNotice?.status === "paused" && !isTerminalIssueStatus(issueStatus) ? (
-              <div className="mx-auto w-full max-w-(--tc-shell-max-w) px-4 pt-2">
+              // The composer dock is absolutely positioned over the thread.
+              // Reserve its measured height here so the resume action cannot
+              // sit behind the composer. The variable is 0 when the dock is
+              // in normal flow or absent.
+              <div
+                className="mx-auto w-full max-w-(--tc-shell-max-w) px-4 pt-2"
+                style={{ marginBottom: "var(--task-composer-dock-height, 0px)" }}
+              >
                 <IssueAssigneePausedNotice
                   agent={assignedAgentForNotice}
                   issueStatus={issueStatus}
