@@ -2310,6 +2310,7 @@ export function PromptsTab({
                   size="icon"
                   variant="outline"
                   className="h-7 w-7"
+                  aria-label="Add agent file"
                   onClick={() => setShowNewFileInput(true)}
                 >
                   +
@@ -2321,6 +2322,7 @@ export function PromptsTab({
                   size="icon"
                   variant="ghost"
                   className="h-7 w-7"
+                  aria-label="Hide file list"
                   onClick={() => setShowFilePanel(false)}
                 >
                   ✕
@@ -2439,6 +2441,7 @@ export function PromptsTab({
                   size="icon"
                   variant="outline"
                   className="h-7 w-7 shrink-0"
+                  aria-label="Show file list"
                   onClick={() => setShowFilePanel(true)}
                 >
                   <FolderOpen className="h-3.5 w-3.5" />
