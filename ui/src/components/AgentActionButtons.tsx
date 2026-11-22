@@ -531,7 +531,7 @@ export function AgentActionButtons({
           className="gap-1.5"
           disabled={disabled} onClick={() => { if (!onBeforeNavigate || onBeforeNavigate()) navigate(`/chats/${canonicalAgentRef}`); }}>
           <MessagesSquare className="size-4" />
-          <span>New chat</span>
+          <span className="hidden sm:inline">New chat</span>
         </Button>}
         {needsSetup ? (
           <Button size={size} disabled={disabled} onClick={finishSetup}>
