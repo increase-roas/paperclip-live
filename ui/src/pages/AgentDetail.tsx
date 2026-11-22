@@ -835,56 +835,61 @@ export function AgentDetail() {
       ) : null}
       {/* Header */}
       <header className="agent-character-header flex flex-wrap items-center gap-2">
-        <div role="img" aria-label={`${agent.name} avatar`} className="shrink-0">
-          <AgentCharacter agent={agent} state={characterStateForAgent(currentAgent.status) === "rest" ? "idle" : characterStateForAgent(currentAgent.status)} size={128} className="agent-header-character" trackingScope="page" followCursor />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-2">
-            <InlineEditor
-              as="h1"
-              value={agent.title ?? ""}
-              fitContent
-              nullable
-              placeholder={roleLabels[agent.role] ?? agent.role}
-              className="min-w-0 truncate text-2xl font-semibold leading-8 text-foreground"
-              onSave={(title) => saveHeaderField({ title: title || null })}
-            />
-            <PrimaryAgentCrownButton agent={agent} />
+        {/* Keep the avatar and identity together. On a phone the actions move to
+            their own row instead of squeezing the title and name to a few pixels. */}
+        <div className="flex min-w-0 basis-full items-center gap-2 lg:flex-1 lg:basis-auto">
+          <div role="img" aria-label={`${agent.name} avatar`} className="shrink-0">
+            <AgentCharacter agent={agent} state={characterStateForAgent(currentAgent.status) === "rest" ? "idle" : characterStateForAgent(currentAgent.status)} size={128} className="agent-header-character" trackingScope="page" followCursor />
           </div>
-          <div className="mt-1 flex min-w-0 items-center gap-2 text-sm leading-5 text-muted-foreground">
-            <Link
-              to={agentDetailHref(canonicalAgentRef, "runtime")}
-              aria-label={`Open ${getAdapterDisplay(agentDisplayAdapterType(agent)).label} harness settings`}
-              className="flex shrink-0 items-center gap-1 rounded-sm no-underline transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-            >
-              {agent.adapterType === "claude_local" || agent.adapterType === "codex_local"
-                ? <img src={`/brands/${agent.adapterType === "claude_local" ? "claude" : "codex"}-color.svg`} className="-ml-0.5 size-4" alt="" />
-                : null}
-              <span>{getAdapterDisplay(agentDisplayAdapterType(agent)).label}</span>
-            </Link>
-            <span aria-hidden="true">•</span>
-            <InlineEditor
-              fitContent
-              value={agent.name}
-              placeholder="Agent name"
-              className="min-w-0 truncate text-sm leading-5 text-muted-foreground"
-              onSave={(name) => saveHeaderField({ name })}
-            />
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-2">
+              <InlineEditor
+                as="h1"
+                value={agent.title ?? ""}
+                fitContent
+                nullable
+                placeholder={roleLabels[agent.role] ?? agent.role}
+                className="min-w-0 text-2xl font-semibold leading-8 text-foreground line-clamp-2 lg:truncate"
+                onSave={(title) => saveHeaderField({ title: title || null })}
+              />
+              <PrimaryAgentCrownButton agent={agent} />
+            </div>
+            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0 text-sm leading-5 text-muted-foreground">
+              <Link
+                to={agentDetailHref(canonicalAgentRef, "runtime")}
+                aria-label={`Open ${getAdapterDisplay(agentDisplayAdapterType(agent)).label} harness settings`}
+                className="flex shrink-0 items-center gap-1 rounded-sm no-underline transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              >
+                {agent.adapterType === "claude_local" || agent.adapterType === "codex_local"
+                  ? <img src={`/brands/${agent.adapterType === "claude_local" ? "claude" : "codex"}-color.svg`} className="-ml-0.5 size-4" alt="" />
+                  : null}
+                <span>{getAdapterDisplay(agentDisplayAdapterType(agent)).label}</span>
+              </Link>
+              <span aria-hidden="true">•</span>
+              <InlineEditor
+                fitContent
+                value={agent.name}
+                placeholder="Agent name"
+                className="min-w-0 text-sm leading-5 text-muted-foreground line-clamp-2 lg:truncate"
+                onSave={(name) => saveHeaderField({ name })}
+              />
+            </div>
+            <AgentLifecycleStatus agent={currentAgent} refreshError={lifecycle.isError} onRetry={() => agentAction.mutate("retryLifecycle")} retryPending={agentAction.isPending} />
+            {agentNeedsAuthReconnect(currentAgent) ? (
+              <AgentAuthReconnectNotice
+                providerLabel={providerAuthLabel(currentAgent)}
+                reconnectHref={agentDetailHref(canonicalAgentRef, "runtime")}
+                resuming={resumeAuthPausedAgent.isPending}
+                onResume={() => resumeAuthPausedAgent.mutate()}
+              />
+            ) : null}
           </div>
-          <AgentLifecycleStatus agent={currentAgent} refreshError={lifecycle.isError} onRetry={() => agentAction.mutate("retryLifecycle")} retryPending={agentAction.isPending} />
-          {agentNeedsAuthReconnect(currentAgent) ? (
-            <AgentAuthReconnectNotice
-              providerLabel={providerAuthLabel(currentAgent)}
-              reconnectHref={agentDetailHref(canonicalAgentRef, "runtime")}
-              resuming={resumeAuthPausedAgent.isPending}
-              onResume={() => resumeAuthPausedAgent.mutate()}
-            />
-          ) : null}
         </div>
         <AgentActionButtons
           agent={currentAgent}
           companyId={resolvedCompanyId}
           assignLabel="New task"
+          className="flex flex-wrap items-center gap-2"
           size="default"
           showAssignIcon={false}
           showChat
