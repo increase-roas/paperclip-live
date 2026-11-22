@@ -40,17 +40,14 @@ jobs:
       target_sha: ${{ steps.guard.outputs.target_sha }}
       runner: runs-on/fleet=paperclip-public-pr-x64/env=public-ci
     steps:
-      - &checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - &node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
-      - &guard
-        name: Verify actual main-only dispatch and both actors
+      - name: Verify actual main-only dispatch and both actors
         id: guard
         env:
           GH_TOKEN: ${{ github.token }}
@@ -75,9 +72,19 @@ jobs:
       parallelism: ${{ steps.selection.outputs.parallelism }}
       policy: ${{ steps.selection.outputs.policy }}
     steps:
-      - *checkout
-      - *node
-      - *guard
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+      - name: Verify actual main-only dispatch and both actors
+        id: guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TESTOPS_ALLOWED_ACTOR_IDS: ${{ vars.RUNNER_E2E_ALLOWED_ACTOR_IDS }}
+        run: node tests/runner-e2e/chat-completion-testops-cli.mjs guard
       - if: needs.authorize.outputs.operation != 'launch-plan'
         uses: allure-framework/setup-allurectl@2d89ee0b7ba2f59dbe9849b6df5763cab78e14db # v1
         with:
@@ -142,11 +149,20 @@ jobs:
     outputs:
       artifact_id: ${{ steps.bundle.outputs.artifact-id }}
     steps:
-      - *checkout
-      - *node
-      - *guard
-      - &pnpm
-        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+      - name: Verify actual main-only dispatch and both actors
+        id: guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TESTOPS_ALLOWED_ACTOR_IDS: ${{ vars.RUNNER_E2E_ALLOWED_ACTOR_IDS }}
+        run: node tests/runner-e2e/chat-completion-testops-cli.mjs guard
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         env:
           NPM_CONFIG_AUDIT: 'false'
           NPM_CONFIG_FUND: 'false'
@@ -258,10 +274,26 @@ jobs:
     outputs:
       artifact_id: ${{ steps.projection.outputs.artifact-id }}
     steps:
-      - *checkout
-      - *node
-      - *guard
-      - *pnpm
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+      - name: Verify actual main-only dispatch and both actors
+        id: guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TESTOPS_ALLOWED_ACTOR_IDS: ${{ vars.RUNNER_E2E_ALLOWED_ACTOR_IDS }}
+        run: node tests/runner-e2e/chat-completion-testops-cli.mjs guard
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        env:
+          NPM_CONFIG_AUDIT: 'false'
+          NPM_CONFIG_FUND: 'false'
+          NPM_CONFIG_UPDATE_NOTIFIER: 'false'
+        with:
+          version: 9.15.4
       - name: Install trusted reporting dependencies without lifecycle scripts
         run: |
           node tests/runner-e2e/prepare-report-lock.mjs
@@ -317,9 +349,19 @@ jobs:
     timeout-minutes: 10
     environment: runner-e2e-testops-reporting
     steps:
-      - *checkout
-      - *node
-      - *guard
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+      - name: Verify actual main-only dispatch and both actors
+        id: guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TESTOPS_ALLOWED_ACTOR_IDS: ${{ vars.RUNNER_E2E_ALLOWED_ACTOR_IDS }}
+        run: node tests/runner-e2e/chat-completion-testops-cli.mjs guard
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           artifact-ids: ${{ needs.aggregate.outputs.artifact_id }}

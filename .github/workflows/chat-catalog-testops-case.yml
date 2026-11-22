@@ -54,23 +54,20 @@ jobs:
       contents: read
       actions: read
       id-token: write
-    env: &retention
+    env:
       TARGET_SHA: ${{ inputs.target_sha }}
       MANUAL_PRIVATE_IDS: ${{ fromJSON(inputs.cell).private_ids }}
       MANUAL_PRIVATE_APPROVALS_JSON: ${{ fromJSON(inputs.cell).private_policy }}
       RUNNER_E2E_PRIVATE_HISTORY_S3_BUCKET: ${{ vars.RUNNER_E2E_PRIVATE_HISTORY_S3_BUCKET }}
     steps:
-      - &checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - &node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
-      - &guard
-        name: Verify the exact reusable protocol and main-only caller
+      - name: Verify the exact reusable protocol and main-only caller
         env:
           GH_TOKEN: ${{ github.token }}
           TESTOPS_ALLOWED_ACTOR_IDS: ${{ vars.RUNNER_E2E_ALLOWED_ACTOR_IDS }}
@@ -78,8 +75,7 @@ jobs:
         run: |
           test "$CHAT_TESTOPS_PROTOCOL" = streaming-v1
           node tests/runner-e2e/chat-completion-testops-cli.mjs guard
-      - &pnpm
-        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         env:
           NPM_CONFIG_AUDIT: 'false'
           NPM_CONFIG_FUND: 'false'
@@ -144,7 +140,7 @@ jobs:
           disable-retry: true
           action-timeout-s: 60
       - name: Verify private custody before delivering the model key
-        env: &cell_session
+        env:
           SELECTED_EXECUTION_ID: ${{ fromJSON(inputs.cell).executionId }}
           PRIVATE_EVIDENCE_ROOT: ${{ steps.private.outputs.root }}
           AWS_ACCESS_KEY_ID: ${{ steps.cell_credentials.outputs.aws-access-key-id }}
@@ -168,7 +164,13 @@ jobs:
         run: pnpm test:e2e:runner -- --id "${{ fromJSON(inputs.cell).executionId }}" --max-parallel 1 --max-automatic-retries 0 > "$PRIVATE_EVIDENCE_ROOT/launcher-output.log" 2>&1
       - name: Retain original evidence after success or failure
         if: always() && steps.cell_credentials.outcome == 'success'
-        env: *cell_session
+        env:
+          SELECTED_EXECUTION_ID: ${{ fromJSON(inputs.cell).executionId }}
+          PRIVATE_EVIDENCE_ROOT: ${{ steps.private.outputs.root }}
+          AWS_ACCESS_KEY_ID: ${{ steps.cell_credentials.outputs.aws-access-key-id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.cell_credentials.outputs.aws-secret-access-key }}
+          AWS_SESSION_TOKEN: ${{ steps.cell_credentials.outputs.aws-session-token }}
+          AWS_DEFAULT_REGION: ${{ vars.RUNNER_E2E_PRIVATE_HISTORY_AWS_REGION }}
         run: node .testops-trusted/cli/node_modules/tsx/dist/cli.mjs .testops-trusted/tests/runner-e2e/manual-private-transfer.ts upload-cell
 
   report:
@@ -182,18 +184,40 @@ jobs:
       contents: read
       actions: read
       id-token: write
-    env: *retention
+    env:
+      TARGET_SHA: ${{ inputs.target_sha }}
+      MANUAL_PRIVATE_IDS: ${{ fromJSON(inputs.cell).private_ids }}
+      MANUAL_PRIVATE_APPROVALS_JSON: ${{ fromJSON(inputs.cell).private_policy }}
+      RUNNER_E2E_PRIVATE_HISTORY_S3_BUCKET: ${{ vars.RUNNER_E2E_PRIVATE_HISTORY_S3_BUCKET }}
     outputs:
       bundle_id: ${{ steps.bundle.outputs.artifact-id }}
     steps:
-      - *checkout
-      - *node
-      - *guard
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+      - name: Verify the exact reusable protocol and main-only caller
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TESTOPS_ALLOWED_ACTOR_IDS: ${{ vars.RUNNER_E2E_ALLOWED_ACTOR_IDS }}
+          CHAT_TESTOPS_PROTOCOL: ${{ inputs.protocol }}
+        run: |
+          test "$CHAT_TESTOPS_PROTOCOL" = streaming-v1
+          node tests/runner-e2e/chat-completion-testops-cli.mjs guard
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           artifact-ids: ${{ inputs.selection_artifact_id }}
           path: chat-completion-testops-selection
-      - *pnpm
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        env:
+          NPM_CONFIG_AUDIT: 'false'
+          NPM_CONFIG_FUND: 'false'
+          NPM_CONFIG_UPDATE_NOTIFIER: 'false'
+        with:
+          version: 9.15.4
       - name: Install trusted reporting dependencies with lifecycle scripts disabled
         run: |
           node tests/runner-e2e/prepare-report-lock.mjs
@@ -280,9 +304,21 @@ jobs:
     timeout-minutes: 10
     environment: runner-e2e-testops-reporting
     steps:
-      - *checkout
-      - *node
-      - *guard
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+      - name: Verify the exact reusable protocol and main-only caller
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TESTOPS_ALLOWED_ACTOR_IDS: ${{ vars.RUNNER_E2E_ALLOWED_ACTOR_IDS }}
+          CHAT_TESTOPS_PROTOCOL: ${{ inputs.protocol }}
+        run: |
+          test "$CHAT_TESTOPS_PROTOCOL" = streaming-v1
+          node tests/runner-e2e/chat-completion-testops-cli.mjs guard
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           artifact-ids: ${{ inputs.selection_artifact_id }}
