@@ -440,6 +440,29 @@ describe("Bots", () => {
     expect(text).toContain("Open agent");
   });
 
+  it("links each routine to its own page", async () => {
+    params.botId = "agent-1";
+    getMock.mockResolvedValue({
+      ...researchBot,
+      routines: [
+        { id: "routine-1", title: "Daily ad check", status: "active", triggers: [] },
+        { id: "routine-2", title: "Weekly posting plan", status: "paused", triggers: [] },
+      ],
+      recentActivity: [],
+    });
+
+    await render(<BotDetail />);
+
+    for (const [id, title] of [
+      ["routine-1", "Daily ad check"],
+      ["routine-2", "Weekly posting plan"],
+    ]) {
+      const link = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent?.includes(title));
+      expect(link, `${title} should link to its detail page`).toBeTruthy();
+      expect(link?.getAttribute("href")).toBe(`/routines/${id}`);
+    }
+  });
+
   it("explains that an unregistered bot has no agent row or key yet", async () => {
     params.botId = "catalog:funnel-builder";
     getMock.mockResolvedValue({ ...funnelCatalogBot, routines: [], recentActivity: [] });

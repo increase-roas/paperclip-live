@@ -370,7 +370,12 @@ export function BotDetail() {
               {bot.routines.map((routine) => (
                 <li key={routine.id}>
                   <p className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-foreground">{routine.title}</span>
+                    <Link
+                      to={`/routines/${routine.id}`}
+                      className="rounded-sm font-medium text-foreground underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {routine.title}
+                    </Link>
                     <Badge variant="outline">{botStatusLabel(routine.status)}</Badge>
                   </p>
                   {routine.triggers.length === 0 ? (

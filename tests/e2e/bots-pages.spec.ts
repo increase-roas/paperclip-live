@@ -101,3 +101,23 @@ test("an empty roster and a missing bot each name the next step", async ({ page,
   await expect(page).toHaveURL(/\/bots$/);
   await expectNoHorizontalOverflow(page);
 });
+
+test("a bot's routines open from the bot page", async ({ page, request }) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const { company, agent } = await createBotCompany(request, `Routine links ${Date.now()}`);
+  const routine = await json(
+    await request.post(`/api/companies/${company.id}/routines`, {
+      data: { title: "Weekly posting plan", assigneeAgentId: agent.id },
+    }),
+  );
+
+  await page.goto(`/${company.issuePrefix}/bots/${agent.id}`);
+  const routineLink = page.getByRole("link", { name: "Weekly posting plan" });
+  await expect(routineLink).toBeVisible();
+  await expect(routineLink).toHaveAttribute("href", `/${company.issuePrefix}/routines/${routine.id}`);
+
+  await routineLink.click();
+  await expect(page).toHaveURL(new RegExp(`/${company.issuePrefix}/routines/${routine.id}$`));
+  await expect(page.getByRole("heading", { level: 1, name: "Weekly posting plan" })).toBeVisible();
+});
