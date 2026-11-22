@@ -43,37 +43,73 @@ function BotStatus({ status }: { status: string }) {
   );
 }
 
+function MetadataExample({ registered }: { registered: boolean }) {
+  return (
+    <pre
+      tabIndex={0}
+      aria-label="Bot metadata example"
+      className="mt-3 overflow-x-auto rounded-md bg-muted/50 p-3 font-mono text-xs leading-5 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+{registered
+  ? `spec:
+  metadata:
+    bot:
+      gateway:
+        keyId: gk_live_...
+        policy: website-builder`
+  : `spec:
+  metadata:
+    grokBotTwin: true
+    bot:
+      purpose: What this bot does.
+      gateway:
+        keyId: gk_live_...
+        policy: website-builder`}
+    </pre>
+  );
+}
+
 function RegisterPanel({ bot }: { bot: CompanyBotDetail }) {
   const registered = bot.registered && bot.agentId;
+  if (registered) {
+    return (
+      <Section title="Link a gateway key">
+        <p className="text-muted-foreground">
+          This bot is tagged, but it has no gateway key id or policy yet.
+        </p>
+        <ol className="mt-2 list-decimal space-y-2 pl-4">
+          <li>Open the agent&rsquo;s Advanced configuration.</li>
+          <li>
+            Under <code className="font-mono text-xs">spec.metadata.bot.gateway</code>, add{" "}
+            <code className="font-mono text-xs">keyId</code> and{" "}
+            <code className="font-mono text-xs">policy</code>. The key itself stays in the gateway.
+          </li>
+        </ol>
+        <MetadataExample registered />
+        <Button asChild variant="outline" className="mt-3">
+          <Link to={`/agents/${bot.agentId}/advanced`}>Open Advanced configuration</Link>
+        </Button>
+      </Section>
+    );
+  }
   return (
-    <Section title={registered ? "Link a gateway key" : "How to register"}>
+    <Section title="How to register">
       <ol className="list-decimal space-y-2 pl-4">
+        <li>Create the bot agent, then open its Advanced configuration.</li>
         <li>
-          Tag the agent as a bot in its metadata: <code className="font-mono text-xs">grokBotTwin: true</code> for a
-          Hermes twin, or <code className="font-mono text-xs">agentKind: &quot;bot&quot;</code> for any other bot.
+          Tag the agent as a bot under <code className="font-mono text-xs">spec.metadata</code>:{" "}
+          <code className="font-mono text-xs">grokBotTwin: true</code> for a Hermes twin, or{" "}
+          <code className="font-mono text-xs">agentKind: &quot;bot&quot;</code> for any other bot.
         </li>
         <li>
-          Record the gateway link in the same metadata: <code className="font-mono text-xs">bot.gateway.keyId</code>{" "}
-          and <code className="font-mono text-xs">bot.gateway.policy</code>. The key itself stays in the gateway.
+          Record the gateway link under <code className="font-mono text-xs">spec.metadata.bot.gateway</code>:{" "}
+          <code className="font-mono text-xs">keyId</code> and{" "}
+          <code className="font-mono text-xs">policy</code>. The key itself stays in the gateway.
         </li>
       </ol>
-      <pre
-        tabIndex={0}
-        aria-label="Bot metadata example"
-        className="mt-3 overflow-x-auto rounded-md bg-muted/50 p-3 font-mono text-xs leading-5 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-{`{
-  "grokBotTwin": true,
-  "bot": {
-    "purpose": "What this bot does.",
-    "gateway": { "keyId": "gk_live_...", "policy": "website-builder" }
-  }
-}`}
-      </pre>
+      <MetadataExample registered={false} />
       <Button asChild variant="outline" className="mt-3">
-        <Link to={registered ? `/agents/${bot.agentId}` : "/agents/new"}>
-          {registered ? "Open the agent to add the key" : "Create the bot agent"}
-        </Link>
+        <Link to="/agents/new">Create the bot agent</Link>
       </Button>
     </Section>
   );
