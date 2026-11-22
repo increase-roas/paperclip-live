@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Agent } from "@paperclipai/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { History } from "lucide-react";
-import { AgentActionButtons } from "./AgentActionButtons";
+import { AgentActionButtons, PauseResumeButton, RunButton } from "./AgentActionButtons";
 import { useAgentLifecycleStatus } from "./AgentLifecycleStatus";
 import { queryKeys } from "../lib/queryKeys";
 
@@ -483,5 +483,26 @@ describe("AgentActionButtons", () => {
 
     expect(onBeforeNavigate).toHaveBeenCalledTimes(2);
     expect(onTerminateSuccess).not.toHaveBeenCalled();
+  });
+});
+
+describe("compact action labels", () => {
+  it("keep an accessible name when the visible label is hidden on narrow screens", async () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const localRoot = createRoot(host);
+    await act(async () => {
+      localRoot.render(
+        <>
+          <RunButton onClick={() => {}} />
+          <PauseResumeButton isPaused={false} onPause={() => {}} onResume={() => {}} />
+          <PauseResumeButton isPaused onPause={() => {}} onResume={() => {}} />
+        </>,
+      );
+    });
+    expect([...host.querySelectorAll("button")].map((button) => button.getAttribute("aria-label")))
+      .toEqual(["Run now", "Pause", "Resume"]);
+    await act(async () => localRoot.unmount());
+    host.remove();
   });
 });
