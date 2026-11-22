@@ -145,7 +145,10 @@ export function BotDetail() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Section title="What it does">
           <p>{bot.purpose ?? "No purpose recorded yet."}</p>
-          <dl className="mt-3 grid grid-cols-[7rem_1fr] gap-y-1 text-xs text-muted-foreground">
+          <dl
+            className="mt-3 grid gap-y-1 text-xs text-muted-foreground"
+            style={{ gridTemplateColumns: "var(--sz-7rem) 1fr" }}
+          >
             <dt>Role</dt>
             <dd className="text-foreground">{bot.role ?? "—"}</dd>
             <dt>Title</dt>
@@ -158,7 +161,10 @@ export function BotDetail() {
 
         <Section title="Gateway key and policy">
           {bot.gateway ? (
-            <dl className="grid grid-cols-[6rem_1fr] gap-y-2 text-xs">
+            <dl
+              className="grid gap-y-2 text-xs"
+              style={{ gridTemplateColumns: "var(--sz-6rem) 1fr" }}
+            >
               <dt className="text-muted-foreground">Key id</dt>
               <dd className="font-mono text-foreground">{bot.gateway.keyId}</dd>
               <dt className="text-muted-foreground">Policy</dt>
