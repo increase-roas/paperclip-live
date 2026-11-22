@@ -54,7 +54,9 @@ Supporting infrastructure:
 - `.devcontainer/` provides Node 24, pnpm and GitHub CLI for a clean workspace.
 - `.editorconfig` aligns editors with the formatter.
 - `docs/api/openapi.json` is the generated API contract.
-- `scripts/readiness/tests/` unit-tests the analyzers (`pnpm test:readiness`).
+- `scripts/readiness/tests/` unit-tests the analyzers, and
+  `scripts/__tests__/local-gate.test.mjs` tests the `check:local` helpers
+  (`pnpm test:readiness`).
 - `pnpm profile:server` starts the API with V8 CPU/heap profiling
   (see [PROFILING.md](./PROFILING.md)).
 

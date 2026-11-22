@@ -238,6 +238,17 @@ Default local/agent verification path:
 pnpm verify
 ```
 
+When hosted CI is unavailable, run the complete non-browser gate with one
+command instead:
+
+```sh
+pnpm check:local
+```
+
+It runs readiness, lint, actionlint, typecheck and the Vitest unit/jsdom suite.
+See "CI-independent local gate" in `doc/DEVELOPING.md` for step selection and
+actionlint requirements.
+
 This selects affected Vitest files with the same conservative dependency policy
 as CI. It includes committed, staged, unstaged, and untracked changes against the
 merge base with local `origin/master` (or `master`). Use `--base <ref>` for another

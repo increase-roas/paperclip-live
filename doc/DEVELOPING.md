@@ -1224,6 +1224,35 @@ revision may supply broad typecheck/build/test coverage for a PR handoff; do not
 repeat a full local suite solely because a chat resumed or a PR is ready. Keep
 release checks and any real browser, provider, local-platform or acceptance proof.
 
+### CI-independent local gate
+
+When hosted Actions are unavailable, run the whole non-browser gate with one
+command:
+
+```sh
+pnpm check:local
+```
+
+It runs, in order: `pnpm lint`, actionlint over `.github/workflows`,
+`pnpm check:readiness`, `pnpm run typecheck`, and `pnpm test:run`.
+`pnpm check:local --quick` keeps the lint, actionlint and readiness checks and
+skips typecheck and tests. Use `--only <step>` and `--skip <step>` for a smaller
+run, and `--keep-going` to see every failure. The command exits non-zero on the
+first failure by default.
+
+The actionlint step (`pnpm check:actionlint`) requires actionlint 1.7.12 or
+newer because the workflows use aliased `steps` sequences and the
+reusable-workflow `job.workflow_*` contexts. The wrapper uses a current binary
+from `PATH`, then the cached pin, and otherwise downloads the pinned release
+from GitHub into `~/.cache/paperclip/actionlint/<version>` after verifying the
+published SHA-256. Set `ACTIONLINT_BIN` to force a specific binary, or pass
+`--no-download` for an offline run.
+
+Run the full gate as a non-root account when the embedded PostgreSQL integration
+suites must execute; a root run skips them. Browser suites remain separate
+(`pnpm test:e2e`, `pnpm test:release-smoke`). A local pass does not replace
+required CI on the final revision when hosted Actions are available.
+
 The full local Vitest commands remain available:
 
 ```sh
