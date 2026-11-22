@@ -172,7 +172,8 @@ describePostgres("bots", () => {
     }
 
     // The dr eggbot purpose came from Alex; Kiwi still has no recorded source,
-    // so it keeps an explicit TODO rather than an invented sentence.
+    // so it keeps an explicit unresolved-purpose note rather than an invented
+    // sentence.
     const eggbot = before.body.bots.find((bot: { slug: string }) => bot.slug === "dr-eggbot");
     expect(eggbot).toMatchObject({
       registered: false,
