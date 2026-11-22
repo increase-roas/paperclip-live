@@ -155,7 +155,7 @@ describe("SidePanelTabs", () => {
     expect((tabList?.firstElementChild as HTMLElement)?.style.getPropertyValue("--side-panel-streamlined-tab-count")).toBe("2");
     const planCloseButton = container.querySelector<HTMLButtonElement>('button[aria-label="Close Implementation plan"]');
     expect(planCloseButton?.className).toContain("opacity-0");
-    expect(planCloseButton?.className).toContain("right-0.5");
+    expect(planCloseButton?.style.left).not.toBe("");
     expect(planCloseButton?.className).toContain("rounded-full");
     expect(planCloseButton?.className).toContain("hover:bg-accent");
     expect(planCloseButton?.className).toContain("side-panel-tab-close-motion");
@@ -333,6 +333,26 @@ describe("SidePanelTabs", () => {
     const close = container.querySelector<HTMLButtonElement>('button[aria-label="Close Properties"]');
     act(() => close?.click());
     expect(onCloseTab).toHaveBeenCalledWith("properties");
+  });
+
+  it("keeps close controls and the dnd live region outside the tablist", () => {
+    renderTabs();
+    const tabList = container.querySelector<HTMLElement>('[role="tablist"]')!;
+    const close = container.querySelector<HTMLButtonElement>('button[aria-label="Close Properties"]')!;
+    expect(tabList.contains(close)).toBe(false);
+    expect(tabList.querySelector('[aria-live]')).toBeNull();
+    expect(close.getAttribute("aria-label")).toBe("Close Properties");
+  });
+
+  it("closes the focused tab with Delete or Backspace", () => {
+    const onCloseTab = vi.fn();
+    renderTabs("properties", onCloseTab);
+    const tab = container.querySelector<HTMLButtonElement>('[data-side-panel-tab-target="properties"]')!;
+    expect(tab.getAttribute("aria-keyshortcuts")).toBe("Delete Backspace");
+    act(() => tab.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Delete" })));
+    expect(onCloseTab).toHaveBeenCalledWith("properties");
+    act(() => tab.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Backspace" })));
+    expect(onCloseTab).toHaveBeenCalledTimes(2);
   });
 
   it("supports middle-click close", () => {

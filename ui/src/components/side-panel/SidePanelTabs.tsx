@@ -45,6 +45,8 @@ interface SortableSidePanelTabProps {
   onClose: () => void;
   onAuxClick: (event: MouseEvent<HTMLButtonElement>) => void;
   onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void;
+  onHoverChange: (hovering: boolean) => void;
+  onFocusChange: (focused: boolean) => void;
 }
 
 function SortableSidePanelTab({
@@ -57,6 +59,8 @@ function SortableSidePanelTab({
   onClose,
   onAuxClick,
   onKeyDown,
+  onHoverChange,
+  onFocusChange,
 }: SortableSidePanelTabProps) {
   const sortable = useSortable({ id: tab.id, disabled: tab.disabled });
   return (
@@ -101,6 +105,9 @@ function SortableSidePanelTab({
         onClose={onClose}
         onAuxClick={onAuxClick}
         onKeyDown={onKeyDown}
+        onHoverChange={onHoverChange}
+        onFocusChange={onFocusChange}
+        renderCloseControl={false}
       />
     </div>
   );
@@ -172,7 +179,11 @@ export function SidePanelTabs({
   const [showEndFade, setShowEndFade] = useState(false);
   const [useWideTabs, setUseWideTabs] = useState(false);
   const [draggedTab, setDraggedTab] = useState<{ id: string; width: number; labelIsTruncated: boolean } | null>(null);
+  const [hoveredTabId, setHoveredTabId] = useState<string | null>(null);
+  const [focusedTabId, setFocusedTabId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const closeLayerRef = useRef<HTMLDivElement>(null);
+  const closeButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const addControlRef = useRef<HTMLDivElement>(null);
   const sensors = useSensors(
@@ -212,6 +223,43 @@ export function SidePanelTabs({
       scrollRef.current?.querySelectorAll<HTMLElement>(`[${attribute}]`) ?? [],
     ).find((element) => element.getAttribute(attribute) === tabId) ?? null;
   }
+
+  // Close controls live outside the tablist so the tablist owns only tabs.
+  // Mirror each tab's geometry in the absolutely positioned overlay, including
+  // horizontal scrolling, resize and the async stable-width layout.
+  useLayoutEffect(() => {
+    const scrollElement = scrollRef.current;
+    const closeLayer = closeLayerRef.current;
+    if (!scrollElement || !closeLayer) return;
+    const updateClosePositions = () => {
+      const layerRect = closeLayer.getBoundingClientRect();
+      closeButtonRefs.current.forEach((button, tabId) => {
+        const wrapper = Array.from(
+          scrollElement.querySelectorAll<HTMLElement>("[data-side-panel-tab-wrapper]"),
+        ).find((element) => element.getAttribute("data-side-panel-tab-wrapper") === tabId);
+        if (!wrapper) return;
+        const wrapperRect = wrapper.getBoundingClientRect();
+        const size = button.offsetWidth || (appearance === "streamlined-task" ? 20 : 24);
+        const inset = appearance === "streamlined-task" ? 2 : 4;
+        button.style.left = `${Math.round(wrapperRect.right - layerRect.left - inset - size)}px`;
+        button.style.top = `${Math.round(wrapperRect.top - layerRect.top + (wrapperRect.height - size) / 2)}px`;
+      });
+    };
+    updateClosePositions();
+    const frame = window.requestAnimationFrame(updateClosePositions);
+    scrollElement.addEventListener("scroll", updateClosePositions, { passive: true });
+    window.addEventListener("resize", updateClosePositions);
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateClosePositions);
+    observer?.observe(scrollElement);
+    observer?.observe(closeLayer);
+    scrollElement.querySelectorAll<HTMLElement>("[data-side-panel-tab-wrapper]").forEach((wrapper) => observer?.observe(wrapper));
+    return () => {
+      window.cancelAnimationFrame(frame);
+      scrollElement.removeEventListener("scroll", updateClosePositions);
+      window.removeEventListener("resize", updateClosePositions);
+      observer?.disconnect();
+    };
+  }, [activeTabId, appearance, tabs, useWideTabs]);
 
   useEffect(() => {
     if (!activeTabId) return;
@@ -267,6 +315,11 @@ export function SidePanelTabs({
   function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>, tabId: string) {
     const index = tabIds.indexOf(tabId);
     if (index < 0) return;
+    if ((event.key === "Delete" || event.key === "Backspace") && tabs[index]?.closable !== false) {
+      event.preventDefault();
+      closeTab(tabId);
+      return;
+    }
     if (event.altKey && event.shiftKey && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
       if (!onReorderTabs) return;
       event.preventDefault();
@@ -326,77 +379,133 @@ export function SidePanelTabs({
       appearance === "streamlined-task" ? "gap-0" : "gap-1",
       className,
     )}>
-      <div
-        ref={scrollRef}
-        role="tablist"
-        aria-orientation="horizontal"
-        data-tab-sizing={appearance === "streamlined-task" ? (useWideTabs ? "wide" : "compact") : undefined}
-        data-scroll-end-fade={appearance === "streamlined-task" && showEndFade ? "true" : undefined}
-        className={cn(
-          "side-panel-tabs-scroll min-w-0 flex-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-          appearance === "streamlined-task"
-            ? "overflow-x-auto overscroll-x-contain"
-            : "overflow-x-auto",
-        )}
-      >
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragEnd={(event) => {
-            handleDragEnd(event);
-            setDraggedTab(null);
-          }}
-          onDragCancel={() => setDraggedTab(null)}
+      <div className="relative flex min-w-0 flex-1 items-center">
+        <div
+          ref={scrollRef}
+          role="tablist"
+          aria-orientation="horizontal"
+          data-tab-sizing={appearance === "streamlined-task" ? (useWideTabs ? "wide" : "compact") : undefined}
+          data-scroll-end-fade={appearance === "streamlined-task" && showEndFade ? "true" : undefined}
+          className={cn(
+            "side-panel-tabs-scroll min-w-0 flex-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            appearance === "streamlined-task"
+              ? "overflow-x-auto overscroll-x-contain"
+              : "overflow-x-auto",
+          )}
         >
-          <SortableContext items={tabIds} strategy={horizontalListSortingStrategy}>
-            <div className={cn(
-              "flex items-center",
-              appearance === "streamlined-task"
-                ? "w-full min-w-0 justify-start gap-0"
-                : "min-w-max gap-1 py-1",
-            )} style={appearance === "streamlined-task"
-              ? { "--side-panel-streamlined-tab-count": Math.max(tabs.length, 1) } as CSSProperties
-              : undefined}>
-              {tabs.map((tab, index) => (
-                <SortableSidePanelTab
-                  key={tab.id}
-                  tab={tab}
-                  active={tab.id === activeTabId}
-                  dragging={draggedTab !== null}
-                  appearance={appearance}
-                  showLeadingSeparator={
-                    appearance === "default"
-                      && index > 0
-                      && tab.id !== activeTabId
-                      && tabs[index - 1]?.id !== activeTabId
-                  }
-                  onSelect={() => onActiveTabChange(tab.id)}
-                  onClose={() => closeTab(tab.id)}
-                  onAuxClick={(event) => {
-                    if (event.button !== 1 || tab.closable === false) return;
-                    event.preventDefault();
-                    closeTab(tab.id);
-                  }}
-                  onKeyDown={(event) => handleKeyDown(event, tab.id)}
-                />
-              ))}
-            </div>
-          </SortableContext>
-          {appearance === "streamlined-task" && typeof document !== "undefined" ? createPortal(
-            <DragOverlay adjustScale={false} className="pointer-events-none z-20">
-              {draggedTab && draggedTabItem ? (
-                <StreamlinedTabDragPreview
-                  tab={draggedTabItem}
-                  active={draggedTab.id === activeTabId}
-                  width={draggedTab.width}
-                  labelIsTruncated={draggedTab.labelIsTruncated}
-                />
-              ) : null}
-            </DragOverlay>,
-            document.body,
-          ) : null}
-        </DndContext>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            accessibility={typeof document === "undefined" ? undefined : { container: document.body }}
+            onDragStart={handleDragStart}
+            onDragEnd={(event) => {
+              handleDragEnd(event);
+              setDraggedTab(null);
+            }}
+            onDragCancel={() => setDraggedTab(null)}
+          >
+            <SortableContext items={tabIds} strategy={horizontalListSortingStrategy}>
+              <div className={cn(
+                "flex items-center",
+                appearance === "streamlined-task"
+                  ? "w-full min-w-0 justify-start gap-0"
+                  : "min-w-max gap-1 py-1",
+              )} style={appearance === "streamlined-task"
+                ? { "--side-panel-streamlined-tab-count": Math.max(tabs.length, 1) } as CSSProperties
+                : undefined}>
+                {tabs.map((tab, index) => (
+                  <SortableSidePanelTab
+                    key={tab.id}
+                    tab={tab}
+                    active={tab.id === activeTabId}
+                    dragging={draggedTab !== null}
+                    appearance={appearance}
+                    showLeadingSeparator={
+                      appearance === "default"
+                        && index > 0
+                        && tab.id !== activeTabId
+                        && tabs[index - 1]?.id !== activeTabId
+                    }
+                    onSelect={() => onActiveTabChange(tab.id)}
+                    onClose={() => closeTab(tab.id)}
+                    onAuxClick={(event) => {
+                      if (event.button !== 1 || tab.closable === false) return;
+                      event.preventDefault();
+                      closeTab(tab.id);
+                    }}
+                    onKeyDown={(event) => handleKeyDown(event, tab.id)}
+                    onHoverChange={(hovering) => setHoveredTabId(hovering ? tab.id : null)}
+                    onFocusChange={(focused) => setFocusedTabId(focused ? tab.id : null)}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+            {appearance === "streamlined-task" && typeof document !== "undefined" ? createPortal(
+              <DragOverlay adjustScale={false} className="pointer-events-none z-20">
+                {draggedTab && draggedTabItem ? (
+                  <StreamlinedTabDragPreview
+                    tab={draggedTabItem}
+                    active={draggedTab.id === activeTabId}
+                    width={draggedTab.width}
+                    labelIsTruncated={draggedTab.labelIsTruncated}
+                  />
+                ) : null}
+              </DragOverlay>,
+              document.body,
+            ) : null}
+          </DndContext>
+        </div>
+        <div
+          ref={closeLayerRef}
+          data-side-panel-close-layer="true"
+          className="pointer-events-none absolute inset-0"
+        >
+          {tabs.map((tab) => {
+            if (tab.closable === false) return null;
+            if (appearance !== "streamlined-task" && tab.id !== activeTabId) return null;
+            const visible = appearance === "streamlined-task"
+              ? tab.id === activeTabId || hoveredTabId === tab.id || focusedTabId === tab.id
+              : true;
+            const closeLabel = `Close ${tab.label}`;
+            return (
+              <button
+                key={`close-${tab.id}`}
+                ref={(button) => {
+                  if (button) closeButtonRefs.current.set(tab.id, button);
+                  else closeButtonRefs.current.delete(tab.id);
+                }}
+                type="button"
+                data-side-panel-tab-close={tab.id}
+                aria-label={closeLabel}
+                title={closeLabel}
+                onPointerDown={(event) => {
+                  if (appearance !== "streamlined-task") return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                }}
+                onPointerEnter={() => setHoveredTabId(tab.id)}
+                onPointerLeave={() => setHoveredTabId(null)}
+                onFocus={() => setFocusedTabId(tab.id)}
+                onBlur={() => setFocusedTabId(null)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  closeTab(tab.id);
+                }}
+                className={cn(
+                  "side-panel-tab-close-motion absolute z-10 flex items-center justify-center text-muted-foreground outline-none hover:text-foreground",
+                  appearance === "streamlined-task"
+                    ? cn(
+                        "size-5 rounded-full hover:bg-accent focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/60",
+                        visible ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
+                      )
+                    : "size-6 rounded-lg hover:bg-background/70 focus-visible:ring-2 focus-visible:ring-ring/60",
+                )}
+              >
+                <X className={appearance === "streamlined-task" ? "size-3.5" : "size-3"} aria-hidden />
+              </button>
+            );
+          })}
+        </div>
       </div>
       {addControl ? <div ref={addControlRef} className="shrink-0">{addControl}</div> : (onAddTab ? (
         <Button

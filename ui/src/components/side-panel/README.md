@@ -31,6 +31,6 @@ The Streamlined task adapter registers a counted Subtasks tab only when the curr
 
 ## Accessibility and review
 
-The tab strip uses the tabs pattern with roving focus, Arrow/Home/End navigation, named close actions, middle-click close, and live reorder/close announcements. Closing the active tab chooses the right neighbor, then the left; closing the final tab sends focus to the launcher. Reduced-motion preferences disable component transitions and smooth overflow scrolling.
+The tab strip uses the tabs pattern with roving focus, Arrow/Home/End navigation, named close actions, middle-click close, and live reorder/close announcements. Closing the active tab chooses the right neighbor, then the left; closing the final tab sends focus to the launcher. Close controls render in a sibling overlay so the tablist owns only tabs; Tab reaches the active tab's close action, and Delete or Backspace closes the focused tab. The drag-and-drop live region is portaled to the document body. Reduced-motion preferences disable component transitions and smooth overflow scrolling.
 
 Review `Navigation/Side Panel` in Storybook before changing production adapters. Compare light/dark, minimum/default/wide/maximized, mobile, overflow, empty, launcher, unavailable-resource, and task-composition stories. Tune spacing, radius, contrast, icon size, and motion centrally through the side-panel tokens in `ui/src/index.css`.

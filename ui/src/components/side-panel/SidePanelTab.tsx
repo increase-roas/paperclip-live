@@ -11,6 +11,9 @@ export interface SidePanelTabProps {
   status?: ReactNode;
   active: boolean;
   closable?: boolean;
+  /** Render the close control inside the tab. Callers that place the control
+   * outside the tablist (SidePanelTabs) set this to false. */
+  renderCloseControl?: boolean;
   disabled?: boolean;
   suppressTooltip?: boolean;
   tabRef?: Ref<HTMLButtonElement>;
@@ -19,6 +22,8 @@ export interface SidePanelTabProps {
   onClose?: () => void;
   onAuxClick?: (event: MouseEvent<HTMLButtonElement>) => void;
   onKeyDown?: ButtonHTMLAttributes<HTMLButtonElement>["onKeyDown"];
+  onHoverChange?: (hovering: boolean) => void;
+  onFocusChange?: (focused: boolean) => void;
   appearance?: "default" | "streamlined-task";
   className?: string;
 }
@@ -31,6 +36,7 @@ export function SidePanelTab({
   status,
   active,
   closable = true,
+  renderCloseControl = true,
   disabled = false,
   suppressTooltip = false,
   tabRef,
@@ -39,6 +45,8 @@ export function SidePanelTab({
   onClose,
   onAuxClick,
   onKeyDown,
+  onHoverChange,
+  onFocusChange,
   appearance = "default",
   className,
 }: SidePanelTabProps) {
@@ -82,6 +90,10 @@ export function SidePanelTab({
       data-side-panel-tab-wrapper={id}
       data-active={active ? "true" : "false"}
       data-appearance={appearance}
+      onPointerEnter={() => onHoverChange?.(true)}
+      onPointerLeave={() => onHoverChange?.(false)}
+      onFocus={() => onFocusChange?.(true)}
+      onBlur={() => onFocusChange?.(false)}
       style={appearance === "default" && hasStableWidth ? { width: stableWidth.width } : undefined}
       className={cn(
         appearance === "streamlined-task"
@@ -115,6 +127,7 @@ export function SidePanelTab({
             aria-controls={`side-panel-content-${id}`}
             aria-selected={active}
             aria-label={ariaLabel ?? label}
+            aria-keyshortcuts={onKeyDown && closable && onClose ? "Delete Backspace" : undefined}
             tabIndex={active ? 0 : -1}
             disabled={disabled}
             onClick={onSelect}
@@ -164,7 +177,7 @@ export function SidePanelTab({
         </TooltipTrigger>
         {labelIsTruncated && !suppressTooltip ? <TooltipContent side="bottom">{label}</TooltipContent> : null}
       </Tooltip>
-      {closable && onClose && (appearance === "streamlined-task" || active) ? (
+      {renderCloseControl && closable && onClose && (appearance === "streamlined-task" || active) ? (
         <button
           type="button"
           aria-label={closeLabel}
