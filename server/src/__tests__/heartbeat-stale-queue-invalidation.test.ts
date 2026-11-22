@@ -266,13 +266,15 @@ describeEmbeddedPostgres("heartbeat stale queued-run invalidation", () => {
     expect(delivered.runId).toBeTruthy();
     // The receipt can commit before execution enters liveRunExecutions.
     // Observe actual adapter admission before awaiting its drain.
-    await vi.waitFor(async () => {
-      const current = await heartbeat.getRun(delivered.runId!);
-      expect(countExecuteCallsForRun(delivered.runId!), JSON.stringify({
-        status: current?.status, errorCode: current?.errorCode,
-      })).toBe(1);
-    }, { timeout: 5_000 });
-    await heartbeat.waitForRunExecutionDrain(delivered.runId!);
+    // Wait for the real execution lifecycle instead of polling for the adapter
+    // call. A poll budget here measures machine load: this suite boots its own
+    // embedded database, and under multi-agent load admission took 7-13s.
+    // The bound is explicit because the executor stays registered as live for
+    // about five seconds after the run record turns terminal (measured: run
+    // events end ~1.1s into the run, the drain settles ~5.3s in), so the 5s
+    // default is a coin flip. Execution still has to finish before the count
+    // below, so the assertion stays a real check rather than a budget.
+    await heartbeat.waitForRunExecutionDrain(delivered.runId!, { timeoutMs: 30_000, intervalMs: 50 });
     expect(countExecuteCallsForRun(delivered.runId!)).toBe(1);
     expect((await heartbeat.getRun(delivered.runId!))?.contextSnapshot).toMatchObject({ wakeCommentIds: [comment.id] });
     await heartbeat.resumeQueuedRuns();
