@@ -2119,7 +2119,11 @@ function StreamlinedInbox({
       setFadingOutIssues((prev) => new Set(prev).add(id));
     },
     onSuccess: () => {
+      setActionError(null);
       invalidateInboxIssueQueryCaches();
+    },
+    onError: (error) => {
+      setActionError(`Couldn't mark this item read. ${describeError(error).body}`);
     },
     onSettled: (_data, _error, id) => {
       setTimeout(() => {
@@ -2144,7 +2148,11 @@ function StreamlinedInbox({
       });
     },
     onSuccess: () => {
+      setActionError(null);
       invalidateInboxIssueQueryCaches();
+    },
+    onError: (error) => {
+      setActionError(`Couldn't mark all items read. ${describeError(error).body}`);
     },
     onSettled: (_data, _error, issueIds) => {
       setTimeout(() => {
@@ -2160,7 +2168,11 @@ function StreamlinedInbox({
   const markUnreadMutation = useMutation({
     mutationFn: (id: string) => issuesApi.markUnread(id),
     onSuccess: () => {
+      setActionError(null);
       invalidateInboxIssueQueryCaches();
+    },
+    onError: (error) => {
+      setActionError(`Couldn't mark this item unread. ${describeError(error).body}`);
     },
   });
 
@@ -2896,7 +2908,12 @@ function StreamlinedInbox({
           <Button variant="outline" size="sm" onClick={() => { retryFailedSources(); if (externalObjectSummariesError) retryExternalObjectSummaries(); }}>Retry</Button>
         </div>
       )}
-      {actionError && <p className="text-sm text-destructive">{actionError}</p>}
+      {actionError && (
+        <div role="alert" className="flex items-center gap-2 text-sm text-destructive">
+          <p>{actionError}</p>
+          <Button variant="ghost" size="sm" onClick={() => setActionError(null)}>Dismiss</Button>
+        </div>
+      )}
 
       {tab === "blocked" ? (
         <div className="-mx-2 sm:mx-0">

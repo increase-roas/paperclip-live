@@ -42,6 +42,8 @@ const apiMocks = vi.hoisted(() => ({
   retryTask: vi.fn(),
   archiveFromInbox: vi.fn(),
   unarchiveFromInbox: vi.fn(),
+  markRead: vi.fn(),
+  markUnread: vi.fn(),
   agentsList: vi.fn(),
   heartbeatRunsList: vi.fn(),
   liveRunsForCompany: vi.fn(),
@@ -84,8 +86,8 @@ vi.mock("../api/issues", () => ({
     count: apiMocks.issuesCount,
     listLabels: apiMocks.issueLabels,
     retryTask: apiMocks.retryTask,
-    markRead: vi.fn(),
-    markUnread: vi.fn(),
+    markRead: apiMocks.markRead,
+    markUnread: apiMocks.markUnread,
     archiveFromInbox: apiMocks.archiveFromInbox,
     unarchiveFromInbox: apiMocks.unarchiveFromInbox,
   },
@@ -470,6 +472,61 @@ describe("Inbox toolbar", () => {
       }
     },
   );
+
+  it("reports a failed mark-all-read action and lets the user dismiss it", async () => {
+    routerMock.location.pathname = "/inbox/mine";
+    setIssueRows([
+      createIssue({
+        id: "unread-task",
+        identifier: "PAP-1",
+        title: "Unread task",
+        isUnreadForMe: true,
+      }),
+    ]);
+    apiMocks.markRead.mockRejectedValue(new ApiError("read unavailable", 500, {}));
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: 0 } },
+    });
+    const root = createRoot(container);
+    try {
+      await act(async () => {
+        root.render(<QueryClientProvider client={queryClient}><Inbox /></QueryClientProvider>);
+      });
+      await vi.waitFor(() => {
+        expect(container.textContent).toContain("Unread task");
+      });
+
+      const trigger = Array.from(container.querySelectorAll("button")).find(
+        (button) => button.textContent === "Mark all as read",
+      );
+      expect(trigger).toBeTruthy();
+      await act(async () => trigger?.click());
+
+      await vi.waitFor(() => {
+        expect(document.body.textContent).toContain("Mark all as read?");
+      });
+      const confirm = Array.from(document.body.querySelectorAll("button")).filter(
+        (button) => button.textContent === "Mark all as read",
+      ).at(-1);
+      await act(async () => confirm?.click());
+
+      await vi.waitFor(() => {
+        const alert = container.querySelector('[role="alert"]');
+        expect(alert?.textContent).toContain("Couldn't mark all items read");
+        expect(alert?.textContent).toContain("read unavailable");
+      });
+
+      const dismiss = Array.from(container.querySelectorAll("button")).find(
+        (button) => button.textContent === "Dismiss",
+      );
+      await act(async () => dismiss?.click());
+      expect(container.querySelector('[role="alert"]')).toBeNull();
+    } finally {
+      act(() => root.unmount());
+      queryClient.clear();
+    }
+  });
 
   it("restores the legacy toolbar and issue-row presentation when Streamlined UI is off", async () => {
     routerMock.location.pathname = "/inbox/mine";
