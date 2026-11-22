@@ -323,17 +323,27 @@ export function BotDetail() {
 
         <Section title="Gateway key and policy">
           {bot.gateway ? (
-            <dl
-              className="grid gap-y-2 text-xs"
-              style={{ gridTemplateColumns: "var(--sz-6rem) 1fr" }}
-            >
-              <dt className="text-muted-foreground">Key id</dt>
-              <dd className="font-mono break-all text-foreground">{bot.gateway.keyId}</dd>
-              <dt className="text-muted-foreground">Policy</dt>
-              <dd><Badge variant="outline">{bot.gateway.policy}</Badge></dd>
-              <dt className="text-muted-foreground">Provider</dt>
-              <dd className="break-all text-foreground">{bot.gateway.provider ?? "—"}</dd>
-            </dl>
+            <>
+              <dl
+                className="grid gap-y-2 text-xs"
+                style={{ gridTemplateColumns: "var(--sz-6rem) 1fr" }}
+              >
+                <dt className="text-muted-foreground">Key id</dt>
+                <dd className="font-mono break-all text-foreground">
+                  {bot.gateway.keyId ?? <span className="text-muted-foreground">Key id not recorded</span>}
+                </dd>
+                <dt className="text-muted-foreground">Policy</dt>
+                <dd><Badge variant="outline">{bot.gateway.policy}</Badge></dd>
+                <dt className="text-muted-foreground">Provider</dt>
+                <dd className="break-all text-foreground">{bot.gateway.provider ?? "—"}</dd>
+              </dl>
+              {bot.gateway.source === "agent_config" ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Policy read from this agent&apos;s gateway URL. The key id is not recorded in Paperclip, so
+                  add it to the agent&apos;s metadata under bot.gateway when you have it.
+                </p>
+              ) : null}
+            </>
           ) : (
             <p className="text-muted-foreground">
               {bot.registered

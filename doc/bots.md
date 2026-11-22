@@ -39,6 +39,13 @@ do: the key itself stays in the gateway or the company secret store.
 block instead of guessing, so a page never shows a key id without its policy.
 The API returns `gateway: null` in that case and the page says "Not linked".
 
+When metadata records no link, a Hermes gateway agent's own `adapterConfig.apiBaseUrl`
+still names the policy it talks to: the gateway serves each profile under
+`/p/<policy>`. The service derives a **policy-only** link from that URL and
+marks it `source: "agent_config"`; `keyId` is then `null` and the page says
+"Key id not recorded". Only the URL is read. The adapter's `apiKey` is a secret
+reference, never a key id, and is never inspected for this.
+
 ## Registering a catalog bot
 
 The six catalog bots have no agent row until someone registers them. Registration

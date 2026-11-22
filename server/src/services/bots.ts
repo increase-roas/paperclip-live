@@ -2,6 +2,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { activityLog, agents, companies, heartbeatRuns, routineTriggers, routines } from "@paperclipai/db";
 import {
+  agentGatewayLinkFromConfig,
   botSlug,
   findKnownGatewayBot,
   isBotAgentMetadata,
@@ -32,6 +33,15 @@ type AgentRow = typeof agents.$inferSelect;
 export function botsService(db: Db) {
   function toSummary(agent: AgentRow): CompanyBotSummary {
     const bot = readBotMetadata(agent.metadata);
+    // A recorded link wins. When metadata has none, a Hermes gateway agent's own
+    // base URL still names the policy it talks to, so the page can show that
+    // with its provenance instead of "Not linked". Only the URL is read: the
+    // adapter's apiKey is a secret reference and is never inspected here.
+    const adapterConfig =
+      agent.adapterConfig && typeof agent.adapterConfig === "object" && !Array.isArray(agent.adapterConfig)
+        ? (agent.adapterConfig as Record<string, unknown>)
+        : null;
+    const gateway = bot.gateway ?? agentGatewayLinkFromConfig({ adapterType: agent.adapterType, adapterConfig });
     return {
       id: agent.id,
       slug: botSlug(agent.name),
@@ -46,7 +56,7 @@ export function botsService(db: Db) {
       adapterType: agent.adapterType,
       grokBotTwin: isBotAgentMetadata(agent.metadata) && agent.metadata?.grokBotTwin === true,
       taggedAsBot: true,
-      gateway: bot.gateway,
+      gateway,
       note: null,
       updatedAt: agent.updatedAt ? agent.updatedAt.toISOString() : null,
     };
