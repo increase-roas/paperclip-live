@@ -867,6 +867,8 @@ export function IssueAssigneePausedNotice({
       ? "It was paused by a budget hard stop."
       : agent.pauseReason === "import"
         ? "It arrived paused from an organization import — imported agents stay parked until you resume them."
+        : agent.pauseReason === "auth_required"
+          ? "Its provider sign-in expired. Reconnect the provider, then resume it."
         : agent.pauseReason === "system"
           ? "It was paused by the system."
           : agent.pauseReason === "company_archived"
@@ -892,15 +894,24 @@ export function IssueAssigneePausedNotice({
         }
         actions={
           canResume ? (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onResume}
-              disabled={resuming}
-              data-testid="issue-assignee-paused-resume"
-            >
-              {resuming ? "Resuming…" : "Resume agent"}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              {agent.pauseReason === "auth_required" ? (
+                <Button size="sm" variant="outline" asChild>
+                  <Link to={`${agentUrl(agent)}/runtime`} data-testid="issue-assignee-auth-reconnect">
+                    Reconnect provider
+                  </Link>
+                </Button>
+              ) : null}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onResume}
+                disabled={resuming}
+                data-testid="issue-assignee-paused-resume"
+              >
+                {resuming ? "Resuming…" : "Resume agent"}
+              </Button>
+            </div>
           ) : undefined
         }
       >

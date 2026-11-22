@@ -7939,6 +7939,7 @@ export function nativeSessionFailureDisposition(
     sourceFailureCode === "runner_ingress_access_rejected" ||
     sourceFailureCode === "native_provider_runtime_missing" ||
     sourceFailureCode === "native_provider_model_rejected" ||
+    sourceFailureCode === "native_provider_auth_required" ||
     sourceFailureCode === "native_provider_approval_required" ||
     sourceFailureCode === "native_event_replay_conflict" ||
     sourceFailureCode === "runner_remote_provider_artifact_incompatible" ||
@@ -8019,6 +8020,7 @@ export function nativeSessionFailureSourceCode(
   | "native_event_replay_conflict"
   | "native_provider_runtime_missing"
   | "native_provider_model_rejected"
+  | "native_provider_auth_required"
   | typeof NATIVE_CURRENT_WAKE_COMMENTS_UNREAD
   | typeof NATIVE_CURRENT_WAKE_COMMENTS_CHANGED_AFTER_READ
   | "provider_session_open_rejected"
@@ -8027,6 +8029,7 @@ export function nativeSessionFailureSourceCode(
   | "runner_ingress_acquisition_failed"
   | "local_runtime_api_listener_unavailable"
   | "native_session_interrupted" {
+  if (providerFailureFromError(error)?.category === "authentication") return "native_provider_auth_required";
   if (error instanceof NativePermissionDeclinedError) return "native_permission_declined";
   if (error instanceof NativeProviderStateIncompatibleError) return NATIVE_PROVIDER_STATE_INCOMPATIBLE;
   if (error instanceof NativeProviderSideEffectPendingError) return NATIVE_PROVIDER_SIDE_EFFECT_PENDING;
@@ -11838,6 +11841,8 @@ async function executePaperclipNativeSessionAttempt(
                   ? "Provider permission was declined. Inspect the task and give explicit direction before starting further provider work. Automatic recovery is stopped."
                   : sourceFailureCode === "native_provider_approval_required"
                   ? "Approval required. Review the operation and update the agent's permission setting before retrying. This runner has no interactive approval handler."
+                  : sourceFailureCode === "native_provider_auth_required"
+                  ? "Provider sign-in expired or was rejected. Reconnect the provider account for this agent, then resume it. Automatic retries are stopped."
                   : sourceFailureCode === "native_session_cleanup_quarantined"
                   ? NATIVE_CLEANUP_OPERATOR_RECOVERY_MESSAGE
                   : sourceFailureCode === "runner_remote_provider_verification_unavailable"
@@ -12096,6 +12101,8 @@ async function executePaperclipNativeSessionAttempt(
               ? "Provider permission was declined. Inspect the task and give explicit direction before starting further provider work. Automatic recovery is stopped."
               : sourceFailureCode === "native_provider_approval_required"
               ? "Approval required. Review the operation and update the agent's permission setting before retrying. This runner has no interactive approval handler."
+              : sourceFailureCode === "native_provider_auth_required"
+              ? "Provider sign-in expired or was rejected. Reconnect the provider account for this agent, then resume it. Automatic retries are stopped."
               : sourceFailureCode === "native_session_cleanup_quarantined"
               ? NATIVE_CLEANUP_OPERATOR_RECOVERY_MESSAGE
               : sourceFailureCode === "runner_ingress_access_rejected"

@@ -348,6 +348,21 @@ describe.skipIf(!support.supported)("heartbeat lifecycle database wiring", () =>
     },
   );
 
+  it("pauses the agent when a run fails on an expired provider sign-in", async () => {
+    const { run, agent } = await fixture({ status: "failed", errorCode: "claude_auth_required", finishedAt: new Date() });
+    await createHeartbeatLifecycle(db, callbacks(db)).classifyAndPersistRunLiveness(run, null);
+    const [paused] = await db.select().from(agents).where(eq(agents.id, agent.id));
+    expect(paused).toMatchObject({ status: "paused", pauseReason: "auth_required" });
+  });
+
+  it("keeps an ordinary provider failure from pausing the agent", async () => {
+    const { run, agent } = await fixture({ status: "failed", errorCode: "provider_process_exited", finishedAt: new Date() });
+    await createHeartbeatLifecycle(db, callbacks(db)).classifyAndPersistRunLiveness(run, null);
+    const [persisted] = await db.select().from(agents).where(eq(agents.id, agent.id));
+    expect(persisted.status).not.toBe("paused");
+    expect(persisted.pauseReason).toBeNull();
+  });
+
   it("reads current redaction settings for each event and persists the published sanitized payload", async () => {
     const { run } = await fixture();
     const deps = callbacks(db);

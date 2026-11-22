@@ -48,6 +48,8 @@ import { MarkdownEditor } from "../components/MarkdownEditor";
 import { assetsApi } from "../api/assets";
 import { StatusBadge } from "../components/StatusBadge";
 import { AgentLifecycleStatus, useAgentLifecycleStatus } from "../components/AgentLifecycleStatus";
+import { AgentAuthReconnectNotice } from "../components/AgentAuthReconnectNotice";
+import { agentNeedsAuthReconnect, isProviderAuthFailureCode, providerAuthLabel } from "../lib/provider-auth";
 import { MarkdownBody } from "../components/MarkdownBody";
 import { CopyText } from "../components/CopyText";
 import { IssueRow } from "../components/IssueRow";
@@ -653,6 +655,21 @@ export function AgentDetail() {
     },
   });
 
+  const resumeAuthPausedAgent = useMutation({
+    mutationFn: () => {
+      if (!agent) return Promise.reject(new Error("No agent reference"));
+      return agentsApi.resume(agent.id, resolvedCompanyId ?? undefined);
+    },
+    onSuccess: () => {
+      setActionError(null);
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(routeAgentRef) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agentLookupRef) });
+      queryClient.invalidateQueries({ queryKey: [...queryKeys.agents.detail(agentLookupRef), "lifecycle"] });
+      if (resolvedCompanyId) queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(resolvedCompanyId) });
+    },
+    onError: (err) => setActionError(err instanceof Error ? err.message : "Could not resume the agent"),
+  });
+
   const updateIcon = useMutation({
     mutationFn: (icon: string) => agentsApi.update(agentLookupRef, { icon }, resolvedCompanyId ?? undefined),
     onSuccess: () => {
@@ -922,6 +939,14 @@ export function AgentDetail() {
             />
           </div>
           <AgentLifecycleStatus agent={currentAgent} refreshError={lifecycle.isError} onRetry={() => agentAction.mutate("retryLifecycle")} retryPending={agentAction.isPending} />
+          {agentNeedsAuthReconnect(currentAgent) ? (
+            <AgentAuthReconnectNotice
+              providerLabel={providerAuthLabel(currentAgent)}
+              reconnectHref={agentDetailHref(canonicalAgentRef, "runtime")}
+              resuming={resumeAuthPausedAgent.isPending}
+              onResume={() => resumeAuthPausedAgent.mutate()}
+            />
+          ) : null}
         </div>
         <AgentActionButtons
           agent={currentAgent}
@@ -3328,17 +3353,19 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
                 {run.errorCode && <span className="text-muted-foreground ml-1">({run.errorCode})</span>}
               </div>
             )}
-            {run.errorCode === "claude_auth_required" && adapterType === "claude_local" && (
+            {isProviderAuthFailureCode(run.errorCode) && (
               <div className="space-y-2">
-                <Button
+                {adapterType === "claude_local" ? <Button
                   variant="outline"
                   size="sm"
                   className="h-7 px-2 text-xs"
                   onClick={() => runClaudeLogin.mutate()}
                   disabled={runClaudeLogin.isPending}
                 >
-                  {runClaudeLogin.isPending ? "Running claude login..." : "Login to Claude Code"}
-                </Button>
+                  {runClaudeLogin.isPending ? "Running claude login..." : "Reconnect Claude"}
+                </Button> : <Button variant="outline" size="sm" className="h-7 px-2 text-xs" asChild>
+                  <Link to={agentDetailHref(agentRouteId, "runtime")}>Reconnect {providerAuthLabel({ adapterType, adapterConfig })}</Link>
+                </Button>}
                 {runClaudeLogin.isError && ( // query-error-ok: mutation result, not a query
                   <p className="text-xs text-destructive">
                     {runClaudeLogin.error instanceof Error

@@ -84,6 +84,14 @@ Paperclip supports several ways to run an agent's heartbeat:
 
 Agent runs can use project and execution workspaces, managed runtime services such as preview/dev servers, adapter-specific session state, and HTTP/webhook-style execution. We provide sensible defaults, but the adapter is still the boundary: if a runtime can be invoked, observed, and authorized, Paperclip can coordinate it.
 
+A provider sign-in that expires or is rejected is a person-repairable state, not a
+retryable failure. Both the legacy CLI path and the native runner report it as
+provider authentication, including Claude subscription sessions that expire after
+about eight hours. The agent pauses with reason `auth_required`, affected runs show
+a Reconnect action, and the agent page says Reconnect Claude (or the matching
+provider). Reconnecting the account and resuming the agent clears the hold. Later
+wakes do not fail through the same credential in a loop.
+
 ### Task Management
 
 Task management is hierarchical. At any moment, every piece of work must trace back to the company's top-level goal through a chain of parent tasks:
