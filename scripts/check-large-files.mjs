@@ -2,7 +2,7 @@
 
 import { statSync } from "node:fs";
 
-import { loadBaseline, saveBaseline, splitByBaseline } from "./readiness/lib/baselines.mjs";
+import { describeStale, loadBaseline, saveBaseline } from "./readiness/lib/baselines.mjs";
 import {
   gitTrackedFiles,
   isIgnoredPath,
@@ -65,6 +65,67 @@ function extensionOf(filePath) {
   return index === -1 ? "" : filePath.slice(index).toLowerCase();
 }
 
+/**
+ * Bucketed identity for an oversized file. Buckets keep the ratchet: an
+ * acknowledged file still fails once it grows by another 500 lines or 250 KB.
+ */
+export function largeFileKey(relativePath, analysis) {
+  return `${relativePath}#lines:${Math.floor(analysis.lines / 500)}#bytes:${Math.floor(analysis.bytes / 250000)}`;
+}
+
+const LARGE_FILE_KEY = /^(?<file>.*)#lines:(?<lines>\d+)#bytes:(?<bytes>\d+)$/;
+
+function parseLargeFileKey(key) {
+  const match = LARGE_FILE_KEY.exec(key ?? "");
+  if (!match?.groups) return null;
+  return {
+    file: match.groups.file,
+    lines: Number(match.groups.lines),
+    bytes: Number(match.groups.bytes),
+  };
+}
+
+/**
+ * Classifies findings against the baseline by file and by recorded size.
+ *
+ * The baseline records the bucket a file was acknowledged at. A file that
+ * shrinks, even into a smaller bucket, is still the same acknowledged debt and
+ * must not read as a new finding: splitting a large file made the check fail
+ * here, which punished the very work the check asks for. Growth past the
+ * recorded bucket is new. An entry whose file is no longer oversized is stale.
+ */
+export function classifyLargeFileFindings(findings, baselineEntries) {
+  const recorded = new Map();
+  for (const entry of baselineEntries) {
+    const parsed = parseLargeFileKey(entry.key);
+    if (!parsed) continue;
+    const list = recorded.get(parsed.file) ?? [];
+    list.push(parsed);
+    recorded.set(parsed.file, list);
+  }
+
+  const newFindings = [];
+  const knownFindings = [];
+  const matchedFiles = new Set();
+  for (const finding of findings) {
+    const current = parseLargeFileKey(finding.key);
+    const entries = recorded.get(current?.file ?? finding.file) ?? [];
+    matchedFiles.add(current?.file ?? finding.file);
+    const acknowledged = entries.some(
+      (entry) => current !== null && entry.lines >= current.lines && entry.bytes >= current.bytes,
+    );
+    if (acknowledged) knownFindings.push(finding);
+    else newFindings.push(finding);
+  }
+
+  const staleEntries = baselineEntries.filter((entry) => {
+    const parsed = parseLargeFileKey(entry.key);
+    return !parsed || !matchedFiles.has(parsed.file);
+  });
+
+  return { newFindings, knownFindings, staleEntries };
+}
+
 export function analyzeFile(filePath) {
   const stats = statSync(filePath);
   if (!stats.isFile()) return null;
@@ -111,10 +172,7 @@ function main() {
     if (analysis.bytes > maxBytes) reasons.push(`${analysis.bytes} bytes (limit ${maxBytes})`);
     findings.push({
       file: relativePath,
-      // Bucket the measurements so an acknowledged file still fails once it
-      // grows by another 500 lines or 250 KB. A path-only key would let a
-      // baselined file grow without limit.
-      key: `${relativePath}#lines:${Math.floor(analysis.lines / 500)}#bytes:${Math.floor(analysis.bytes / 250000)}`,
+      key: largeFileKey(relativePath, analysis),
       message: `oversized file: ${reasons.join(", ")}`,
       detail: "Split it by responsibility or record an explicit exception in the baseline.",
     });
@@ -129,13 +187,18 @@ function main() {
   }
 
   const baseline = loadBaseline("large-files");
-  const { newFindings, knownFindings } = splitByBaseline(findings, baseline, (finding) => finding.key);
+  const { newFindings, knownFindings, staleEntries } = classifyLargeFileFindings(
+    findings,
+    baseline.entries,
+  );
+  const staleNote = describeStale(staleEntries);
   settle({
     title: "Large files",
     newFindings,
     knownFindings,
     notes: [
       `Checked ${candidates.length} files; limits: ${maxLines} lines / ${maxBytes} bytes.`,
+      ...(staleNote ? [staleNote] : []),
     ],
   });
 }
