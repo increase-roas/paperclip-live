@@ -29,6 +29,8 @@ import {
 } from "@/components/ui/dialog";
 import { useToastActions } from "@/context/ToastContext";
 import { cn } from "@/lib/utils";
+import { QueryErrorState } from "@/components/QueryView";
+import { PageSkeleton } from "@/components/PageSkeleton";
 import { ChoosePathButton } from "@/components/PathInstructionsModal";
 import { invalidateDynamicParser } from "@/adapters/dynamic-loader";
 import { invalidateConfigSchemaCache } from "@/adapters/schema-config-fields";
@@ -275,7 +277,7 @@ export function AdapterManager() {
     ]);
   }, [selectedCompany?.name, setBreadcrumbs]);
 
-  const { data: adapters, isLoading } = useQuery({
+  const { data: adapters, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: queryKeys.adapters.all,
     queryFn: () => adaptersApi.list(),
   });
@@ -391,7 +393,19 @@ export function AdapterManager() {
       menuDisabled: !!a.disabled,
     }));
 
-  if (isLoading) return <div className="p-4 text-sm text-muted-foreground">Loading adapters...</div>;
+  if (isLoading) return <PageSkeleton variant="detail" />;
+
+  if (error) {
+    return (
+      <QueryErrorState
+        size="page"
+        error={error}
+        action="load the adapters"
+        onRetry={() => void refetch()}
+        retrying={isFetching}
+      />
+    );
+  }
 
   const isMutating = installMutation.isPending || removeMutation.isPending || toggleMutation.isPending || overrideMutation.isPending || reloadMutation.isPending || reinstallMutation.isPending;
 

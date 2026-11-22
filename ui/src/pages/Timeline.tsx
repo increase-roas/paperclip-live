@@ -15,6 +15,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
 import { EmptyState } from "@/components/EmptyState";
 import { PageSkeleton } from "@/components/PageSkeleton";
+import { QueryErrorState } from "@/components/QueryView";
 import { RequestCollapsedSidebar } from "@/components/RequestCollapsedSidebar";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -333,7 +334,7 @@ export function Timeline({ embedded = false }: { embedded?: boolean } = {}) {
     return scopedProjectId ? { ...window, projectId: scopedProjectId } : window;
   }, [dateRange, scopedProjectId]);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: [...queryKeys.workTimeline(selectedCompanyId ?? ""), dateRange.fromDate, dateRange.toDate, scopedProjectId ?? null],
     queryFn: ({ signal }) => loadTimelineWindow(selectedCompanyId!, params!, signal),
     enabled: !!selectedCompanyId && !!params,
@@ -494,9 +495,12 @@ export function Timeline({ embedded = false }: { embedded?: boolean } = {}) {
       )}
 
       {error && (
-        <EmptyState
-          icon={GanttChartSquare}
-          message="Couldn't load the timeline. The aggregation endpoint may be unavailable."
+        <QueryErrorState
+          size="panel"
+          error={error}
+          action="load the work timeline"
+          onRetry={() => void refetch()}
+          retrying={isFetching}
         />
       )}
 

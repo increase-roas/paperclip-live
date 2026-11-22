@@ -1,18 +1,19 @@
 import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, UserRound, UserRoundPen } from "lucide-react";
+import { UserRound, UserRoundPen } from "lucide-react";
 import {
   hidesInstancePage,
   type UserProfileDailyPoint,
   type UserProfileWindowStats,
 } from "@paperclipai/shared";
-import { Link, useParams } from "@/lib/router";
+import { Link, useNavigate, useParams } from "@/lib/router";
 import { authApi } from "../api/auth";
 import { userProfilesApi } from "../api/userProfiles";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import { Button } from "../components/ui/button";
 import { EmptyState } from "../components/EmptyState";
 import { PageSkeleton } from "../components/PageSkeleton";
+import { QueryErrorState, useQueryView } from "../components/QueryView";
 import { IssueStatusBadge } from "../components/StatusBadge";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useCompany } from "../context/CompanyContext";
@@ -205,15 +206,21 @@ function UsageList({
 
 export function UserProfile() {
   const { userSlug = "" } = useParams<{ userSlug: string }>();
-  const { selectedCompanyId } = useCompany();
+  const { selectedCompanyId, selectedCompany } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const navigate = useNavigate();
   const companyId = selectedCompanyId ?? NO_COMPANY;
 
-  const { data, isLoading, error } = useQuery({
+  const profileQuery = useQuery({
     queryKey: queryKeys.userProfile(companyId, userSlug),
     queryFn: () => userProfilesApi.get(companyId, userSlug),
     enabled: !!selectedCompanyId && !!userSlug,
   });
+  const { data, isLoading } = profileQuery;
+  const profileView = useQueryView(profileQuery);
+  const membersHref = selectedCompany?.issuePrefix
+    ? `/${selectedCompany.issuePrefix}/company/settings/members`
+    : "/company/settings/members";
   // The edit link only belongs on the viewer's own profile, and never when the
   // hosting operator hides the profile settings surface the link points at.
   const { data: session } = useQuery({
@@ -270,8 +277,31 @@ export function UserProfile() {
     return <PageSkeleton variant="dashboard" />;
   }
 
-  if (error || !data) {
-    return <EmptyState icon={AlertCircle} message="User profile not found for this organization." />;
+  // "Not found" is reserved for a real 404. An outage keeps its retry action
+  // instead of claiming the person does not exist.
+  if (profileView.kind === "error" && profileView.errorKind !== "not_found") {
+    return (
+      <QueryErrorState
+        size="page"
+        error={profileQuery.error}
+        action="load this person's profile"
+        onRetry={profileView.retry}
+        retrying={profileView.isFetching}
+      />
+    );
+  }
+
+  if (!data) {
+    return (
+      <EmptyState
+        icon={UserRound}
+        title="No profile for this person"
+        message={`This organization has no profile for “${userSlug}”.`}
+        description="The person may have left, or the link may use a different name."
+        action="View organization members"
+        onAction={() => navigate(membersHref)}
+      />
+    );
   }
 
   const allTimeTokens = allTime ? totalTokens(allTime) : 0;

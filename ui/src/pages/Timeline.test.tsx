@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 
+import { act } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { WorkTimelineResult } from "@paperclipai/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadTimelineWindow, Timeline, timelineSummary } from "./Timeline";
+import { ApiError } from "../api/api-error";
 
 const mockSetBreadcrumbs = vi.hoisted(() => vi.fn());
 const mockWorkTimelineApi = vi.hoisted(() => ({
@@ -353,5 +355,33 @@ describe("Timeline", () => {
       activeMs: 20 * 60 * 1000,
       totalTokens: 1_250,
     });
+  });
+
+  it("offers a retry when the timeline fails to load", async () => {
+    mockWorkTimelineApi.get.mockRejectedValue(new ApiError("Service unavailable", 503, { error: "unavailable" }));
+    root = createRoot(container);
+
+    flushSync(() => {
+      root?.render(
+        <QueryClientProvider client={queryClient}>
+          <Timeline />
+        </QueryClientProvider>,
+      );
+    });
+    await flushReact();
+    await flushReact();
+
+    const alert = container.querySelector('[data-query-view="error"]');
+    expect(alert).not.toBeNull();
+    expect(alert?.textContent).toContain("Retry");
+    expect(container.textContent).not.toContain("aggregation endpoint may be unavailable");
+
+    const callsBeforeRetry = mockWorkTimelineApi.get.mock.calls.length;
+    const retry = Array.from(container.querySelectorAll("button"))
+      .find((button) => button.textContent?.includes("Retry"));
+    expect(retry).toBeTruthy();
+    act(() => retry?.click());
+    await flushReact();
+    expect(mockWorkTimelineApi.get.mock.calls.length).toBeGreaterThan(callsBeforeRetry);
   });
 });

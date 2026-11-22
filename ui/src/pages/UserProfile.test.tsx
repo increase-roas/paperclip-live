@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { UserProfileResponse } from "@paperclipai/shared";
+import { ApiError } from "../api/api-error";
 import { queryKeys } from "../lib/queryKeys";
 import { UserProfile } from "./UserProfile";
 
@@ -17,6 +18,7 @@ const mockUserProfilesApi = vi.hoisted(() => ({
 }));
 
 const mockSetBreadcrumbs = vi.hoisted(() => vi.fn());
+const mockNavigate = vi.hoisted(() => vi.fn());
 const mockUseParams = vi.hoisted(() => vi.fn());
 
 vi.mock("../api/auth", () => ({
@@ -44,6 +46,7 @@ vi.mock("@/lib/router", () => ({
   Link: ({ children, to, ...props }: { children: React.ReactNode; to: string }) => (
     <a href={to} {...props}>{children}</a>
   ),
+  useNavigate: () => mockNavigate,
   useParams: () => mockUseParams(),
 }));
 
@@ -171,6 +174,56 @@ describe("UserProfile", () => {
 
     expect(container.textContent).toContain("Jane Example");
     expect(container.querySelector(`a[href="${EDIT_PROFILE_HREF}"]`)).toBeNull();
+
+    await act(async () => root.unmount());
+  });
+
+  it("never calls an outage a missing profile, and offers a retry", async () => {
+    mockUserProfilesApi.get.mockRejectedValue(new ApiError("Service unavailable", 503, { error: "unavailable" }));
+    const root = createRoot(container);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <UserProfile />
+        </QueryClientProvider>,
+      );
+    });
+    await flushReact();
+    await flushReact();
+
+    const alert = container.querySelector('[data-query-view="error"]');
+    expect(alert).not.toBeNull();
+    expect(alert?.textContent).toContain("Retry");
+    expect(container.textContent).not.toContain("No profile for this person");
+    expect(container.textContent).not.toContain("User profile not found");
+
+    await act(async () => root.unmount());
+  });
+
+  it("offers a way back to the member list when the profile really is missing", async () => {
+    mockUserProfilesApi.get.mockRejectedValue(new ApiError("Not found", 404, { error: "not_found" }));
+    const root = createRoot(container);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <UserProfile />
+        </QueryClientProvider>,
+      );
+    });
+    await flushReact();
+    await flushReact();
+
+    expect(container.textContent).toContain("No profile for this person");
+    const action = Array.from(container.querySelectorAll("button"))
+      .find((button) => button.textContent?.includes("View organization members"));
+    expect(action).toBeTruthy();
+    act(() => action?.click());
+    expect(mockNavigate).toHaveBeenCalledWith("/PAP/company/settings/members");
+    expect(container.querySelector('[data-query-view="error"]')).toBeNull();
 
     await act(async () => root.unmount());
   });
