@@ -3,11 +3,22 @@ import { AlertDialog as AlertDialogPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
+import {
+  ModalReturnFocusProvider,
+  useModalReturnFocus,
+  useModalReturnFocusTarget,
+} from "@/components/ui/ModalReturnFocus"
 
 function AlertDialog({
+  open,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
-  return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />
+  const returnFocusTarget = useModalReturnFocusTarget(open)
+  return (
+    <ModalReturnFocusProvider target={returnFocusTarget}>
+      <AlertDialogPrimitive.Root data-slot="alert-dialog" open={open} {...props} />
+    </ModalReturnFocusProvider>
+  )
 }
 
 function AlertDialogTrigger({
@@ -40,8 +51,10 @@ function AlertDialogOverlay({
 
 function AlertDialogContent({
   className,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Content>) {
+  const focus = useModalReturnFocus({ onCloseAutoFocus })
   return (
     <AlertDialogPortal>
       <AlertDialogOverlay />
@@ -51,6 +64,7 @@ function AlertDialogContent({
           "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-[0.97] data-[state=open]:zoom-in-[0.97] fixed top-(--sz-calc-26) md:top-(--pct-50) left-(--pct-50) z-50 grid w-full max-w-(--sz-calc-25) translate-x-(--pct-neg-50) translate-y-0 md:translate-y-(--pct-neg-50) gap-4 rounded-lg border p-6 shadow-lg duration-150 ease-(--e-cubic-bezier-0_16-1-0_3-1) outline-none sm:max-w-lg [&>*]:min-w-0",
           className
         )}
+        onCloseAutoFocus={focus.onCloseAutoFocus}
         {...props}
       />
     </AlertDialogPortal>

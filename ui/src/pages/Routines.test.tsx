@@ -995,6 +995,37 @@ describe("Routines page", () => {
     } finally { await act(() => root.unmount()); queryClient.clear(); }
   });
 
+  it("names the create-routine dialog and restores focus after Escape", async () => {
+    routinesListMock.mockResolvedValue([]);
+    issuesListMock.mockResolvedValue([]);
+    const root = createRoot(container), queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const button = (text: string) => Array.from(document.querySelectorAll<HTMLButtonElement>("button"))
+      .find(element => element.textContent?.trim() === text)!;
+    try {
+      await act(async () => { root.render(<QueryClientProvider client={queryClient}><Routines /></QueryClientProvider>); await flush(); });
+      await vi.waitFor(() => expect(button("Create routine")).toBeTruthy());
+      await act(async () => {
+        button("Create routine").focus();
+        button("Create routine").click();
+        await flush();
+      });
+
+      const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!;
+      const title = dialog.querySelector<HTMLElement>('[data-slot="dialog-title"]');
+      expect(title?.textContent?.trim()).toBe("New routine");
+      expect(dialog.getAttribute("aria-labelledby")).toBe(title?.id);
+      expect(document.querySelector<HTMLTextAreaElement>('textarea[placeholder="Routine title"]')?.getAttribute("aria-label"))
+        .toBe("Routine title");
+
+      await act(async () => {
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        await flush();
+      });
+      expect(document.querySelector('[role="dialog"]')).toBeNull();
+      expect(document.activeElement).toBe(button("Create routine"));
+    } finally { await act(() => root.unmount()); queryClient.clear(); }
+  });
+
   it("excludes archived projects from the create composer project selector", async () => {
     routinesListMock.mockResolvedValue([]);
     issuesListMock.mockResolvedValue([]);

@@ -9,6 +9,8 @@ import { queryKeys } from "../lib/queryKeys";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -128,13 +130,16 @@ export function NewGoalDialog() {
               </span>
             )}
             <span className="text-muted-foreground/60">&rsaquo;</span>
-            <span>{newGoalDefaults.parentId ? "New sub-goal" : "New goal"}</span>
+            <DialogTitle className="text-sm font-normal text-muted-foreground">
+              {newGoalDefaults.parentId ? "New sub-goal" : "New goal"}
+            </DialogTitle>
           </div>
           <div className="flex items-center gap-1">
             <Button
               variant="ghost"
               size="icon-xs"
               className="text-muted-foreground"
+              aria-label={expanded ? "Minimize goal editor" : "Expand goal editor"}
               onClick={() => setExpanded(!expanded)}
             >
               {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
@@ -143,16 +148,21 @@ export function NewGoalDialog() {
               variant="ghost"
               size="icon-xs"
               className="text-muted-foreground"
+              aria-label="Close goal editor"
               onClick={() => { reset(); closeNewGoal(); }}
             >
               <span className="text-lg leading-none">&times;</span>
             </Button>
           </div>
         </div>
+        <DialogDescription className="sr-only">
+          Create a goal for this organization.
+        </DialogDescription>
 
         {/* Title */}
         <div className="px-4 pt-4 pb-2 shrink-0">
           <input
+            aria-label="Goal title"
             className="w-full text-lg font-semibold bg-transparent outline-none placeholder:text-muted-foreground/50"
             placeholder="Goal title"
             value={title}
