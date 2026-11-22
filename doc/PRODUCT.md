@@ -519,3 +519,9 @@ actual bill. A background worker applies threshold holds and scoped Stop intent.
 Manual Stop and authorization remain independently enforced. Unknown charges
 remain visible, and stale unevaluated accounting blocks new limited-budget work
 until reconciliation catches up.
+
+An agent's Costs view includes the last seven days of runs with the tokens
+recorded for each run, input and output separately, and the run's cost. The panel
+reads the persisted run usage and ledger fields; it does not estimate. A
+subscription run shows Included, an unpriced run shows Unpriced, and a runtime
+that reports no usage receipt shows Tokens not reported instead of zero.
