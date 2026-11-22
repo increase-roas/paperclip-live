@@ -1,11 +1,12 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { CompanyBotDetail } from "@paperclipai/shared";
-import { ArrowLeft, Bot, CircleAlert, RefreshCw } from "lucide-react";
+import { ArrowLeft, Bot, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/EmptyState";
+import { QueryErrorState, useQueryView } from "@/components/QueryView";
 import { Link, useParams } from "@/lib/router";
 import { formatDateTime } from "@/lib/utils";
 import { useCompany } from "@/context/CompanyContext";
@@ -80,6 +81,8 @@ export function BotDetail() {
     ]);
   }, [botQuery.data?.name, botsHref, setBreadcrumbs]);
 
+  const botView = useQueryView(botQuery);
+
   if (!selectedCompanyId) {
     return (
       <div className="p-4">
@@ -88,7 +91,7 @@ export function BotDetail() {
     );
   }
 
-  if (botQuery.isLoading) {
+  if (botView.kind === "loading" || botView.kind === "reconnecting") {
     return (
       <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
         <RefreshCw aria-hidden className="size-4 animate-spin" />
@@ -97,22 +100,31 @@ export function BotDetail() {
     );
   }
 
-  if (botQuery.isError || !botQuery.data) {
+  if (botView.kind === "error") {
+    if (botView.errorKind === "not_found") {
+      return (
+        <div className="p-4">
+          <EmptyState
+            icon={Bot}
+            title="Bot not found"
+            message="This bot is not in the company roster. Check the link, or open Bots to see the bots this company runs."
+          />
+        </div>
+      );
+    }
     return (
-      <div className="p-4">
-        <EmptyState
-          icon={CircleAlert}
-          title="This bot is unavailable"
-          message={botQuery.error instanceof Error ? botQuery.error.message : "The bot could not be loaded."}
-          action="Retry"
-          onAction={() => void botQuery.refetch()}
-          hideActionIcon
-        />
-      </div>
+      <QueryErrorState
+        size="page"
+        error={botView.error}
+        action="load this bot"
+        onRetry={botView.retry}
+        retrying={botView.isFetching}
+      />
     );
   }
 
-  const bot = botQuery.data;
+  const bot = botView.data;
+  if (!bot) return null;
 
   return (
     <div className="flex flex-col gap-4 p-4">

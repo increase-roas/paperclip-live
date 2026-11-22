@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Bot, CircleAlert, RefreshCw } from "lucide-react";
+import { Bot, RefreshCw } from "lucide-react";
 import type { CompanyBotSummary, SuggestedAgentBot } from "@paperclipai/shared";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/EmptyState";
+import { QueryErrorState, useQueryView } from "@/components/QueryView";
 import { ToolbarSearch } from "@/components/ToolbarSearch";
 import { Link } from "@/lib/router";
 import { useCompany } from "@/context/CompanyContext";
@@ -105,9 +106,10 @@ export function Bots() {
     queryFn: () => botsApi.list(selectedCompanyId!),
     enabled: Boolean(selectedCompanyId),
   });
+  const botsView = useQueryView(botsQuery);
 
-  const bots = botsQuery.data?.bots ?? [];
-  const suggestedAgents = botsQuery.data?.suggestedAgents ?? [];
+  const bots = botsView.data?.bots ?? [];
+  const suggestedAgents = botsView.data?.suggestedAgents ?? [];
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return bots;
@@ -127,7 +129,7 @@ export function Bots() {
     );
   }
 
-  if (botsQuery.isLoading) {
+  if (botsView.kind === "loading" || botsView.kind === "reconnecting") {
     return (
       <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
         <RefreshCw aria-hidden className="size-4 animate-spin" />
@@ -136,16 +138,15 @@ export function Bots() {
     );
   }
 
-  if (botsQuery.isError) {
+  if (botsView.kind === "error") {
     return (
       <div className="p-4">
-        <EmptyState
-          icon={CircleAlert}
-          title="Bots are unavailable"
-          message={botsQuery.error instanceof Error ? botsQuery.error.message : "The bot roster could not be loaded."}
-          action="Retry"
-          onAction={() => void botsQuery.refetch()}
-          hideActionIcon
+        <QueryErrorState
+          size="panel"
+          error={botsView.error}
+          action="load the bots"
+          onRetry={botsView.retry}
+          retrying={botsView.isFetching}
         />
       </div>
     );
