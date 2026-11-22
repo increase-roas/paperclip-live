@@ -121,3 +121,34 @@ test("a bot's routines open from the bot page", async ({ page, request }) => {
   await expect(page).toHaveURL(new RegExp(`/${company.issuePrefix}/routines/${routine.id}$`));
   await expect(page.getByRole("heading", { level: 1, name: "Weekly posting plan" })).toBeVisible();
 });
+
+test("a registered bot without a gateway key gets the right next step", async ({ page, request }) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const company = await json(
+    await request.post("/api/companies", { data: { name: `Gateway gap ${Date.now()}` } }),
+  );
+  const agent = await json(
+    await request.post(`/api/companies/${company.id}/agents`, {
+      data: {
+        name: "Posting Twin",
+        role: "engineer",
+        adapterType: "process",
+        adapterConfig: { command: "/usr/bin/true" },
+        runtimeConfig: { heartbeat: { enabled: false, wakeOnDemand: false } },
+        metadata: {
+          grokBotTwin: true,
+          bot: { purpose: "Drafts the weekly posting plan." },
+        },
+      },
+    }),
+  );
+  await request.post(`/api/agents/${agent.id}/pause`);
+
+  await page.goto(`/${company.issuePrefix}/bots/${agent.id}`);
+  await expect(page.getByRole("heading", { name: "Add the gateway key and policy" })).toBeVisible();
+  await expect(page.getByText("Tag the agent as a bot")).toHaveCount(0);
+  const agentLink = page.getByRole("link", { name: "Open the agent to add the key" });
+  await expect(agentLink).toHaveAttribute("href", `/${company.issuePrefix}/agents/${agent.id}`);
+  await expectNoHorizontalOverflow(page);
+});

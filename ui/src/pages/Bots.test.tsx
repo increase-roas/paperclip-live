@@ -608,7 +608,8 @@ describe("Bots", () => {
     await render(<BotDetail />);
 
     const text = container.textContent ?? "";
-    expect(text).toContain("Link a gateway key");
+    expect(text).toContain("Add the gateway key and policy");
+    expect(text).not.toContain("Tag the agent as a bot");
     expect(text).toContain("bot.gateway.keyId");
     const link = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent?.includes("Open the agent to add the key"));
     expect(link?.getAttribute("href")).toBe("/agents/agent-1");

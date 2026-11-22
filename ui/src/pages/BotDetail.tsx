@@ -46,19 +46,32 @@ function BotStatus({ status }: { status: string }) {
 function RegisterPanel({ bot }: { bot: CompanyBotDetail }) {
   const registered = bot.registered && bot.agentId;
   return (
-    <Section title={registered ? "Link a gateway key" : "How to register"}>
-      <ol className="list-decimal space-y-2 pl-4">
-        <li>
-          Tag the agent as a bot in its metadata: <code className="font-mono text-xs">grokBotTwin: true</code> for a
-          Hermes twin, or <code className="font-mono text-xs">agentKind: &quot;bot&quot;</code> for any other bot.
-        </li>
-        <li>
-          Record the gateway link in the same metadata: <code className="font-mono text-xs">bot.gateway.keyId</code>{" "}
-          and <code className="font-mono text-xs">bot.gateway.policy</code>. The key itself stays in the gateway.
-        </li>
-      </ol>
+    <Section title={registered ? "Add the gateway key and policy" : "How to register"}>
+      {registered ? (
+        <p>
+          Open this bot&apos;s agent metadata and add <code className="font-mono text-xs">bot.gateway.keyId</code> and{" "}
+          <code className="font-mono text-xs">bot.gateway.policy</code>. The key itself stays in the gateway.
+        </p>
+      ) : (
+        <ol className="list-decimal space-y-2 pl-4">
+          <li>
+            Tag the agent as a bot in its metadata: <code className="font-mono text-xs">grokBotTwin: true</code> for a
+            Hermes twin, or <code className="font-mono text-xs">agentKind: &quot;bot&quot;</code> for any other bot.
+          </li>
+          <li>
+            Record the gateway link in the same metadata: <code className="font-mono text-xs">bot.gateway.keyId</code>{" "}
+            and <code className="font-mono text-xs">bot.gateway.policy</code>. The key itself stays in the gateway.
+          </li>
+        </ol>
+      )}
       <pre className="mt-3 overflow-x-auto rounded-md bg-muted/50 p-3 font-mono text-xs leading-5 text-foreground">
-{`{
+{registered
+  ? `{
+  "bot": {
+    "gateway": { "keyId": "gk_live_...", "policy": "website-builder" }
+  }
+}`
+  : `{
   "grokBotTwin": true,
   "bot": {
     "purpose": "What this bot does.",
