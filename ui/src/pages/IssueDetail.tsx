@@ -294,7 +294,8 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { QueryErrorState, useQueryView } from "@/components/QueryView";
-import { describeError, isTransientError } from "@/api/errors";
+import { EmptyState } from "@/components/EmptyState";
+import { describeError, isTransientError, classifyError } from "@/api/errors";
 import {
   Sheet,
   SheetContent,
@@ -7395,6 +7396,22 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
   if (!issue || (issueView.kind === "error" && isPlaceholderData && !coreIssueQuery.data)) {
     const pageError = accessError ?? error ?? coreIssueQuery.error;
     if (pageError) {
+      if (classifyError(pageError) === "not_found") {
+        return (
+          <EmptyState
+            icon={AlertTriangle}
+            title="Task not found"
+            message={
+              routeIssueId
+                ? `No task matches “${routeIssueId}”. It may have been deleted or moved.`
+                : "This task does not exist. It may have been deleted or moved."
+            }
+            action="Back to tasks"
+            onAction={() => navigate("/issues")}
+            hideActionIcon
+          />
+        );
+      }
       return (
         <QueryErrorState
           size="page"

@@ -1476,6 +1476,26 @@ describe("IssueDetail", () => {
     mockRouteParams.companyPrefix = "PAP";
   });
 
+  it("names a missing task, echoes the requested id and offers the way back", async () => {
+    mockRouteParams.issueId = "PAP-404";
+    mockLocation.pathname = "/issues/PAP-404";
+    mockIssuesApi.get.mockRejectedValue(new ApiError("Not found", 404, {}));
+
+    await act(async () => renderIssueView());
+
+    await waitForAssertion(() => {
+      expect(container.textContent).toContain("Task not found");
+      expect(container.textContent).toContain("PAP-404");
+      expect(container.textContent).toContain("Back to tasks");
+    });
+
+    const back = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Back to tasks",
+    );
+    await act(async () => back?.click());
+    expect(mockNavigate).toHaveBeenCalledWith("/issues");
+  });
+
   it("clears only the monitor after confirmation and refreshes the task", async () => {
     const nextCheckAt = new Date(Date.now() + 60_000).toISOString();
     const preservedPolicy = { mode: "normal", commentRequired: false, stages: [{ type: "review", approvalsNeeded: 1, participants: [{ type: "user", userId: "reviewer-1" }] }], maxReviewRounds: 4, authorizationPolicy: { assignmentPolicy: { mode: "protected" } } };
