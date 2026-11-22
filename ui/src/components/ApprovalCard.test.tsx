@@ -120,6 +120,7 @@ describe("ApprovalCard decision note", () => {
     const textarea = container.querySelector("textarea");
     act(() => typeInto(textarea as HTMLTextAreaElement, "Scope is too broad"));
     act(() => findButton(container, "Reject").click());
+    act(() => findButton(container, "Confirm reject").click());
 
     expect(onReject).toHaveBeenCalledWith("Scope is too broad");
   });
