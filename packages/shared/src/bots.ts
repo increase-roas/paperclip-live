@@ -27,10 +27,19 @@ export const BOT_METADATA_KEY = "bot";
  * names the company it belongs to, so the roster never suggests a bot in a
  * company that does not run it.
  */
+/**
+ * `policy` is the gateway policy preset shipped for the bot. Every bot that
+ * gets a gateway key has a checked-in preset of the same name in the gateway
+ * repository (`policies/presets.mjs`; see the live `gateway-deploy-v168`
+ * notes), so the page can name the policy without reading the gateway. A key id
+ * is never part of this: the gateway stores only a SHA-256 of the key, so the
+ * page says "Key id not recorded" until an operator writes one down.
+ */
 export const KNOWN_GATEWAY_BOTS = [
   {
     company: "Increase Roas",
     slug: "funnel-builder",
+    policy: "funnel-builder",
     name: "Funnel Builder",
     purpose: "Builds and maintains funnels and landing pages through the gateway website-builder policy.",
     note: "Runs on the gateway website-builder policy with the full GHL scope set.",
@@ -38,6 +47,7 @@ export const KNOWN_GATEWAY_BOTS = [
   {
     company: "Increase Roas",
     slug: "kiwi",
+    policy: "kiwi",
     name: "Kiwi",
     purpose: null,
     note: "TODO: no recorded purpose. This bot has no agent, gateway key or policy in Paperclip, and no source in the repo or ops notes describes what it does. Add bot.purpose to its metadata once Alex confirms it.",
@@ -45,6 +55,7 @@ export const KNOWN_GATEWAY_BOTS = [
   {
     company: "Increase Roas",
     slug: "dr-eggbot",
+    policy: "dr-eggbot",
     name: "dr eggbot",
     purpose: "Designs tight, single-job Grok Bots. Bring a job you want off your plate and it interviews you for the goal and process, then builds a bot that runs it on its own.",
     note: "Purpose supplied by Alex on 2026-11-22. No agent, gateway key id or policy recorded in Paperclip yet.",
@@ -52,6 +63,7 @@ export const KNOWN_GATEWAY_BOTS = [
   {
     company: "Increase Roas",
     slug: "workflow-builder",
+    policy: "workflow-builder",
     name: "Workflow Builder",
     purpose: "Builds and maintains workflows and routines.",
     note: "Builds and maintains workflows and routines; no agent or gateway key recorded yet.",
@@ -59,6 +71,7 @@ export const KNOWN_GATEWAY_BOTS = [
   {
     company: "Increase Roas",
     slug: "drive-organizer",
+    policy: "drive-organizer",
     name: "Drive Organizer",
     purpose: "Keeps the Increase ROAS — Company OS shared drive organized.",
     note: "Keeps the Increase ROAS — Company OS shared drive organized; no agent or gateway key recorded yet.",
@@ -66,6 +79,7 @@ export const KNOWN_GATEWAY_BOTS = [
   {
     company: "Increase Roas",
     slug: "hermes-specialist",
+    policy: "hermes-specialist",
     name: "Hermes Specialist",
     purpose: "Maintains and tunes Hermes agent profiles.",
     note: "Hermes profile specialist; no agent or gateway key recorded yet.",
@@ -93,7 +107,23 @@ export interface BotGatewayLink {
    * Where the link came from. `metadata` is a link an operator recorded;
    * `agent_config` is read from the agent's own gateway URL.
    */
-  source: "metadata" | "agent_config";
+  source: "metadata" | "agent_config" | "catalog_preset";
+}
+
+/**
+ * Gateway link for a catalog bot that has no agent row.
+ *
+ * The policy comes from the preset the gateway ships for the bot; the key id is
+ * unknown by construction (see the note on `KNOWN_GATEWAY_BOTS`), so it stays
+ * null and the page says so instead of guessing.
+ */
+export function catalogGatewayLink(known: {
+  slug: string;
+  policy?: string | null;
+}): BotGatewayLink | null {
+  const policy = known.policy?.trim();
+  if (!policy) return null;
+  return { keyId: null, policy, provider: "gateway", source: "catalog_preset" };
 }
 
 export interface CompanyBotSummary {

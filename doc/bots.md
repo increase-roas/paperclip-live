@@ -39,6 +39,14 @@ do: the key itself stays in the gateway or the company secret store.
 block instead of guessing, so a page never shows a key id without its policy.
 The API returns `gateway: null` in that case and the page says "Not linked".
 
+A known bot with no agent row shows the **policy preset it ships with**:
+`KNOWN_GATEWAY_BOTS` carries the preset name (the gateway repository keeps one
+preset per bot in `policies/presets.mjs`, so `dr-eggbot` runs the `dr-eggbot`
+policy). `catalogGatewayLink` turns that into `{ keyId: null, policy,
+source: "catalog_preset" }` and the page says the key id is not recorded until an
+operator writes one down. A catalog bot with no known preset keeps the honest
+empty state.
+
 When metadata records no link, a Hermes gateway agent's own `adapterConfig.apiBaseUrl`
 still names the policy it talks to: the gateway serves each profile under
 `/p/<policy>`. The service derives a **policy-only** link from that URL and

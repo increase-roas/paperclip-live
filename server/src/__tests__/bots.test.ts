@@ -149,10 +149,27 @@ describePostgres("bots", () => {
       ]),
     );
     const funnel = before.body.bots.find((bot: { slug: string }) => bot.slug === "funnel-builder");
-    expect(funnel).toMatchObject({ registered: false, kind: "gateway", status: "unregistered", gateway: null });
+    expect(funnel).toMatchObject({
+      registered: false,
+      kind: "gateway",
+      status: "unregistered",
+      // The gateway ships a preset for each known bot, so the page can name the
+      // policy. No key id exists to read, so it stays null and the page says so.
+      gateway: { keyId: null, policy: "funnel-builder", provider: "gateway", source: "catalog_preset" },
+    });
     const workflow = before.body.bots.find((bot: { slug: string }) => bot.slug === "workflow-builder");
-    expect(workflow).toMatchObject({ name: "Workflow Builder", registered: false, gateway: null });
+    expect(workflow).toMatchObject({
+      name: "Workflow Builder",
+      registered: false,
+      gateway: { keyId: null, policy: "workflow-builder", source: "catalog_preset" },
+    });
     expect(workflow.note).toContain("workflows and routines");
+    // Every known bot names the policy preset it ships with, and none claims a
+    // key id, because the gateway keeps only a hash of the key.
+    for (const slug of ["dr-eggbot", "kiwi", "drive-organizer", "hermes-specialist"]) {
+      const bot = before.body.bots.find((entry: { slug: string }) => entry.slug === slug);
+      expect(bot.gateway).toMatchObject({ keyId: null, policy: slug, source: "catalog_preset" });
+    }
 
     // The dr eggbot purpose came from Alex; Kiwi still has no recorded source,
     // so it keeps an explicit unresolved-purpose note rather than an invented
