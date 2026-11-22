@@ -24,7 +24,10 @@ vi.mock("@/api/bots", () => ({
 }));
 
 vi.mock("@/context/CompanyContext", () => ({
-  useCompany: () => ({ selectedCompanyId: "company-1", selectedCompany: { id: "company-1", name: "Paperclip" } }),
+  useCompany: () => ({
+    selectedCompanyId: "company-1",
+    selectedCompany: { id: "company-1", name: "Paperclip", issuePrefix: "PAP" },
+  }),
 }));
 
 vi.mock("@/context/BreadcrumbContext", () => ({
@@ -150,7 +153,7 @@ describe("Bots", () => {
     await render(<BotDetail />);
 
     expect(setBreadcrumbsMock).toHaveBeenCalledWith([
-      { label: "Bots", href: "/bots" },
+      { label: "Bots", href: "/PAP/bots" },
       { label: "Research Analyst" },
     ]);
   });
@@ -492,7 +495,18 @@ describe("Bots", () => {
     await act(async () => {
       open!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
-    expect(navigateMock).toHaveBeenCalledWith("/bots");
+    expect(navigateMock).toHaveBeenCalledWith("/PAP/bots");
+  });
+
+  it("keeps both roster links inside the company's own route", async () => {
+    params.botId = "agent-1";
+    getMock.mockResolvedValue({ ...researchBot, routines: [], recentActivity: [] });
+
+    await render(<BotDetail />);
+
+    const back = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent?.includes("All bots"));
+    expect(back?.getAttribute("href")).toBe("/PAP/bots");
+    expect([...container.querySelectorAll("a")].some((anchor) => anchor.getAttribute("href") === "/bots")).toBe(false);
   });
 
   it("shows guidance instead of a blank roster when the company has no bots", async () => {

@@ -133,7 +133,7 @@ export function BotDetail() {
             title="Bot not found"
             message="This bot is not in the company roster. Check the link, or open Bots to see the bots this company runs."
             action="Open Bots"
-            onAction={() => navigate("/bots")}
+            onAction={() => navigate(botsHref)}
             hideActionIcon
           />
         </div>
@@ -158,7 +158,7 @@ export function BotDetail() {
     <div className="flex flex-col gap-4 p-4">
       <div>
         <Button asChild variant="link" size="xs" className="px-0">
-          <Link to="/bots">
+          <Link to={botsHref}>
             <ArrowLeft aria-hidden />
             All bots
           </Link>
