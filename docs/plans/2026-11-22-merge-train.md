@@ -21,6 +21,9 @@ pushes nothing. It merges each PR head into a running tree with
 first conflict with the conflicted paths. Exit code `0` means the whole order is
 clean; `1` means a conflict; `2` means a usage or git error.
 
+Last verified: 2026-11-22, 42 of 42 merged, no conflicts, base `6de064ea94`.
+#158 was rebased onto #118 to clear the one conflict (see below).
+
 Useful variants:
 
 ```sh
@@ -116,6 +119,12 @@ files and the later PR expects the earlier copy.
   train and close #162 as covered.
 - **#158 must precede #162** if both are merged manually. Reversing them
   conflicts in `ui/src/pages/Bots.tsx` and `ui/src/pages/BotDetail.tsx`.
+- **#158 is stacked on #118.** Lane A's #100/#108 changed the same `BotDetail`
+  import line that #158 shortened. #158 was rebased onto a base that contains
+  #118, so it now carries lane A's bot commits until #118 merges. That is the
+  only stacked lane-D PR; it must merge after #118, as the order says. The
+  resolution keeps `RefreshCw` (the gateway live-data block uses it) and adds
+  `Skeleton` and `QueryPlaceholder`.
 
 ### Standalone (draft) order
 
@@ -130,8 +139,9 @@ files and the later PR expects the earlier copy.
 2. Rebase that PR's branch onto the tip of the previous batch:
    `git fetch origin && git rebase origin/<previous-branch>`.
 3. Resolve by keeping both sides unless the PR explicitly supersedes the other
-   one. For #158/#162 specifically: keep `RefreshCw` (the gateway block uses it),
-   add `Skeleton` and `QueryPlaceholder`, and keep #158's early loading return.
+   one. For #158/#118 specifically: keep `RefreshCw` (the gateway block uses it)
+   and add `Skeleton` and `QueryPlaceholder`. For #158/#162: add the coverage
+   UI on top of the skeleton loading state.
 4. Push the rebased branch and rerun the script from PR 1. Your local branch
    must be the PR's head branch; do not force-push a branch another lane owns.
 
