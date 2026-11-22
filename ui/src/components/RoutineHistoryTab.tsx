@@ -651,7 +651,7 @@ function RevisionPreview({
                   {summarizeTriggerSnapshot(trigger)}
                 </span>
                 <span
-                  className={`ml-auto text-xs ${trigger.enabled ? "text-emerald-400" : "text-muted-foreground"}`}
+                  className={`ml-auto text-xs ${trigger.enabled ? "text-(--status-success-foreground)" : "text-muted-foreground"}`}
                 >
                   {trigger.enabled ? "enabled" : "disabled"}
                 </span>

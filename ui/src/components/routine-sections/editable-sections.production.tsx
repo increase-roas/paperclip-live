@@ -770,7 +770,7 @@ export function DeliverySection() {
 }
 
 const dispositionToneClass: Record<string, string> = {
-  queued: "text-emerald-600 dark:text-emerald-400",
+  queued: "text-(--status-success-foreground)",
   coalesced: "text-amber-600 dark:text-amber-400",
   skipped: "text-muted-foreground",
 };

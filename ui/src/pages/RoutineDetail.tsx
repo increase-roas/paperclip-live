@@ -716,7 +716,7 @@ export function RoutineDetail() {
     routine.status === "archived"
       ? "text-muted-foreground"
       : automationEnabled
-        ? "text-emerald-400"
+        ? "text-(--status-success-foreground)"
         : "text-muted-foreground";
 
   const contextValue: RoutineDetailContextValue = {

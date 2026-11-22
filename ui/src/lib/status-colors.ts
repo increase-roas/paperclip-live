@@ -57,7 +57,7 @@ export const brandChipBadge: Record<BrandChipColor, string> = {
   gray: "bg-[#F5F3F0] text-[#52585D] border-[#A8AEB2] dark:bg-[#6e696024] dark:text-[#9A958A] dark:border-[#9e958a73]",
   blue: "bg-[#DBEAFE] text-[#1D4ED8] border-[#2563EB] dark:bg-[#2563eb2e] dark:text-[#2563EB] dark:border-[#2563eb73]",
   amber: "bg-[#FEF3C7] text-[#B45309] border-[#F59E0B] dark:bg-[#f59e0b24] dark:text-[#F59E0B] dark:border-[#f59e0b73]",
-  green: "bg-[#DCFCE7] text-[#188A3C] border-[#22C55E] dark:bg-[#22c55e1f] dark:text-[#22C55E] dark:border-[#22c55e73]",
+  green: "bg-(--status-success-surface) text-(--status-success-foreground) border-(--status-success-border)",
   violet: "bg-[#EDE9FE] text-[#5B21B6] border-[#7C3AED] dark:bg-[#7c3aed2e] dark:text-[#7C3AED] dark:border-[#7c3aed73]",
   red: "bg-[#FEE2E2] text-[#991B1B] border-[#DC2626] dark:bg-[#dc26262e] dark:text-[#DC2626] dark:border-[#dc262673]",
 };
@@ -78,10 +78,10 @@ export const statusBadge: Record<string, string> = {
   scheduled_retry: "bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300",
   paused: `border ${brandChipBadge.amber}`,
   idle: `border ${brandChipBadge.gray}`,
-  archived: "bg-muted text-muted-foreground",
+  archived: "bg-muted text-(--status-neutral-foreground)",
 
   // Goal statuses
-  planned: "bg-muted text-muted-foreground",
+  planned: "bg-muted text-(--status-neutral-foreground)",
   achieved: "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300",
   completed: "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300",
 
@@ -107,17 +107,17 @@ export const statusBadge: Record<string, string> = {
   // Case statuses (PAP-12968 E3) — `draft` is the neutral pre-work state,
   // rendered as a muted gray alias of `backlog`/`planned`. The other case
   // statuses (in_progress/in_review/approved/done/cancelled) already map above.
-  draft: "bg-muted text-muted-foreground",
+  draft: "bg-muted text-(--status-neutral-foreground)",
 
   // Issue statuses — consistent hues with issueStatusIcon above (PAP-75 brand
   // mapping: todo → amber, in_progress → blue "liveness").
-  backlog: "bg-muted text-muted-foreground",
+  backlog: "bg-muted text-(--status-neutral-foreground)",
   todo: "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
   in_progress: "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300",
   in_review: "bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300",
   blocked: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",
   done: "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300",
-  cancelled: "bg-muted text-muted-foreground",
+  cancelled: "bg-muted text-(--status-neutral-foreground)",
 
   // Tool access — policy decisions, catalog, and runtime health (Tools & Access, PAP-10389)
   allowed: "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300",
@@ -127,15 +127,15 @@ export const statusBadge: Record<string, string> = {
   redacted: "bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300",
   "rate-limit": "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300",
   deferred: "bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300",
-  hidden: "bg-muted text-muted-foreground",
+  hidden: "bg-muted text-(--status-neutral-foreground)",
   quarantined: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",
   "runtime-error": "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",
   healthy: "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300",
   degraded: "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
-  unchecked: "bg-muted text-muted-foreground",
+  unchecked: "bg-muted text-(--status-neutral-foreground)",
 };
 
-export const statusBadgeDefault = "bg-muted text-muted-foreground";
+export const statusBadgeDefault = "bg-muted text-(--status-neutral-foreground)";
 
 // ---------------------------------------------------------------------------
 // Agent status — brand state system (PAP-75)
@@ -355,21 +355,21 @@ export const externalObjectStatusIcon: Record<string, string> = {
 export const externalObjectStatusIconDefault = "text-muted-foreground border-muted-foreground";
 
 export const externalObjectStatusBadge: Record<string, string> = {
-  unknown: "bg-muted text-muted-foreground",
+  unknown: "bg-muted text-(--status-neutral-foreground)",
   open: "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300",
   waiting: "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
   running: "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300", // Gallery feedback r2: running = status blue (now shares tint with `open`; liveness animation differentiates).
   succeeded: "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300",
   failed: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",
   blocked: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",
-  closed: "bg-muted text-muted-foreground",
-  archived: "bg-muted text-muted-foreground",
+  closed: "bg-muted text-(--status-neutral-foreground)",
+  archived: "bg-muted text-(--status-neutral-foreground)",
   auth_required: "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
   rate_limited: "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
   unreachable: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",
 };
 
-export const externalObjectStatusBadgeDefault = "bg-muted text-muted-foreground";
+export const externalObjectStatusBadgeDefault = "bg-muted text-(--status-neutral-foreground)";
 
 /**
  * Liveness overlay applied on top of the base status tone. We deliberately

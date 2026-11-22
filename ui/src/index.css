@@ -354,6 +354,16 @@
   --status-task-done: #22c55e;
   --status-task-blocked: #dc2626;
   --status-task-cancelled: #a8aeb2;
+  /* Scoped status text colors that carry their own WCAG AA checks. The shared
+     --muted-foreground is 4.45:1 on the muted badge fill and the 10px sidebar
+     group label is not rendered at full opacity, so neutral badges and group
+     labels use a darker light-theme value. The green chip text is 4.03:1 on
+     its #DCFCE7 fill; #15803d clears AA on both that fill and the page. */
+  --status-neutral-foreground: #666666;
+  --status-success-foreground: #15803d;
+  --status-success-surface: #dcfce7;
+  --status-success-border: #22c55e;
+  --sidebar-group-label-foreground: #666666;
 
   /* Task status ICON hues (PAP-238 3b) — AA-tuned (every glyph ≥ 3:1 against
      its surface, WCAG 2.1 AA, both modes). Distinct from the
@@ -722,6 +732,11 @@
   --patch-remove-fg: #ffa198;
   --status-task-icon-done: #34d06f;
   --status-task-icon-cancelled: #9a958a;
+  --status-neutral-foreground: var(--muted-foreground);
+  --status-success-foreground: #22c55e;
+  --status-success-surface: rgb(34 197 94 / 0.12);
+  --status-success-border: rgb(34 197 94 / 0.45);
+  --sidebar-group-label-foreground: var(--muted-foreground);
   --skill-mention-foreground: var(--color-violet-300);
 }
 
@@ -4744,7 +4759,7 @@ html:has(.design-proposal-theme) .design-navigation-group-label {
   line-height: var(--design-sidebar-label-leading);
   letter-spacing: var(--design-sidebar-heading-tracking);
   text-transform: uppercase;
-  color: color-mix(in oklab, var(--muted-foreground) 60%, transparent);
+  color: var(--sidebar-group-label-foreground);
 }
 .design-sidebar .design-sidebar-item { min-height: var(--design-sidebar-item-height); margin-inline: var(--design-sidebar-item-inset); padding-inline: var(--design-sidebar-item-inset); color: var(--design-sidebar-item-foreground); font-size: var(--design-sidebar-label-size); line-height: var(--design-sidebar-label-leading); }
 .design-sidebar .design-sidebar-item:is(:hover, [aria-current="page"]) { background: var(--design-sidebar-item-highlight); color: var(--design-sidebar-item-active-foreground); }

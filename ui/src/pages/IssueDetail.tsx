@@ -1031,7 +1031,7 @@ export function IssueDetailLoadingState({
                   </span>
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground opacity-50 px-1 -mx-1 py-0.5">
+                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground px-1 -mx-1 py-0.5">
                   <ProjectTile size="xs" />
                   No project
                 </span>
@@ -7797,7 +7797,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
             </span>
           </Link>
         ) : (
-          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground opacity-50 px-1 -mx-1 py-0.5">
+          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground px-1 -mx-1 py-0.5">
             <ProjectTile size="xs" />
             No project
           </span>
