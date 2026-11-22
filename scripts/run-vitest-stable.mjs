@@ -9,6 +9,7 @@ import { invocationEnv } from "./ci-profile/record.mjs";
 import { vitestRetryArgs } from "./ci/vitest-retry.mjs";
 
 import { assertSelectedTests, partitionTestLines } from "./test-line-shard.mjs";
+import { chatWorkerCount } from "./chat-shard-workers.mjs";
 import { loadSelection, selectedShard } from "./ci/test-selection-manifest.mjs";
 
 const repoRoot = process.cwd();
@@ -510,7 +511,7 @@ async function runProjectGroup(projects, groupName, shardIndex = null, shardCoun
 }
 
 function chatShardWorkers(index, count) {
-  const workers = count > 1 && !hasSharedTestDatabase && !options.serialChat ? 2 : 1;
+  const workers = count > 1 && !hasSharedTestDatabase && !options.serialChat ? chatWorkerCount() : 1;
   return Array.from({ length: workers }, (_, offset) => ({
     index: (index ?? 0) * workers + offset,
     count: (count ?? 1) * workers,
