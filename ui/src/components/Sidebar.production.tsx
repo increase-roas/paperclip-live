@@ -20,6 +20,7 @@ import {
   MessagesSquare,
   GanttChartSquare,
   LayoutGrid,
+  Bot,
   ShieldCheck,
 } from "lucide-react";
 import { useState } from "react";
@@ -228,6 +229,7 @@ export function Sidebar() {
         <SidebarSection label="Company" collapsible={{ open: companyOpen, onOpenChange: setCompanyOpen }}>
           <SidebarNavItem to="/org" label="Org" icon={Network} />
           <SidebarNavItem to="/readiness" label="Readiness" icon={ShieldCheck} />
+          <SidebarNavItem to="/bots" label="Bots" icon={Bot} />
           {showApps ? <SidebarNavItem to="/apps" label="Connectors" icon={Unplug} /> : null}
           <SidebarNavItem to="/timeline" label="Timeline" icon={GanttChartSquare} />
           <SidebarNavItem to="/costs" label="Costs" icon={DollarSign} />

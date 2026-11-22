@@ -220,5 +220,6 @@ export {
 
 export { decisionModelService, defineDecisionFeature } from "./decision-models.js";
 
+export { botsService, type BotsService } from "./bots.js";
 export { agentReadinessService, type AgentReadinessActor, type AgentReadinessServiceOptions } from "./agent-readiness/service.js";
 export { createAgentReadinessCatalog, isGrokBotTwin, readinessSubjectType, type AgentReadinessCollection, type AgentReadinessLiveProbe, type AgentReadinessProbeResult, type ReadinessSubject } from "./agent-readiness/catalog.js";

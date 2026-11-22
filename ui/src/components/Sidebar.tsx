@@ -24,6 +24,7 @@ import {
   GanttChartSquare,
   LayoutGrid,
   Users,
+  Bot,
   ShieldCheck,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
@@ -278,6 +279,7 @@ function ClassicSidebar({ children }: { children?: ReactNode }) {
             <SidebarNavItem to="/skills" label="Skills" icon={Boxes} />
             <SidebarNavItem to="/apps" label="Connectors" icon={Unplug} />
             <SidebarNavItem to="/readiness" label="Readiness" icon={ShieldCheck} />
+            <SidebarNavItem to="/bots" label="Bots" icon={Bot} />
             <SidebarNavItem to="/activity" label="Audit" icon={History} />
           </SidebarSection>
         ) : null}
@@ -297,6 +299,7 @@ function ClassicSidebar({ children }: { children?: ReactNode }) {
               <SidebarNavItem to="/org" label="Org" icon={Network} />
               <SidebarNavItem to="/apps" label="Connectors" icon={Unplug} />
               <SidebarNavItem to="/readiness" label="Readiness" icon={ShieldCheck} />
+              <SidebarNavItem to="/bots" label="Bots" icon={Bot} />
               <SidebarNavItem to="/timeline" label="Timeline" icon={GanttChartSquare} />
               <SidebarNavItem to="/costs" label="Costs" icon={DollarSign} />
               <SidebarNavItem to="/activity" label="Activity" icon={History} />
