@@ -24,6 +24,17 @@ import { cn } from "@/lib/utils";
 import type { RoutineHistoryDirtyFieldDescriptor } from "./RoutineHistoryTab";
 
 /**
+ * What stops a routine save before it reaches the server.
+ *
+ * The title is required on every editable section because the request sends
+ * the whole draft. Without this the save button and Cmd+S silently did
+ * nothing when the title was empty.
+ */
+export function routineSaveBlockedReason(title: string): string | null {
+  return title.trim() ? null : "Add a title before saving.";
+}
+
+/**
  * Per-section sticky save bar (§1.4–§1.5). Hidden when clean; reveals on dirty.
  * On a 409 it swaps to the conflict-recovery surface ("Reload latest" /
  * "Overwrite anyway"). Wires ⌘/Ctrl+S → save and Esc → discard-with-confirm.
@@ -36,6 +47,7 @@ export function RoutineSaveBar({
   onDiscard,
   onReload,
   disabled,
+  blockedReason,
 }: {
   dirtyFields: RoutineHistoryDirtyFieldDescriptor[];
   isSaving: boolean;
@@ -44,9 +56,12 @@ export function RoutineSaveBar({
   onDiscard: () => void;
   onReload: () => void;
   disabled?: boolean;
+  /** A field-level reason the draft cannot be saved yet. Shown and announced. */
+  blockedReason?: string | null;
 }) {
   const dirtyCount = dirtyFields.length;
   const isDirty = dirtyCount > 0;
+  const isBlocked = Boolean(blockedReason);
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
 
   useEffect(() => {
@@ -54,7 +69,7 @@ export function RoutineSaveBar({
     const handler = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
-        if (!isSaving && !disabled) onSave();
+        if (!isSaving && !disabled && !isBlocked) onSave();
       } else if (event.key === "Escape" && isDirty) {
         event.preventDefault();
         setConfirmDiscardOpen(true);
@@ -62,7 +77,7 @@ export function RoutineSaveBar({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [isDirty, saveConflict, isSaving, disabled, onSave]);
+  }, [isDirty, saveConflict, isSaving, disabled, isBlocked, onSave]);
 
   if (!isDirty && !saveConflict) return null;
 
@@ -113,6 +128,11 @@ export function RoutineSaveBar({
         )}
 
         <div className="flex items-center gap-2">
+          {blockedReason ? (
+            <p id="routine-save-blocked-reason" role="alert" className="text-xs text-destructive">
+              {blockedReason}
+            </p>
+          ) : null}
           {saveConflict ? (
             <>
               <Button variant="outline" size="sm" onClick={onReload}>
@@ -124,7 +144,8 @@ export function RoutineSaveBar({
                     <Button
                       variant="destructive"
                       size="sm"
-                      disabled={isSaving || disabled}
+                      disabled={isSaving || disabled || isBlocked}
+                      aria-describedby={isBlocked ? "routine-save-blocked-reason" : undefined}
                       onClick={onSave}
                     >
                       {isSaving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
@@ -149,7 +170,8 @@ export function RoutineSaveBar({
               </Button>
               <Button
                 size="sm"
-                disabled={isSaving || disabled}
+                disabled={isSaving || disabled || isBlocked}
+                aria-describedby={isBlocked ? "routine-save-blocked-reason" : undefined}
                 onClick={onSave}
               >
                 {isSaving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}

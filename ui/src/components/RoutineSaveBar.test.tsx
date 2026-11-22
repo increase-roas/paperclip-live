@@ -4,7 +4,7 @@ import type React from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { RoutineSaveBar } from "./RoutineSaveBar";
+import { RoutineSaveBar, routineSaveBlockedReason } from "./RoutineSaveBar";
 import type { RoutineHistoryDirtyFieldDescriptor } from "./RoutineHistoryTab";
 
 function act(callback: () => void) {
@@ -46,6 +46,7 @@ function renderBar(props: Partial<React.ComponentProps<typeof RoutineSaveBar>>) 
         onSave={props.onSave ?? handlers.onSave}
         onDiscard={props.onDiscard ?? handlers.onDiscard}
         onReload={props.onReload ?? handlers.onReload}
+        blockedReason={props.blockedReason ?? null}
       />,
     );
   });
@@ -91,5 +92,29 @@ describe("RoutineSaveBar", () => {
       reload!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(handlers.onReload).toHaveBeenCalledTimes(1);
+  });
+
+  it("requires a title before saving and says why", () => {
+    expect(routineSaveBlockedReason("  ")).toBe("Add a title before saving.");
+    expect(routineSaveBlockedReason("Weekly review")).toBeNull();
+  });
+
+  it("disables save and announces the blocking reason", () => {
+    const handlers = renderBar({ dirtyFields: DIRTY, blockedReason: "Add a title before saving." });
+
+    const alert = container.querySelector('[role="alert"]');
+    expect(alert?.textContent).toBe("Add a title before saving.");
+    const save = [...container.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("Save changes"),
+    ) as HTMLButtonElement | undefined;
+    expect(save).toBeTruthy();
+    expect(save!.disabled).toBe(true);
+    expect(save!.getAttribute("aria-describedby")).toBe("routine-save-blocked-reason");
+
+    act(() => {
+      save!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "s", metaKey: true }));
+    });
+    expect(handlers.onSave).not.toHaveBeenCalled();
   });
 });

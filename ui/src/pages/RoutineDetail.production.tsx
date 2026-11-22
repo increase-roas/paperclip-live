@@ -39,7 +39,7 @@ import {
   RoutineSubSidebar,
   RoutineSectionPicker,
 } from "../components/RoutineSubSidebar";
-import { RoutineSaveBar } from "../components/RoutineSaveBar";
+import { RoutineSaveBar, routineSaveBlockedReason } from "../components/RoutineSaveBar";
 import { RoutineSectionHeading } from "../components/RoutineSectionHeading";
 import {
   EDITABLE_SECTIONS,
@@ -819,6 +819,9 @@ export function RoutineDetail() {
             <textarea
               ref={titleInputRef}
               data-autosize-title
+              aria-label="Routine title"
+              aria-invalid={editDraft.title.trim() ? undefined : true}
+              aria-describedby={editDraft.title.trim() ? undefined : "routine-save-blocked-reason"}
               className="min-w-0 flex-1 resize-none overflow-hidden bg-transparent text-base font-semibold leading-7 outline-none placeholder:text-muted-foreground/50"
               placeholder="Routine title"
               rows={1}
@@ -911,6 +914,7 @@ export function RoutineDetail() {
                   dirtyFields={sectionDirtyFields(section)}
                   isSaving={saveRoutine.isPending}
                   saveConflict={saveConflict}
+                  blockedReason={routineSaveBlockedReason(editDraft.title)}
                   onSave={() => {
                     if (!saveRoutine.isPending && editDraft.title.trim()) saveRoutine.mutate();
                   }}
