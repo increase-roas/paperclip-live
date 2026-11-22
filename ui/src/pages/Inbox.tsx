@@ -1,4 +1,5 @@
 import { isTransientError } from "@/api/errors";
+import { createUuid } from "../lib/uuid";
 import { useQueryView } from "@/components/QueryView";
 import { useCoordinatorPresentation } from "@/components/coordinator/CoordinatorPresentation";
 import { useWarmTaskDetailCode } from "@/hooks/useWarmTaskDetailCode";
@@ -1942,7 +1943,7 @@ function StreamlinedInbox({
       if (issueId) {
         let idempotencyKey = retryRequestKeys.current.get(run.id);
         if (!idempotencyKey) {
-          idempotencyKey = crypto.randomUUID();
+          idempotencyKey = createUuid();
           retryRequestKeys.current.set(run.id, idempotencyKey);
         }
         const result = await issuesApi.retryTask(issueId, { idempotencyKey, observedRunId: run.id }).catch(error => {

@@ -210,6 +210,7 @@ afterEach(() => {
   container.remove();
   Range.prototype.getBoundingClientRect = originalRangeRect;
   window.getSelection()?.removeAllRanges();
+  vi.unstubAllGlobals();
 });
 
 function render(ui: ReactElement) {
@@ -333,6 +334,24 @@ describe("TaskChatComposer", () => {
     flushSync(() => sendButton().click());
     await flushAsync();
     expect(creation.onSubmit).toHaveBeenCalledWith(creation.value, "standard", null);
+  });
+
+  it("sends a comment when the page has no crypto.randomUUID (plain-HTTP preview)", async () => {
+    vi.stubGlobal("crypto", {
+      getRandomValues: (bytes: Uint8Array) => {
+        bytes.set(Array.from({ length: bytes.length }, (_, index) => index + 1));
+        return bytes;
+      },
+    });
+    const onAdd = vi.fn().mockResolvedValue(undefined);
+    render(<TaskChatComposer onAdd={onAdd} workMode="standard" />);
+    typeText("Comment from a plain-HTTP preview");
+    pressKey("Enter", { metaKey: true });
+    await flushAsync();
+    expect(onAdd).toHaveBeenCalledOnce();
+    expect(onAdd.mock.calls[0]?.[4]).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
   });
 
   it("stages images and documents together when pasted into creation", () => {
