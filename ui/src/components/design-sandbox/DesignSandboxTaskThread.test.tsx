@@ -127,7 +127,10 @@ it("keeps replies local and restores the saved conversation", async () => {
 });
 
 it("plays one cumulative conversation, freezes on pause, settles and replays locally", async () => {
-  vi.useFakeTimers();
+  // Fake only the playback clock. Faking setTimeout/setImmediate also fakes the
+  // task queue React's act() uses to flush effects, which can make an awaited
+  // act() block until the test timeout on a loaded host.
+  vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
   document.documentElement.style.setProperty("--motion-sandbox-stream-tick", "40ms");
   document.documentElement.style.setProperty("--motion-sandbox-playback-step", "4s");
   await act(async () => render("?threadPreview=all", true, "playback"));
@@ -135,17 +138,19 @@ it("plays one cumulative conversation, freezes on pause, settles and replays loc
   expect(playback().getAttribute("data-playback-state")).toBe("idle");
   expect(host.querySelectorAll('[data-testid="task-chat-human-bubble"]')).toHaveLength(0);
   expect(host.querySelector("#sandbox-thread-state")).toBeNull();
-  await act(async () => button("Play conversation").click());
+  const playButton = button("Play conversation") as HTMLButtonElement;
+  expect(playButton.disabled, "playback contract needs its motion token before it can play").toBe(false);
+  await act(async () => playButton.click());
   expect(host.querySelectorAll('[data-testid="task-chat-human-bubble"]')).toHaveLength(1);
-  await act(async () => vi.advanceTimersByTime(2500));
+  await act(async () => vi.advanceTimersByTimeAsync(2500));
   expect(playback().getAttribute("data-playback-stage")).toBe("1");
   await act(async () => button("Pause").click());
   const paused = host.textContent;
-  await act(async () => vi.advanceTimersByTime(10_000));
+  await act(async () => vi.advanceTimersByTimeAsync(10_000));
   expect(host.textContent).toBe(paused);
   expect(playback().getAttribute("data-playback-state")).toBe("paused");
   await act(async () => button("Resume conversation").click());
-  await act(async () => vi.advanceTimersByTime(60_000));
+  await act(async () => vi.advanceTimersByTimeAsync(60_000));
   expect(playback().getAttribute("data-playback-state")).toBe("complete");
   expect(host.textContent).toContain("26 component source files");
   expect(host.querySelector('[data-testid="task-chat-bubble-attached-turn"]')).not.toBeNull();

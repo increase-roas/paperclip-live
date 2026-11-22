@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { flushSync } from "react-dom";
+import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -102,33 +102,11 @@ class ResizeObserverStub {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (globalThis as any).ResizeObserver = (globalThis as any).ResizeObserver ?? ResizeObserverStub;
 
-async function act(callback: () => void | Promise<void>) {
-  let result: void | Promise<void> = undefined;
-  flushSync(() => {
-    result = callback();
-  });
-  await result;
-}
-
-async function flushReact() {
-  await act(async () => {
-    await Promise.resolve();
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
-  });
-}
-
 async function waitForAssertion(assertion: () => void) {
-  let lastError: unknown;
-  for (let i = 0; i < 20; i += 1) {
-    await flushReact();
-    try {
-      assertion();
-      return;
-    } catch (error) {
-      lastError = error;
-    }
-  }
-  throw lastError;
+  // Wait for the rendered result, not a fixed number of event-loop turns.
+  // Under a loaded host the chained instance-settings and environments queries
+  // can resolve after any small count of flushes.
+  await vi.waitFor(assertion, { timeout: 3_000, interval: 10 });
 }
 
 const ENVIRONMENTS_PATH = "/company/settings/instance/environments";
@@ -201,8 +179,9 @@ describe("CompanyEnvironments", () => {
     await act(async () => {
       root.render(renderCompanyEnvironments(queryClient));
     });
-    await flushReact();
-    await flushReact();
+    await waitForAssertion(() =>
+      expect(container.querySelector('[aria-label="Default environment"]')).toBeTruthy(),
+    );
 
     const optionLabels = Array.from(container.querySelectorAll("option")).map((option) => option.textContent?.trim());
 
@@ -239,8 +218,9 @@ describe("CompanyEnvironments", () => {
     await act(async () => {
       root.render(renderCompanyEnvironments(queryClient));
     });
-    await flushReact();
-    await flushReact();
+    await waitForAssertion(() =>
+      expect(container.querySelector('[aria-label="Add environment"]')).toBeTruthy(),
+    );
 
     const addEnvironmentButton = container.querySelector('[aria-label="Add environment"]');
     expect(addEnvironmentButton).toBeTruthy();
@@ -290,8 +270,7 @@ describe("CompanyEnvironments", () => {
     await act(async () => {
       root.render(renderCompanyEnvironments(queryClient));
     });
-    await flushReact();
-    await flushReact();
+    await waitForAssertion(() => expect(findAction(container, "Edit")).toBeTruthy());
 
     const editButton = findAction(container, "Edit");
     expect(editButton).toBeTruthy();
@@ -364,8 +343,7 @@ describe("CompanyEnvironments", () => {
     await act(async () => {
       root.render(renderCompanyEnvironments(queryClient));
     });
-    await flushReact();
-    await flushReact();
+    await waitForAssertion(() => expect(findAction(container, "Edit")).toBeTruthy());
 
     expect(container.textContent).toContain("Secure Sandbox");
 
@@ -388,7 +366,6 @@ describe("CompanyEnvironments", () => {
       providerSelect!.value = "secure-plugin";
       providerSelect!.dispatchEvent(new Event("change", { bubbles: true }));
     });
-    await flushReact();
 
     const templateInput = Array.from(dialog?.querySelectorAll("input") ?? [])
       .find((input) => (input as HTMLInputElement).value === "saved-template") as HTMLInputElement | undefined;
