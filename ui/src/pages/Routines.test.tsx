@@ -21,6 +21,8 @@ async function act(callback: () => void | Promise<void>) {
 
 const navigateMock = vi.fn();
 const routinesListMock = vi.fn<(companyId: string) => Promise<RoutineListItem[]>>();
+const routinesUpdateMock = vi.hoisted(() => vi.fn());
+const pushToastMock = vi.hoisted(() => vi.fn());
 const foldersListMock = vi.fn<(companyId: string, kind: string) => Promise<FolderListResult>>();
 const issuesListMock = vi.fn<(companyId: string, filters?: Record<string, unknown>) => Promise<Issue[]>>();
 const markdownEditorRenderMock = vi.fn((props: { mentions?: Array<{ id: string; name: string }> }) => props);
@@ -51,14 +53,14 @@ vi.mock("../context/BreadcrumbContext", () => ({
 }));
 
 vi.mock("../context/ToastContext", () => ({
-  useToastActions: () => ({ pushToast: vi.fn() }),
+  useToastActions: () => ({ pushToast: pushToastMock }),
 }));
 
 vi.mock("../api/routines", () => ({
   routinesApi: {
     list: (companyId: string) => routinesListMock(companyId),
     create: vi.fn(),
-    update: vi.fn(),
+    update: routinesUpdateMock,
     run: vi.fn(),
   },
 }));
@@ -288,6 +290,10 @@ vi.mock("../components/AgentIconPicker", () => ({
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+if (!globalThis.PointerEvent) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (globalThis as any).PointerEvent = MouseEvent;
+}
 
 function createRoutine(overrides: Partial<RoutineListItem>): RoutineListItem {
   return {
@@ -399,6 +405,9 @@ describe("Routines page", () => {
       unfiledCount: 0,
     });
     issuesListMock.mockReset();
+    routinesUpdateMock.mockReset();
+    routinesUpdateMock.mockResolvedValue({});
+    pushToastMock.mockReset();
     markdownEditorRenderMock.mockClear();
     issuesListRenderMock.mockClear();
     inlineEntitySelectorRenderMock.mockClear();
@@ -878,6 +887,67 @@ describe("Routines page", () => {
     const text = container.textContent ?? "";
     expect(text).toContain("Morning sync");
     expect(text).not.toContain("Archived cleanup");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it("offers Undo after archiving a routine from the row menu", async () => {
+    routinesListMock.mockResolvedValue([
+      createRoutine({ id: "routine-1", title: "Morning sync", status: "active" }),
+    ]);
+    issuesListMock.mockResolvedValue([]);
+
+    const root = createRoot(container);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Routines />
+        </QueryClientProvider>,
+      );
+      await flush();
+    });
+
+    for (let attempts = 0; attempts < 5 && !container.textContent?.includes("Morning sync"); attempts += 1) {
+      await act(async () => {
+        await flush();
+      });
+    }
+
+    const trigger = container.querySelector('button[aria-label="More actions for Morning sync"]');
+    expect(trigger).not.toBeNull();
+    await act(async () => {
+      trigger?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+      trigger?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await flush();
+    });
+
+    const archive = Array.from(document.body.querySelectorAll('[role="menuitem"]')).find(
+      (item) => item.textContent === "Archive",
+    );
+    expect(archive).toBeTruthy();
+    await act(async () => {
+      archive?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+      archive?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await flush();
+    });
+
+    await vi.waitFor(() => {
+      expect(routinesUpdateMock).toHaveBeenCalledWith("routine-1", { status: "archived" });
+      expect(pushToastMock).toHaveBeenCalledWith(expect.objectContaining({
+        title: "Routine archived",
+        action: expect.objectContaining({ label: "Undo" }),
+      }));
+    });
+
+    const toast = pushToastMock.mock.calls[0][0];
+    await act(async () => {
+      toast.action.onClick();
+    });
+    expect(routinesUpdateMock).toHaveBeenLastCalledWith("routine-1", { status: "active" });
 
     await act(async () => {
       root.unmount();

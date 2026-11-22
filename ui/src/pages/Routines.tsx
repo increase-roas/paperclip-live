@@ -554,6 +554,22 @@ export function Routines() {
         queryClient.invalidateQueries({ queryKey: queryKeys.routines.list(selectedCompanyId!) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.routines.detail(variables.id) }),
       ]);
+      // An archived routine disappears from this list and has no filter to
+      // bring it back. Keep one visible way to undo the change.
+      if (variables.status === "archived") {
+        const title = routines?.find((routine) => routine.id === variables.id)?.title;
+        pushToast({
+          title: "Routine archived",
+          body: title
+            ? `"${title}" no longer appears in the routine list.`
+            : "The routine no longer appears in the routine list.",
+          tone: "success",
+          action: {
+            label: "Undo",
+            onClick: () => updateRoutineStatus.mutate({ id: variables.id, status: "active" }),
+          },
+        });
+      }
     },
     onSettled: () => {
       setStatusMutationRoutineId(null);
