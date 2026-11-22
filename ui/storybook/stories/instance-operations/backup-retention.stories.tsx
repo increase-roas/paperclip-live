@@ -63,7 +63,7 @@ export const CurrentPolicy: Story = {
 export const Loading: Story = {
   parameters: { fixtureState: "loading" },
   play: async ({ canvasElement }) => {
-    await within(canvasElement).findByText("Loading general settings...");
+    await within(canvasElement).findByRole("status", { name: "Loading general settings" });
   },
 };
 export const LoadFailed: Story = {

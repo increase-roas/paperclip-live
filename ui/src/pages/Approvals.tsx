@@ -10,8 +10,9 @@ import { queryKeys } from "../lib/queryKeys";
 import { cn } from "../lib/utils";
 import { PageTabBar } from "../components/PageTabBar";
 import { Tabs } from "@/components/ui/tabs";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, Building2 } from "lucide-react";
 import { ApprovalCard } from "../components/ApprovalCard";
+import { EmptyState } from "../components/EmptyState";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { QueryErrorState, useQueryView } from "../components/QueryView";
 import { Badge } from "@/components/ui/badge";
@@ -90,7 +91,13 @@ export function Approvals() {
     : null;
 
   if (!selectedCompanyId) {
-    return <p className="text-sm text-muted-foreground">Select an organization first.</p>;
+    return (
+      <EmptyState
+        icon={Building2}
+        title="Select an organization"
+        message="Choose an organization to see the approvals that need a decision."
+      />
+    );
   }
 
   // Keep loaded approvals on screen through a failed refetch; only a real
@@ -131,12 +138,15 @@ export function Approvals() {
       {actionError && <p role="alert" className="text-sm text-destructive">{actionError}</p>}
 
       {filtered.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <ShieldCheck className="h-8 w-8 text-muted-foreground/30 mb-3" />
-          <p className="text-sm text-muted-foreground">
-            {statusFilter === "pending" ? "No pending approvals." : "No approvals yet."}
-          </p>
-        </div>
+        <EmptyState
+          icon={ShieldCheck}
+          title={statusFilter === "pending" ? "No pending approvals" : "No approvals yet"}
+          message={
+            statusFilter === "pending"
+              ? "Approvals appear here when an agent needs a decision from you."
+              : "Approvals from agents appear here after they are requested."
+          }
+        />
       )}
 
       {filtered.length > 0 && (

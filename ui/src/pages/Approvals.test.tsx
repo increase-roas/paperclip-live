@@ -27,8 +27,10 @@ vi.mock("../api/agents", () => ({
   agentsApi: { list: api.agentsList },
 }));
 
+const companyState = vi.hoisted(() => ({ selectedCompanyId: "company-1" as string | null }));
+
 vi.mock("../context/CompanyContext", () => ({
-  useCompany: () => ({ selectedCompanyId: "company-1" }),
+  useCompany: () => ({ selectedCompanyId: companyState.selectedCompanyId }),
 }));
 
 vi.mock("../context/BreadcrumbContext", () => ({
@@ -95,6 +97,7 @@ describe("Approvals page decision notes", () => {
     api.reject.mockReset().mockResolvedValue(createApproval());
     api.agentsList.mockReset().mockResolvedValue([]);
     api.navigate.mockReset();
+    companyState.selectedCompanyId = "company-1";
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -139,6 +142,34 @@ describe("Approvals page decision notes", () => {
         expect(api.approve).toHaveBeenCalledWith("approval-1", "Hire after onboarding review");
       });
     });
+  });
+
+  it("names the empty pending queue and its purpose", async () => {
+    api.list.mockResolvedValue([]);
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Approvals />
+        </QueryClientProvider>,
+      );
+    });
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain("No pending approvals");
+    });
+    expect(container.textContent).toContain("Approvals appear here when an agent needs a decision from you.");
+  });
+
+  it("asks for an organization instead of rendering an empty page", async () => {
+    companyState.selectedCompanyId = null;
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Approvals />
+        </QueryClientProvider>,
+      );
+    });
+    expect(container.textContent).toContain("Select an organization");
+    expect(container.textContent).toContain("Choose an organization to see the approvals that need a decision.");
   });
 
   it("sends a list decision note with reject", async () => {

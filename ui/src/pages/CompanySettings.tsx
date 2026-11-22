@@ -18,7 +18,10 @@ import { assetsApi } from "../api/assets";
 import { describeError } from "@/api/errors";
 import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
-import { SlidersHorizontal } from "lucide-react";
+import { Building2, SlidersHorizontal } from "lucide-react";
+import { EmptyState } from "../components/EmptyState";
+import { PageSkeleton } from "../components/PageSkeleton";
+import { QueryErrorState } from "../components/QueryView";
 import {
   InteractionGovernancePanel,
   applyGovernanceChange,
@@ -37,7 +40,10 @@ export function CompanySettings() {
     companies,
     selectedCompany,
     selectedCompanyId,
-    setSelectedCompanyId
+    setSelectedCompanyId,
+    loading: companiesLoading,
+    error: companiesError,
+    retryCompanies,
   } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
@@ -199,11 +205,28 @@ export function CompanySettings() {
     ]);
   }, [setBreadcrumbs, selectedCompany?.name]);
 
+  if (companiesLoading && !selectedCompany) {
+    return <PageSkeleton variant="detail" />;
+  }
+
+  if (companiesError && !selectedCompany) {
+    return (
+      <QueryErrorState
+        size="page"
+        error={companiesError}
+        action="load organization settings"
+        onRetry={() => void retryCompanies?.()}
+      />
+    );
+  }
+
   if (!selectedCompany) {
     return (
-      <div className="text-sm text-muted-foreground">
-        No organization selected. Select an organization from the switcher above.
-      </div>
+      <EmptyState
+        icon={Building2}
+        title="No organization selected"
+        message="Select an organization from the switcher above to edit its settings."
+      />
     );
   }
 

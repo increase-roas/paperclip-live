@@ -58,6 +58,7 @@ import { StatusGlyph } from "../components/StatusGlyph";
 import { MembershipAction } from "../components/MembershipAction";
 
 import { PageSkeleton } from "../components/PageSkeleton";
+import { EmptyState } from "../components/EmptyState";
 import { QueryErrorState, queryViewKind, useQueryView } from "../components/QueryView";
 import { AgentActionButtons } from "../components/AgentActionButtons";
 import { InlineBanner } from "../components/InlineBanner";
@@ -77,7 +78,7 @@ import { Button } from "@/components/ui/button";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { CheckCircle2, XCircle, Clock, Timer, Loader2, Slash, RotateCcw, Plus, Eye, Copy, ChevronRight, ArrowLeft, FolderOpen, AlertTriangle, History as HistoryIcon, Activity as ActivityIcon, PlayCircle, ReceiptText, Gauge, Pencil, Trash2 } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Timer, Loader2, Slash, RotateCcw, Plus, Eye, Copy, ChevronRight, ArrowLeft, FolderOpen, AlertTriangle, History as HistoryIcon, Activity as ActivityIcon, PlayCircle, ReceiptText, Gauge, Pencil, Trash2, UserX } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { AgentToolsTab } from "./AgentToolsTab";
@@ -746,7 +747,18 @@ export function AgentDetail() {
   if (agentView.kind === "error") {
     return <QueryErrorState size="page" error={error} action="load this agent" onRetry={agentView.retry} retrying={agentView.isFetching} />;
   }
-  if (!agent) return null;
+  if (!agent) {
+    return (
+      <EmptyState
+        icon={UserX}
+        title="Agent not found"
+        message="This agent is not in the company roster. Check the link, or open Agents to choose another agent."
+        action="Open agents"
+        onAction={() => navigate("/agents/all")}
+        hideActionIcon
+      />
+    );
+  }
   if (!urlRunId && !urlTab) {
     return <Navigate to={agentDetailHref(canonicalAgentRef)} replace />;
   }

@@ -10,7 +10,8 @@ import { AgentDetailPage } from "./AgentDetailPage";
 const params = vi.hoisted(() => ({ agentId: "agent", companyPrefix: "CO", tab: "plugin:test.plugin:insights" }));
 const state = vi.hoisted(() => ({ slots: [{ pluginKey: "test.plugin", id: "insights", displayName: "Insights" }, { pluginKey: "test.plugin", id: "notes", displayName: "Notes" }] as unknown[], isLoading: false, errorMessage: null }));
 const mount = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/router", () => ({ useParams: () => params, Link: ({ children }: { children: React.ReactNode }) => <a>{children}</a> }));
+const mockNavigate = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/router", () => ({ useParams: () => params, useNavigate: () => mockNavigate, Link: ({ children }: { children: React.ReactNode }) => <a>{children}</a> }));
 vi.mock("@/context/CompanyContext", () => ({ useCompany: () => ({ selectedCompanyId: "other", companies: [{ id: "company", issuePrefix: "CO" }] }) }));
 vi.mock("./AgentDetail", async () => {
   const { useEffect } = await import("react");
@@ -27,6 +28,16 @@ function view() {
   client.setQueryData([...queryKeys.agents.detail("agent"), "company"], { id: "agent-id", companyId: "company", name: "Agent" });
   return <QueryClientProvider client={client}><BreadcrumbProvider companyName="Test company"><AgentDetailPage /></BreadcrumbProvider></QueryClientProvider>;
 }
+function loadingView() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return <QueryClientProvider client={client}><BreadcrumbProvider companyName="Test company"><AgentDetailPage /></BreadcrumbProvider></QueryClientProvider>;
+}
+async function failingView() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, retryOnMount: false, staleTime: Infinity, gcTime: Infinity } } });
+  const key = [...queryKeys.agents.detail("agent"), "company"];
+  await client.fetchQuery({ queryKey: key, queryFn: () => Promise.reject(new Error("upstream unavailable")) }).catch(() => undefined);
+  return <QueryClientProvider client={client}><BreadcrumbProvider companyName="Test company"><AgentDetailPage /></BreadcrumbProvider></QueryClientProvider>;
+}
 function render() {
   return renderToStaticMarkup(view());
 }
@@ -39,7 +50,19 @@ describe("agent plugin detail views", () => {
   it("shows unavailable for a removed contribution", () => {
     params.tab = "plugin:removed:insights";
     expect(render()).toContain("This plugin view is unavailable");
+    expect(render()).toContain("Back to overview");
     params.tab = "plugin:test.plugin:insights";
+  });
+  it("names the loading state for a plugin view", () => {
+    params.tab = "plugin:test.plugin:insights";
+    expect(renderToStaticMarkup(loadingView())).toContain('aria-label="Loading agent view"');
+  });
+  it("shows the standard error presentation when the agent read fails", async () => {
+    params.tab = "plugin:test.plugin:insights";
+    const markup = renderToStaticMarkup(await failingView());
+    expect(markup).toContain('role="alert"');
+    expect(markup).toContain("Retry");
+    expect(markup).toContain("Couldn&#x27;t load this agent view");
   });
   it("preserves built-in agent routes", () => {
     params.tab = "overview";

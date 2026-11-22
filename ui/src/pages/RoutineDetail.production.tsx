@@ -690,7 +690,7 @@ export function RoutineDetail() {
   // Keep a loaded routine on screen through a failed refetch; only a real
   // failure, or an outage before the first load, replaces the page.
   if (isLoading || routineView.kind === "reconnecting") {
-    return <PageSkeleton variant="issues-list" />;
+    return <PageSkeleton variant="detail" />;
   }
 
   if (routineView.kind === "error") {
@@ -709,7 +709,11 @@ export function RoutineDetail() {
     return (
       <EmptyState
         icon={AlertCircle}
-        message="We couldn't load this routine."
+        title="Routine not found"
+        message="This routine is unavailable. It may have been deleted, or the link may belong to another company."
+        action="Open routines"
+        onAction={() => navigate("/routines")}
+        hideActionIcon
       />
     );
   }

@@ -11,7 +11,7 @@ import { LogOut, SlidersHorizontal } from "lucide-react";
 import { describeError } from "@/api/errors";
 import { healthApi } from "@/api/health";
 import { instanceSettingsApi } from "@/api/instanceSettings";
-import { QueryErrorState, useQueryView } from "@/components/QueryView";
+import { QueryErrorState, QueryPlaceholder, useQueryView } from "@/components/QueryView";
 import { ModeBadge } from "@/components/access/ModeBadge";
 import { Button } from "../components/ui/button";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
@@ -64,7 +64,7 @@ export function InstanceGeneralSettings({ embedded = false }: { embedded?: boole
   });
 
   if (generalQuery.isLoading || generalView.kind === "reconnecting" || healthQuery.isLoading) {
-    return <div className="text-sm text-muted-foreground">Loading general settings...</div>;
+    return <QueryPlaceholder size={embedded ? "panel" : "page"} label="Loading general settings" />;
   }
 
   if (generalView.kind === "error") {

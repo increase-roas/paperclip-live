@@ -151,7 +151,20 @@ export function BotDetail() {
   }
 
   const bot = botView.data;
-  if (!bot) return null;
+  if (!bot) {
+    return (
+      <div className="p-4">
+        <EmptyState
+          icon={Bot}
+          title="Bot not found"
+          message="This bot is not in the company roster. Check the link, or open Bots to see the bots this company runs."
+          action="Open Bots"
+          onAction={() => navigate("/bots")}
+          hideActionIcon
+        />
+      </div>
+    );
+  }
   const description = bot.purpose ?? bot.note;
 
   return (
