@@ -166,6 +166,50 @@ describe("Timeline", () => {
     );
   });
 
+  it("offers a retry and the range controls when the timeline fails to load", async () => {
+    mockWorkTimelineApi.get.mockRejectedValueOnce(new Error("timeline down"));
+    root = createRoot(container);
+
+    flushSync(() => {
+      root?.render(
+        <QueryClientProvider client={queryClient}>
+          <Timeline />
+        </QueryClientProvider>,
+      );
+    });
+    await flushReact();
+
+    const alert = container.querySelector('[role="alert"]');
+    expect(alert?.textContent).toContain("Couldn't load the work timeline");
+    expect(alert?.textContent).toContain("Retry");
+    expect(container.textContent).toContain("Range");
+
+    mockWorkTimelineApi.get.mockResolvedValue(populatedTimeline);
+    const retry = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Retry"));
+    expect(retry).toBeTruthy();
+    flushSync(() => retry?.click());
+    await flushReact();
+
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    expect(container.textContent).toContain("2 runs");
+  });
+
+  it("uses a section heading when embedded in the audit hub", async () => {
+    root = createRoot(container);
+
+    flushSync(() => {
+      root?.render(
+        <QueryClientProvider client={queryClient}>
+          <Timeline embedded />
+        </QueryClientProvider>,
+      );
+    });
+    await flushReact();
+
+    expect(container.querySelector("h1")).toBeNull();
+    expect(container.querySelector("h2")?.textContent).toBe("Work Timeline");
+  });
+
   it("renders range controls plus icon zoom controls without the user lens selector or visible-duration readout", async () => {
     root = createRoot(container);
 

@@ -14,8 +14,8 @@ import { queryKeys } from "@/lib/queryKeys";
 import { useCompany } from "@/context/CompanyContext";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
 import { EmptyState } from "@/components/EmptyState";
-import { PageSkeleton } from "@/components/PageSkeleton";
 import { QueryErrorState } from "@/components/QueryView";
+import { PageSkeleton } from "@/components/PageSkeleton";
 import { RequestCollapsedSidebar } from "@/components/RequestCollapsedSidebar";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -368,12 +368,13 @@ export function Timeline({ embedded = false }: { embedded?: boolean } = {}) {
     );
   }
 
+  const Heading = embedded ? "h2" : "h1";
   const header = (
     <div className="flex items-center gap-2">
       <GanttChartSquare className="h-6 w-6 text-muted-foreground" />
-      <h1 className="text-3xl font-semibold tracking-tight">
+      <Heading className={embedded ? "text-lg font-semibold text-foreground" : "text-3xl font-semibold tracking-tight"}>
         {scopedProjectId ? "Project Timeline" : "Work Timeline"}
-      </h1>
+      </Heading>
     </div>
   );
 
@@ -397,21 +398,23 @@ export function Timeline({ embedded = false }: { embedded?: boolean } = {}) {
   const summary = data ? timelineSummary(data, visibleWindow ?? dataWindow(data)) : null;
 
   const rangeControls = (
-    <label data-canonical-toolbar="timeline-range" className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
-      Range
-      <Segmented
-        value={rangePreset}
-        onChange={(preset) => {
-          if (preset === "custom") return;
-          setRangePreset(preset);
-          setDateRange(presetRange(preset));
-        }}
-        options={[
-          { value: "today", label: "Today" },
-          { value: "7d", label: "7 days" },
-          { value: "30d", label: "30 days" },
-        ]}
-      />
+    <div data-canonical-toolbar="timeline-range" className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      <span id="timeline-range-label">Range</span>
+      <span role="group" aria-labelledby="timeline-range-label" className="inline-flex">
+        <Segmented
+          value={rangePreset}
+          onChange={(preset) => {
+            if (preset === "custom") return;
+            setRangePreset(preset);
+            setDateRange(presetRange(preset));
+          }}
+          options={[
+            { value: "today", label: "Today" },
+            { value: "7d", label: "7 days" },
+            { value: "30d", label: "30 days" },
+          ]}
+        />
+      </span>
       <Input
         type="date"
         value={dateRange.fromDate}
@@ -433,7 +436,7 @@ export function Timeline({ embedded = false }: { embedded?: boolean } = {}) {
         className="h-8 w-(--sz-150px) text-xs"
         aria-label="Timeline end date"
       />
-    </label>
+    </div>
   );
 
   const toolbar = (
@@ -495,13 +498,18 @@ export function Timeline({ embedded = false }: { embedded?: boolean } = {}) {
       )}
 
       {error && (
-        <QueryErrorState
-          size="panel"
-          error={error}
-          action="load the work timeline"
-          onRetry={() => void refetch()}
-          retrying={isFetching}
-        />
+        <div className="space-y-3">
+          <QueryErrorState
+            size="panel"
+            error={error}
+            action="load the work timeline"
+            onRetry={() => void refetch()}
+            retrying={isFetching}
+          />
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            {rangeControls}
+          </div>
+        </div>
       )}
 
       {data && !isLoading && !dateRangeError && (
