@@ -380,11 +380,13 @@ export function Routines() {
   });
   const { data: routines, isLoading } = routinesQuery;
   const routinesView = useQueryView(routinesQuery);
-  const { data: routineFolders, isLoading: foldersLoading } = useQuery({
+  const routineFoldersQuery = useQuery({
     queryKey: queryKeys.folders.list(selectedCompanyId!, "routine"),
     queryFn: () => foldersApi.list(selectedCompanyId!, "routine"),
     enabled: !!selectedCompanyId,
   });
+  const { data: routineFolders, isLoading: foldersLoading } = routineFoldersQuery;
+  const foldersView = useQueryView(routineFoldersQuery);
   const { data: agents } = useQuery({
     queryKey: queryKeys.agents.list(selectedCompanyId!),
     queryFn: () => agentsApi.list(selectedCompanyId!),
@@ -1177,6 +1179,18 @@ export function Routines() {
         />
       ) : null}
 
+      {foldersView.kind === "error" ? (
+        <div className="mb-3">
+          <QueryErrorState
+            size="inline"
+            error={foldersView.error}
+            action="load routine folders"
+            onRetry={foldersView.retry}
+            retrying={foldersView.isFetching}
+          />
+        </div>
+      ) : null}
+
       <div className={cn(showFolderRail && "flex gap-4")}>
           {showFolderRail ? (
             <FolderRail
@@ -1207,7 +1221,7 @@ export function Routines() {
               )}
             </div>
           ) : null}
-          {routineViewState.groupBy === "folder" && !hasRoutineFolders && !foldersLoading && visibleRoutines.length > 0 ? (
+          {routineViewState.groupBy === "folder" && !hasRoutineFolders && !foldersLoading && foldersView.kind !== "error" && foldersView.kind !== "reconnecting" && visibleRoutines.length > 0 ? (
             <AllUnfiledBanner
               storageKey={`paperclip:routines-folder-nudge:${selectedCompanyId ?? "none"}`}
               itemLabelPlural="routines"
