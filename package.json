@@ -33,6 +33,7 @@
     "test": "pnpm run test:run",
     "test:watch": "pnpm run preflight:workspace-links && vitest",
     "test:run": "pnpm run preflight:workspace-links && node scripts/run-vitest-stable.mjs",
+    "test:chat-channels": "pnpm --filter @paperclipai/server exec vitest run --config vitest.chat-channels.config.ts",
     "test:coverage": "node scripts/run-vitest-stable.mjs --coverage",
     "test:runner-acceptance": "vitest run --config tests/runner-acceptance/vitest.config.ts",
     "test:runner-acceptance:typecheck": "tsc -p tests/runner-acceptance/tsconfig.json",

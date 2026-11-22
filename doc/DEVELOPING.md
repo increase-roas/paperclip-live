@@ -1119,6 +1119,26 @@ pnpm exec vitest run server/src/services/heartbeat/agent-status.test.ts server/s
 
 ## Test Commands
 
+### The chat-channel area suite
+
+`server/src/__tests__/chat-channels/` holds 47 area files with 921 cases. Each
+file starts its own embedded Postgres, so the directory has its own Vitest
+config:
+
+```sh
+pnpm test:chat-channels                                  # deterministic, ~54 min
+PAPERCLIP_CHAT_CHANNELS_WORKERS=4 pnpm test:chat-channels # ~19 min, see the caveat
+```
+
+The parallel mode was measured, not assumed: four workers finish the directory
+in about 19 minutes. Two suites are timing-sensitive under that load and can
+fail there while passing alone — `08-github-webhook-recovery-scheduling` (fake
+timers with `shouldAdvanceTime` let a scheduled sweep land inside an "expect no
+requests" window) and `24-publishes-a-closed-choice-question-sett` (a real Slack
+acknowledgement deadline). Fix those two before treating a parallel run as a
+gate. Above four workers the machine saturates and the run gets slower.
+
+
 The [feature map](../maps/feature-map/README.md) is an optional reference for user
 entry points, targeted tests, manual verification recipes, and coverage gaps.
 Its generated page inventory lists current source references. The documented journeys have separate
