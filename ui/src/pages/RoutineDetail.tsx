@@ -801,7 +801,7 @@ export function RoutineDetail() {
 
       {/* The global shell owns routine navigation. This surface keeps one
           content scroll owner and a compact action header. */}
-      <div className="-m-4 flex h-full min-h-0 overflow-hidden md:-m-6">
+      <div className="-m-4 flex min-h-0 flex-col md:-m-6 md:h-full md:flex-row md:overflow-hidden">
         {!streamlinedUiEnabled ? (
           <RoutineSubSidebar
             activeSection={section}
@@ -813,7 +813,7 @@ export function RoutineDetail() {
             onNavigate={navigateToSection}
           />
         ) : null}
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="flex min-w-0 flex-1 flex-col md:overflow-hidden">
         {!streamlinedUiEnabled ? (
           <RoutineSectionPicker
             activeSection={section}
@@ -853,7 +853,7 @@ export function RoutineDetail() {
               </Badge>
             ) : null}
           </div>
-          <div className="ml-auto flex shrink-0 items-center gap-2">
+          <div className="flex w-full shrink-0 flex-wrap items-center justify-end gap-2 md:ml-auto md:w-auto">
             {section === "history" ? (
               <Button
                 variant="ghost"
@@ -909,7 +909,7 @@ export function RoutineDetail() {
         <main
           id="routine-section"
           role="main"
-          className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 pb-6 pt-8 md:px-8"
+          className="min-h-0 min-w-0 flex-1 px-4 pb-6 pt-8 md:overflow-y-auto md:px-8"
         >
           <section
             aria-labelledby="routine-section-title"
