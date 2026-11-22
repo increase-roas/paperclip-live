@@ -4363,9 +4363,11 @@ describe("IssueDetail", () => {
       expect(assigneeAvatar?.getAttribute("aria-label")).toBe(
         "Assignee: CodexCoder",
       );
+      expect(assigneeAvatar?.getAttribute("role")).toBe("img");
       expect(originatingAvatar?.getAttribute("aria-label")).toBe(
         "Originating: Dotta",
       );
+      expect(originatingAvatar?.getAttribute("role")).toBe("img");
       expect(assigneeAvatar?.getAttribute("title")).toBeNull();
       expect(originatingAvatar?.getAttribute("title")).toBeNull();
       expect(avatarStack?.textContent).not.toContain("Assignee");
