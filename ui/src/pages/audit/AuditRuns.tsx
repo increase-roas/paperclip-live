@@ -177,6 +177,10 @@ export function AuditRuns({
     () => (runs.data ?? []).filter((run) => status === ALL || run.status === status),
     [runs.data, status],
   );
+  // A page that locks the agent (an agent's own history) is not "filtered"
+  // just because its query scopes to that agent. Only a user-chosen status or
+  // an unlocked agent filter changes the empty-state explanation.
+  const filtersActive = status !== ALL || (!lockedAgentId && agentId !== ALL);
 
   const updateFilter = (key: "agentId" | "runStatus", value: string) => {
     setSearchParams(
@@ -256,7 +260,7 @@ export function AuditRuns({
             </SelectContent>
           </Select>
         </label>
-        {(!lockedAgentId && agentId !== ALL) || status !== ALL ? (
+        {filtersActive ? (
           <Button variant="ghost" size="sm" onClick={clearFilters}>
             Clear filters
           </Button>
@@ -276,8 +280,8 @@ export function AuditRuns({
         />
       ) : visibleRuns.length === 0 ? (
         <EmptyState
-          icon={agentId !== ALL || status !== ALL ? CircleDotDashed : Activity}
-          message={agentId !== ALL || status !== ALL ? "No runs match these filters." : "No runs yet."}
+          icon={filtersActive ? CircleDotDashed : Activity}
+          message={filtersActive ? "No runs match these filters." : "No runs yet."}
         />
       ) : (
         <ul className="divide-y divide-border border-y border-border" aria-label="Recent runs">
@@ -324,7 +328,9 @@ export function AuditRuns({
         </ul>
       )}
 
-      <p className="text-xs text-muted-foreground">Showing the {RUN_LIMIT} most recent runs.</p>
+      {visibleRuns.length > 0 ? (
+        <p className="text-xs text-muted-foreground">Showing the {RUN_LIMIT} most recent runs.</p>
+      ) : null}
     </div>
   );
 }
