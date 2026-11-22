@@ -195,6 +195,7 @@ import { createFeedbackTraceShareClientFromConfig } from "./services/feedback-sh
 import { buildRuntimeApiCandidateUrls, choosePrimaryRuntimeApiUrl, resolveLocalRuntimeApiUrl } from "./runtime-api.js";
 import { isLoopbackHost, rewriteLoopbackUrlPort } from "./url-utils.js";
 import { createPluginWorkerManager } from "./services/plugin-worker-manager.js";
+import { createPluginStreamBus, createPluginStreamPublisher } from "./services/plugin-stream-bus.js";
 import { createStorageServiceFromConfig } from "./storage/index.js";
 import { printStartupBanner } from "./startup-banner.js";
 import { getBoardClaimWarningUrl, initializeBoardClaimChallenge } from "./board-claim.js";
@@ -933,7 +934,12 @@ async function startServerWithDatabaseTeardown(
     getRetention: async () => (await backupSettingsSvc.getGeneral()).backupRetention,
     logger,
   });
-  const pluginWorkerManager = createPluginWorkerManager();
+  const pluginStreamBus = createPluginStreamBus();
+  const pluginWorkerManager = createPluginWorkerManager({
+    // Fan worker stream notifications out to plugin SSE clients. Without this
+    // the bridge stream route answered 501 and every plugin live view polled.
+    onStreamNotification: createPluginStreamPublisher(pluginStreamBus),
+  });
   const heartbeat = config.heartbeatSchedulerEnabled
     ? heartbeatService(db as any, { pluginWorkerManager })
     : null;
@@ -994,6 +1000,7 @@ async function startServerWithDatabaseTeardown(
     betterAuthHandler,
     resolveSession,
     pluginWorkerManager,
+    pluginStreamBus,
     decisionServiceOptions,
     managedPluginAutoInstall,
   });

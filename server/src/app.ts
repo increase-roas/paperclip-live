@@ -211,6 +211,7 @@ import {
   createPluginWorkerManager,
   type PluginWorkerManager,
 } from "./services/plugin-worker-manager.js";
+import type { PluginStreamBus } from "./services/plugin-stream-bus.js";
 import { createPluginJobScheduler } from "./services/plugin-job-scheduler.js";
 import { pluginJobStore } from "./services/plugin-job-store.js";
 import { createPluginToolDispatcher } from "./services/plugin-tool-dispatcher.js";
@@ -469,6 +470,7 @@ export async function createApp(
     localPluginDir?: string;
     pluginMigrationDb?: Db;
     pluginWorkerManager?: PluginWorkerManager;
+    pluginStreamBus?: PluginStreamBus;
     decisionServiceOptions: DecisionServiceOptions;
     betterAuthHandler?: express.RequestHandler;
     resolveSession?: (
@@ -1014,7 +1016,7 @@ export async function createApp(
       { scheduler, jobStore },
       { workerManager },
       { toolDispatcher },
-      { workerManager },
+      { workerManager, streamBus: opts.pluginStreamBus },
       { toolGateway },
     ),
   );
