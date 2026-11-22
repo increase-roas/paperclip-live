@@ -56,6 +56,29 @@ recent activity from the agent records, carries a **Not tagged as a bot** badge,
 and asks the operator to add the metadata. The roster keeps a separate
 "Agents that look like bots" list that links to those pages.
 
+## Coverage check
+
+`pnpm bots:coverage --company <companyId>` reads a running instance (add
+`--base-url` and `--header-file` for a remote one) and prints one row per bot
+whose page cannot show something: `bot_tag`, `purpose`, `gateway_policy`,
+`routines` or `activity`. The check measures the Bots API, so a field it reports
+missing is a field the page genuinely cannot render.
+
+```
+pnpm bots:coverage --company 05d9915d-… --header-file ~/.config/paperclip/auth.hdr
+pnpm bots:coverage --company <id> --json --fail-on-gaps
+```
+
+A missing routine, activity row, purpose or gateway policy is often the truth
+rather than a defect; the report says "the page cannot show this". Purpose and
+the bot tag are the two gaps an operator fixes from metadata. `--fail-on-gaps`
+exits 1, which is how a seeded fixture or a migration check can gate on it.
+
+The gateway never exposes a key id: it stores a SHA-256 hash per agent
+(`agent_keys.key_hash`) and its read-only admin list returns `{agent, hasKey,
+policy, enabled, opRef}`. `bot.gateway.keyId` is therefore an operator-recorded
+identifier, and an absent one is a page state, not a lookup failure.
+
 ## Read-only by design
 
 `GET /api/companies/:companyId/bots` and

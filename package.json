@@ -136,7 +136,8 @@
     "test:lifecycle-baseline": "node tests/lifecycle-baseline/run.mjs",
     "test:lifecycle-baseline:support": "node --test tests/lifecycle-baseline/report.test.mjs",
     "test:lifecycle-baseline:typecheck": "node scripts/typecheck-test-projects.mjs tests/lifecycle-baseline",
-    "verify": "node --import ./cli/node_modules/tsx/dist/loader.mjs scripts/ensure-workspace-package-links.ts && node scripts/local-verify.mjs"
+    "verify": "node --import ./cli/node_modules/tsx/dist/loader.mjs scripts/ensure-workspace-package-links.ts && node scripts/local-verify.mjs",
+    "bots:coverage": "node cli/node_modules/tsx/dist/cli.mjs scripts/bots-coverage.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
