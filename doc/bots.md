@@ -39,6 +39,16 @@ do: the key itself stays in the gateway or the company secret store.
 block instead of guessing, so a page never shows a key id without its policy.
 The API returns `gateway: null` in that case and the page says "Not linked".
 
+## Pages for untagged Hermes agents
+
+A Hermes gateway agent with no `grokBotTwin` or `agentKind: "bot"` metadata is
+not in the registered roster, but it is a bot in practice: it answers through
+the gateway and it is the assignee of real routines. Such an agent still has a
+page at `/bots/:agentId` (or its slug). The page shows its routines, status and
+recent activity from the agent records, carries a **Not tagged as a bot** badge,
+and asks the operator to add the metadata. The roster keeps a separate
+"Agents that look like bots" list that links to those pages.
+
 ## Read-only by design
 
 `GET /api/companies/:companyId/bots` and

@@ -279,12 +279,15 @@ export function BotDetail() {
             {bot.name}
             {bot.grokBotTwin ? <Badge variant="outline">Grok twin</Badge> : null}
             <Badge variant="outline">{bot.kind === "gateway" ? "Gateway bot" : "Agent bot"}</Badge>
+            {bot.taggedAsBot === false && bot.agentId ? <Badge variant="outline">Not tagged as a bot</Badge> : null}
             <BotStatus status={bot.status} />
           </h1>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            {bot.registered
-              ? "Registered in this company. Gateway key ids are identifiers; the key itself stays in the gateway."
-              : "Known bot with no Paperclip agent row yet. Register it to give it a status, routines and activity."}
+            {bot.taggedAsBot === false && bot.agentId
+              ? "This Hermes gateway agent has no bot metadata yet, so it is not in the registered roster. Its routines, status and activity still come from the agent."
+              : bot.registered
+                ? "Registered in this company. Gateway key ids are identifiers; the key itself stays in the gateway."
+                : "Known bot with no Paperclip agent row yet. Register it to give it a status, routines and activity."}
           </p>
         </div>
         {bot.agentId ? (

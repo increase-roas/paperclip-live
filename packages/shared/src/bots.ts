@@ -93,6 +93,12 @@ export interface CompanyBotSummary {
   status: string;
   adapterType: string | null;
   grokBotTwin: boolean;
+  /**
+   * True when the agent carries bot metadata (`grokBotTwin` or
+   * `agentKind: "bot"`). A Hermes gateway agent without that metadata still has
+   * a page, but the page asks the operator to tag it.
+   */
+  taggedAsBot?: boolean;
   gateway: BotGatewayLink | null;
   note: string | null;
   updatedAt: string | null;

@@ -383,7 +383,67 @@ describe("Bots", () => {
     expect(suggestions?.textContent).toContain("Hermes Untagged");
     expect(suggestions?.textContent).toContain("grokBotTwin");
     const link = [...(suggestions?.querySelectorAll("a") ?? [])].find((anchor) => anchor.textContent?.includes("Hermes Untagged"));
-    expect(link?.getAttribute("href")).toBe("/agents/agent-9");
+    expect(link?.getAttribute("href")).toBe("/bots/agent-9");
+  });
+
+  it("renders the page of a Hermes agent that is not tagged as a bot", async () => {
+    params.botId = "agent-9";
+    getMock.mockResolvedValue({
+      id: "agent-9",
+      slug: "hermes-untagged",
+      name: "Hermes Untagged",
+      purpose: null,
+      kind: "agent",
+      registered: true,
+      agentId: "agent-9",
+      role: "general",
+      title: "Research Analyst",
+      status: "idle",
+      adapterType: "hermes_gateway",
+      grokBotTwin: false,
+      taggedAsBot: false,
+      gateway: null,
+      note: "Runs on the Hermes gateway but has no bot metadata yet.",
+      updatedAt: "2026-11-22T12:00:00.000Z",
+      routines: [
+        {
+          id: "routine-1",
+          title: "Morning research",
+          status: "active",
+          triggers: [
+            {
+              kind: "schedule",
+              cronExpression: "0 8 * * *",
+              timezone: "America/New_York",
+              enabled: true,
+              nextRunAt: "2026-11-23T13:00:00.000Z",
+              lastFiredAt: null,
+            },
+          ],
+        },
+      ],
+      recentActivity: [
+        {
+          id: "activity-1",
+          action: "agent.heartbeat",
+          entityType: "agent",
+          entityId: "agent-9",
+          createdAt: "2026-11-22T12:00:00.000Z",
+          source: "activity",
+        },
+      ],
+    });
+
+    await render(<BotDetail />);
+    const text = container.textContent ?? "";
+
+    expect(text).toContain("Not tagged as a bot");
+    expect(text).toContain("no bot metadata");
+    expect(text).toContain("Morning research");
+    expect(text).toContain("0 8 * * *");
+    expect(text).toContain("agent.heartbeat");
+    const agentLink = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent?.includes("Open agent"));
+    expect(agentLink?.getAttribute("href")).toBe("/agents/agent-9");
   });
 
   it("tells an unregistered bot exactly which metadata fields to fill in", async () => {
