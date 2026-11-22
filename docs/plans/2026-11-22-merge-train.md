@@ -5,9 +5,9 @@ Owner: Lane D
 Base: `origin/master` (`6de064ea94` when this runbook was written)
 
 This page is the single source of truth for the usability train: the 42-PR
-initial batch, the four follow-up PRs from the same round, and the three newer
-lane A PRs added on the next pass. It lists the exact merge order, which PRs
-are superseded, what to check after each batch, and one command that proves the
+initial batch, the four follow-up PRs from the same round, and the four newer
+PRs added on the next pass. It lists the exact merge order, which PRs are
+superseded, what to check after each batch, and one command that proves the
 whole order still merges cleanly.
 
 ## One-command verification
@@ -23,10 +23,11 @@ pushes nothing. It merges each PR head into a running tree with
 first conflict with the conflicted paths. Exit code `0` means the whole order is
 clean; `1` means a conflict; `2` means a usage or git error.
 
-Last verified: 2026-11-22 (second pass), 49 of 49 merged, no conflicts, base
+Last verified: 2026-11-22 (third pass), 50 of 50 merged, no conflicts, base
 `6de064ea94`. #158 was rebased onto #118 to clear the one conflict (see below).
 #167 is a draft combo branch and must be marked ready before it merges. #145 and
-#162 are covered by #167; do not merge all three.
+#162 are covered by #167; do not merge all three. #171 is stacked on #167 and
+must merge after it.
 
 Useful variants:
 
@@ -77,6 +78,7 @@ node scripts/merge-train-simulate.mjs --json
 #156
 #158
 #167
+#171
 #159
 #160
 #161
@@ -93,6 +95,8 @@ node scripts/merge-train-simulate.mjs --json
 Keep `#115` before `#149` and `#136` before `#148`; those pairs touch the same
 files and the later PR expects the earlier copy. Keep `#158` immediately before
 `#167`: the combo branch contains #158 and applies #162 (plus #145) on top of it.
+Keep `#167` before `#171`: the routine-link branch is stacked on the combo so it
+inherits the skeleton, coverage and gateway sections.
 
 ### Batches and what to check after each
 
@@ -113,6 +117,7 @@ files and the later PR expects the earlier copy. Keep `#158` immediately before
 | M. Bots invalidation and links | #163 #164 | Renaming an agent refreshes the roster and bot page; every bot back link stays inside `/<prefix>/bots`. |
 | N. Follow-up batch | #166 #168 #169 #170 | #166 is this runbook and simulator. #168 restores keyboard focus rings on toolbars and dialogs. #169 explains failed loads on adapters, the timeline and user profiles. #170 names direct fields that have no htmlFor association and the inbox search. Run the keyboard and state Playwright specs named in each PR. |
 | O. Newer lane A gates | #167 #157 #165 | #167 is the draft combo of #158 + #145 + #162; mark it ready, then open one tagged and one untagged bot page and run `pnpm --filter @paperclipai/ui exec vitest run src/pages/Bots.test.tsx`. #157: `node scripts/agent-preflight.mjs` logs the plugin-sdk build. #165: `node --test scripts/__tests__/chat-shard-workers.test.mjs`. |
+| P. Bot detail routine links | #171 | Bot pages list each routine as a link. Run `cd ui && npx vitest run src/pages/Bots.test.tsx` (24) and the bots Playwright file (5 passed) at 390px and 1280px. |
 
 ## What supersedes what
 
@@ -129,9 +134,18 @@ files and the later PR expects the earlier copy. Keep `#158` immediately before
   it carries #158's skeleton loading, #145's gateway-policy derivation and #162's
   coverage report. Merge #158 first, then #167, and close #145 and #162 as
   covered. Do not merge all four.
-- **#167 was the only branch edited in this pass.** Its `bots:coverage` script
-  moved next to `bots:register` so #165's `test:chat-shard-workers` entry no
-  longer contests the same `package.json` slot. Both additions are kept.
+- **#171 is stacked on #167.** Its bot-detail routine links start from the #167
+  combo, so it inherits the skeleton, coverage and gateway sections. Merge #167,
+  then #171. A browser case clicks a routine title at 390px and lands on the
+  routine page.
+- **#172 was closed as covered.** It proposed splitting the registered-bot gateway
+  setup step, but #149 already does that: registered bots get a "Link a gateway
+  key" panel with `spec.metadata.bot.gateway` and an Advanced configuration link,
+  and the tagging step does not repeat. Do not reopen it.
+- **Branches edited in this pass.** #167 moved its `bots:coverage` script next to
+  `bots:register` so #165's `test:chat-shard-workers` entry no longer contests
+  the same `package.json` slot. #171 was rebased onto #167 and #158 was rebased
+  onto #118. Both additions are kept.
 - **#158 must precede #167** (and must have preceded #162 if merged directly).
   Reversing them conflicts in `ui/src/pages/Bots.tsx` and
   `ui/src/pages/BotDetail.tsx`.
