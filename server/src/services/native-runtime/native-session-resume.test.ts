@@ -956,19 +956,28 @@ const recoveryFakeCodex = resolve(
         ),
         previousDriverSessionId: checkpoint.sessionId,
       });
-      const [epoch] = await readdir(join(root, "authority-epochs"));
       const digest = (value: Buffer) =>
         createHash("sha256").update(value).digest("hex");
-      expect(
-        digest(
-          await readFile(
-            join(root, "authority-epochs", epoch!, "runner-state.json"),
-          ),
-        ),
-      ).toBe(digest(damagedRunnerBytes));
       const [continuityArchive] = await readdir(
         join(root, "continuity-breaks"),
       );
+      // A continuity break retires the whole authority set together. The
+      // contract in native-session-root-entries.ts says archived epochs belong
+      // to the retired session too, because an epoch left active lets a later
+      // cold rotation revive retired authority. So the damaged epoch is
+      // expected inside the break archive, not in the live root.
+      expect(existsSync(join(root, "authority-epochs"))).toBe(false);
+      const archivedEpochs = await readdir(
+        join(root, "continuity-breaks", continuityArchive!, "authority-epochs"),
+      );
+      expect(archivedEpochs).toHaveLength(1);
+      expect(
+        digest(
+          await readFile(
+            join(root, "continuity-breaks", continuityArchive!, "authority-epochs", archivedEpochs[0]!, "runner-state.json"),
+          ),
+        ),
+      ).toBe(digest(damagedRunnerBytes));
       const archivedProvider = JSON.parse(
         await readFile(
           join(
