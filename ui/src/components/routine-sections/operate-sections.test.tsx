@@ -20,6 +20,7 @@ let container: HTMLDivElement;
 let queryClient: QueryClient;
 const context = {
   companyId: "company-1", routine: { id: "routine-1" }, agents: [], projects: [], activity: [],
+  onOpenRunDialog: vi.fn(),
 } as unknown as RoutineDetailContextValue;
 function render(section = <RunsSection />) {
   flushSync(() => root.render(
@@ -69,6 +70,24 @@ describe("routine operations", () => {
     update.mockRejectedValue(new Error("Update denied"));
     renderList.mock.lastCall?.[0].onUpdateIssue("execution-1", { status: "done" });
     await vi.waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({ body: "Update denied", tone: "error" })));
+  });
+
+  it("offers the run action, not the task create action, when the routine has no runs", async () => {
+    list.mockResolvedValue([]);
+    const onOpenRunDialog = vi.fn();
+    context.onOpenRunDialog = onOpenRunDialog;
+
+    render();
+
+    await vi.waitFor(() => expect(container.textContent).toContain("No runs yet"));
+    expect(container.textContent).toContain("Run the routine now, or wait for its schedule.");
+    expect(container.textContent).not.toContain("Issue list");
+    const button = Array.from(container.querySelectorAll("button")).find(
+      (entry) => entry.textContent === "Run routine",
+    );
+    expect(button).toBeTruthy();
+    button?.click();
+    expect(onOpenRunDialog).toHaveBeenCalledTimes(1);
   });
 
   it("distinguishes activity loading and failures from an empty timeline", () => {

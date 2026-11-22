@@ -15,7 +15,7 @@ import { RoutineActivityRow } from "../RoutineActivityRow";
 import { useRoutineDetail } from "./context";
 
 export function RunsSection() {
-  const { routine, companyId, agents, projects, hasLiveRun, activeIssueId } = useRoutineDetail();
+  const { routine, companyId, agents, projects, hasLiveRun, activeIssueId, onOpenRunDialog } = useRoutineDetail();
   const queryClient = useQueryClient();
   const { pushToast } = useToastActions();
   const filters = { originKind: "routine_execution", originId: routine.id };
@@ -35,6 +35,20 @@ export function RunsSection() {
     },
     onError: (updateError) => pushToast({ title: "Failed to update task", body: describeError(updateError).body, tone: "error" }),
   });
+
+  // This section lists this routine's execution tasks, so the task-list create
+  // action cannot produce a row it would show. Offer the action that can.
+  if (!isLoading && issuesView.kind !== "error" && (issues ?? []).length === 0) {
+    return (
+      <EmptyState
+        icon={ActivityIcon}
+        title="No runs yet"
+        message="Run the routine now, or wait for its schedule."
+        action="Run routine"
+        onAction={onOpenRunDialog}
+      />
+    );
+  }
 
   return (
     <IssuesList
