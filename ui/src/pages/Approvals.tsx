@@ -80,6 +80,12 @@ export function Approvals() {
   const pendingCount = (data ?? []).filter(
     (a) => a.status === "pending" || a.status === "revision_requested",
   ).length;
+  const pendingApproveId = approveMutation.isPending
+    ? approveMutation.variables?.id ?? null
+    : null;
+  const pendingRejectId = rejectMutation.isPending
+    ? rejectMutation.variables?.id ?? null
+    : null;
 
   if (!selectedCompanyId) {
     return <p className="text-sm text-muted-foreground">Select an organization first.</p>;
@@ -142,9 +148,15 @@ export function Approvals() {
               onReject={(note) => rejectMutation.mutate({ id: approval.id, note })}
               detailLink={`/approvals/${approval.id}`}
               allowDecisionNote
-              isPending={approveMutation.isPending || rejectMutation.isPending}
+              isPending={
+                pendingApproveId === approval.id || pendingRejectId === approval.id
+              }
               pendingAction={
-                approveMutation.isPending ? "approve" : rejectMutation.isPending ? "reject" : null
+                pendingApproveId === approval.id
+                  ? "approve"
+                  : pendingRejectId === approval.id
+                    ? "reject"
+                    : null
               }
             />
           ))}
