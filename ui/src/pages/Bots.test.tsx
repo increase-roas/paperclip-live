@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { KNOWN_GATEWAY_BOTS } from "@paperclipai/shared";
 import type { CompanyBotDetail, CompanyBotSummary } from "@paperclipai/shared";
+import { ApiError } from "@/api/client";
 import { Bots } from "./Bots";
 import { BotDetail } from "./BotDetail";
 
@@ -339,5 +340,58 @@ describe("Bots", () => {
       expect(text).toContain("No routines assigned.");
       expect(text).toContain("No recorded activity.");
     }
+  });
+
+  it("recovers a failed bot roster with a retry and readable copy", async () => {
+    listMock
+      .mockRejectedValueOnce(new ApiError("Service unavailable", 503, null))
+      .mockResolvedValueOnce({ bots: [researchBot], suggestedAgents: [] });
+
+    await render(<Bots />);
+
+    expect(container.textContent).toContain("Connection interrupted");
+    expect(container.textContent).not.toContain("Service unavailable");
+    const retry = [...container.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Retry");
+    expect(retry).toBeTruthy();
+
+    await act(async () => {
+      retry!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flush();
+
+    expect(listMock).toHaveBeenCalledTimes(2);
+    expect(container.textContent).toContain("Research Analyst");
+  });
+
+  it("says a bot is missing instead of offering a retry that cannot succeed", async () => {
+    params.botId = "missing-bot";
+    getMock.mockRejectedValue(new ApiError("Not found", 404, null));
+
+    await render(<BotDetail />);
+
+    expect(container.textContent).toContain("Bot not found");
+    expect([...container.querySelectorAll("button")].map((button) => button.textContent).join(" ")).not.toContain("Retry");
+  });
+
+  it("keeps a retry for a bot detail outage and hides the raw server message", async () => {
+    params.botId = "agent-1";
+    getMock
+      .mockRejectedValueOnce(new ApiError("Service unavailable", 503, null))
+      .mockResolvedValueOnce({ ...researchBot, routines: [], recentActivity: [] });
+
+    await render(<BotDetail />);
+
+    expect(container.textContent).toContain("Connection interrupted");
+    expect(container.textContent).not.toContain("Service unavailable");
+    const retry = [...container.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Retry");
+    expect(retry).toBeTruthy();
+
+    await act(async () => {
+      retry!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flush();
+
+    expect(getMock).toHaveBeenCalledTimes(2);
+    expect(container.textContent).toContain("Research Analyst");
   });
 });
