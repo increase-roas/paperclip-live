@@ -69,6 +69,16 @@ test("local CI plan mirrors the serialized server matrix, shard for shard", () =
   }
 });
 
+test("build runs before typecheck, which runs before the shards", () => {
+  const steps = plan([]).steps;
+  const wave = (name) => steps.find((step) => step.name === name).wave;
+  assert.equal(wave("build"), 1);
+  assert.equal(wave("typecheck"), 2);
+  assert.equal(wave("lint"), 3);
+  assert.ok(wave("server-1-of-12") > wave("typecheck"));
+  assert.ok(wave("serialized-1-of-9") >= wave("lint"));
+});
+
 test("--only and --skip narrow the plan by category or step name", () => {
   assert.deepEqual(plan(["--only", "lint,tokens"]).steps.map((step) => step.name), ["lint", "tokens"]);
   assert.deepEqual(plan(["--only", "server-3-of-12"]).steps.map((step) => step.name), ["server-3-of-12"]);

@@ -26,7 +26,7 @@
 #   scripts/ci-local.sh --dry-run            # print the plan as JSON
 #
 # Environment:
-#   CI_LOCAL_CONCURRENCY   Default parallelism for independent steps (3).
+#   CI_LOCAL_CONCURRENCY   Default parallelism for independent steps (2).
 #   CI_LOCAL_DIR           Output directory (default: .ci-local).
 #   PAPERCLIP_TEST_POSTGRES_ADMIN_URL
 #                          Point embedded-Postgres suites at a real server
@@ -40,7 +40,7 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$ROOT" || exit 1
 
 OUT_DIR=${CI_LOCAL_DIR:-.ci-local}
-CONCURRENCY=${CI_LOCAL_CONCURRENCY:-3}
+CONCURRENCY=${CI_LOCAL_CONCURRENCY:-2}
 ONLY=""
 SKIP=""
 DRY_RUN=false
@@ -111,23 +111,23 @@ selected() {
   return 0
 }
 
-# name|category|command. Commands are internal constants; the runner evaluates
-# them with `bash -c` so the plan stays readable.
+# name|category|wave|command. Commands are internal constants; the runner
+# evaluates them with `bash -c` so the plan stays readable.
 PLAN=()
 plan() {
-  local category=$1 name=$2 command=$3
+  local category=$1 name=$2 wave=$3 command=$4
   selected "$category" "$name" || return 0
-  PLAN+=("$name|$category|$command")
+  PLAN+=("$name|$category|$wave|$command")
 }
 
-plan build build "pnpm build"
-plan typecheck typecheck "\
+plan build build 1 "pnpm build"
+plan typecheck typecheck 2 "\
 pnpm run typecheck:build-gaps && \
 node scripts/typecheck-test-programs.mjs --low-memory && \
 pnpm --filter @paperclipai/server typecheck && \
 node scripts/typecheck-test-projects.mjs --low-memory --reuse-declarations"
-plan lint lint "pnpm lint"
-plan tokens tokens "pnpm check:token-gates"
+plan lint lint 3 "pnpm lint"
+plan tokens tokens 3 "pnpm check:token-gates"
 
 # Read the workflow's matrices instead of duplicating the shard layout.
 MATRIX_STEPS=$(node --input-type=module -e '
@@ -153,8 +153,8 @@ for (const entry of matrix.verify_serialized_server) {
 while IFS=$'\t' read -r name command; do
   [ -n "${name:-}" ] || continue
   case "$name" in
-    serialized-*) plan serialized "$name" "$command" ;;
-    *) plan general "$name" "$command" ;;
+    serialized-*) plan serialized "$name" 3 "$command" ;;
+    *) plan general "$name" 3 "$command" ;;
   esac
 done <<< "$MATRIX_STEPS"
 
@@ -170,8 +170,8 @@ if $DRY_RUN; then
   node --input-type=module -e '
 const head = process.argv[1];
 const plan = process.argv.slice(2).map((entry) => {
-  const [name, category, command] = entry.split("|");
-  return { name, category, command };
+  const [name, category, wave, command] = entry.split("|");
+  return { name, category, wave: Number(wave), command };
 });
 console.log(JSON.stringify({ head, steps: plan }, null, 2));
 ' "$HEAD_SHA" "${PLAN[@]}"
@@ -198,6 +198,7 @@ run_step() {
   name=${entry%%|*}
   entry=${entry#*|}
   category=${entry%%|*}
+  entry=${entry#*|}
   command=${entry#*|}
   started=$(date +%s)
   echo "[ci-local] start $name"
@@ -214,8 +215,9 @@ run_step() {
   fi
 }
 
-# Independent steps run in parallel. Each shard is a separate process with its
-# own temp state, matching the workflow's separate runners.
+# Steps run in waves: build, then typecheck, then lint and the test shards.
+# Typecheck reads the build output, and its own preparation rebuilds the server,
+# so the two cannot share a working tree at the same time.
 running=0
 for entry in "${PLAN[@]}"; do
   run_step "$entry" &
