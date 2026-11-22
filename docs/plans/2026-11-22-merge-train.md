@@ -5,10 +5,10 @@ Owner: Lane D
 Base: `origin/master` (`6de064ea94` when this runbook was written)
 
 This page is the single source of truth for the usability train: the 42-PR
-initial batch, the four follow-up PRs from the same round, and the five newer
-PRs added on the next pass. It lists the exact merge order, which PRs are
-superseded, what to check after each batch, and one command that proves the
-whole order still merges cleanly.
+initial batch, the four follow-up PRs from the same round, the five newer PRs
+added on the next pass, and the one new lane A test-helper PR added after that.
+It lists the exact merge order, which PRs are superseded, what to check after
+each batch, and one command that proves the whole order still merges cleanly.
 
 ## One-command verification
 
@@ -23,11 +23,11 @@ pushes nothing. It merges each PR head into a running tree with
 first conflict with the conflicted paths. Exit code `0` means the whole order is
 clean; `1` means a conflict; `2` means a usage or git error.
 
-Last verified: 2026-11-22 (fourth pass), 51 of 51 merged, no conflicts, base
+Last verified: 2026-11-22 (fifth pass), 52 of 52 merged, no conflicts, base
 `6de064ea94`. #158 was rebased onto #118 to clear the one conflict (see below).
 #167 is a draft combo branch and must be marked ready before it merges. #145 and
 #162 are covered by #167; do not merge all three. #171 is stacked on #167 and
-must merge after it. #173 merges last and is independent of the stack.
+must merge after it. #173 and #174 are independent of the stack and merge last.
 
 Useful variants:
 
@@ -91,6 +91,7 @@ node scripts/merge-train-simulate.mjs --json
 #157
 #165
 #173
+#174
 ```
 
 Keep `#115` before `#149` and `#136` before `#148`; those pairs touch the same
@@ -120,6 +121,7 @@ inherits the skeleton, coverage and gateway sections.
 | O. Newer lane A gates | #167 #157 #165 | #167 is the draft combo of #158 + #145 + #162; mark it ready, then open one tagged and one untagged bot page and run `pnpm --filter @paperclipai/ui exec vitest run src/pages/Bots.test.tsx`. #157: `node scripts/agent-preflight.mjs` logs the plugin-sdk build. #165: `node --test scripts/__tests__/chat-shard-workers.test.mjs`. |
 | P. Bot detail routine links | #171 | Bot pages list each routine as a link. Run `cd ui && npx vitest run src/pages/Bots.test.tsx` (24) and the bots Playwright file (5 passed) at 390px and 1280px. |
 | Q. Bot detail run links | #173 | Bot pages list each run row with a "View run" link. Run `cd ui && npx vitest run src/pages/Bots.test.tsx` (24) and `npx playwright test --config tests/e2e/playwright.config.ts tests/e2e/bot-run-link.spec.ts` (1 passed; it seeds a heartbeat run through the test database). |
+| R. Maintenance test helper | #174 | `cd server && npx vitest run src/__tests__/helpers/maintenance/runtime-build.test.ts` (5 passed). Then rerun it under `npx vitest` to confirm the setup no longer reports `Unknown command: "@paperclipai/plugin-sdk"`. |
 
 ## What supersedes what
 
@@ -147,6 +149,10 @@ inherits the skeleton, coverage and gateway sections.
 - **#173 is independent and merges last.** It adds a "View run" link to run rows
   in the bot page's Recent activity. Its test lives mid-file and its UI hunk is
   separate from #167/#171, so it does not need the stack.
+- **#174 is independent and merges last.** It is a lane A test-helper change that
+  picks pnpm for the maintenance runtime build regardless of the launcher. It
+  touches only `server/src/__tests__/helpers/maintenance/`, so it neither needs
+  nor blocks the stack.
 - **Branches edited in this pass.** #167 moved its `bots:coverage` script next to
   `bots:register` so #165's `test:chat-shard-workers` entry no longer contests
   the same `package.json` slot. #171 was rebased onto #167 and #158 was rebased
