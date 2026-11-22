@@ -15,10 +15,11 @@ import base from "./vitest.config";
  * `PAPERCLIP_CHAT_CHANNELS_WORKERS=4` runs the directory in about 19 minutes
  * instead of 54, and it is how this config was measured. Two suites are
  * timing-sensitive under that load and failed there while passing alone:
- * `08-github-webhook-recovery-scheduling` (fake timers with `shouldAdvanceTime`,
- * which lets a scheduled sweep land inside an "expect no requests" window) and
+ * `08-github-webhook-recovery-scheduling` (a 10s real-time poll for 21 database
+ * batches; PR #110 replaces it with an explicit pass loop) and
  * `24-publishes-a-closed-choice-question-sett` (a real Slack acknowledgement
- * deadline). Rework those two before trusting a parallel run as a gate.
+ * deadline). Re-run after #110 lands; 24 still needs its own fix before a
+ * parallel run can be a gate.
  *
  * The timeouts are higher than the base config because several embedded
  * Postgres instances and Node workers share one machine: a case that takes 3s
