@@ -1,4 +1,11 @@
+import { createRequire } from "node:module";
+import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+
+const require = createRequire(import.meta.url);
+const repoRoot = resolve(import.meta.dirname, "../..");
+const axeAddon = require.resolve("@storybook/addon-a11y/package.json", { paths: [resolve(repoRoot, "ui")] });
+const axePath = require.resolve("axe-core/axe.min.js", { paths: [axeAddon] });
 
 test.use({ viewport: { width: 1200, height: 800 } });
 
@@ -192,6 +199,33 @@ test("reduced motion resets both panes instantly", async ({ page }) => {
     await expect(pane).toHaveCSS("width", width);
     await expect(pane).toHaveCSS("transition-duration", "0s");
     expect(await pane.evaluate(element => element.getAnimations().length)).toBe(0);
+  }
+});
+
+test("the main pane stays focusable and scrollable from the keyboard at both viewports", async ({ page }) => {
+  for (const width of [390, 1512]) {
+    await page.setViewportSize({ width, height: 844 });
+    await openShell(page, "three-panes");
+    const main = page.locator("#design-page-content");
+    await expect(main).toHaveAttribute("tabindex", "0");
+    await main.focus();
+    await expect(main).toBeFocused();
+
+    await page.addScriptTag({ path: axePath });
+    let violations: { id: string; targets: string[][] }[] = [];
+    await expect.poll(async () => page.evaluate(async () => {
+      try {
+        const axe = (window as unknown as { axe: { run: (context: unknown, options: unknown) => Promise<{ violations: { id: string; nodes: { target: string[] }[] }[] }> } }).axe;
+        const result = await axe.run({ include: ["#design-page-content"] }, { runOnly: { type: "rule", values: ["scrollable-region-focusable"] } });
+        (window as unknown as { __axeResult?: unknown }).__axeResult = result.violations.map(violation => ({ id: violation.id, targets: violation.nodes.map(node => node.target) }));
+        return true;
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("Axe is already running")) return false;
+        throw error;
+      }
+    }), { timeout: 20_000 }).toBe(true);
+    violations = await page.evaluate(() => (window as unknown as { __axeResult: typeof violations }).__axeResult);
+    expect(violations).toEqual([]);
   }
 });
 

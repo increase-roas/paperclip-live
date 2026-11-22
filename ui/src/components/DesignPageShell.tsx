@@ -43,7 +43,7 @@ export function DesignPageShell({
       <SidebarShell open resizable storageKey={sidebarStorageKey} className="design-page-navigation">{sidebar}</SidebarShell>
       <div className="design-page-main">
         <header className="design-page-header"><h1>{title}</h1>{headerActions && <div className="design-page-header-actions">{headerActions}</div>}</header>
-        <main id="design-page-content" className="design-page-content scrollbar-while-scrolling" onScroll={handleMainScroll} tabIndex={-1}>{children}</main>
+        <main id="design-page-content" className="design-page-content scrollbar-while-scrolling" onScroll={handleMainScroll} tabIndex={0}>{children}</main>
       </div>
       {hasRightSidebar && <DesignPageAside title={rightSidebarTitle} maximized={maximized} storageKey={rightSidebarStorageKey}>
         <header className={`design-page-header${rightSidebarHeader ? " design-page-aside-header" : ""}`}>
