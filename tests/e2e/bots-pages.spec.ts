@@ -45,6 +45,19 @@ for (const viewport of [
     test.setTimeout(90_000);
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     const { company } = await createBotCompany(request);
+    const untagged = await json(
+      await request.post(`/api/companies/${company.id}/agents`, {
+        data: {
+          name: "Gateway Twin",
+          role: "engineer",
+          adapterType: "process",
+          adapterConfig: { command: "/usr/bin/true" },
+          runtimeConfig: { heartbeat: { enabled: false, wakeOnDemand: false } },
+          metadata: { grokBotTwin: true, bot: { purpose: "Waits for a gateway key." } },
+        },
+      }),
+    );
+    await request.post(`/api/agents/${untagged.id}/pause`);
 
     await page.goto(`/${company.issuePrefix}/bots`);
     await expect(page.getByText("Every bot this company runs", { exact: false }).first()).toBeVisible();
@@ -77,6 +90,21 @@ for (const viewport of [
     await expect(page.getByText("No bots match", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Show all bots" }).click();
     await expect(page.locator('a[href*="/bots/"]').filter({ hasText: "Posting Twin" })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+
+    // A tagged bot without a gateway link points at the metadata editor, not a
+    // plain agent page, and does not repeat the tagging step.
+    await page.goto(`/${company.issuePrefix}/bots`);
+    await page.locator('a[href*="/bots/"]').filter({ hasText: "Gateway Twin" }).click();
+    await expect(page.getByRole("heading", { level: 2, name: "Link a gateway key" })).toBeVisible();
+    await expect(page.getByText("This bot is tagged, but it has no gateway key id or policy yet.")).toBeVisible();
+    await expect(page.getByText("spec.metadata.bot.gateway")).toBeVisible();
+    await expect(page.getByText("Tag the agent as a bot")).toHaveCount(0);
+    const advancedLink = page.getByRole("link", { name: "Open Advanced configuration" });
+    await expect(advancedLink).toHaveAttribute("href", new RegExp(`/agents/${untagged.id}/advanced$`));
+    await advancedLink.click();
+    await expect(page).toHaveURL(new RegExp(`/agents/${untagged.id}/advanced$`));
+    await expect(page.locator(".cm-content")).toContainText("metadata", { timeout: 30_000 });
     await expectNoHorizontalOverflow(page);
   });
 }

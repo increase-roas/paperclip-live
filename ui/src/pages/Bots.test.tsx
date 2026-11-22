@@ -303,13 +303,14 @@ describe("Bots", () => {
     expect(text).toContain("How to register");
     expect(text).toContain("grokBotTwin");
     expect(text).toContain("agentKind");
-    expect(text).toContain("bot.gateway.keyId");
-    expect(text).toContain("bot.gateway.policy");
+    expect(text).toContain("spec.metadata.bot.gateway");
+    expect(text).toContain("keyId");
+    expect(text).toContain("policy");
     const link = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent?.includes("Create the bot agent"));
     expect(link?.getAttribute("href")).toBe("/agents/new");
   });
 
-  it("points a registered bot without a key at its agent page", async () => {
+  it("sends a registered bot without a key to its Advanced configuration", async () => {
     params.botId = "agent-1";
     const { gateway: _gateway, ...withoutGateway } = researchBot;
     getMock.mockResolvedValue({ ...withoutGateway, gateway: null, routines: [], recentActivity: [] });
@@ -318,9 +319,14 @@ describe("Bots", () => {
 
     const text = container.textContent ?? "";
     expect(text).toContain("Link a gateway key");
-    expect(text).toContain("bot.gateway.keyId");
-    const link = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent?.includes("Open the agent to add the key"));
-    expect(link?.getAttribute("href")).toBe("/agents/agent-1");
+    expect(text).toContain("This bot is tagged, but it has no gateway key id or policy yet.");
+    expect(text).toContain("spec.metadata.bot.gateway");
+    // The agent is already tagged, so the page must not repeat the tagging step.
+    expect(text).not.toContain("Tag the agent as a bot");
+    const link = [...container.querySelectorAll("a")].find((anchor) =>
+      anchor.textContent?.includes("Open Advanced configuration"),
+    );
+    expect(link?.getAttribute("href")).toBe("/agents/agent-1/advanced");
   });
 
   it("gives every known gateway bot its own roster link", async () => {
