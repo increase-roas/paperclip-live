@@ -152,6 +152,12 @@ export function ApprovalDetail() {
     onError: (err) => setError(err instanceof Error ? err.message : "Delete failed"),
   });
 
+  // Approve, reject and request revision are alternative decisions on one
+  // request. Lock all three while any of them is in flight so one click cannot
+  // send two decisions.
+  const decisionPending =
+    approveMutation.isPending || rejectMutation.isPending || revisionMutation.isPending;
+
   if (approvalView.kind === "loading" || approvalView.kind === "reconnecting") {
     return <PageSkeleton variant="detail" />;
   }
@@ -324,17 +330,17 @@ export function ApprovalDetail() {
                 size="sm"
                 className="bg-green-700 hover:bg-green-600 text-white"
                 onClick={() => approveMutation.mutate()}
-                disabled={approveMutation.isPending}
+                disabled={decisionPending}
               >
-                Approve
+                {approveMutation.isPending ? "Approving…" : "Approve"}
               </Button>
               <Button
                 variant="destructive"
                 size="sm"
                 onClick={() => rejectMutation.mutate()}
-                disabled={rejectMutation.isPending}
+                disabled={decisionPending}
               >
-                Reject
+                {rejectMutation.isPending ? "Rejecting…" : "Reject"}
               </Button>
             </>
           )}
@@ -348,9 +354,9 @@ export function ApprovalDetail() {
               size="sm"
               variant="outline"
               onClick={() => revisionMutation.mutate()}
-              disabled={revisionMutation.isPending}
+              disabled={decisionPending}
             >
-              Request revision
+              {revisionMutation.isPending ? "Requesting revision…" : "Request revision"}
             </Button>
           )}
           {approval.status === "revision_requested" && (

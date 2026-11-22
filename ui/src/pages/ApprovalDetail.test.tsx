@@ -146,13 +146,39 @@ describe("ApprovalDetail decision notes", () => {
     });
   }
 
-  function clickButton(label: string) {
-    const button = [...container.querySelectorAll("button")].find(
+  function findButton(label: string): HTMLButtonElement | undefined {
+    return [...container.querySelectorAll("button")].find(
       (candidate) => candidate.textContent?.trim() === label,
-    );
+    ) as HTMLButtonElement | undefined;
+  }
+
+  function clickButton(label: string) {
+    const button = findButton(label);
     expect(button).toBeDefined();
     act(() => button!.click());
   }
+
+  it("locks the other decision actions while a decision is saving", async () => {
+    let resolveApprove: (value: Approval) => void = () => {};
+    mockApprovalsApi.approve.mockReturnValue(new Promise((resolve) => { resolveApprove = resolve; }));
+    const { root, queryClient } = render();
+    try {
+      await waitFor(() => expect(noteField()).not.toBeNull());
+      clickButton("Approve");
+
+      await waitFor(() => expect(findButton("Approving…")).toBeTruthy());
+      expect(findButton("Approving…")!.disabled).toBe(true);
+      expect(findButton("Reject")!.disabled).toBe(true);
+      expect(findButton("Request revision")!.disabled).toBe(true);
+
+      await act(async () => {
+        resolveApprove(approval({ status: "approved" }));
+      });
+    } finally {
+      act(() => root.unmount());
+      queryClient.clear();
+    }
+  });
 
   it("sends the entered note with Approve", async () => {
     const { root, queryClient } = render();
