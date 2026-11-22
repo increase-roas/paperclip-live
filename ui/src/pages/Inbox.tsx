@@ -3500,7 +3500,7 @@ function StreamlinedInbox({
                   <button
                     type="button"
                     onClick={() => dismissAlert("alert:agent-errors")}
-                    className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover/alert:opacity-100"
+                    className="inline-flex h-(--sz-44px) w-(--sz-44px) shrink-0 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-accent hover:text-foreground max-sm:opacity-100 sm:opacity-0 sm:group-hover/alert:opacity-100 sm:focus-visible:opacity-100"
                     aria-label="Dismiss"
                   >
                     <X className="h-3.5 w-3.5" />
@@ -3523,7 +3523,7 @@ function StreamlinedInbox({
                   <button
                     type="button"
                     onClick={() => dismissAlert("alert:budget")}
-                    className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover/alert:opacity-100"
+                    className="inline-flex h-(--sz-44px) w-(--sz-44px) shrink-0 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-accent hover:text-foreground max-sm:opacity-100 sm:opacity-0 sm:group-hover/alert:opacity-100 sm:focus-visible:opacity-100"
                     aria-label="Dismiss"
                   >
                     <X className="h-3.5 w-3.5" />

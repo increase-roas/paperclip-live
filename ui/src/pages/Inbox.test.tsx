@@ -2048,6 +2048,54 @@ describe("Inbox toolbar", () => {
   });
 });
 
+describe("Inbox company alerts", () => {
+  let container: HTMLDivElement;
+
+  beforeEach(() => {
+    localStorage.clear();
+    resetInboxApiMocks();
+    routerMock.location.pathname = "/inbox/all";
+    apiMocks.dashboardSummary.mockResolvedValue({
+      agents: { error: 2 },
+      costs: { monthBudgetCents: 10_000, monthUtilizationPercent: 92 },
+    });
+    container = document.createElement("div");
+    document.body.appendChild(container);
+  });
+
+  afterEach(() => {
+    container.remove();
+    document.body.innerHTML = "";
+    routerMock.location.pathname = "/";
+  });
+
+  it("keeps both alert dismiss buttons visible and touch-sized", async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(<QueryClientProvider client={queryClient}><Inbox /></QueryClientProvider>);
+    });
+    await vi.waitFor(() => expect(container.textContent).toContain("Alerts"));
+
+    const alertDismissButtons = [...container.querySelectorAll<HTMLButtonElement>('button[aria-label="Dismiss"]')]
+      .filter((button) => button.className.includes("sm:group-hover/alert:opacity-100"));
+    expect(alertDismissButtons).toHaveLength(2);
+
+    for (const button of alertDismissButtons) {
+      const classes = button.className.split(/\s+/);
+      expect(classes).toContain("h-(--sz-44px)");
+      expect(classes).toContain("w-(--sz-44px)");
+      expect(classes).toContain("max-sm:opacity-100");
+      expect(classes).toContain("sm:focus-visible:opacity-100");
+      expect(classes).not.toContain("opacity-0");
+      expect(classes).not.toContain("p-1");
+    }
+
+    act(() => root.unmount());
+    queryClient.clear();
+  });
+});
+
 describe("FailedRunInboxRow", () => {
   let container: HTMLDivElement;
 
