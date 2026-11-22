@@ -1226,7 +1226,7 @@ gh workflow run runner-full-stack-e2e.yml \
   -f target_branch=fix/example \
   -f all=false \
   -f id=core-compatibility.runner-codex.daytona.message-marker \
-  -f image_only=true
+  -f options='{"image_only":true}'
 ```
 
 The ephemeral Daytona fixture requests a 60-minute wall-clock lifetime at creation.
@@ -1643,10 +1643,15 @@ gh workflow run runner-full-stack-e2e.yml \
 The same trusted workflow can run the standing **Product regression — core
 workflows** TestOps plan. Bootstrap one actual case with `-f testops_case=66`
 (message-marker), or select the complete plan with `-f testops_case=all`.
-Leave the ordinary `id`, `suite`, `group`, `profile`, `environment` and `case`
-selectors empty in this mode. TestOps dispatch supplies `ALLURE_JOB_RUN_ID` and
-`ALLURE_USERNAME`; the requested test-plan selection overrides the bootstrap
-case. All 20 imported case IDs and full names remain stable. The lane uses the
+Leave the ordinary catalog selectors empty in this mode. TestOps dispatch
+supplies `ALLURE_JOB_RUN_ID` and `ALLURE_USERNAME`; the requested test-plan
+selection overrides the bootstrap case. GitHub permits at most 10 dispatch
+inputs, so `options` is one JSON object for the less-used `group`, `suite`,
+`profile`, `environment`, `case` and `image_only` settings; `all`, `id` and
+`max_parallel` stay separate inputs. Presets: `options=none` and
+`options=image-only`. Example:
+`-f options='{"group":"native","image_only":true}'`.
+All 20 imported case IDs and full names remain stable. The lane uses the
 existing native Codex/local cells and the existing native OpenCode/local
 task-workspaces cell. It does not qualify the historical 355-result snapshot.
 

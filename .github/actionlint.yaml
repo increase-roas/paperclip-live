@@ -1,0 +1,12 @@
+# actionlint configuration.
+#
+# GitHub added the reusable-workflow identity properties `job.workflow_sha`,
+# `job.workflow_repository`, `job.workflow_ref` and `job.workflow_file_path`
+# after actionlint 1.7.12 shipped its context schema. release-smoke.yml uses
+# them to check out its own reusable-workflow revision instead of the caller's
+# commit, so keep the expressions and ignore only those false positives until
+# actionlint learns the properties.
+paths:
+  .github/workflows/release-smoke.yml:
+    ignore:
+      - 'property "workflow_(repository|sha|ref|file_path)" is not defined in object type'
