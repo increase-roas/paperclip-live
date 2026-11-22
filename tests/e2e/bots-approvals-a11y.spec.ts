@@ -80,13 +80,13 @@ test.describe("bots and approvals accessibility", () => {
 
     const example = page.getByLabel("Bot metadata example");
     await expect(example).toBeVisible({ timeout: 30_000 });
-    const metrics = await example.evaluate((node) => ({
-      tabIndex: (node as HTMLElement).tabIndex,
-      scrollWidth: node.scrollWidth,
-      clientWidth: node.clientWidth,
-    }));
-    expect(metrics.tabIndex, "the scroll region joins the tab order").toBe(0);
-    expect(metrics.scrollWidth, "the example overflows on a phone").toBeGreaterThan(metrics.clientWidth);
+    expect(await example.evaluate((node) => (node as HTMLElement).tabIndex), "the scroll region joins the tab order").toBe(0);
+
+    // The current example fits at 390px. Narrow it to prove the focusable
+    // region still scrolls when its content overflows, as it can under zoom or
+    // a longer metadata block.
+    await example.evaluate((node) => { node.style.width = "100px"; });
+    expect(await example.evaluate((node) => node.scrollWidth > node.clientWidth), "forced overflow").toBe(true);
 
     await example.focus();
     await expect(example).toBeFocused();
