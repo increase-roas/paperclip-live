@@ -1,6 +1,11 @@
 import express from "express";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+// Load the route modules during collection. The first case that builds an app
+// used to pay the whole dynamic import inside its own 20 s budget, which timed
+// out on a cold transform cache even though the endpoint answers in ~60 ms.
+import { errorHandler } from "../middleware/index.js";
+import { pluginRoutes } from "../routes/plugins.js";
 
 const mockRegistry = vi.hoisted(() => ({
   getById: vi.fn(),
@@ -54,11 +59,6 @@ async function createApp(
     captureJsonContext?: (context: unknown, body: unknown) => void;
   } = {},
 ) {
-  const [{ pluginRoutes }, { errorHandler }] = await Promise.all([
-    import("../routes/plugins.js"),
-    import("../middleware/index.js"),
-  ]);
-
   const loader = {
     installPlugin: vi.fn(),
     ...loaderOverrides,
