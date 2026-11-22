@@ -1,7 +1,7 @@
 import { MUSE_ASSET_VERSION, museStopBoundarySchema, museDetectorCleanupAttestationSchema, createGrokInvitationSchema, configureGrokRoutineSchema, verifyGrokRoutineSchema, recoverGrokRoutineSchema, pairGrokBindingSchema, stopGrokWorkSchema, retryGrokDeliverySchema, updateFastResponseSchema } from "@paperclipai/shared";
 import { slackTestMessageSchema, slackTestMessageResultSchema, slackManagerAuthorizationSchema, slackSetupOptionsSchema, slackManagedProvisionSchema, slackManagedResultSchema, slackRegistrationSchema, slackSetupActionSchema, slackInstallAuthorizationSchema, slackRegistrationStateSchema, slackAppConfigurationSchema, slackAvatarStateSchema, slackAccountStateSchema } from "@paperclipai/shared";
 import { experimentalApiMetadata } from "./experimental-api-metadata.js";
-import { ATTENTION_SOURCE_KINDS } from "@paperclipai/shared";
+import { ATTENTION_SOURCE_KINDS, agentReadinessFixSchema, runAgentReadinessReportSchema, upsertAgentReadinessAttestationSchema } from "@paperclipai/shared";
 import { agentCaseHandoffSchema, caseWorkflowDocumentTextSchema, doneCaseHandoffSchema, createWorkflowSchema, updateWorkflowSchema, listWorkflowsSchema, readWorkflowQuerySchema } from "@paperclipai/shared";
 import {
   experimentalApiPaths,
@@ -13237,6 +13237,60 @@ export function buildOpenApiDocument(): any {
 }
 
 export const buildOpenApiSpec = buildOpenApiDocument;
+
+registerCurrentRoute({
+  method: "get",
+  path: "/api/companies/{companyId}/bots",
+  tags: ["bots"],
+  summary: "List the bots a company runs, including gateway bots that have no agent row yet",
+  responses: { 200: r.ok(), 401: r.unauthorized, 403: r.forbidden },
+});
+registerCurrentRoute({
+  method: "get",
+  path: "/api/companies/{companyId}/bots/{botId}",
+  tags: ["bots"],
+  summary: "Read one bot page: what it does, its gateway link, routines, status and recent activity",
+  responses: { 200: r.ok(), 401: r.unauthorized, 403: r.forbidden, 404: r.notFound },
+});
+registerCurrentRoute({
+  method: "get",
+  path: "/api/companies/{companyId}/agent-readiness",
+  tags: ["agent-readiness"],
+  summary: "Read the company's agent readiness report",
+  responses: { 200: r.ok(), 401: r.unauthorized, 403: r.forbidden },
+});
+registerCurrentRoute({
+  method: "post",
+  path: "/api/companies/{companyId}/agent-readiness/reports",
+  tags: ["agent-readiness"],
+  summary: "Run an agent readiness report",
+  body: runAgentReadinessReportSchema,
+  responses: { 201: r.ok(), 400: r.badRequest, 401: r.unauthorized, 403: r.forbidden, 422: r.unprocessable },
+});
+registerCurrentRoute({
+  method: "post",
+  path: "/api/companies/{companyId}/agent-readiness/fixes",
+  tags: ["agent-readiness"],
+  summary: "Apply an agent readiness fix",
+  body: agentReadinessFixSchema,
+  responses: { 200: r.ok(), 400: r.badRequest, 401: r.unauthorized, 403: r.forbidden, 422: r.unprocessable },
+});
+registerCurrentRoute({
+  method: "post",
+  path: "/api/companies/{companyId}/agent-readiness/attestations",
+  tags: ["agent-readiness"],
+  summary: "Attest a manual readiness check for an agent",
+  body: upsertAgentReadinessAttestationSchema,
+  responses: { 200: r.ok(), 400: r.badRequest, 401: r.unauthorized, 403: r.forbidden, 422: r.unprocessable },
+});
+registerCurrentRoute({
+  method: "post",
+  path: "/api/issues/{id}/recovery-actions/clear-hold",
+  tags: ["issues"],
+  summary: "Clear an execution hold that a recovery action left on a task",
+  body: z.object({ actionId: z.string().uuid().optional(), note: z.string().trim().max(2000).optional() }).strict(),
+  responses: { 200: r.ok(), 400: r.badRequest, 401: r.unauthorized, 403: r.forbidden, 404: r.notFound, 409: r.conflict },
+});
 
 export function openApiRoutes() {
   const router = Router();
