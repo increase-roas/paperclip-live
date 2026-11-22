@@ -12,7 +12,11 @@ export function botsRoutes(db: Db) {
   router.get("/companies/:companyId/bots", async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
-    res.json({ bots: await service.list(companyId) });
+    const [bots, suggestedAgents] = await Promise.all([
+      service.list(companyId),
+      service.suggestedAgents(companyId),
+    ]);
+    res.json({ bots, suggestedAgents });
   });
 
   router.get("/companies/:companyId/bots/:botId", async (req, res) => {
