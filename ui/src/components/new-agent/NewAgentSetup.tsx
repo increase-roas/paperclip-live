@@ -33,6 +33,13 @@ import { ADAPTER_AUTH_MISSING_CHECK_CODE, isAgentStatusInvokable, paperclipRunne
 import { useNavigate, useSearchParams } from "@/lib/router";
 import { agentsApi } from "@/api/agents";
 import { ApiError } from "@/api/client";
+import { projectsApi } from "@/api/projects";
+import {
+  STARTER_INSTRUCTION_TEMPLATES,
+  composeStarterInstructions,
+  starterInstructionTemplate,
+} from "@/lib/starter-agent-instructions";
+import { Textarea } from "../ui/textarea";
 import { adaptersApi } from "@/api/adapters";
 import { environmentsApi } from "@/api/environments";
 import { instanceSettingsApi } from "@/api/instanceSettings";
@@ -196,6 +203,14 @@ function Setup({
   const connectionModels = useConnectionModels(companyId, aiBinding, brandType);
   const [repository, setRepository] = useState("");
   const [branch, setBranch] = useState("");
+  const initialStarter = starterInstructionTemplate("general");
+  const [starterTemplateId, setStarterTemplateId] = useState(initialStarter.id);
+  const [instructionRole, setInstructionRole] = useState(initialStarter.role);
+  const [instructionGoals, setInstructionGoals] = useState(initialStarter.goals);
+  const [instructionGuardrails, setInstructionGuardrails] = useState(initialStarter.guardrails);
+  const [workspaceProjectId, setWorkspaceProjectId] = useState("");
+  const [heartbeatEnabled, setHeartbeatEnabled] = useState(true);
+  const [heartbeatIntervalMin, setHeartbeatIntervalMin] = useState(5);
   const [createdInSession, setCreated] = useState<Agent | null>(null);
   const setupId = useRef(setupAgentId ?? crypto.randomUUID());
   if (setupAgentId) setupId.current = setupAgentId;
@@ -276,6 +291,17 @@ function Setup({
     queryKey: queryKeys.agents.list(companyId),
     queryFn: () => agentsApi.list(companyId),
   });
+  const projects = useQuery({
+    queryKey: queryKeys.projects.list(companyId),
+    queryFn: () => projectsApi.list(companyId),
+  });
+  // A single project is the obvious workspace; preselect it. With several, the
+  // operator must choose before the agent can be hired.
+  useEffect(() => {
+    if (workspaceProjectId || projects.isPending) return;
+    const only = projects.data?.length === 1 ? projects.data[0] : undefined;
+    if (only) setWorkspaceProjectId(only.id);
+  }, [projects.data, projects.isPending, workspaceProjectId]);
   const envs = useQuery({
     queryKey: queryKeys.environments.list(companyId),
     queryFn: () => environmentsApi.list(companyId),
@@ -637,6 +663,23 @@ function Setup({
     setBranch(typeof config.repoRef === "string" ? config.repoRef : typeof config.repoStartingRef === "string" ? config.repoStartingRef : "");
     setGatewayUrl(typeof config.apiBaseUrl === "string" ? config.apiBaseUrl : "");
     setAllowUnmeteredProvider(config.allowUnmeteredProvider === true);
+    const metadata = agent.metadata ?? {};
+    if (typeof metadata.defaultProjectId === "string") setWorkspaceProjectId(metadata.defaultProjectId);
+    const starter = metadata.starterInstructions as
+      | { templateId?: unknown; role?: unknown; goals?: unknown; guardrails?: unknown }
+      | undefined;
+    if (starter && typeof starter.role === "string" && typeof starter.goals === "string" && typeof starter.guardrails === "string") {
+      setStarterTemplateId(typeof starter.templateId === "string" ? starter.templateId : "custom");
+      setInstructionRole(starter.role);
+      setInstructionGoals(starter.goals);
+      setInstructionGuardrails(starter.guardrails);
+    }
+    const heartbeat = agent.runtimeConfig.heartbeat as { enabled?: unknown; intervalSec?: unknown } | undefined;
+    if (heartbeat && typeof heartbeat === "object") {
+      setHeartbeatEnabled(heartbeat.enabled !== false);
+      const intervalSec = Number(heartbeat.intervalSec);
+      if (Number.isFinite(intervalSec) && intervalSec > 0) setHeartbeatIntervalMin(Math.max(1, Math.round(intervalSec / 60)));
+    }
     const kimiApi = config.kimiApi as { model?: string; protocol?: string; baseUrl?: string } | undefined;
     setKimiModel(kimiApi?.model ?? "");
     setKimiProtocol(kimiApi?.protocol ?? "kimi");
@@ -784,6 +827,19 @@ function Setup({
       (connectionAdapter && !connection)
     )
       return;
+    const starterInstructions = composeStarterInstructions({
+      role: instructionRole,
+      goals: instructionGoals,
+      guardrails: instructionGuardrails,
+    });
+    if (!workspaceProjectId) {
+      setError("Choose the project this agent works in. Its project folder becomes the agent's workspace.");
+      return;
+    }
+    if (!starterInstructions) {
+      setError("Add a role to the starter instructions before finishing setup.");
+      return;
+    }
     savingRef.current = true;
     setSaving(true);
     setError(null);
@@ -806,7 +862,27 @@ function Setup({
         defaultEnvironmentId: nativeCursorCloud ? null :
           environmentOverride ||
           (forced.forced || managedOnly ? environmentId : null),
-        runtimeConfig: { ...buildNewAgentRuntimeConfig({ heartbeatEnabled: false }), ...(aiBinding ? { aiConnection: aiBinding } : {}) },
+        runtimeConfig: {
+          ...buildNewAgentRuntimeConfig({
+            heartbeatEnabled,
+            intervalSec: Math.max(1, Math.round(heartbeatIntervalMin)) * 60,
+          }),
+          ...(aiBinding ? { aiConnection: aiBinding } : {}),
+        },
+        metadata: {
+          ...(created.metadata ?? {}),
+          defaultProjectId: workspaceProjectId,
+          starterInstructions: {
+            templateId: starterTemplateId,
+            role: instructionRole,
+            goals: instructionGoals,
+            guardrails: instructionGuardrails,
+          },
+        },
+        instructionsBundle: {
+          entryFile: "AGENTS.md",
+          files: { "AGENTS.md": starterInstructions },
+        },
         budgetMonthlyCents: 0,
         ...(connection?.storedSessionId
           ? { storedSessionId: connection.storedSessionId }
@@ -858,7 +934,8 @@ function Setup({
     await cache.cancelQueries({ queryKey: queryKeys.agents.list(companyId) });
     cache.setQueryData<Agent[]>(queryKeys.agents.list(companyId), agents => agents?.map(agent =>
       agent.id === current.id && (agent.lifecycleVersion ?? 0) <= (current.lifecycleVersion ?? 0) ? { ...agent, ...current } : agent));
-    openNewIssue({ assigneeAgentId: current.id, status: "todo" });
+    const defaultProjectId = typeof current.metadata?.defaultProjectId === "string" ? current.metadata.defaultProjectId : undefined;
+    openNewIssue({ assigneeAgentId: current.id, status: "todo", ...(defaultProjectId ? { projectId: defaultProjectId } : {}) });
   }
   if (recordId && !created && !creating.current && savedAgent.error && !(savedAgent.error instanceof ApiError && savedAgent.error.status === 404))
     return (
@@ -932,9 +1009,10 @@ function Setup({
     experimental.error ??
     general.error ??
     agents.error ??
+    projects.error ??
     caps.error;
   const setupRetry = () => {
-    for (const query of [adapters, envs, settings, experimental, general, agents, caps]) {
+    for (const query of [adapters, envs, settings, experimental, general, agents, projects, caps]) {
       if (typeof query.refetch === "function" && query.isError) void query.refetch();
     }
   };
@@ -1495,6 +1573,107 @@ function Setup({
                           </select>
                         </section>
                       )}
+                      <section className="space-y-5">
+                        <div className="space-y-1">
+                          <h3 className="text-sm font-semibold">Starter instructions</h3>
+                          <p className="text-xs text-muted-foreground">
+                            Start from a role template. Edit the role, goals, and guardrails before the agent starts work.
+                          </p>
+                        </div>
+                        <Field label="Template">
+                          <select
+                            aria-label="Starter instruction template"
+                            className={controlClass}
+                            value={starterTemplateId}
+                            disabled={busy}
+                            onChange={(event) => {
+                              const template = starterInstructionTemplate(event.target.value);
+                              setStarterTemplateId(template.id);
+                              setInstructionRole(template.role);
+                              setInstructionGoals(template.goals);
+                              setInstructionGuardrails(template.guardrails);
+                            }}
+                          >
+                            {STARTER_INSTRUCTION_TEMPLATES.map((template) => (
+                              <option key={template.id} value={template.id}>{template.label}</option>
+                            ))}
+                            {starterTemplateId === "custom" && <option value="custom">Custom</option>}
+                          </select>
+                        </Field>
+                        <Field label="Role">
+                          <Textarea
+                            aria-label="Instruction role"
+                            rows={2}
+                            value={instructionRole}
+                            disabled={busy}
+                            onChange={(event) => { setInstructionRole(event.target.value); setStarterTemplateId("custom"); }}
+                          />
+                        </Field>
+                        <Field label="Goals">
+                          <Textarea
+                            aria-label="Instruction goals"
+                            rows={4}
+                            value={instructionGoals}
+                            disabled={busy}
+                            onChange={(event) => { setInstructionGoals(event.target.value); setStarterTemplateId("custom"); }}
+                          />
+                        </Field>
+                        <Field label="Guardrails">
+                          <Textarea
+                            aria-label="Instruction guardrails"
+                            rows={4}
+                            value={instructionGuardrails}
+                            disabled={busy}
+                            onChange={(event) => { setInstructionGuardrails(event.target.value); setStarterTemplateId("custom"); }}
+                          />
+                        </Field>
+                      </section>
+                      <section className="space-y-5">
+                        <div className="space-y-1">
+                          <h3 className="text-sm font-semibold">Workspace and heartbeat</h3>
+                          <p className="text-xs text-muted-foreground">
+                            The agent works in this project's workspace. Heartbeats let the agent pick up scheduled work.
+                          </p>
+                        </div>
+                        <Field label="Project folder">
+                          <select
+                            aria-label="Workspace project"
+                            className={controlClass}
+                            value={workspaceProjectId}
+                            disabled={busy || projects.isPending}
+                            onChange={(event) => setWorkspaceProjectId(event.target.value)}
+                          >
+                            <option value="">{projects.isPending ? "Loading projects…" : "Choose a project…"}</option>
+                            {(projects.data ?? []).map((project) => (
+                              <option key={project.id} value={project.id}>{project.name}</option>
+                            ))}
+                          </select>
+                        </Field>
+                        {projects.isSuccess && projects.data.length === 0 && (
+                          <p role="alert" className="text-xs text-destructive">
+                            Create a project before hiring this agent. Every agent needs a project workspace.
+                          </p>
+                        )}
+                        <ToggleField
+                          label="Heartbeat"
+                          hint="On by default. The agent checks for scheduled work at the interval below."
+                          checked={heartbeatEnabled}
+                          onChange={setHeartbeatEnabled}
+                        />
+                        {heartbeatEnabled && (
+                          <Field label="Heartbeat interval (minutes)">
+                            <Input
+                              aria-label="Heartbeat interval minutes"
+                              type="number"
+                              min={1}
+                              max={1440}
+                              value={heartbeatIntervalMin}
+                              disabled={busy}
+                              onChange={(event) => setHeartbeatIntervalMin(Number(event.target.value) || 1)}
+                            />
+                          </Field>
+                        )}
+                      </section>
                     </fieldset>
                     <RuntimeTestCard
                       variant={isDot ? "prerequisites" : "connection"}

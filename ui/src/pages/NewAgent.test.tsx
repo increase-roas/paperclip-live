@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { queryKeys } from "@/lib/queryKeys";
 import { ApiError } from "@/api/client";
 import {
-  api, envApi, settings, secrets, state, managedApi, adapterApi,
+  api, envApi, settings, secrets, state, managedApi, adapterApi, projectsApi,
   root, container, cache, settle, click, fill, render, connect, pass,
   renderCurrentParams,
 } from "./NewAgent.test-support";
@@ -173,6 +173,45 @@ describe("New agent setup", () => {
     await click("Finish setup");
     expect(api.hire.mock.calls[0][1].setupAgentId).toBe(setupId);
     expect(api.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("hires with starter instructions, a workspace project, and heartbeats on by default", async () => {
+    await render("codex_local");
+    await connect("OpenAI");
+    const template = container.querySelector('[aria-label="Starter instruction template"]') as HTMLSelectElement;
+    expect(template).toBeTruthy();
+    await act(async () => {
+      template.value = "engineer";
+      template.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await fill("Heartbeat interval minutes", "15");
+    await click("Finish setup");
+    const payload = api.hire.mock.calls[0][1];
+    expect(payload.metadata).toMatchObject({ defaultProjectId: "project-1", starterInstructions: { templateId: "engineer" } });
+    expect(payload.runtimeConfig.heartbeat).toMatchObject({ enabled: true, intervalSec: 900 });
+    expect(payload.instructionsBundle.files["AGENTS.md"]).toContain("## Role");
+    expect(payload.instructionsBundle.files["AGENTS.md"]).toContain("software engineer");
+    expect(payload.instructionsBundle.files["AGENTS.md"]).toContain("## Goals");
+    expect(payload.instructionsBundle.files["AGENTS.md"]).toContain("## Guardrails");
+  });
+
+  it("requires an explicit workspace project when the company has several", async () => {
+    projectsApi.list.mockResolvedValue([
+      { id: "project-1", companyId: "company-1", name: "Website" },
+      { id: "project-2", companyId: "company-1", name: "Mobile app" },
+    ]);
+    await render("codex_local");
+    await connect("OpenAI");
+    await click("Finish setup");
+    expect(api.hire).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("Choose the project this agent works in");
+    const workspace = container.querySelector('[aria-label="Workspace project"]') as HTMLSelectElement;
+    await act(async () => {
+      workspace.value = "project-2";
+      workspace.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await click("Finish setup");
+    expect(api.hire.mock.calls[0][1].metadata.defaultProjectId).toBe("project-2");
   });
 
   it("resumes a name-only draft at adapter selection without creating another record", async () => {
@@ -948,7 +987,7 @@ describe("New agent setup", () => {
       adapterType,
       defaultEnvironmentId: "sandbox-1",
       adapterConfig: { model, ...(adapterType === "paperclip_runner" ? { provider: "acpx", acpxAgent: "grok", acpxPermissionMode: "approve-all" } : {}) },
-      runtimeConfig: { aiConnection: binding, heartbeat: { enabled: false } },
+      runtimeConfig: { aiConnection: binding, heartbeat: { enabled: true } },
     });
     expect(JSON.stringify(api.testEnvironment.mock.calls)).not.toContain("example-test-secret");
     expect(JSON.stringify(api.hire.mock.calls)).not.toContain("example-test-secret");
@@ -1301,12 +1340,13 @@ describe("New agent setup", () => {
         name: "Atlas",
         adapterType: adapter,
         reportsTo: "ceo",
-        runtimeConfig: { heartbeat: { enabled: false } },
+        runtimeConfig: { heartbeat: { enabled: true } },
       });
       expect(container.textContent).toContain("Your agent is ready");
       await click("Assign Atlas a Task");
       expect(state.openNewIssue).toHaveBeenCalledWith({
         assigneeAgentId: api.create.mock.calls[0][1].setupId,
+        projectId: "project-1",
         status: "todo",
       });
     },
