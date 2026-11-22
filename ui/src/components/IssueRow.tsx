@@ -240,6 +240,7 @@ export function IssueRow({
 
   if (presentation === "task") {
     const refreshed = appearance === "refreshed";
+    const tableRow = refreshed && Boolean(columnValues);
     const statusLabel = getStatusIconLabel(issue.status, issue.externalConversationState, issue.blockerAttention, issue.displayStatus);
     const statusIcon = <StatusIcon {...taskStatusIconProps(issue)} size="md" className={selectedStatusClass} />;
     const status = statusSlot ?? (refreshed ? (
@@ -293,7 +294,7 @@ export function IssueRow({
           onMouseEnter={onMouseEnter}
           onMouseMove={refreshed ? handleCellHover : undefined}
           onMouseLeave={refreshed ? () => { clearHoveredCell(); setTitleFocused(false); } : undefined}
-          role={refreshed && columnValues ? "row" : undefined}
+          role={tableRow ? "row" : undefined}
           data-slot="task-row"
           data-issue-id={issue.id}
           data-issue-row-details={issue.id}
@@ -317,10 +318,11 @@ export function IssueRow({
             className,
           )}
         >
-          {taskLink}
+          {tableRow ? <span role="cell" className="contents">{taskLink}</span> : taskLink}
 
           {showUnreadSlot ? (
             <span
+              role={tableRow ? "cell" : undefined}
               data-testid="issue-row-unread-slot"
               className="absolute left-0 top-3 inline-flex h-4 w-4 items-center justify-center sm:top-1/2 sm:-translate-y-1/2"
             >
@@ -411,14 +413,15 @@ export function IssueRow({
           </span>
 
           <span
+            role={tableRow ? "presentation" : undefined}
             data-slot="task-row-trailing"
             className="ml-auto hidden min-w-0 shrink-0 items-center gap-2 sm:flex"
           >
-            {refreshed && columnValues ? (
+            {tableRow ? (
               <>
-                <TaskRowColumnCells identifier={identifier} values={columnValues} />
-                {actions ? <span data-slot="task-row-actions" className="flex shrink-0 items-center gap-1">{actions}</span> : null}
-                {onArchive ? <InboxArchiveButton onArchive={onArchive} disabled={archiveDisabled} compact /> : null}
+                <TaskRowColumnCells identifier={identifier} values={columnValues!} />
+                {actions ? <span role="cell" data-slot="task-row-actions" className="flex shrink-0 items-center gap-1">{actions}</span> : null}
+                {onArchive ? <span role="cell" className="contents"><InboxArchiveButton onArchive={onArchive} disabled={archiveDisabled} compact /></span> : null}
               </>
             ) : (
               <>

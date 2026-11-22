@@ -1,4 +1,4 @@
-import { createContext, useContext, useId, type CSSProperties, type ReactNode } from "react";
+import { createContext, useContext, useId, useState, type CSSProperties, type ReactNode } from "react";
 import { DndContext, PointerSensor, closestCenter, pointerWithin, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -15,6 +15,9 @@ export type { TaskListColumnId, TaskListSort } from "../lib/task-list";
 
 const ColumnContext = createContext({ columns: defaultTaskListColumns, order: allTaskListColumns });
 export const useTaskListColumns = () => useContext(ColumnContext).columns;
+
+/** dnd-kit's live region must not sit directly under the table role; mount it outside. */
+const DndLiveRegionContext = createContext<HTMLElement | null>(null);
 
 function columnLayout(visibleColumns: readonly TaskListColumnId[], hasControls: boolean): CSSProperties {
   const columns = visibleColumns.map(id => taskListColumns.find(column => column.id === id)!);
@@ -39,13 +42,19 @@ export function TaskListViewport({ children, visibleColumns = defaultTaskListCol
   controls?: ReactNode;
 }) {
   const { scrollRef, contentRef, edges } = useHorizontalScrollEdges();
+  const [liveRegionContainer, setLiveRegionContainer] = useState<HTMLDivElement | null>(null);
   const orderedColumns = columnOrder.filter(id => visibleColumns.includes(id));
 
   return (
     <ColumnContext.Provider value={{ columns: orderedColumns, order: columnOrder }}>
-      <div role="table" aria-label="Task list" data-slot="task-list-viewport" data-overflow-left={edges.left} data-overflow-right={edges.right} className="task-list-viewport" style={columnLayout(orderedColumns, Boolean(controls))}>
+      <div data-slot="task-list-viewport" data-overflow-left={edges.left} data-overflow-right={edges.right} className="task-list-viewport" style={columnLayout(orderedColumns, Boolean(controls))}>
+        <div ref={setLiveRegionContainer} data-slot="task-list-live-region" />
         <div ref={scrollRef} role="region" aria-label="Task list columns" tabIndex={0} className="task-list-columns-scroll">
-          <div ref={contentRef} className="task-list-columns-content">{children}</div>
+          <div ref={contentRef} className="task-list-columns-content">
+            <DndLiveRegionContext.Provider value={liveRegionContainer}>
+              <div role="table" aria-label="Task list">{children}</div>
+            </DndLiveRegionContext.Provider>
+          </div>
         </div>
         {controls ? <div className="task-list-header-controls">{controls}</div> : null}
       </div>
@@ -123,6 +132,7 @@ export function TaskListColumnHeader({ sort, onSortChange, onColumnOrderChange }
   onColumnOrderChange?: (columns: readonly TaskListColumnId[]) => void;
 }) {
   const { columns, order } = useContext(ColumnContext);
+  const liveRegionContainer = useContext(DndLiveRegionContext);
   const helpId = useId();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   return (
@@ -131,7 +141,7 @@ export function TaskListColumnHeader({ sort, onSortChange, onColumnOrderChange }
       return targets.length ? targets : closestCenter(args);
     }} onDragEnd={({ active, over }) => {
       if (over) onColumnOrderChange?.(reorderTaskListColumns(order, active.id as TaskListColumnId, over.id as TaskListColumnId));
-    }} accessibility={{ screenReaderInstructions: { draggable: "Click to sort. Drag horizontally to reorder, or use Alt plus Left or Right Arrow." } }}>
+    }} accessibility={{ container: liveRegionContainer ?? undefined, screenReaderInstructions: { draggable: "Click to sort. Drag horizontally to reorder, or use Alt plus Left or Right Arrow." } }}>
       <span id={helpId} className="sr-only">Drag to reorder columns, or use Alt plus Left or Right Arrow. Click to sort.</span>
       <SortableContext items={[...columns]} strategy={horizontalListSortingStrategy}>
         <div role="row" data-slot="task-list-column-header" className="task-list-column-header">
