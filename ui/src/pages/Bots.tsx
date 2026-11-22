@@ -10,6 +10,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { ToolbarSearch } from "@/components/ToolbarSearch";
 import { Link, useNavigate } from "@/lib/router";
 import { botStatusLabel } from "@/lib/bot-status";
+import { formatDateTime } from "@/lib/utils";
 import { useCompany } from "@/context/CompanyContext";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
 import { queryKeys } from "@/lib/queryKeys";
@@ -27,6 +28,29 @@ function GatewayLine({ bot }: { bot: CompanyBotSummary }) {
   }
   if (!bot.registered) return null;
   return <span className="text-xs text-muted-foreground">Gateway key not linked.</span>;
+}
+
+/** Routine count and recent activity, so the roster answers "what is it doing?" */
+function ActivityLine({ bot }: { bot: CompanyBotSummary }) {
+  if (!bot.registered) return null;
+  const routines =
+    bot.routineCount === 0 ? "No routines" : `${bot.routineCount} routine${bot.routineCount === 1 ? "" : "s"}`;
+  const parsed = bot.lastActivityAt ? new Date(bot.lastActivityAt) : null;
+  return (
+    <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+      <span>{routines}</span>
+      {parsed && !Number.isNaN(parsed.getTime()) ? (
+        <span>
+          Last activity{" "}
+          <time dateTime={bot.lastActivityAt ?? undefined} className="font-mono">
+            {formatDateTime(parsed)}
+          </time>
+        </span>
+      ) : (
+        <span>No activity yet</span>
+      )}
+    </span>
+  );
 }
 
 function BotRow({ bot }: { bot: CompanyBotSummary }) {
@@ -47,6 +71,7 @@ function BotRow({ bot }: { bot: CompanyBotSummary }) {
           {bot.purpose ?? bot.note ?? (bot.registered ? "No purpose recorded yet." : null)}
         </span>
         <GatewayLine bot={bot} />
+        <ActivityLine bot={bot} />
       </Link>
     </li>
   );

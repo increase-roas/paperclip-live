@@ -96,6 +96,10 @@ export interface CompanyBotSummary {
   gateway: BotGatewayLink | null;
   note: string | null;
   updatedAt: string | null;
+  /** Routines assigned to the bot's agent, including paused and archived ones. */
+  routineCount: number;
+  /** Latest activity-log entry or heartbeat run, so the roster can show recency. */
+  lastActivityAt: string | null;
 }
 
 export interface BotRoutineTrigger {

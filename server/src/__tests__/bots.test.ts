@@ -274,6 +274,51 @@ describePostgres("bots", () => {
     expect(JSON.stringify(response.body)).not.toContain("must-not-be-returned");
   });
 
+  it("summarizes routine counts and latest activity per bot on the roster", async () => {
+    const company = await createCompany(db, "Totals");
+    const busy = await createAgent(db, company.id, {
+      name: "Busy Bot",
+      metadata: { grokBotTwin: true, bot: { purpose: "Schedules the week." } },
+    });
+    await createAgent(db, company.id, {
+      name: "Quiet Bot",
+      metadata: { agentKind: "bot", bot: { purpose: "Waits for work." } },
+    });
+    await db.insert(routines).values([
+      { companyId: company.id, title: "Weekly review", assigneeAgentId: busy.id },
+      { companyId: company.id, title: "Monthly report", assigneeAgentId: busy.id },
+    ]);
+    await db.insert(activityLog).values({
+      companyId: company.id,
+      actorType: "agent",
+      actorId: busy.id,
+      action: "agent.heartbeat",
+      entityType: "agent",
+      entityId: busy.id,
+      agentId: busy.id,
+      createdAt: new Date("2026-11-20T10:00:00.000Z"),
+    });
+    // A finished run newer than the activity entry is the bot's latest activity.
+    await db.insert(heartbeatRuns).values({
+      companyId: company.id,
+      agentId: busy.id,
+      status: "succeeded",
+      startedAt: new Date("2026-11-21T11:00:00.000Z"),
+    });
+
+    const app = await createApp(db, boardActor(company.id));
+    const response = await request(app).get(`/api/companies/${company.id}/bots`).expect(200);
+    const busySummary = response.body.bots.find((bot: { name: string }) => bot.name === "Busy Bot");
+    expect(busySummary).toMatchObject({ routineCount: 2, lastActivityAt: "2026-11-21T11:00:00.000Z" });
+    const quietSummary = response.body.bots.find((bot: { name: string }) => bot.name === "Quiet Bot");
+    expect(quietSummary).toMatchObject({ routineCount: 0, lastActivityAt: null });
+
+    // The detail page carries the same summary fields alongside its sections.
+    const detail = await request(app).get(`/api/companies/${company.id}/bots/${busy.id}`).expect(200);
+    expect(detail.body).toMatchObject({ routineCount: 2, lastActivityAt: "2026-11-21T11:00:00.000Z" });
+    expect(detail.body.routines).toHaveLength(2);
+  });
+
   it("drops a half-filled gateway link instead of guessing", async () => {
     const company = await createCompany(db, "Incomplete");
     await createAgent(db, company.id, {

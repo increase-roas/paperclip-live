@@ -56,6 +56,8 @@ const researchBot: CompanyBotSummary = {
   gateway: { keyId: "gk_live_research", policy: "researcher", provider: "increase-roas-oauth-gateway" },
   note: null,
   updatedAt: "2026-11-21T12:00:00.000Z",
+  routineCount: 2,
+  lastActivityAt: "2026-11-22T09:15:00.000Z",
 };
 
 const funnelCatalogBot: CompanyBotSummary = {
@@ -74,6 +76,8 @@ const funnelCatalogBot: CompanyBotSummary = {
   gateway: null,
   note: "Runs on the gateway website-builder policy with the full GHL scope set.",
   updatedAt: null,
+  routineCount: 0,
+  lastActivityAt: null,
 };
 
 /**
@@ -98,6 +102,8 @@ function catalogFixture(known: (typeof KNOWN_GATEWAY_BOTS)[number]): CompanyBotS
     gateway: null,
     note: known.note,
     updatedAt: null,
+    routineCount: 0,
+    lastActivityAt: null,
   };
 }
 
@@ -169,6 +175,27 @@ describe("Bots", () => {
     expect(unregistered?.textContent).toContain("Funnel Builder");
     expect(unregistered?.textContent).toContain("Runs on the gateway website-builder policy");
     expect(unregistered?.textContent).toContain("Not registered");
+  });
+
+  it("shows each registered bot's routine count and last activity in the roster", async () => {
+    listMock.mockResolvedValue({
+      bots: [
+        researchBot,
+        { ...researchBot, id: "agent-2", agentId: "agent-2", name: "Quiet Bot", routineCount: 0, lastActivityAt: null },
+        funnelCatalogBot,
+      ],
+    });
+
+    await render(<Bots />);
+
+    const registered = container.querySelector('[data-bots-section="registered-bots"]');
+    expect(registered?.textContent).toContain("2 routines");
+    expect(registered?.textContent).toContain("Last activity");
+    expect(registered?.textContent).toContain("No routines");
+    expect(registered?.textContent).toContain("No activity yet");
+    // A known bot with no agent row has no routines or activity to report.
+    const unregistered = container.querySelector('[data-bots-section="not-registered-yet"]');
+    expect(unregistered?.textContent).not.toContain("No activity yet");
   });
 
   it("finds a known bot by the note that describes its work", async () => {

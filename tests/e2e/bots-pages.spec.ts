@@ -27,6 +27,15 @@ async function createBotCompany(request: APIRequestContext, name = "Increase Roa
     }),
   );
   await request.post(`/api/agents/${agent.id}/pause`);
+  await json(
+    await request.post(`/api/companies/${company.id}/routines`, {
+      data: {
+        title: "Weekly posting review",
+        description: "Review the queue every Monday.",
+        assigneeAgentId: agent.id,
+      },
+    }),
+  );
   return { company, agent };
 }
 
@@ -49,7 +58,10 @@ for (const viewport of [
     await page.goto(`/${company.issuePrefix}/bots`);
     await expect(page.getByText("Every bot this company runs", { exact: false }).first()).toBeVisible();
     await expect(page.locator('a[href$="/bots/catalog:funnel-builder"]')).toBeVisible();
-    await expect(page.locator('a[href*="/bots/"]').filter({ hasText: "Posting Twin" })).toBeVisible();
+    const postingRow = page.locator('a[href*="/bots/"]').filter({ hasText: "Posting Twin" });
+    await expect(postingRow).toBeVisible();
+    await expect(postingRow).toContainText("1 routine");
+    await expect(postingRow).toContainText("No activity yet");
     await expectNoHorizontalOverflow(page);
 
     // A known gateway bot with no agent row still gets the full five-section page.
@@ -69,6 +81,8 @@ for (const viewport of [
     await expect(page.getByText("gk_live_posting")).toBeVisible();
     await expect(page.getByText("posting", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("Registered in this company.", { exact: false }).first()).toBeVisible();
+    await expect(page.getByText("Weekly posting review")).toBeVisible();
+    await expect(page.getByText("No recorded activity.", { exact: false }).first()).toBeVisible();
     await expectNoHorizontalOverflow(page);
 
     // Search that matches nothing explains how to get back to the roster.

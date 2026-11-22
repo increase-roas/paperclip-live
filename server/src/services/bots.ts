@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { activityLog, agents, companies, heartbeatRuns, routineTriggers, routines } from "@paperclipai/db";
 import {
@@ -30,7 +30,12 @@ type AgentRow = typeof agents.$inferSelect;
  * and policies come from metadata; secret values are never read.
  */
 export function botsService(db: Db) {
-  function toSummary(agent: AgentRow): CompanyBotSummary {
+  interface BotTotals {
+    routineCount: number;
+    lastActivityAt: string | null;
+  }
+
+  function toSummary(agent: AgentRow, totals: BotTotals | undefined): CompanyBotSummary {
     const bot = readBotMetadata(agent.metadata);
     return {
       id: agent.id,
@@ -48,6 +53,8 @@ export function botsService(db: Db) {
       gateway: bot.gateway,
       note: null,
       updatedAt: agent.updatedAt ? agent.updatedAt.toISOString() : null,
+      routineCount: totals?.routineCount ?? 0,
+      lastActivityAt: totals?.lastActivityAt ?? null,
     };
   }
 
@@ -68,12 +75,73 @@ export function botsService(db: Db) {
       gateway: null,
       note: known.note,
       updatedAt: null,
+      routineCount: 0,
+      lastActivityAt: null,
     };
   }
 
   async function listBotAgents(companyId: string): Promise<AgentRow[]> {
     const rows = await db.select().from(agents).where(eq(agents.companyId, companyId));
     return rows.filter((agent) => isBotAgentMetadata(agent.metadata));
+  }
+
+  /**
+   * Routine counts and the latest activity timestamp for every bot agent in
+   * one pass, so the roster does not run a query per row.
+   */
+  async function totalsForAgents(companyId: string, agentIds: string[]): Promise<Map<string, BotTotals>> {
+    const totals = new Map<string, BotTotals>();
+    if (agentIds.length === 0) return totals;
+
+    const [routineRows, activityRows, runRows] = await Promise.all([
+      db
+        .select({ agentId: routines.assigneeAgentId, count: sql<number>`count(*)::int` })
+        .from(routines)
+        .where(and(eq(routines.companyId, companyId), inArray(routines.assigneeAgentId, agentIds)))
+        .groupBy(routines.assigneeAgentId),
+      db
+        .select({ agentId: activityLog.agentId, latestAt: sql<Date | string | null>`max(${activityLog.createdAt})` })
+        .from(activityLog)
+        .where(and(eq(activityLog.companyId, companyId), inArray(activityLog.agentId, agentIds)))
+        .groupBy(activityLog.agentId),
+      db
+        .select({
+          agentId: heartbeatRuns.agentId,
+          latestAt: sql<Date | string | null>`max(coalesce(${heartbeatRuns.startedAt}, ${heartbeatRuns.createdAt}))`,
+        })
+        .from(heartbeatRuns)
+        .where(and(eq(heartbeatRuns.companyId, companyId), inArray(heartbeatRuns.agentId, agentIds)))
+        .groupBy(heartbeatRuns.agentId),
+    ]);
+
+    // `max()` has an unknown result type, so the driver returns a string
+    // instead of the Date it returns for a plain timestamp column.
+    const toDate = (value: Date | string | null): Date | null => {
+      if (value === null) return null;
+      const parsed = value instanceof Date ? value : new Date(value);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
+    const latest = new Map<string, Date>();
+    for (const row of [...activityRows, ...runRows]) {
+      if (!row.agentId) continue;
+      const value = toDate(row.latestAt);
+      if (!value) continue;
+      const current = latest.get(row.agentId);
+      if (!current || value.getTime() > current.getTime()) latest.set(row.agentId, value);
+    }
+
+    for (const agentId of agentIds) {
+      totals.set(agentId, {
+        routineCount: 0,
+        lastActivityAt: latest.get(agentId)?.toISOString() ?? null,
+      });
+    }
+    for (const row of routineRows) {
+      if (!row.agentId) continue;
+      const entry = totals.get(row.agentId);
+      if (entry) entry.routineCount = row.count;
+    }
+    return totals;
   }
 
   async function list(companyId: string): Promise<CompanyBotSummary[]> {
@@ -83,7 +151,8 @@ export function botsService(db: Db) {
       .where(eq(companies.id, companyId))
       .limit(1);
     const agentsForCompany = await listBotAgents(companyId);
-    const bots = agentsForCompany.map(toSummary);
+    const totals = await totalsForAgents(companyId, agentsForCompany.map((agent) => agent.id));
+    const bots = agentsForCompany.map((agent) => toSummary(agent, totals.get(agent.id)));
     const registeredSlugs = new Set(bots.flatMap((bot) => [bot.slug, botSlug(bot.name)]));
     const registeredNames = new Set(bots.map((bot) => bot.name.toLowerCase()));
     for (const known of company ? knownGatewayBotsForCompany(company.name) : []) {
