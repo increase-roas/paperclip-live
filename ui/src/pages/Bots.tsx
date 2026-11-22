@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Bot, SearchX } from "lucide-react";
-import type { CompanyBotSummary, SuggestedAgentBot } from "@paperclipai/shared";
+import type { BotRegistrationPlan, CompanyBotSummary, SuggestedAgentBot } from "@paperclipai/shared";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/EmptyState";
@@ -84,6 +85,49 @@ function SuggestedAgentSection({ agents }: { agents: SuggestedAgentBot[] }) {
   );
 }
 
+/**
+ * Read-only preview of the agent rows that catalog-bot registration would
+ * create. Applying needs the operator runbook (`pnpm bots:register --apply`),
+ * so the action here stays disabled on purpose.
+ */
+function RegistrationPlanSection({ plan }: { plan: BotRegistrationPlan | undefined }) {
+  if (!plan || plan.entries.length === 0) return null;
+  return (
+    <section aria-label="Registration plan" data-bots-registration-plan="">
+      <h3 className="mb-2 text-sm font-semibold text-foreground">
+        Registration plan{" "}
+        <span className="font-normal text-muted-foreground">
+          ({plan.creates} to create{plan.skips > 0 ? `, ${plan.skips} skipped` : ""})
+        </span>
+      </h3>
+      <p className="mb-2 text-xs text-muted-foreground">
+        Read-only. Registering creates a paused Hermes agent for each bot below, so it is not done from this page. The
+        operator runbook is in <code className="font-mono">doc/bots.md</code> under “Registering a catalog bot”.
+      </p>
+      <ul>
+        {plan.entries.map((entry) => (
+          <li key={entry.slug} className="flex flex-col gap-1 border-b border-border px-2 py-2 last:border-b-0">
+            <span className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline">{entry.action === "create" ? "Would create" : "Skipped"}</Badge>
+              <span className="text-sm font-medium text-foreground">{entry.name}</span>
+              <span className="font-mono text-xs text-muted-foreground">{entry.slug}</span>
+            </span>
+            <span className="text-xs text-muted-foreground">{entry.reason}</span>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Button variant="outline" disabled aria-describedby="bots-registration-disabled-reason">
+          Apply registration
+        </Button>
+        <span id="bots-registration-disabled-reason" className="text-xs text-muted-foreground">
+          Owner-only. Run <code className="font-mono">pnpm bots:register -- --apply</code> after Alex approves.
+        </span>
+      </div>
+    </section>
+  );
+}
+
 function BotSection({ title, bots }: { title: string; bots: CompanyBotSummary[] }) {
   if (bots.length === 0) return null;
   return (
@@ -141,6 +185,12 @@ export function Bots() {
     enabled: Boolean(selectedCompanyId),
   });
   const botsView = useQueryView(botsQuery);
+  const registrationQuery = useQuery({
+    queryKey: queryKeys.bots.registration(selectedCompanyId),
+    queryFn: () => botsApi.registration(selectedCompanyId!),
+    enabled: Boolean(selectedCompanyId),
+    retry: false,
+  });
 
   const bots = botsView.data?.bots ?? [];
   const suggestedAgents = botsView.data?.suggestedAgents ?? [];
@@ -244,6 +294,7 @@ export function Bots() {
             <BotSection title="Registered bots" bots={registered} />
             <BotSection title="Not registered yet" bots={unregistered} />
             <SuggestedAgentSection agents={suggestedAgents} />
+            <RegistrationPlanSection plan={registrationQuery.data} />
           </CardContent>
         </Card>
       )}

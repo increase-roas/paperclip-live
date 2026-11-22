@@ -59,8 +59,9 @@ pnpm bots:register -- --company <companyId> --apply  # create the rows
 - `apply` is idempotent: the slug check runs inside the inserting transaction, so
   a second run — or a concurrent one — creates nothing twice, and an existing
   agent's metadata is never overwritten.
-- `GET /api/companies/:companyId/bots/registration` returns the same plan,
-  read-only, for a future UI action.
+- `GET /api/companies/:companyId/bots/registration` returns the same plan, and
+  the Bots page shows it under **Registration plan** with the apply action
+  disabled: applying stays an operator step with the runbook.
 
 ## Pages for untagged Hermes agents
 

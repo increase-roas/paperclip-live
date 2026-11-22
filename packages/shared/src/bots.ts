@@ -40,14 +40,14 @@ export const KNOWN_GATEWAY_BOTS = [
     slug: "kiwi",
     name: "Kiwi",
     purpose: null,
-    note: "No agent, gateway key id or policy recorded in Paperclip yet.",
+    note: "TODO: no recorded purpose. This bot has no agent, gateway key or policy in Paperclip, and no source in the repo or ops notes describes what it does. Add bot.purpose to its metadata once Alex confirms it.",
   },
   {
     company: "Increase Roas",
     slug: "dr-eggbot",
     name: "dr eggbot",
     purpose: null,
-    note: "No agent, gateway key id or policy recorded in Paperclip yet.",
+    note: "TODO: no recorded purpose. This bot has no agent, gateway key or policy in Paperclip, and no source in the repo or ops notes describes what it does. Add bot.purpose to its metadata once Alex confirms it.",
   },
   {
     company: "Increase Roas",
@@ -218,6 +218,31 @@ export function readBotMetadata(metadata: unknown): {
     transport: cleanString(block.transport, MAX_NAME),
     gateway,
   };
+}
+
+/** One planned agent row for a catalog bot registration. */
+export interface BotRegistrationEntry {
+  slug: string;
+  name: string;
+  action: "create" | "skip";
+  reason: string;
+  agent: {
+    name: string;
+    role: string;
+    title: string | null;
+    adapterType: string;
+    status: string;
+    metadata: { agentKind: "bot"; bot: { purpose: string | null; transport: string } };
+  } | null;
+}
+
+/** Read-only registration plan for a company's catalog bots. */
+export interface BotRegistrationPlan {
+  companyId: string;
+  companyName: string | null;
+  entries: BotRegistrationEntry[];
+  creates: number;
+  skips: number;
 }
 
 export function knownGatewayBotsForCompany(companyName: string): KnownGatewayBot[] {
