@@ -276,6 +276,41 @@ describe("Bots", () => {
     expect(text).not.toContain("Open agent");
   });
 
+  it("opens a recent run from the bot page", async () => {
+    params.botId = "agent-1";
+    getMock.mockResolvedValue({
+      ...researchBot,
+      routines: [],
+      recentActivity: [
+        {
+          id: "run-1",
+          action: "run.succeeded",
+          entityType: "heartbeat_run",
+          entityId: "run-1",
+          createdAt: "2026-11-21T11:00:00.000Z",
+          source: "run",
+        },
+        {
+          id: "activity-1",
+          action: "agent.heartbeat",
+          entityType: "agent",
+          entityId: "agent-1",
+          createdAt: "2026-11-21T12:00:00.000Z",
+          source: "activity",
+        },
+      ],
+    });
+
+    await render(<BotDetail />);
+
+    const runLink = [...container.querySelectorAll("a")].find((anchor) =>
+      anchor.textContent?.includes("View run"),
+    );
+    expect(runLink).toBeTruthy();
+    expect(runLink?.getAttribute("href")).toBe("/agents/agent-1/runs/run-1");
+    expect([...container.querySelectorAll("a")].filter((anchor) => anchor.textContent?.includes("View run"))).toHaveLength(1);
+  });
+
   it("lists Hermes agents that are not tagged as bots", async () => {
     listMock.mockResolvedValue({
       bots: [researchBot],

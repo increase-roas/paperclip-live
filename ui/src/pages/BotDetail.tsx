@@ -317,6 +317,14 @@ export function BotDetail() {
                       <span className="min-w-0 break-all text-muted-foreground">
                         {entry.entityType} {entry.entityId}
                       </span>
+                      {entry.source === "run" && bot.agentId ? (
+                        <Link
+                          to={`/agents/${bot.agentId}/runs/${entry.entityId}`}
+                          className="rounded-sm font-medium text-foreground underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          View run
+                        </Link>
+                      ) : null}
                     </span>
                     <span className="text-muted-foreground sm:ml-auto">
                       <Timestamp value={entry.createdAt} />
