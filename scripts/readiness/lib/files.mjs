@@ -125,32 +125,44 @@ export function listFiles({
   return results.sort();
 }
 
-export function gitTrackedFiles() {
-  // Include untracked, non-ignored files so local checks see work in progress
-  // before it is staged. CI has only tracked files, so the behavior matches.
-  const result = spawnSync(
-    "git",
-    ["ls-files", "-z", "--cached", "--others", "--exclude-standard"],
-    { cwd: repoRoot, encoding: "utf8" },
-  );
-  if (result.status !== 0) return null;
-  return result.stdout
+function runGitPathList(args, cwd, spawn) {
+  const attempt = (gitArgs) => spawn("git", gitArgs, { cwd, encoding: "utf8" });
+  let result = attempt(args);
+  if (result.status !== 0 && /dubious ownership/i.test(String(result.stderr ?? ""))) {
+    // Worktrees and shared clones are often owned by another user. Git only
+    // blocks the lookup, so retry with this checkout as an explicit exception.
+    result = attempt(["-c", `safe.directory=${cwd}`, ...args]);
+  }
+  if (result.status !== 0) {
+    const reason = String(result.stderr ?? "").trim() || `git exited with status ${result.status}`;
+    throw new Error(`git ${args[0]} failed in ${cwd}: ${reason}`);
+  }
+  return String(result.stdout ?? "")
     .split("\0")
     .filter(Boolean)
-    .map((filePath) => resolve(repoRoot, filePath));
+    .map((filePath) => resolve(cwd, filePath));
+}
+
+/**
+ * Lists the repository's files through Git.
+ *
+ * Include untracked, non-ignored files so local checks see work in progress
+ * before it is staged. CI has only tracked files, so the behavior matches.
+ */
+export function listGitFiles(cwd, { spawn = spawnSync } = {}) {
+  const files = runGitPathList(["ls-files", "-z", "--cached", "--others", "--exclude-standard"], cwd, spawn);
+  if (files.length === 0) {
+    throw new Error(`git ls-files returned no files in ${cwd}; readiness checks need the repository file list`);
+  }
+  return files;
+}
+
+export function gitTrackedFiles() {
+  return listGitFiles(repoRoot);
 }
 
 export function stagedFiles() {
-  const result = spawnSync(
-    "git",
-    ["diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z"],
-    { cwd: repoRoot, encoding: "utf8" },
-  );
-  if (result.status !== 0) return null;
-  return result.stdout
-    .split("\0")
-    .filter(Boolean)
-    .map((filePath) => resolve(repoRoot, filePath));
+  return runGitPathList(["diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z"], repoRoot, spawnSync);
 }
 
 export function changedFilesSince(base) {
