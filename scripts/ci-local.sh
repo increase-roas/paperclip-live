@@ -185,8 +185,9 @@ rm -f "$OUT_DIR"/logs/*.log "$OUT_DIR"/status/* "$OUT_DIR/summary.json"
 # this run off any developer database and out of the telemetry stream.
 export CI=1
 export TURBO_TELEMETRY_DISABLED=1
-export PAPERCLIP_TELEMETRY_DISABLED=1
-export DO_NOT_TRACK=1
+# Do not disable Paperclip telemetry here: the suite asserts its own opt-out
+# behavior, and an inherited flag would change those tests instead of proving
+# the product.
 unset DATABASE_URL
 
 echo "[ci-local] head $HEAD_SHORT; ${#PLAN[@]} steps; concurrency $CONCURRENCY"
@@ -242,14 +243,18 @@ const plan = process.argv.slice(3).map((entry) => {
   return { name, category };
 });
 
+// A group can run more than one Vitest project (or several chat workers), and
+// each prints its own summary. Sum every summary line so the counts cover the
+// whole step.
 const parseCounts = (text, label) => {
-  const line = text.split("\n").reverse()
-    .find((candidate) => new RegExp(`^\\s*${label}\\s`).test(candidate));
   const counts = { passed: 0, failed: 0, skipped: 0 };
-  if (!line) return counts;
-  for (const match of line.matchAll(/(\d+) (passed|failed|skipped|todo)/g)) {
-    const state = match[2] === "todo" ? "skipped" : match[2];
-    counts[state] += Number(match[1]);
+  const pattern = new RegExp(`^\\s*${label}\\s`);
+  for (const line of text.split("\n")) {
+    if (!pattern.test(line)) continue;
+    for (const match of line.matchAll(/(\d+) (passed|failed|skipped|todo)/g)) {
+      const state = match[2] === "todo" ? "skipped" : match[2];
+      counts[state] += Number(match[1]);
+    }
   }
   return counts;
 };
