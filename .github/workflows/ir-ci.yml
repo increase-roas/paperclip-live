@@ -1,4 +1,8 @@
-# Increase ROAS CI on GitHub-hosted runners. Runs Paperclip's own commands
+# Increase ROAS CI. Runs on the self-hosted runner on the Paperclip VPS by
+# default (GitHub-hosted minutes are disabled by the org budget). To go back to
+# GitHub-hosted runners, set the repo variable IR_RUNS_ON to the JSON string
+# "ubuntu-latest" (keep the double quotes; the value goes through fromJSON).
+# Runs Paperclip's own commands
 # from package.json / doc/DEVELOPING.md: install, build, typecheck, tests.
 # (Upstream's pr.yml calls Paperclip's pr-trusted.yml, which needs Paperclip's
 # private runner fleet and secrets, so ir-guard keeps it switched off here.
@@ -30,7 +34,7 @@ env:
 jobs:
   changes:
     name: detect changed paths
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.IR_RUNS_ON || '["self-hosted","paperclip-vps"]') }}
     timeout-minutes: 5
     outputs:
       code: ${{ steps.filter.outputs.code }}
@@ -63,7 +67,7 @@ jobs:
     name: build + typecheck
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.IR_RUNS_ON || '["self-hosted","paperclip-vps"]') }}
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
@@ -80,12 +84,14 @@ jobs:
     name: test (${{ matrix.mode }}${{ matrix.mode == 'serialized' && format(' {0}/{1}', matrix.shard_number, matrix.shard_count) || '' }})
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.IR_RUNS_ON || '["self-hosted","paperclip-vps"]') }}
     # Six serialized shards plus one general job; 120 minutes was the single-job
     # ceiling before sharding.
     timeout-minutes: 90
     strategy:
       fail-fast: false
+      # One VPS runner serves this repo; do not queue more than two shards at once.
+      max-parallel: 2
       matrix:
         include:
           - mode: general
@@ -112,14 +118,14 @@ jobs:
 
   ir-scripts:
     name: IR files
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.IR_RUNS_ON || '["self-hosted","paperclip-vps"]') }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Shell and workflow lint
         run: |
           shellcheck scripts/ir/*.sh docker/increase-roas/*.sh
-          pip install --quiet yamllint
+          command -v yamllint >/dev/null || pip install --quiet yamllint
           yamllint -d '{extends: relaxed, rules: {line-length: disable}}' .github/workflows/ir-*.yml .github/actions/ir-setup/action.yml
       - name: Upstream sync dry run
         env:
@@ -134,7 +140,7 @@ jobs:
     name: IR CI passed
     if: always()
     needs: [changes, build, test, ir-scripts]
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.IR_RUNS_ON || '["self-hosted","paperclip-vps"]') }}
     steps:
       - name: Aggregate the required jobs
         shell: bash
