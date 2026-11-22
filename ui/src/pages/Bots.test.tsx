@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { KNOWN_GATEWAY_BOTS } from "@paperclipai/shared";
 import type { CompanyBotDetail, CompanyBotSummary } from "@paperclipai/shared";
+import { catalogGatewayLink } from "@paperclipai/shared";
 import { ApiError } from "@/api/client";
 import { Bots } from "./Bots";
 import { BotDetail } from "./BotDetail";
@@ -94,7 +95,7 @@ function catalogFixture(known: (typeof KNOWN_GATEWAY_BOTS)[number]): CompanyBotS
     id: `catalog:${known.slug}`,
     slug: known.slug,
     name: known.name,
-    purpose: null,
+    purpose: known.purpose,
     kind: "gateway",
     registered: false,
     agentId: null,
@@ -103,7 +104,7 @@ function catalogFixture(known: (typeof KNOWN_GATEWAY_BOTS)[number]): CompanyBotS
     status: "unregistered",
     adapterType: null,
     grokBotTwin: false,
-    gateway: null,
+    gateway: catalogGatewayLink(known),
     note: known.note,
     updatedAt: null,
   };
@@ -517,6 +518,19 @@ describe("Bots", () => {
     }
   });
 
+  it("names the gateway policy a catalog bot ships with and says the key id is missing", async () => {
+    const driveOrganizer = KNOWN_GATEWAY_BOTS.find((known) => known.slug === "drive-organizer")!;
+    params.botId = "catalog:drive-organizer";
+    getMock.mockResolvedValue({ ...catalogFixture(driveOrganizer), routines: [], recentActivity: [] });
+
+    await render(<BotDetail />);
+
+    expect(container.textContent).toContain("Gateway key and policy");
+    expect(container.textContent).toContain("drive-organizer");
+    expect(container.textContent).toContain("Key id not recorded");
+    expect(container.textContent).toContain("Policy from the gateway preset this bot ships with");
+  });
+
   it("renders the five bot sections on every known gateway bot page", async () => {
     for (const known of KNOWN_GATEWAY_BOTS) {
       params.botId = `catalog:${known.slug}`;
@@ -537,7 +551,10 @@ describe("Bots", () => {
       expect(text).toContain("Status");
       expect(text).toContain("Recent activity");
       expect(text).toContain(known.note);
-      expect(text).toContain("No gateway key is linked to this bot yet.");
+      // The page names the gateway preset the bot ships with, and still says the
+      // key id is missing (the gateway only keeps a hash of the key).
+      expect(text).toContain(known.slug);
+      expect(text).toContain("Key id not recorded");
       expect(text).toContain("No routines assigned.");
       expect(text).toContain("No recorded activity.");
     }

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   agentGatewayLinkFromConfig,
+  catalogGatewayLink,
   gatewayPolicyFromBaseUrl,
+  KNOWN_GATEWAY_BOTS,
   readBotMetadata,
 } from "./bots.js";
 
@@ -138,5 +140,24 @@ describe("bot metadata gateway links", () => {
     expect(
       readBotMetadata({ bot: { gateway: { policy: "researcher" } } }).gateway,
     ).toBeNull();
+  });
+});
+
+describe("catalog gateway link", () => {
+  it("names the policy preset every known bot ships with and never a key id", () => {
+    for (const known of KNOWN_GATEWAY_BOTS) {
+      expect(known.policy, `${known.name} should name its gateway preset`).toBe(known.slug);
+      expect(catalogGatewayLink(known)).toEqual({
+        keyId: null,
+        policy: known.slug,
+        provider: "gateway",
+        source: "catalog_preset",
+      });
+    }
+  });
+
+  it("returns no link when a bot has no preset, so the page keeps its honest empty state", () => {
+    expect(catalogGatewayLink({ slug: "unpreset-bot", policy: null })).toBeNull();
+    expect(catalogGatewayLink({ slug: "unpreset-bot" })).toBeNull();
   });
 });

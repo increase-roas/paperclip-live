@@ -4,6 +4,7 @@ import { activityLog, agents, companies, heartbeatRuns, routineTriggers, routine
 import {
   agentGatewayLinkFromConfig,
   botSlug,
+  catalogGatewayLink,
   findKnownGatewayBot,
   isBotAgentMetadata,
   knownGatewayBotsForCompany,
@@ -77,7 +78,7 @@ export function botsService(db: Db) {
       adapterType: null,
       grokBotTwin: false,
       taggedAsBot: false,
-      gateway: null,
+      gateway: catalogGatewayLink(known),
       note: known.note,
       updatedAt: null,
     };

@@ -344,6 +344,11 @@ export function BotDetail() {
                   add it to the agent&apos;s metadata under bot.gateway when you have it.
                 </p>
               ) : null}
+              {bot.gateway.source === "catalog_preset" ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Policy from the gateway preset this bot ships with. Register the bot to record its key id.
+                </p>
+              ) : null}
             </>
           ) : (
             <p className="text-muted-foreground">
