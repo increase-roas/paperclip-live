@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Bot, CircleAlert, RefreshCw } from "lucide-react";
-import type { CompanyBotSummary } from "@paperclipai/shared";
+import type { CompanyBotSummary, SuggestedAgentBot } from "@paperclipai/shared";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/EmptyState";
@@ -51,6 +51,34 @@ function BotRow({ bot }: { bot: CompanyBotSummary }) {
   );
 }
 
+function SuggestedAgentSection({ agents }: { agents: SuggestedAgentBot[] }) {
+  if (agents.length === 0) return null;
+  return (
+    <section aria-label="Agents that look like bots" data-bots-suggestions="">
+      <h2 className="mb-2 text-sm font-semibold text-foreground">
+        Agents that look like bots <span className="font-normal text-muted-foreground">({agents.length})</span>
+      </h2>
+      <p className="mb-2 text-xs text-muted-foreground">
+        These agents run on the Hermes gateway but are not tagged as bots yet. Add{" "}
+        <code className="font-mono">grokBotTwin</code> or <code className="font-mono">agentKind: &quot;bot&quot;</code> to
+        their metadata to move them into Bots.
+      </p>
+      <ul>
+        {agents.map((agent) => (
+          <li key={agent.agentId} className="border-b border-border last:border-b-0">
+            <Link to={`/agents/${agent.agentId}`} className="flex flex-wrap items-center gap-2 py-2 hover:bg-muted/40">
+              <span className="text-sm font-medium text-foreground">{agent.name}</span>
+              <Badge variant="outline">{agent.adapterType}</Badge>
+              <span className="text-xs text-muted-foreground">{agent.status}</span>
+              <span className="ml-auto text-xs text-muted-foreground">Open agent</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function BotSection({ title, bots }: { title: string; bots: CompanyBotSummary[] }) {
   if (bots.length === 0) return null;
   return (
@@ -73,6 +101,7 @@ export function Bots() {
   });
 
   const bots = botsQuery.data?.bots ?? [];
+  const suggestedAgents = botsQuery.data?.suggestedAgents ?? [];
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return bots;
@@ -158,6 +187,7 @@ export function Bots() {
           <CardContent className="flex flex-col gap-6 pt-0">
             <BotSection title="Registered bots" bots={registered} />
             <BotSection title="Not registered yet" bots={unregistered} />
+            <SuggestedAgentSection agents={suggestedAgents} />
           </CardContent>
         </Card>
       )}

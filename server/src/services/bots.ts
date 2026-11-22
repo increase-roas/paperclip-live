@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
-import { activityLog, agents, companies, routineTriggers, routines } from "@paperclipai/db";
+import { activityLog, agents, companies, heartbeatRuns, routineTriggers, routines } from "@paperclipai/db";
 import {
   botSlug,
   findKnownGatewayBot,
@@ -13,9 +13,11 @@ import {
   type BotRoutineTrigger,
   type CompanyBotDetail,
   type CompanyBotSummary,
+  type SuggestedAgentBot,
 } from "@paperclipai/shared";
 
 const RECENT_ACTIVITY_LIMIT = 20;
+const RECENT_RUN_LIMIT = 10;
 const CATALOG_PREFIX = "catalog:";
 
 type AgentRow = typeof agents.$inferSelect;
@@ -145,26 +147,71 @@ export function botsService(db: Db) {
   }
 
   async function recentActivity(companyId: string, agentId: string): Promise<BotActivityEntry[]> {
-    const rows = await db
-      .select({
-        id: activityLog.id,
-        action: activityLog.action,
-        entityType: activityLog.entityType,
-        entityId: activityLog.entityId,
-        createdAt: activityLog.createdAt,
-      })
-      .from(activityLog)
-      .where(and(eq(activityLog.companyId, companyId), eq(activityLog.agentId, agentId)))
-      .orderBy(desc(activityLog.createdAt))
-      .limit(RECENT_ACTIVITY_LIMIT);
+    const [activityRows, runRows] = await Promise.all([
+      db
+        .select({
+          id: activityLog.id,
+          action: activityLog.action,
+          entityType: activityLog.entityType,
+          entityId: activityLog.entityId,
+          createdAt: activityLog.createdAt,
+        })
+        .from(activityLog)
+        .where(and(eq(activityLog.companyId, companyId), eq(activityLog.agentId, agentId)))
+        .orderBy(desc(activityLog.createdAt))
+        .limit(RECENT_ACTIVITY_LIMIT),
+      db
+        .select({
+          id: heartbeatRuns.id,
+          status: heartbeatRuns.status,
+          startedAt: heartbeatRuns.startedAt,
+          createdAt: heartbeatRuns.createdAt,
+        })
+        .from(heartbeatRuns)
+        .where(and(eq(heartbeatRuns.companyId, companyId), eq(heartbeatRuns.agentId, agentId)))
+        .orderBy(desc(heartbeatRuns.createdAt))
+        .limit(RECENT_RUN_LIMIT),
+    ]);
     // Details are deliberately omitted: activity rows can carry arbitrary payloads.
-    return rows.map((row) => ({
-      id: row.id,
-      action: row.action,
-      entityType: row.entityType,
-      entityId: row.entityId,
-      createdAt: row.createdAt.toISOString(),
-    }));
+    const entries: BotActivityEntry[] = [
+      ...activityRows.map((row) => ({
+        id: row.id,
+        action: row.action,
+        entityType: row.entityType,
+        entityId: row.entityId,
+        createdAt: row.createdAt.toISOString(),
+        source: "activity" as const,
+      })),
+      ...runRows.map((row) => ({
+        id: row.id,
+        action: `run.${row.status}`,
+        entityType: "heartbeat_run",
+        entityId: row.id,
+        createdAt: (row.startedAt ?? row.createdAt).toISOString(),
+        source: "run" as const,
+      })),
+    ];
+    return entries
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, RECENT_ACTIVITY_LIMIT);
+  }
+
+  /**
+   * Agents that behave like bots — a Hermes gateway transport — but are not
+   * tagged as one. They are suggestions, never auto-registered.
+   */
+  async function suggestedAgents(companyId: string): Promise<SuggestedAgentBot[]> {
+    const rows = await db.select().from(agents).where(eq(agents.companyId, companyId));
+    return rows
+      .filter((agent) => !isBotAgentMetadata(agent.metadata) && agent.adapterType === "hermes_gateway")
+      .map((agent) => ({
+        agentId: agent.id,
+        name: agent.name,
+        status: agent.status,
+        adapterType: agent.adapterType,
+        reason: "Hermes gateway agent without grokBotTwin or agentKind bot metadata.",
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }
 
   async function get(companyId: string, botIdOrSlug: string): Promise<CompanyBotDetail | null> {
@@ -184,6 +231,7 @@ export function botsService(db: Db) {
   return {
     list,
     get,
+    suggestedAgents,
     findKnownGatewayBot,
   };
 }

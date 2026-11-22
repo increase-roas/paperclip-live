@@ -120,6 +120,25 @@ export interface BotActivityEntry {
   entityType: string;
   entityId: string;
   createdAt: string;
+  /** Where the row came from: the activity log or a heartbeat run. */
+  source: "activity" | "run";
+}
+
+/**
+ * An agent that looks like a bot (Hermes gateway transport) but is not tagged
+ * as one, so the roster can point at it instead of hiding it.
+ */
+export interface SuggestedAgentBot {
+  agentId: string;
+  name: string;
+  status: string;
+  adapterType: string;
+  reason: string;
+}
+
+export interface CompanyBotsResponse {
+  bots: CompanyBotSummary[];
+  suggestedAgents: SuggestedAgentBot[];
 }
 
 export interface CompanyBotDetail extends CompanyBotSummary {

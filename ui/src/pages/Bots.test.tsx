@@ -158,6 +158,15 @@ describe("Bots", () => {
           entityType: "agent",
           entityId: "agent-1",
           createdAt: "2026-11-21T12:00:00.000Z",
+          source: "activity",
+        },
+        {
+          id: "run-1",
+          action: "run.succeeded",
+          entityType: "heartbeat_run",
+          entityId: "run-1",
+          createdAt: "2026-11-21T11:00:00.000Z",
+          source: "run",
         },
       ],
     };
@@ -174,6 +183,8 @@ describe("Bots", () => {
     expect(text).toContain("0 7 * * *");
     expect(text).toContain("America/New_York");
     expect(text).toContain("agent.heartbeat");
+    expect(text).toContain("run.succeeded");
+    expect(text).toContain("Run");
     expect(text).toContain("Open agent");
   });
 
@@ -189,6 +200,23 @@ describe("Bots", () => {
     expect(text).toContain("No routines assigned.");
     expect(text).toContain("No recorded activity.");
     expect(text).not.toContain("Open agent");
+  });
+
+  it("lists Hermes agents that are not tagged as bots", async () => {
+    listMock.mockResolvedValue({
+      bots: [researchBot],
+      suggestedAgents: [
+        { agentId: "agent-9", name: "Hermes Untagged", status: "idle", adapterType: "hermes_gateway", reason: "untagged" },
+      ],
+    });
+
+    await render(<Bots />);
+
+    const suggestions = container.querySelector("[data-bots-suggestions]");
+    expect(suggestions?.textContent).toContain("Hermes Untagged");
+    expect(suggestions?.textContent).toContain("grokBotTwin");
+    const link = [...(suggestions?.querySelectorAll("a") ?? [])].find((anchor) => anchor.textContent?.includes("Hermes Untagged"));
+    expect(link?.getAttribute("href")).toBe("/agents/agent-9");
   });
 
   it("tells an unregistered bot exactly which metadata fields to fill in", async () => {

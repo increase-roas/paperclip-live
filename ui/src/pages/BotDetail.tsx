@@ -225,6 +225,7 @@ export function BotDetail() {
               <ul className="flex flex-col gap-1 text-xs">
                 {bot.recentActivity.map((entry) => (
                   <li key={entry.id} className="flex flex-wrap items-center gap-2 border-b border-border py-1 last:border-b-0">
+                    <Badge variant="outline">{entry.source === "run" ? "Run" : "Activity"}</Badge>
                     <span className="font-mono text-foreground">{entry.action}</span>
                     <span className="text-muted-foreground">
                       {entry.entityType} {entry.entityId}

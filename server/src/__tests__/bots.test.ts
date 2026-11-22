@@ -7,6 +7,7 @@ import {
   agents,
   companies,
   createDb,
+  heartbeatRuns,
   routineTriggers,
   routines,
 } from "@paperclipai/db";
@@ -89,6 +90,7 @@ describePostgres("bots", () => {
   });
 
   afterEach(async () => {
+    await db.delete(heartbeatRuns);
     await db.delete(activityLog);
     await db.delete(routineTriggers);
     await db.delete(routines);
@@ -200,6 +202,12 @@ describePostgres("bots", () => {
       agentId: bot.id,
       details: { secret: "must-not-be-returned" },
     });
+    const [run] = await db.insert(heartbeatRuns).values({
+      companyId: company.id,
+      agentId: bot.id,
+      status: "succeeded",
+      startedAt: new Date("2026-11-21T11:00:00.000Z"),
+    }).returning();
 
     const app = await createApp(db, boardActor(company.id));
     const response = await request(app).get(`/api/companies/${company.id}/bots/${bot.id}`).expect(200);
@@ -219,8 +227,15 @@ describePostgres("bots", () => {
         },
       ],
     });
-    expect(response.body.recentActivity).toHaveLength(1);
-    expect(response.body.recentActivity[0]).toMatchObject({ action: "agent.heartbeat", entityType: "agent" });
+    // Activity and heartbeat runs share one timeline so a bot with runs but a
+    // quiet activity log still shows what it has been doing.
+    expect(response.body.recentActivity).toHaveLength(2);
+    expect(response.body.recentActivity).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ action: "agent.heartbeat", entityType: "agent", source: "activity" }),
+        expect.objectContaining({ id: run!.id, action: "run.succeeded", entityType: "heartbeat_run", source: "run" }),
+      ]),
+    );
     expect(JSON.stringify(response.body)).not.toContain("must-not-be-returned");
   });
 
@@ -242,6 +257,22 @@ describePostgres("bots", () => {
     const app = await createApp(db, boardActor(company.id));
     const response = await request(app).get(`/api/companies/${company.id}/bots`).expect(200);
     expect(response.body.bots).toEqual([]);
+  });
+
+  it("suggests Hermes gateway agents that are not tagged as bots", async () => {
+    const company = await createCompany(db, "Suggestions");
+    await createAgent(db, company.id, { name: "Hermes Untagged" });
+    await createAgent(db, company.id, {
+      name: "Hermes Tagged",
+      metadata: { grokBotTwin: true },
+    });
+    await createAgent(db, company.id, { name: "Codex Agent", adapterType: "codex_local" });
+
+    const app = await createApp(db, boardActor(company.id));
+    const response = await request(app).get(`/api/companies/${company.id}/bots`).expect(200);
+
+    expect(response.body.suggestedAgents.map((agent: { name: string }) => agent.name)).toEqual(["Hermes Untagged"]);
+    expect(response.body.suggestedAgents[0]).toMatchObject({ status: "idle", adapterType: "hermes_gateway" });
   });
 
   it("does not expose another company's bot", async () => {
