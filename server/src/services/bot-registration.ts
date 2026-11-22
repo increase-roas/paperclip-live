@@ -15,35 +15,15 @@ import { eq, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { agents, companies } from "@paperclipai/db";
 import { insertBotAgents } from "../modules/agent-lifecycle/index.js";
-import { botSlug, knownGatewayBotsForCompany, type KnownGatewayBot } from "@paperclipai/shared";
+import {
+  botSlug,
+  knownGatewayBotsForCompany,
+  type BotRegistrationEntry,
+  type BotRegistrationPlan,
+  type KnownGatewayBot,
+} from "@paperclipai/shared";
 
-export interface PlannedBotAgent {
-  name: string;
-  role: string;
-  title: string | null;
-  adapterType: string;
-  status: string;
-  metadata: {
-    agentKind: "bot";
-    bot: { purpose: string | null; transport: string };
-  };
-}
-
-export interface BotRegistrationEntry {
-  slug: string;
-  name: string;
-  action: "create" | "skip";
-  reason: string;
-  agent: PlannedBotAgent | null;
-}
-
-export interface BotRegistrationPlan {
-  companyId: string;
-  companyName: string | null;
-  entries: BotRegistrationEntry[];
-  creates: number;
-  skips: number;
-}
+type PlannedBotAgent = NonNullable<BotRegistrationEntry["agent"]>;
 
 function plannedAgent(known: KnownGatewayBot): PlannedBotAgent {
   return {

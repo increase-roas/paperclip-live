@@ -13,6 +13,7 @@ import { BotDetail } from "./BotDetail";
 const listMock = vi.hoisted(() => vi.fn());
 const getMock = vi.hoisted(() => vi.fn());
 const gatewaySummaryMock = vi.hoisted(() => vi.fn());
+const registrationMock = vi.hoisted(() => vi.fn());
 const setBreadcrumbsMock = vi.hoisted(() => vi.fn());
 const navigateMock = vi.hoisted(() => vi.fn());
 const params = vi.hoisted(() => ({ botId: "" }));
@@ -23,6 +24,7 @@ vi.mock("@/api/bots", () => ({
     get: (companyId: string, botId: string) => getMock(companyId, botId),
     gateway: vi.fn(),
     gatewaySummary: (companyId: string, botId: string) => gatewaySummaryMock(companyId, botId),
+    registration: (companyId: string) => registrationMock(companyId),
   },
 }));
 
@@ -115,6 +117,8 @@ describe("Bots", () => {
     listMock.mockReset();
     getMock.mockReset();
     gatewaySummaryMock.mockReset();
+    registrationMock.mockReset();
+    registrationMock.mockResolvedValue({ companyId: "company-1", companyName: "Paperclip", entries: [], creates: 0, skips: 0 });
     gatewaySummaryMock.mockResolvedValue({
       connected: false,
       state: "disabled",
@@ -246,6 +250,60 @@ describe("Bots", () => {
     expect(text).toContain("PAPERCLIP_GATEWAY_BOTS_ENABLED");
     expect(text).toContain("gk_live_research");
     expect(text).toContain("What it does");
+  });
+
+  it("previews the registration plan with the apply action disabled", async () => {
+    registrationMock.mockResolvedValue({
+      companyId: "company-1",
+      companyName: "Paperclip",
+      creates: 1,
+      skips: 1,
+      entries: [
+        {
+          slug: "funnel-builder",
+          name: "Funnel Builder",
+          action: "create",
+          reason: "No agent row yet; this bot already has a known purpose.",
+          agent: {
+            name: "Funnel Builder",
+            role: "general",
+            title: "Funnel Builder",
+            adapterType: "hermes_gateway",
+            status: "paused",
+            metadata: { agentKind: "bot", bot: { purpose: "Builds funnels.", transport: "hermes_gateway" } },
+          },
+        },
+        {
+          slug: "kiwi",
+          name: "Kiwi",
+          action: "skip",
+          reason: "An agent named like kiwi already exists in this company.",
+          agent: null,
+        },
+      ],
+    });
+    listMock.mockResolvedValue({ bots: [funnelCatalogBot], suggestedAgents: [] });
+
+    await render(<Bots />);
+
+    const section = container.querySelector("[data-bots-registration-plan]");
+    expect(section?.textContent).toContain("Registration plan");
+    expect(section?.textContent).toContain("1 to create, 1 skipped");
+    expect(section?.textContent).toContain("Would create");
+    expect(section?.textContent).toContain("Funnel Builder");
+    expect(section?.textContent).toContain("Skipped");
+    expect(section?.textContent).toContain("pnpm bots:register -- --apply");
+    const apply = [...(section?.querySelectorAll("button") ?? [])].find((button) => button.textContent?.includes("Apply registration"));
+    expect(apply?.disabled).toBe(true);
+    expect(registrationMock).toHaveBeenCalledWith("company-1");
+  });
+
+  it("hides the registration plan when there is nothing to plan", async () => {
+    listMock.mockResolvedValue({ bots: [researchBot], suggestedAgents: [] });
+
+    await render(<Bots />);
+
+    expect(container.querySelector("[data-bots-registration-plan]")).toBeNull();
   });
 
   it("splits registered bots from known bots that are not registered yet", async () => {
