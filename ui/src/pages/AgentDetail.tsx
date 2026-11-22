@@ -3551,6 +3551,7 @@ export function KeysTab({ agentId, companyId }: { agentId: string; companyId?: s
   const [newToken, setNewToken] = useState<string | null>(null);
   const [tokenVisible, setTokenVisible] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [revokeTarget, setRevokeTarget] = useState<AgentKey | null>(null);
 
   const { data: keys, isLoading } = useQuery({
     queryKey: queryKeys.agents.keys(agentId),
@@ -3571,6 +3572,13 @@ export function KeysTab({ agentId, companyId }: { agentId: string; companyId?: s
     mutationFn: (keyId: string) => agentsApi.revokeKey(agentId, keyId, companyId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.agents.keys(agentId) });
+    },
+    onError: (error) => {
+      pushToast({
+        title: "Failed to revoke the API key",
+        body: describeError(error, { action: "revoke the API key" }).body,
+        tone: "error",
+      });
     },
   });
 
@@ -3685,7 +3693,7 @@ export function KeysTab({ agentId, companyId }: { agentId: string; companyId?: s
                   variant="ghost"
                   size="sm"
                   className="text-destructive hover:text-destructive text-xs"
-                  onClick={() => revokeKey.mutate(key.id)}
+                  onClick={() => setRevokeTarget(key)}
                   disabled={revokeKey.isPending}
                 >
                   Revoke
@@ -3716,6 +3724,35 @@ export function KeysTab({ agentId, companyId }: { agentId: string; companyId?: s
           </div>
         </div>
       )}
+
+      <AlertDialog
+        open={revokeTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setRevokeTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke this API key?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {revokeTarget
+                ? `${revokeTarget.name} stops working immediately. Agents and scripts that use it must switch to another key.`
+                : "This key stops working immediately."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep key</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={() => {
+                if (revokeTarget) revokeKey.mutate(revokeTarget.id);
+              }}
+            >
+              Revoke key
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
