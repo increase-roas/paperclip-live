@@ -157,6 +157,21 @@ describe("AgentOverview", () => {
     expect(markup).toContain("Could not load creator");
   });
 
+  it("names the activity metric when the activity read fails", () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retryOnMount: false } } });
+    client.getQueryCache().build(client, {
+      queryKey: [...queryKeys.activity("company-1"), "agent-overview", "agent-2"],
+    }).setState({
+      status: "error",
+      error: new Error("Activity unavailable"),
+      fetchStatus: "idle",
+    });
+
+    const markup = renderOverview(null, client);
+    expect(markup).toContain("Activity unavailable");
+    expect(markup).not.toContain("Events this week");
+  });
+
   it.each([null, "local-board"])("keeps the creator row hidden for creator %s when the directory failed", (createdByUserId) => {
     const markup = renderOverview(createdByUserId, failedDirectoryClient());
     expect(markup).not.toContain("Created by");

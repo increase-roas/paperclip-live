@@ -1410,6 +1410,7 @@ export function AgentOverview({
     queryKey: [...queryKeys.activity(agent.companyId), "agent-overview", agent.id],
     queryFn: () => activityApi.list(agent.companyId, { agentId: agent.id, limit: OVERVIEW_ACTIVITY_LIMIT }),
   });
+  const activityFailed = queryViewKind(activity) === "error";
   const now = Date.now();
   const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
   const twoDaysAgo = now - 2 * 24 * 60 * 60 * 1000;
@@ -1424,9 +1425,9 @@ export function AgentOverview({
       <div className="grid grid-cols-1 gap-(--agent-detail-module-gap) sm:grid-cols-2 lg:grid-cols-4">
         <AgentMetricTile
           icon={ActivityIcon}
-          value={activity.isLoading ? "–" : formatWindowCount(activityThisWeek)}
+          value={activity.isLoading || activityFailed ? "–" : formatWindowCount(activityThisWeek)}
           label="Activity"
-          description="Events this week"
+          description={activityFailed ? "Activity unavailable" : "Events this week"}
           to={agentDetailHref(agentRef, "activity")}
         />
         <AgentMetricTile
