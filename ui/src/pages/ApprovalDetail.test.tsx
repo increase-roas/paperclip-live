@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Approval } from "@paperclipai/shared";
 import { ThemeProvider } from "../context/ThemeContext";
+import { ApiError } from "@/api/client";
 import { ApprovalDetail } from "./ApprovalDetail";
 
 const mockNavigate = vi.hoisted(() => vi.fn());
@@ -193,6 +194,71 @@ describe("ApprovalDetail decision notes", () => {
     try {
       await waitFor(() => expect(container.textContent).toContain("Decision note: Needs a smaller first release."));
       expect(noteField()).toBeNull();
+    } finally {
+      act(() => root.unmount());
+      queryClient.clear();
+    }
+  });
+});
+
+describe("ApprovalDetail load recovery", () => {
+  let container: HTMLDivElement;
+
+  beforeEach(() => {
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    mockNavigate.mockReset();
+    mockApprovalsApi.get.mockReset();
+    mockApprovalsApi.listComments.mockReset().mockResolvedValue([]);
+    mockApprovalsApi.listIssues.mockResolvedValue([]);
+    mockAgentsApi.list.mockReset().mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    container.remove();
+  });
+
+  function render() {
+    const root = createRoot(container);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    act(() => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <ThemeProvider>
+            <ApprovalDetail />
+          </ThemeProvider>
+        </QueryClientProvider>,
+      );
+    });
+    return { root, queryClient };
+  }
+
+  function findButton(label: string) {
+    return [...container.querySelectorAll("button")].find(
+      (candidate) => candidate.textContent?.trim() === label,
+    );
+  }
+
+  it("offers a retry when the approval fails to load", async () => {
+    mockApprovalsApi.get.mockRejectedValue(new ApiError("Server error", 500, { error: "internal" }));
+    const { root, queryClient } = render();
+    try {
+      await waitFor(() => expect(findButton("Retry")).toBeDefined());
+      expect(container.textContent).not.toContain("Approval not found");
+      expect(container.textContent).toContain("Back to approvals");
+    } finally {
+      act(() => root.unmount());
+      queryClient.clear();
+    }
+  });
+
+  it("says not found, without a retry, for a missing approval", async () => {
+    mockApprovalsApi.get.mockRejectedValue(new ApiError("Not found", 404, { error: "not_found" }));
+    const { root, queryClient } = render();
+    try {
+      await waitFor(() => expect(container.textContent).toContain("Not found"));
+      expect(findButton("Retry")).toBeUndefined();
+      expect(container.textContent).toContain("Back to approvals");
     } finally {
       act(() => root.unmount());
       queryClient.clear();
