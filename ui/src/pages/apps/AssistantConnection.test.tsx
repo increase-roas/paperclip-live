@@ -68,6 +68,14 @@ describe("assistant setup from Connections", () => {
     expect(container.textContent).not.toContain("opencode mcp auth");
     expect(container.textContent).not.toContain("https://canonical.example");
   });
+  it("treats an absent assistant status route as unavailable instead of an error", async () => {
+    mocks.connections.mockRejectedValue(new ApiError("API route not found", 404, { error: "not_found" }));
+    await render(<AssistantConnectionCard onNavigate={vi.fn()} />);
+    expect(container.textContent).toContain("Assistant connections are unavailable on this instance");
+    expect(container.textContent).not.toContain("Couldn't load your connection status");
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Open Assistant Connection (MCP)"]')).not.toBeNull();
+  });
   it("only shows this organization’s grants and revokes the selected grant", async () => {
     mocks.connections.mockResolvedValue([grant, { ...grant, id: "other", companyId: "elsewhere", clientName: "Other secret client" }]);
     await render();
@@ -202,13 +210,18 @@ describe("assistant setup from Connections", () => {
     expect(container.querySelector('[data-query-view="error"]')).toBeNull();
     expect(container.textContent).toContain("Dotta’s OpenCode connection");
   });
-  it.each([
-    [401, "Sign in to connect an assistant."],
-    [404, "Assistant connections need an authenticated instance with a public HTTPS URL."],
-  ])("explains a %s setup response with instance-specific copy", async (status, copy) => {
-    mocks.setup.mockRejectedValue(new ApiError("Request failed", status, { error: "Request failed" }));
+  it("explains a 401 setup response with sign-in copy", async () => {
+    mocks.setup.mockRejectedValue(new ApiError("Request failed", 401, { error: "Request failed" }));
     await render();
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain(copy);
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain("Sign in to connect an assistant.");
+    expect(container.querySelector('[data-query-view="error"]')).toBeNull();
+  });
+  it("explains a 404 setup response as missing instance configuration", async () => {
+    mocks.setup.mockRejectedValue(new ApiError("Request failed", 404, { error: "Request failed" }));
+    await render();
+    expect(container.textContent).toContain("Enable assistant connections");
+    expect(container.textContent).toContain("This instance has no public assistant endpoint yet");
+    expect(container.querySelector('[role="alert"]')).toBeNull();
     expect(container.querySelector('[data-query-view="error"]')).toBeNull();
   });
 });

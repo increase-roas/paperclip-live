@@ -973,7 +973,7 @@ export function Browse({ renderAccountDetails = (connection) => connection.conne
     setAggregatorToConnect(app);
   }
   const showAssistantConnection = (source === "paperclip" || source === "all" ||
-    (source === "installed" && (!assistantConnections.loaded || assistantConnections.rows.some(row => !row.revokedAt)))) &&
+    (source === "installed" && !assistantConnections.unavailable && (!assistantConnections.loaded || assistantConnections.rows.some(row => !row.revokedAt)))) &&
     (!trimmed || "assistant connection (mcp) paperclip codex claude opencode".includes(trimmed));
   const showCustomConnector =
     (source === "paperclip" || source === "all") && (!trimmed || "connect your own tool custom mcp server".includes(trimmed));

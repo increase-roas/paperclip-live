@@ -370,6 +370,15 @@ describe("Connectors landing page", () => {
     expect(container.querySelector('[aria-label="Manage Assistant Connection (MCP)"]')).not.toBeNull();
   });
 
+  it("treats an absent assistant management route as unavailable instead of an error", async () => {
+    assistantConnectionsMock.mockRejectedValue(Object.assign(new Error("API route not found"), { status: 404 }));
+    await renderBrowse(false);
+    expect(container.textContent).toContain("Assistant connections are unavailable on this instance");
+    expect(container.textContent).not.toContain("Couldn't load your connection status");
+    await clickButton("Installed", container);
+    expect(container.querySelector('[data-app-slug="assistant-connection"]')).toBeNull();
+  });
+
   function indexedApp(name: string, providers: ("composio" | "arcade" | "executor")[] = ["composio"]): AggregatorAppCatalogEntry {
     const slug = name.toLowerCase().replaceAll(" ", "-");
     return { name, slug, aliases: [slug], routes: providers.map((provider) => ({
