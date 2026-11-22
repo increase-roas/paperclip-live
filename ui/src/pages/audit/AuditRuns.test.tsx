@@ -106,13 +106,13 @@ describe("AuditRuns", () => {
     vi.clearAllMocks();
   });
 
-  async function render(routineId?: string) {
+  async function render(routineId?: string, lockedAgentId?: string) {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     root = createRoot(container);
     flushSync(() => {
       root.render(
         <QueryClientProvider client={queryClient}>
-          <AuditRuns companyId="company-1" routineId={routineId} />
+          <AuditRuns companyId="company-1" routineId={routineId} lockedAgentId={lockedAgentId} />
         </QueryClientProvider>,
       );
     });
@@ -131,6 +131,26 @@ describe("AuditRuns", () => {
     expect(list).toBeTruthy();
     expect(list?.closest('[data-slot="card"]')).toBeFalsy();
     expect(container.querySelector('a[href="/agents/agent-1/runs/run-12345678"]')).toBeTruthy();
+    expect(container.textContent).toContain("Showing the 200 most recent runs.");
+  });
+
+  it("names the next step for an agent with no runs instead of claiming a filter", async () => {
+    listRunsMock.mockResolvedValue([]);
+    await render(undefined, "agent-1");
+
+    expect(container.textContent).toContain("No runs yet.");
+    expect(container.textContent).not.toContain("No runs match these filters.");
+    expect(container.textContent).not.toContain("Clear filters");
+    expect(container.textContent).not.toContain("Showing the 200 most recent runs.");
+  });
+
+  it("keeps the filter explanation when a status filter hides every run", async () => {
+    currentSearch = "runStatus=blocked";
+    await render(undefined, "agent-1");
+
+    expect(container.textContent).toContain("No runs match these filters.");
+    expect(container.textContent).toContain("Clear filters");
+    expect(container.textContent).not.toContain("Showing the 200 most recent runs.");
   });
 
   it("uses the agent deep-link filter for both the query key and request", async () => {
