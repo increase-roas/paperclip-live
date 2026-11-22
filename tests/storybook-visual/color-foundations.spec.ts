@@ -9,6 +9,26 @@ async function openColors(page: Page, story: string) {
   await page.mouse.move(0, 0);
 }
 
+// Chromium can serialize a color-valued custom property differently from the
+// authored text (for example `oklch(98.5% 0 0)` for `oklch(0.985 0 0)`).
+// Compare the browser's computed background color instead of that text.
+async function computedColor(page: Page, value: string) {
+  return page.evaluate((input) => {
+    const probe = document.createElement("div");
+    probe.style.backgroundColor = input;
+    document.body.appendChild(probe);
+    const result = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return result;
+  }, value);
+}
+
+async function expectToken(page: Page, name: string, expected: string) {
+  const actual = await page.evaluate((token) =>
+    getComputedStyle(document.documentElement).getPropertyValue(`--${token}`).trim(), name);
+  expect(await computedColor(page, actual)).toBe(await computedColor(page, expected));
+}
+
 test("color reference reads the Paper palette and foreground focus color from the active CSS theme", async ({ page }, testInfo) => {
   await openColors(page, "token-reference");
   const expected = {
@@ -25,7 +45,8 @@ test("color reference reads the Paper palette and foreground focus color from th
   };
   await expect(page.locator("tr[data-token]")).toHaveCount(Object.keys(expected).length);
   for (const [name, value] of Object.entries(expected)) {
-    await expect(page.locator(`tr[data-token="${name}"] [data-token-value]`)).toHaveText(value);
+    const rendered = await page.locator(`tr[data-token="${name}"] [data-token-value]`).textContent();
+    expect(await computedColor(page, rendered?.trim() ?? "")).toBe(await computedColor(page, value));
   }
   await expect(page.getByTestId("color-foundations-preview")).toHaveCSS("background-color", "rgb(26, 26, 26)");
   await page.screenshot({ path: testInfo.outputPath("color-token-reference.png"), fullPage: true });
@@ -52,7 +73,7 @@ test("shared cards use three surfaces and one border; inputs use background-alt"
 
 test("task hover and portaled menus share the palette; production stories restore their theme", async ({ page }, testInfo) => {
   await openColors(page, "text-and-interaction");
-  const row = page.locator('[data-slot="task-row"]').first();
+  const row = page.locator('[data-issue-id="row-design-456"]');
   const title = row.locator('[data-slot="task-row-title"]');
   await expect(title).toHaveCSS("color", "oklch(0.708 0 0)");
   await expect(title).toHaveCSS("font-weight", "400");
@@ -73,13 +94,13 @@ test("task hover and portaled menus share the palette; production stories restor
 
   // The CSS scope must disappear with its marker, even within the same document.
   await page.locator(".design-proposal-theme").evaluate(element => element.classList.remove("design-proposal-theme"));
-  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--background").trim())).toBe("oklch(0.205 0 0)");
+  await expectToken(page, "background", "oklch(0.205 0 0)");
   await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--muted-alt").trim())).toBe("");
-  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--ring").trim())).toBe("oklch(0.556 0 0)");
+  await expectToken(page, "ring", "oklch(0.556 0 0)");
   await page.goto("/iframe.html?id=foundations-primitive-matrix--all-primitives&viewMode=story&globals=theme:dark");
   await expect(page.getByRole("heading", { name: "Primitives and interaction states", exact: true })).toBeVisible();
   await expect(page.locator(".design-proposal-theme")).toHaveCount(0);
-  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--background").trim())).toBe("oklch(0.205 0 0)");
+  await expectToken(page, "background", "oklch(0.205 0 0)");
 });
 
 test("light proposals inherit the production palette, including portaled menus", async ({ page }) => {

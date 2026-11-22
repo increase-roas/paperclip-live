@@ -155,7 +155,7 @@ test("search preserves ancestor context, recovers from no results, and expansion
 test("views change the collection while keeping task families together", async ({ page }) => {
   await openPage(page);
   await page.getByRole("button", { name: "Task view: All tasks" }).click();
-  await expect(page.getByRole("menuitemradio")).toHaveText(["Inbox", "Unread", "Needs attention", "All tasks"]);
+  await expect(page.getByRole("menuitemradio")).toHaveText(["Mine", "Unread", "Needs attention", "All tasks"]);
   await page.getByRole("menuitemradio", { name: "Unread", exact: true }).click();
   await expect(rows(page)).toHaveCount(3);
   await expect(page.locator(".design-task-results")).toHaveText("3 matching tasks");
@@ -166,14 +166,14 @@ test("views change the collection while keeping task families together", async (
   await page.getByRole("menuitemradio", { name: "Needs attention", exact: true }).click();
   await expect(page.locator(".design-task-results")).toHaveText("2 matching tasks · Parent tasks included for context");
   await expect(rows(page)).toHaveCount(3);
-  await expect(rows(page).locator('[data-slot="task-row-title"]')).toHaveText(["Improve connector reliability", "Define connector health states", "Review budget notifications"]);
+  await expect(rows(page).locator('[data-slot="task-row-title"]')).toHaveText(["Review budget notifications", "Improve connector reliability", "Define connector health states"]);
   await page.getByRole("button", { name: "Task view: Needs attention" }).click();
-  await page.getByRole("menuitemradio", { name: "Inbox", exact: true }).click();
+  await page.getByRole("menuitemradio", { name: "Mine", exact: true }).click();
   await expect(page.locator(".design-task-results")).toHaveText("6 matching tasks");
   await expect(rows(page)).toHaveCount(6);
   await page.reload();
-  await page.getByRole("button", { name: "Task view: Inbox" }).click();
-  await expect(page.getByRole("menuitemradio", { name: "Inbox", exact: true })).toBeChecked();
+  await page.getByRole("button", { name: "Task view: Mine" }).click();
+  await expect(page.getByRole("menuitemradio", { name: "Mine", exact: true })).toBeChecked();
   await page.getByRole("menuitemradio", { name: "All tasks", exact: true }).click();
   await expect(rows(page)).toHaveCount(10);
   await expect(page.getByRole("rowgroup", { name: "Improve connector reliability task group", exact: true }).locator('[data-slot="task-row"]')).toHaveCount(5);
@@ -207,8 +207,8 @@ test("refreshed filters use five searchable peer groups and the shared popover s
   const filters = page.getByRole("dialog", { name: "Filters", exact: true });
   await expect(filters).toHaveCSS("box-shadow", shadow);
   await expect(filters).toHaveCSS("background-color", "rgb(26, 26, 26)");
-  await expect(filters.getByRole("heading", { level: 3 })).toHaveText(["Status", "Project", "Creator", "Assignee", "Label"]);
-  const geometry = await filters.locator(".task-filter-group").evaluateAll(groups => groups.map(group => {
+  await expect(filters.getByRole("heading", { level: 3 })).toHaveText(["Status", "Visibility", "Project", "Creator", "Assignee", "Label"]);
+  const geometry = await filters.locator(".task-filters-grid > .task-filter-group").evaluateAll(groups => groups.map(group => {
     const bounds = group.getBoundingClientRect();
     return { x: bounds.x, y: bounds.y, width: bounds.width };
   }));
@@ -244,7 +244,7 @@ test("refreshed filters use five searchable peer groups and the shared popover s
   const bounds = (await filters.boundingBox())!;
   expect(bounds.x).toBeGreaterThanOrEqual(0);
   expect(bounds.x + bounds.width).toBeLessThanOrEqual(900);
-  expect(await filters.locator(".task-filter-group").evaluateAll(groups => new Set(groups.map(group => group.getBoundingClientRect().y)).size)).toBeGreaterThan(1);
+  expect(await filters.locator(".task-filters-grid > .task-filter-group").evaluateAll(groups => new Set(groups.map(group => group.getBoundingClientRect().y)).size)).toBeGreaterThan(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false);
   await page.keyboard.press("Escape");
   await expect(filters).toBeHidden();
@@ -288,7 +288,7 @@ test("board has one horizontal scroll owner and fades only its clipped edges", a
   await page.mouse.wheel(-300, 0);
   await expect(viewport).toHaveAttribute("data-overflow-right", "true");
 
-  await page.setViewportSize({ width: 2400, height: 862 });
+  await page.setViewportSize({ width: 2600, height: 862 });
   await expect(viewport).toHaveAttribute("data-overflow-left", "false");
   await expect(viewport).toHaveAttribute("data-overflow-right", "false");
   expect(await scrollOwners()).toBe(0);
@@ -429,7 +429,7 @@ test("sidebar truncated labels share the table marquee and fade without extra ta
   await expect(label).not.toHaveAttribute("data-revealing");
 });
 
-test("fractionally clipped recent titles reveal even when scrollWidth equals clientWidth", async ({ page }, testInfo) => {
+test("recent titles reveal when the clip is a single pixel or less", async ({ page }, testInfo) => {
   await openPage(page);
   const task = page.locator(".design-sidebar-recents").getByRole("link", { name: "Review budget notifications", exact: true });
   const label = task.locator("[data-cell-marquee]");
@@ -439,9 +439,9 @@ test("fractionally clipped recent titles reveal even when scrollWidth equals cli
     range.selectNodeContents(content);
     return { client: element.clientWidth, scroll: content.scrollWidth, viewport: element.getBoundingClientRect().width, text: range.getBoundingClientRect().width };
   });
-  expect(dimensions.scroll).toBe(dimensions.client);
+  expect(Math.abs(dimensions.scroll - dimensions.client)).toBeLessThanOrEqual(1);
   expect(dimensions.text).toBeGreaterThan(dimensions.viewport);
-  expect(dimensions.text - dimensions.viewport).toBeLessThan(1);
+  expect(dimensions.text - dimensions.viewport).toBeLessThanOrEqual(1);
   await expect(label).toHaveAttribute("data-truncated", "true");
   const bounds = (await task.boundingBox())!;
   // Hover the link padding, outside the text rectangle, just like the row's

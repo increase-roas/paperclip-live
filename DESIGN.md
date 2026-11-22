@@ -600,12 +600,13 @@ and full page consume the same `TaskList` collection.
   primitives. Controls are 44px high. A 32px gap separates the toolbar and table.
   Page dimensions, spacing, type and surfaces live in the token layer under
   `--design-page-*` and `--design-sidebar-*`.
-  The filter popover uses Paper's five peer groups in order: Status, Project,
-  Creator, Assignee, Label. All but Status have an always-visible search field.
+  The filter popover uses Paper's five peer columns in order: Status (with
+  Visibility beneath it), Project, Creator, Assignee, Label. All but Status and
+  Visibility have an always-visible search field.
   Desktop groups are 200px wide with 16px gaps and 12px body insets; groups wrap
   on smaller viewports. Checkbox rows use the existing filter state and toggle
   helpers, with Clear resetting the active filters. This opt-in `refreshed`
-  presentation omits the old quick-filter and visibility sections and inherits
+  presentation omits the old quick-filter section and inherits
   the shared Popover surface, highlight and `--shadow-flyout` token.
 - Refreshed dropdowns and popovers share `FlyoutAppearanceProvider` and the
   existing Radix primitives. `Flyout` / `FlyoutContent` compose a popover;
@@ -629,7 +630,7 @@ and full page consume the same `TaskList` collection.
   Its Shadow control previews a local override;
   changing the saved `--shadow-flyout` token in `ui/src/index.css` updates every
   refreshed flyout. Storybook controls do not persist token edits.
-- Views appear in this order: Inbox, Unread, Needs attention, All tasks. Inbox includes
+- Views appear in this order: Mine, Unread, Needs attention, All tasks. Mine includes
   tasks created by or assigned to the current user. Unread uses the task unread
   state; Needs attention includes both blocked and in-review statuses. New users start
   on All tasks. The last view persists in browser storage per user, across the

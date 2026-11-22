@@ -120,6 +120,7 @@ for (const { story, density, height } of [
       const style = getComputedStyle(element);
       const left = (slot: string) => element.querySelector(`[data-slot="${slot}"]`)!.getBoundingClientRect().left;
       return {
+        id: element.getAttribute("data-issue-id"),
         height: rect.height,
         paddingLeft: style.paddingLeft,
         paddingRight: style.paddingRight,
@@ -141,20 +142,25 @@ for (const { story, density, height } of [
       expect(row.identifierLeft).toBe(geometry[0].identifierLeft);
       expect(row.timestampLeft).toBe(geometry[0].timestampLeft);
     }
-    expect(geometry[1].titleLeft - geometry[0].titleLeft).toBe(24);
-    expect(geometry[2].titleLeft).toBe(geometry[1].titleLeft);
-    expect(geometry[3].titleLeft - geometry[2].titleLeft).toBe(24);
-    expect(geometry[4].titleLeft).toBe(geometry[1].titleLeft);
+    const titleLeft = (number: number) => geometry.find((row) => row.id === `row-design-${number}`)!.titleLeft;
+    expect(titleLeft(432) - titleLeft(428)).toBe(24);
+    expect(titleLeft(430)).toBe(titleLeft(432));
+    expect(titleLeft(431) - titleLeft(430)).toBe(24);
+    expect(titleLeft(429)).toBe(titleLeft(432));
 
     const groups = list.locator('[data-slot="task-row-group"]');
     await expect(groups).toHaveCount(3);
+    const parentGroup = groups.filter({ has: rowFor(page, 428) });
+    await expect(parentGroup).toHaveCount(1);
     await expect(groups.first()).toHaveCSS("border-top-width", "1px");
-    await expect(groups.first()).toHaveCSS("border-bottom-width", "1px");
-    await expect(groups.nth(1)).toHaveCSS("border-top-width", "0px");
-    expect((await groups.first().boundingBox())!.height).toBe(height * 5 + 2);
+    await expect(parentGroup).toHaveCSS("border-bottom-width", "1px");
+    for (const [index, group] of (await groups.all()).entries()) {
+      if (index > 0) await expect(group).toHaveCSS("border-top-width", "0px");
+    }
+    expect((await parentGroup.boundingBox())!.height).toBe(height * 5 + 1);
 
     // The outer guide stays continuous through child and grandchild rows.
-    const guides = await Promise.all([429, 430, 431, 432].map(async (number) =>
+    const guides = await Promise.all([432, 430, 431, 429].map(async (number) =>
       rowFor(page, number).locator('[data-slot="task-row-tree-connector"]').first().boundingBox(),
     ));
     for (let index = 0; index < guides.length; index += 1) {
@@ -676,7 +682,7 @@ test("truncated titles scroll once, hold their end, and reset immediately; row a
   await expect(link).toBeFocused();
   await expect(title).toHaveAttribute("data-revealing", "true");
   await expect(link).toHaveCSS("outline-style", "solid");
-  await expect(link).toHaveCSS("outline-width", "1px");
+  await expect(link).toHaveCSS("outline-width", "2px");
   await page.keyboard.press("Escape");
   await expect(title).not.toHaveAttribute("data-revealing");
 

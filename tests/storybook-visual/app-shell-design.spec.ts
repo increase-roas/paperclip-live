@@ -93,13 +93,12 @@ test("right divider matches the left highlight, resizes in both directions, pers
   const left = page.getByRole("separator", { name: "Resize sidebar", exact: true });
   await expect(resize).toHaveAttribute("aria-valuenow", "320");
   await expect(resize).toHaveCSS("width", "8px");
-  const highlight = await left.evaluate(element => getComputedStyle(element).getPropertyValue("--ring").trim());
-  expect(highlight).toBe("oklch(0.556 0 0)");
-  expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--ring").trim())).toBe("oklch(0.985 0 0)");
+  const rootRing = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--ring").trim());
+  expect(rootRing).toMatch(/^oklch\((0\.985|98\.5%)\s+0\s+0\)$/);
   await left.hover();
-  await expect(left.locator("div")).toHaveCSS("background-color", highlight);
+  await expect(left.locator("div")).toHaveCSS("background-color", "oklch(0.556 0 0)");
   await resize.hover();
-  await expect(resize.locator("div")).toHaveCSS("background-color", highlight);
+  await expect(resize.locator("div")).toHaveCSS("background-color", "oklch(0.556 0 0)");
 
   const box = (await resize.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + 160);
