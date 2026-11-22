@@ -312,7 +312,7 @@ function OrganizationIssues({
     placeholderData: (previousData) => previousData,
   });
 
-  const { data: issuePages, isFetchingNextPage, hasNextPage, fetchNextPage } = issuesQuery;
+  const { data: issuePages, isFetchingNextPage, hasNextPage, fetchNextPage, isFetchNextPageError, error } = issuesQuery;
   const issuesView = useQueryView(issuesQuery);
   const issues = useMemo(() => mergeIssuePagesStable(issuePages?.pages ?? []) as Issue[], [issuePages]);
   const liveIssueIds = useMemo(() => collectLiveIssueIds(liveRuns, issues), [issues, liveRuns]);
@@ -366,7 +366,9 @@ function OrganizationIssues({
       sort={sort}
       onSortChange={handleSortChange}
       hasMoreIssues={hasMoreServerIssues}
+      loadMoreError={isFetchNextPageError && !isFetchingNextPage ? error : undefined}
       onLoadMoreIssues={loadMoreServerIssues}
+      onRetryLoadMore={loadMoreServerIssues}
       onUpdateIssue={(id, data) => updateIssue.mutate({ id, data })}
       searchFilters={participantAgentId || workspaceIdFilter || originKind || includeBlockedBy ? { participantAgentId, workspaceId: workspaceIdFilter, originKind, ...(includeBlockedBy ? { includeBlockedBy: true } : {}) } : undefined}
     />
