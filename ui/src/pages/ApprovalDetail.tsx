@@ -12,6 +12,7 @@ import { StatusBadge } from "../components/StatusBadge";
 import { Identity } from "../components/Identity";
 import { approvalLabel, typeIcon, defaultTypeIcon, ApprovalPayloadRenderer } from "../components/ApprovalPayload";
 import { PageSkeleton } from "../components/PageSkeleton";
+import { QueryErrorState, useQueryView } from "../components/QueryView";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle2, ChevronRight, Sparkles } from "lucide-react";
@@ -30,11 +31,13 @@ export function ApprovalDetail() {
   const [error, setError] = useState<string | null>(null);
   const [showRawPayload, setShowRawPayload] = useState(false);
 
-  const { data: approval, isLoading } = useQuery({
+  const approvalQuery = useQuery({
     queryKey: queryKeys.approvals.detail(approvalId!),
     queryFn: () => approvalsApi.get(approvalId!),
     enabled: !!approvalId,
   });
+  const { data: approval } = approvalQuery;
+  const approvalView = useQueryView(approvalQuery);
   const resolvedCompanyId = approval?.companyId ?? selectedCompanyId;
 
   const { data: comments } = useQuery({
@@ -149,8 +152,37 @@ export function ApprovalDetail() {
     onError: (err) => setError(err instanceof Error ? err.message : "Delete failed"),
   });
 
-  if (isLoading) return <PageSkeleton variant="detail" />;
-  if (!approval) return <p className="text-sm text-muted-foreground">Approval not found.</p>;
+  if (approvalView.kind === "loading" || approvalView.kind === "reconnecting") {
+    return <PageSkeleton variant="detail" />;
+  }
+  // A failed read is not a missing approval. Keep the two apart so an outage
+  // shows readable retry copy and a real missing record still says so.
+  if (!approval && approvalView.kind === "error") {
+    return (
+      <div className="max-w-3xl space-y-3">
+        <QueryErrorState
+          size="page"
+          error={approvalView.error}
+          action="load this approval"
+          onRetry={approvalView.retry}
+          retrying={approvalView.isFetching}
+        />
+        <Button asChild variant="outline" size="sm">
+          <Link to="/approvals">Back to approvals</Link>
+        </Button>
+      </div>
+    );
+  }
+  if (!approval) {
+    return (
+      <div className="max-w-3xl space-y-3">
+        <p className="text-sm text-muted-foreground">Approval not found.</p>
+        <Button asChild variant="outline" size="sm">
+          <Link to="/approvals">Back to approvals</Link>
+        </Button>
+      </div>
+    );
+  }
 
   const payload = approval.payload as Record<string, unknown>;
   const linkedAgentId = typeof payload.agentId === "string" ? payload.agentId : null;
