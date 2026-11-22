@@ -26,6 +26,7 @@ export function ApprovalDetail() {
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [commentBody, setCommentBody] = useState("");
+  const [decisionNote, setDecisionNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [showRawPayload, setShowRawPayload] = useState(false);
 
@@ -86,10 +87,13 @@ export function ApprovalDetail() {
     }
   };
 
+  const trimmedDecisionNote = () => decisionNote.trim() || undefined;
+
   const approveMutation = useMutation({
-    mutationFn: () => approvalsApi.approve(approvalId!),
+    mutationFn: () => approvalsApi.approve(approvalId!, trimmedDecisionNote()),
     onSuccess: () => {
       setError(null);
+      setDecisionNote("");
       refresh();
       navigate(`/approvals/${approvalId}?resolved=approved`, { replace: true });
     },
@@ -97,18 +101,20 @@ export function ApprovalDetail() {
   });
 
   const rejectMutation = useMutation({
-    mutationFn: () => approvalsApi.reject(approvalId!),
+    mutationFn: () => approvalsApi.reject(approvalId!, trimmedDecisionNote()),
     onSuccess: () => {
       setError(null);
+      setDecisionNote("");
       refresh();
     },
     onError: (err) => setError(describeError(err, { action: "reject this request" }).body),
   });
 
   const revisionMutation = useMutation({
-    mutationFn: () => approvalsApi.requestRevision(approvalId!),
+    mutationFn: () => approvalsApi.requestRevision(approvalId!, trimmedDecisionNote()),
     onSuccess: () => {
       setError(null);
+      setDecisionNote("");
       refresh();
     },
     onError: (err) => setError(describeError(err, { action: "request a revision" }).body),
@@ -259,6 +265,23 @@ export function ApprovalDetail() {
             </div>
             <p className="text-(length:--text-micro) text-muted-foreground mt-2">
               Linked tasks remain open until the requesting agent follows up and closes them.
+            </p>
+          </div>
+        )}
+        {isActionable && !isBudgetApproval && (
+          <div className="space-y-1">
+            <label htmlFor="approval-decision-note" className="text-xs font-medium text-muted-foreground">
+              Decision note (optional)
+            </label>
+            <Textarea
+              id="approval-decision-note"
+              value={decisionNote}
+              onChange={(event) => setDecisionNote(event.target.value)}
+              placeholder="Add context for the requesting agent…"
+              rows={2}
+            />
+            <p className="text-(length:--text-micro) text-muted-foreground">
+              Stored with the decision and sent to the requesting agent.
             </p>
           </div>
         )}
