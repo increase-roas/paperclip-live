@@ -6,10 +6,11 @@ Base: `origin/master` (`6de064ea94` when this runbook was written)
 
 This page is the single source of truth for the usability train: the 42-PR
 initial batch, the four follow-up PRs from the same round, the five newer PRs
-added on the next pass, the lane A test-helper PR, and the six usability fixes
-plus two lane A fixes added on the final pass. It lists the exact merge order,
-which PRs are superseded, what to check after each batch, and one command that
-proves the whole order still merges cleanly.
+added on the next pass, the lane A test-helper PR, the six usability fixes plus
+two lane A fixes added on the final pass, and eleven lane A test and report PRs
+added on this pass. It lists the exact merge order, which PRs are superseded,
+what to check after each batch, and one command that proves the whole order
+still merges cleanly.
 
 ## One-command verification
 
@@ -24,13 +25,16 @@ pushes nothing. It merges each PR head into a running tree with
 first conflict with the conflicted paths. Exit code `0` means the whole order is
 clean; `1` means a conflict; `2` means a usage or git error.
 
-Last verified: 2026-11-22 (sixth pass), 60 of 60 merged, no conflicts, base
+Last verified: 2026-11-22 (seventh pass), 71 of 71 merged, no conflicts, base
 `6de064ea94`. #158 was rebased onto #118 to clear the one conflict (see below).
-#167 is a draft combo branch and must be marked ready before it merges. #145 and
-#162 are covered by #167; do not merge all three. #171 is stacked on #167 and
-must merge after it. #173, #174, #176 and #181 are independent. #175 is stacked
-on #169 and must merge after it. #177-#182 are independent usability fixes and
-merge last.
+#167 is a draft combo branch and must be marked ready before it merges. #167 now
+contains all of #145, #162's first commit and #162's `--proposals` commit, so
+#145 and #162 both close as covered; #158 still merges first. #171 is stacked on
+#167 and must merge after it. #173, #174, #176, #181 and the eleven lane A PRs
+from #119 through #146 are independent. #175 is stacked on #169 and must merge
+after it. #177-#182 are independent usability fixes. #89, #97 and #112 stay out
+of the train: #112's base is the draft #97 branch, which is stacked on the draft
+#89 branch.
 
 Useful variants:
 
@@ -103,6 +107,17 @@ node scripts/merge-train-simulate.mjs --json
 #179
 #180
 #182
+#119
+#120
+#121
+#129
+#130
+#131
+#134
+#138
+#139
+#140
+#146
 ```
 
 Keep `#115` before `#149` and `#136` before `#148`; those pairs touch the same
@@ -142,6 +157,7 @@ timeline Retry, and adds the range controls, section heading and range group.
 | W. Routine Runs empty state | #179 | `cd ui && npx vitest run src/components/routine-sections/operate-sections.test.tsx` (5 passed) and `tests/e2e/routine-runs-empty-state.spec.ts` (1 passed). |
 | X. Routine archive Undo | #180 | `cd ui && npx vitest run src/pages/Routines.test.tsx -t "offers Undo after archiving"` (1 passed) and `tests/e2e/routine-archive-undo.spec.ts` (1 passed). |
 | Y. Inbox read errors | #182 | `cd ui && npx vitest run src/pages/Inbox.test.tsx -t "reports a failed mark-all-read"` (1 passed) and `tests/e2e/inbox-read-error.spec.ts` (1 passed). |
+| Z. Lane A test fixes and rebuild report | #119 #120 #121 #129 #130 #131 #134 #138 #139 #140 #146 | Each PR body names its focused suite and counts. Run server tests for #119 (openapi), `pnpm --filter @paperclipai/server test -- <area>` for #121/#129/#130/#131/#138/#139/#140, the skills test for #120, the rebuild-report tests for #134, and the shutdown-hook tests for #146. All eleven merged after the usability stack in the simulation. |
 
 ## What supersedes what
 
@@ -157,7 +173,13 @@ timeline Retry, and adds the range controls, section heading and range group.
 - **#167 contains #158, #145 and #162.** #167 is the conflict-resolved combo:
   it carries #158's skeleton loading, #145's gateway-policy derivation and #162's
   coverage report. Merge #158 first, then #167, and close #145 and #162 as
-  covered. Do not merge all four.
+  covered. Do not merge all four. Evidence on 2026-11-22: `git range-diff`
+  matches #145's commit `96a23ffe14` to #167's `e0a7f31615` and #162's
+  `73c362926c` to #167's `2478b96f1a`; the catalog `purpose` additions come from
+  #118, which #167 also contains. #167 originally lacked #162's second commit
+  `fff7dda7df` (`--proposals`), so that commit was cherry-picked onto #167 as
+  `17821aa104` before #162 was closed. The tree is now a true superset for these
+  three PRs.
 - **#171 is stacked on #167.** Its bot-detail routine links start from the #167
   combo, so it inherits the skeleton, coverage and gateway sections. Merge #167,
   then #171. A browser case clicks a routine title at 390px and lands on the
@@ -186,11 +208,18 @@ timeline Retry, and adds the range controls, section heading and range group.
   order after the stack.
 - **Branches edited in this pass.** #167 moved its `bots:coverage` script next to
   `bots:register` so #165's `test:chat-shard-workers` entry no longer contests
-  the same `package.json` slot. #171 was rebased onto #167 and #158 was rebased
-  onto #118. Both additions are kept.
-- **#158 must precede #167** (and must have preceded #162 if merged directly).
-  Reversing them conflicts in `ui/src/pages/Bots.tsx` and
-  `ui/src/pages/BotDetail.tsx`.
+  the same `package.json` slot, and then received #162's `--proposals` commit.
+  #171 was rebased onto #167 and #158 was rebased onto #118. Both additions are
+  kept. #145 and #162 need no further edits because they close as covered by
+  #167.
+- **#89, #97 and #112 stay out of the train.** #89 (shared fixture module) and
+  #97 (suite harness plus the 47-file split) are drafts. #112's base is #97, so
+  it inherits the split and conflicts with #110 on
+  `server/src/__tests__/chat-channels.integration.test.ts`. Merge #89, then #97,
+  then #112 separately once those drafts are ready; do not insert #112 into this
+  train. #121 is the independent acknowledgement-window fix and is in batch Z.
+- **#158 must precede #167.** Reversing them conflicts in `ui/src/pages/Bots.tsx`
+  and `ui/src/pages/BotDetail.tsx`.
 - **#158 is stacked on #118.** Lane A's #100/#108 changed the same `BotDetail`
   import line that #158 shortened. #158 was rebased onto a base that contains
   #118, so it now carries lane A's bot commits until #118 merges. That is the
