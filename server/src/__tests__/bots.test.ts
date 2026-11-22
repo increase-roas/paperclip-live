@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import express from "express";
 import request from "supertest";
-import { beforeAll, afterAll, afterEach, describe, expect, it } from "vitest";
+import { beforeAll, afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import {
   activityLog,
   agents,
@@ -66,7 +66,7 @@ async function createAgent(db: Db, companyId: string, overrides: Partial<typeof 
     .then((rows) => rows[0]!);
 }
 
-async function createApp(db: Db, actor: Express.Request["actor"]) {
+async function createApp(db: Db, actor: Express.Request["actor"], options: Record<string, unknown> = {}) {
   const { botsRoutes } = await import("../routes/bots.js");
   const app = express();
   app.use(express.json());
@@ -74,7 +74,7 @@ async function createApp(db: Db, actor: Express.Request["actor"]) {
     req.actor = actor;
     next();
   });
-  app.use("/api", botsRoutes(db));
+  app.use("/api", botsRoutes(db, options));
   app.use((error: Error & { status?: number }, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     res.status(error.status ?? 500).json({ error: error.message });
   });
@@ -324,5 +324,215 @@ describePostgres("bots", () => {
     // A member of another company cannot read this roster, but its own reads.
     await request(memberApp).get(`/api/companies/${other.id}/bots`).expect(403);
     await request(memberApp).get(`/api/companies/${mine.id}/bots`).expect(200);
+  });
+
+  it("serves a page for a Hermes agent that is not tagged as a bot", async () => {
+    const company = await createCompany(db, "Hermes");
+    const agent = await createAgent(db, company.id, {
+      name: "Research Analyst",
+      metadata: null,
+    });
+    const routine = await db
+      .insert(routines)
+      .values({ companyId: company.id, title: "Morning research", assigneeAgentId: agent.id, status: "active" })
+      .returning()
+      .then((rows) => rows[0]!);
+    await db.insert(routineTriggers).values({
+      companyId: company.id,
+      routineId: routine.id,
+      kind: "schedule",
+      cronExpression: "0 8 * * *",
+      timezone: "America/New_York",
+      enabled: true,
+      nextRunAt: new Date("2026-11-23T13:00:00.000Z"),
+    });
+    await db.insert(activityLog).values({
+      companyId: company.id,
+      actorType: "agent",
+      actorId: agent.id,
+      action: "agent.heartbeat",
+      entityType: "agent",
+      entityId: agent.id,
+      agentId: agent.id,
+    });
+    await db.insert(heartbeatRuns).values({
+      companyId: company.id,
+      agentId: agent.id,
+      status: "succeeded",
+      startedAt: new Date("2026-11-22T12:00:00.000Z"),
+    });
+
+    const app = await createApp(db, boardActor(company.id));
+
+    // The roster keeps it out of the registered list...
+    const roster = await request(app).get(`/api/companies/${company.id}/bots`).expect(200);
+    expect(roster.body.bots).toEqual([]);
+    expect(roster.body.suggestedAgents.map((suggested: { name: string }) => suggested.name)).toEqual([
+      "Research Analyst",
+    ]);
+
+    // ...but its page exists, with the data the source already has.
+    const byId = await request(app).get(`/api/companies/${company.id}/bots/${agent.id}`).expect(200);
+    expect(byId.body).toMatchObject({
+      id: agent.id,
+      name: "Research Analyst",
+      kind: "agent",
+      registered: true,
+      taggedAsBot: false,
+      agentId: agent.id,
+    });
+    expect(byId.body.note).toContain("no bot metadata");
+    expect(byId.body.routines).toHaveLength(1);
+    expect(byId.body.routines[0]).toMatchObject({
+      title: "Morning research",
+      triggers: [expect.objectContaining({ cronExpression: "0 8 * * *", enabled: true })],
+    });
+    expect(byId.body.recentActivity).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ action: "agent.heartbeat", source: "activity" }),
+        expect.objectContaining({ action: "run.succeeded", source: "run" }),
+      ]),
+    );
+
+    const bySlug = await request(app).get(`/api/companies/${company.id}/bots/research-analyst`).expect(200);
+    expect(bySlug.body.id).toBe(agent.id);
+  });
+
+  it("does not invent a bot page for a plain agent or another company's agent", async () => {
+    const company = await createCompany(db, "Plain");
+    const other = await createCompany(db, "Outside");
+    const plain = await createAgent(db, company.id, { name: "Codex Helper", adapterType: "codex_local", metadata: null });
+    const foreign = await createAgent(db, other.id, { name: "Foreign Hermes", metadata: null });
+
+    const app = await createApp(db, boardActor(company.id));
+    await request(app).get(`/api/companies/${company.id}/bots/${plain.id}`).expect(404);
+    await request(app).get(`/api/companies/${company.id}/bots/${foreign.id}`).expect(404);
+
+    // A tagged bot still comes from the roster, not the fallback path.
+    const tagged = await createAgent(db, company.id, { name: "Tagged Hermes", metadata: { grokBotTwin: true } });
+    const taggedPage = await request(app).get(`/api/companies/${company.id}/bots/${tagged.id}`).expect(200);
+    expect(taggedPage.body).toMatchObject({ taggedAsBot: true });
+  });
+
+  it("plans catalog bot registration without writing agents", async () => {
+    const company = await createCompanyNamed(db, "Increase Roas");
+    const app = await createApp(db, boardActor(company.id));
+
+    const response = await request(app).get(`/api/companies/${company.id}/bots/registration`).expect(200);
+    expect(response.body).toMatchObject({ companyName: "Increase Roas", creates: 6, skips: 0 });
+    expect(response.body.entries.map((entry: { slug: string }) => entry.slug)).toEqual(
+      KNOWN_GATEWAY_BOTS.map((bot) => bot.slug),
+    );
+    const funnel = response.body.entries.find((entry: { slug: string }) => entry.slug === "funnel-builder");
+    expect(funnel.agent).toMatchObject({
+      adapterType: "hermes_gateway",
+      status: "paused",
+      metadata: { agentKind: "bot", bot: { transport: "hermes_gateway" } },
+    });
+
+    // Read-only: the roster is unchanged.
+    expect(await db.select().from(agents)).toEqual([]);
+  });
+
+  it("does not offer registration in a company that runs no catalog bots", async () => {
+    const company = await createCompany(db, "Elsewhere");
+    const app = await createApp(db, boardActor(company.id));
+    const response = await request(app).get(`/api/companies/${company.id}/bots/registration`).expect(200);
+    expect(response.body).toMatchObject({ entries: [], creates: 0, skips: 0 });
+  });
+
+  describe("gateway data", () => {
+    const gatewayBot = (agent: string) => ({
+      agent,
+      name: agent,
+      preset: null,
+      enabled: true,
+      hasKey: true,
+      key: {
+        present: true,
+        algorithm: "sha256",
+        fingerprint: "sha256:4b1d9c2e7a01",
+        createdAt: "2026-11-18T14:02:11.000Z",
+        rotatedAt: null,
+        updatedAt: "2026-11-18T14:02:11.000Z",
+      },
+      providers: {},
+      grantedProviders: [],
+      policy: {
+        mode: null,
+        allowDelete: false,
+        allowOutbound: false,
+        allowAgencyWrite: false,
+        allowBulk: false,
+        allowSpend: false,
+        allowBuild: false,
+        outboundChannels: null,
+        locations: "*",
+        secrets: [],
+        admin: false,
+        role: null,
+      },
+      usage: { last24h: { requests: 0, errors: 0 }, last7d: { requests: 0, errors: 0 }, lastUsedAt: null },
+      audit: [],
+      generatedAt: "2026-11-22T05:12:00.000Z",
+    }) as never;
+
+    it("keeps every other company's gateway bots out of the answer", async () => {
+      const company = await createCompanyNamed(db, "Increase Roas");
+      const list = vi.fn().mockResolvedValue({
+        connected: true,
+        generatedAt: "2026-11-22T05:12:00.000Z",
+        count: 2,
+        bots: [gatewayBot("funnel-builder"), gatewayBot("someone-elses-bot")],
+      });
+      const app = await createApp(db, boardActor(company.id), {
+        gateway: { enabled: () => true, list, summary: vi.fn() },
+      });
+
+      const response = await request(app).get(`/api/companies/${company.id}/bots/gateway`).expect(200);
+      expect(response.body).toMatchObject({ connected: true, count: 1 });
+      expect(response.body.bots.map((bot: { agent: string }) => bot.agent)).toEqual(["funnel-builder"]);
+      expect(list).toHaveBeenCalledTimes(1);
+    });
+
+    it("explains a disabled gateway instead of failing the page", async () => {
+      const company = await createCompanyNamed(db, "Increase Roas");
+      const app = await createApp(db, boardActor(company.id), {
+        gateway: {
+          enabled: () => false,
+          list: vi.fn().mockResolvedValue({
+            connected: false,
+            state: "disabled",
+            message: "Gateway bot pages are off.",
+          }),
+          summary: vi.fn(),
+        },
+      });
+
+      const response = await request(app).get(`/api/companies/${company.id}/bots/gateway`).expect(200);
+      expect(response.body).toEqual({
+        connected: false,
+        state: "disabled",
+        message: "Gateway bot pages are off.",
+        bots: [],
+      });
+    });
+
+    it("asks the gateway for one bot by slug and 404s for unknown bots", async () => {
+      const company = await createCompanyNamed(db, "Increase Roas");
+      const summary = vi.fn().mockResolvedValue({ connected: true, summary: gatewayBot("funnel-builder") });
+      const app = await createApp(db, boardActor(company.id), {
+        gateway: { enabled: () => true, list: vi.fn(), summary },
+      });
+
+      const response = await request(app)
+        .get(`/api/companies/${company.id}/bots/funnel-builder/gateway`)
+        .expect(200);
+      expect(response.body).toMatchObject({ connected: true });
+      expect(summary).toHaveBeenCalledWith("funnel-builder");
+
+      await request(app).get(`/api/companies/${company.id}/bots/no-such-bot/gateway`).expect(404);
+      expect(summary).toHaveBeenCalledTimes(1);
+    });
   });
 });

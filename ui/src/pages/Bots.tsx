@@ -68,13 +68,13 @@ function SuggestedAgentSection({ agents }: { agents: SuggestedAgentBot[] }) {
         {agents.map((agent) => (
           <li key={agent.agentId} className="border-b border-border last:border-b-0">
             <Link
-              to={`/agents/${agent.agentId}`}
+              to={`/bots/${agent.agentId}`}
               className="flex flex-wrap items-center gap-2 rounded-md px-2 py-2 hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
             >
               <span className="text-sm font-medium text-foreground">{agent.name}</span>
               <Badge variant="outline">{agent.adapterType}</Badge>
               <span className="text-xs text-muted-foreground">{agent.status}</span>
-              <span className="ml-auto text-xs text-muted-foreground">Open agent</span>
+              <span className="ml-auto text-xs text-muted-foreground">Open bot page</span>
             </Link>
           </li>
         ))}

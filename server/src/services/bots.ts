@@ -45,6 +45,7 @@ export function botsService(db: Db) {
       status: agent.status,
       adapterType: agent.adapterType,
       grokBotTwin: isBotAgentMetadata(agent.metadata) && agent.metadata?.grokBotTwin === true,
+      taggedAsBot: true,
       gateway: bot.gateway,
       note: null,
       updatedAt: agent.updatedAt ? agent.updatedAt.toISOString() : null,
@@ -56,7 +57,7 @@ export function botsService(db: Db) {
       id: `${CATALOG_PREFIX}${known.slug}`,
       slug: known.slug,
       name: known.name,
-      purpose: null,
+      purpose: known.purpose,
       kind: "gateway",
       registered: false,
       agentId: null,
@@ -65,6 +66,7 @@ export function botsService(db: Db) {
       status: "unregistered",
       adapterType: null,
       grokBotTwin: false,
+      taggedAsBot: false,
       gateway: null,
       note: known.note,
       updatedAt: null,
@@ -214,10 +216,37 @@ export function botsService(db: Db) {
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
+  /**
+   * A Hermes gateway agent with no bot metadata still gets a page: its zero-code
+   * roster entry would hide real routines and activity. The page says the agent
+   * is not tagged yet instead of inventing a registration.
+   */
+  async function untaggedBot(companyId: string, botIdOrSlug: string): Promise<CompanyBotDetail | null> {
+    const rows = await db.select().from(agents).where(eq(agents.companyId, companyId));
+    const agent = rows.find(
+      (row) =>
+        (row.id === botIdOrSlug || botSlug(row.name) === botSlug(botIdOrSlug)) &&
+        !isBotAgentMetadata(row.metadata) &&
+        row.adapterType === "hermes_gateway",
+    );
+    if (!agent) return null;
+    const [routineRows, activityRows] = await Promise.all([
+      routinesForAgent(companyId, agent.id),
+      recentActivity(companyId, agent.id),
+    ]);
+    return {
+      ...toSummary(agent),
+      taggedAsBot: false,
+      note: "Runs on the Hermes gateway but has no bot metadata yet. Tag the agent with grokBotTwin or agentKind: \"bot\" to list it with the other bots.",
+      routines: routineRows,
+      recentActivity: activityRows,
+    };
+  }
+
   async function get(companyId: string, botIdOrSlug: string): Promise<CompanyBotDetail | null> {
     const all = await list(companyId);
     const target = all.find((bot) => bot.id === botIdOrSlug || bot.slug === botIdOrSlug);
-    if (!target) return null;
+    if (!target) return untaggedBot(companyId, botIdOrSlug);
     if (!target.agentId) {
       return { ...target, routines: [], recentActivity: [] };
     }

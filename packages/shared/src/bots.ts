@@ -32,36 +32,42 @@ export const KNOWN_GATEWAY_BOTS = [
     company: "Increase Roas",
     slug: "funnel-builder",
     name: "Funnel Builder",
+    purpose: "Builds and maintains funnels and landing pages through the gateway website-builder policy.",
     note: "Runs on the gateway website-builder policy with the full GHL scope set.",
   },
   {
     company: "Increase Roas",
     slug: "kiwi",
     name: "Kiwi",
+    purpose: null,
     note: "No agent, gateway key id or policy recorded in Paperclip yet.",
   },
   {
     company: "Increase Roas",
     slug: "dr-eggbot",
     name: "dr eggbot",
+    purpose: null,
     note: "No agent, gateway key id or policy recorded in Paperclip yet.",
   },
   {
     company: "Increase Roas",
     slug: "workflow-builder",
     name: "Workflow Builder",
+    purpose: "Builds and maintains workflows and routines.",
     note: "Builds and maintains workflows and routines; no agent or gateway key recorded yet.",
   },
   {
     company: "Increase Roas",
     slug: "drive-organizer",
     name: "Drive Organizer",
+    purpose: "Keeps the Increase ROAS — Company OS shared drive organized.",
     note: "Keeps the Increase ROAS — Company OS shared drive organized; no agent or gateway key recorded yet.",
   },
   {
     company: "Increase Roas",
     slug: "hermes-specialist",
     name: "Hermes Specialist",
+    purpose: "Maintains and tunes Hermes agent profiles.",
     note: "Hermes profile specialist; no agent or gateway key recorded yet.",
   },
 ] as const;
@@ -93,6 +99,12 @@ export interface CompanyBotSummary {
   status: string;
   adapterType: string | null;
   grokBotTwin: boolean;
+  /**
+   * True when the agent carries bot metadata (`grokBotTwin` or
+   * `agentKind: "bot"`). A Hermes gateway agent without that metadata still has
+   * a page, but the page asks the operator to tag it.
+   */
+  taggedAsBot?: boolean;
   gateway: BotGatewayLink | null;
   note: string | null;
   updatedAt: string | null;
@@ -221,3 +233,92 @@ export function findKnownGatewayBot(slugOrName: string): KnownGatewayBot | null 
     ) ?? null
   );
 }
+
+/**
+ * Live gateway data for one bot, normalized from the gateway's owner-only
+ * `/api/admin/bots` API. Nothing here is a secret: the key is reduced to a
+ * fingerprint before it reaches Paperclip.
+ */
+export interface GatewayBotKey {
+  present: boolean;
+  algorithm: string | null;
+  fingerprint: string | null;
+  createdAt: string | null;
+  rotatedAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface GatewayBotPolicy {
+  mode: string | null;
+  allowDelete: boolean;
+  allowOutbound: boolean;
+  allowAgencyWrite: boolean;
+  allowBulk: boolean;
+  allowSpend: boolean;
+  allowBuild: boolean;
+  outboundChannels: string[] | null;
+  locations: string | null;
+  secrets: string[];
+  admin: boolean;
+  role: string | null;
+}
+
+export interface GatewayBotUsageWindow {
+  requests: number;
+  errors: number;
+}
+
+export interface GatewayBotUsage {
+  last24h: GatewayBotUsageWindow;
+  last7d: GatewayBotUsageWindow;
+  lastUsedAt: string | null;
+}
+
+export interface GatewayBotAuditEntry {
+  id: number;
+  at: string;
+  method: string;
+  path: string;
+  status: number;
+  ok: boolean;
+  tokenType: string | null;
+  source: string | null;
+  undoOf: number | null;
+  undoneBy: number | null;
+}
+
+export interface GatewayBotSummary {
+  agent: string;
+  name: string;
+  preset: { name: string; description: string | null } | null;
+  enabled: boolean;
+  hasKey: boolean;
+  key: GatewayBotKey;
+  providers: Record<string, unknown>;
+  grantedProviders: string[];
+  policy: GatewayBotPolicy;
+  usage: GatewayBotUsage;
+  audit: GatewayBotAuditEntry[];
+  generatedAt: string | null;
+}
+
+/**
+ * Why live gateway data is unavailable. `disabled` and `not_configured` are
+ * operator states, so the page explains them the same way it explains an
+ * unreachable gateway: the roster still works from agent records.
+ */
+export type GatewayBotsState =
+  | "disabled"
+  | "not_configured"
+  | "unauthorized"
+  | "rate_limited"
+  | "unreachable"
+  | "error";
+
+export type CompanyGatewayBotList =
+  | { connected: true; generatedAt: string | null; count: number; bots: GatewayBotSummary[] }
+  | { connected: false; state: GatewayBotsState; message: string; bots: [] };
+
+export type CompanyGatewayBotSummary =
+  | { connected: true; summary: GatewayBotSummary }
+  | { connected: false; state: GatewayBotsState; message: string };

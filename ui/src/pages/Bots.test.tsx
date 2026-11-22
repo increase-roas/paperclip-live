@@ -12,6 +12,7 @@ import { BotDetail } from "./BotDetail";
 
 const listMock = vi.hoisted(() => vi.fn());
 const getMock = vi.hoisted(() => vi.fn());
+const gatewaySummaryMock = vi.hoisted(() => vi.fn());
 const setBreadcrumbsMock = vi.hoisted(() => vi.fn());
 const navigateMock = vi.hoisted(() => vi.fn());
 const params = vi.hoisted(() => ({ botId: "" }));
@@ -20,6 +21,8 @@ vi.mock("@/api/bots", () => ({
   botsApi: {
     list: (companyId: string) => listMock(companyId),
     get: (companyId: string, botId: string) => getMock(companyId, botId),
+    gateway: vi.fn(),
+    gatewaySummary: (companyId: string, botId: string) => gatewaySummaryMock(companyId, botId),
   },
 }));
 
@@ -111,6 +114,12 @@ describe("Bots", () => {
     root = createRoot(container);
     listMock.mockReset();
     getMock.mockReset();
+    gatewaySummaryMock.mockReset();
+    gatewaySummaryMock.mockResolvedValue({
+      connected: false,
+      state: "disabled",
+      message: "Gateway bot pages are off. Set PAPERCLIP_GATEWAY_BOTS_ENABLED=true to read them.",
+    });
     setBreadcrumbsMock.mockReset();
     navigateMock.mockReset();
     params.botId = "";
@@ -153,6 +162,90 @@ describe("Bots", () => {
       { label: "Bots", href: "/bots" },
       { label: "Research Analyst" },
     ]);
+  });
+
+  it("shows the live gateway fingerprint, policy and usage when the gateway answers", async () => {
+    params.botId = "agent-1";
+    getMock.mockResolvedValue({ ...researchBot, routines: [], recentActivity: [] });
+    gatewaySummaryMock.mockResolvedValue({
+      connected: true,
+      summary: {
+        agent: "research-analyst",
+        name: "research-analyst",
+        preset: { name: "researcher", description: "Researches accounts." },
+        enabled: true,
+        hasKey: true,
+        key: {
+          present: true,
+          algorithm: "sha256",
+          fingerprint: "sha256:4b1d9c2e7a01",
+          createdAt: "2026-11-18T14:02:11.000Z",
+          rotatedAt: "2026-11-21T09:30:00.000Z",
+          updatedAt: "2026-11-21T09:30:00.000Z",
+        },
+        providers: { ghl: "read" },
+        grantedProviders: ["ghl"],
+        policy: {
+          mode: "drafts_only",
+          allowDelete: false,
+          allowOutbound: true,
+          allowAgencyWrite: false,
+          allowBulk: false,
+          allowSpend: false,
+          allowBuild: false,
+          outboundChannels: ["slack"],
+          locations: "*",
+          secrets: ["ghl-token"],
+          admin: false,
+          role: "researcher",
+        },
+        usage: {
+          last24h: { requests: 42, errors: 1 },
+          last7d: { requests: 310, errors: 4 },
+          lastUsedAt: "2026-11-22T05:10:58.000Z",
+        },
+        audit: [
+          {
+            id: 9182,
+            at: "2026-11-22T05:10:58.000Z",
+            method: "POST",
+            path: "/contacts/abc123def456/notes",
+            status: 201,
+            ok: true,
+            tokenType: "location",
+            source: "rest",
+            undoOf: null,
+            undoneBy: null,
+          },
+        ],
+        generatedAt: "2026-11-22T05:12:00.000Z",
+      },
+    });
+
+    await render(<BotDetail />);
+    const text = container.textContent ?? "";
+
+    expect(text).toContain("Live gateway");
+    expect(text).toContain("sha256:4b1d9c2e7a01");
+    expect(text).toContain("drafts_only");
+    expect(text).toContain("outbound");
+    expect(text).not.toContain("delete");
+    expect(text).toContain("ghl-token");
+    expect(text).toContain("POST /contacts/abc123def456/notes");
+    expect(gatewaySummaryMock).toHaveBeenCalledWith("company-1", "agent-1");
+  });
+
+  it("explains a gateway that is off without hiding the rest of the bot page", async () => {
+    params.botId = "agent-1";
+    getMock.mockResolvedValue({ ...researchBot, routines: [], recentActivity: [] });
+
+    await render(<BotDetail />);
+    const text = container.textContent ?? "";
+
+    expect(text).toContain("Gateway not connected");
+    expect(text).toContain("PAPERCLIP_GATEWAY_BOTS_ENABLED");
+    expect(text).toContain("gk_live_research");
+    expect(text).toContain("What it does");
   });
 
   it("splits registered bots from known bots that are not registered yet", async () => {
@@ -290,7 +383,97 @@ describe("Bots", () => {
     expect(suggestions?.textContent).toContain("Hermes Untagged");
     expect(suggestions?.textContent).toContain("grokBotTwin");
     const link = [...(suggestions?.querySelectorAll("a") ?? [])].find((anchor) => anchor.textContent?.includes("Hermes Untagged"));
-    expect(link?.getAttribute("href")).toBe("/agents/agent-9");
+    expect(link?.getAttribute("href")).toBe("/bots/agent-9");
+  });
+
+  it("renders the page of a Hermes agent that is not tagged as a bot", async () => {
+    params.botId = "agent-9";
+    getMock.mockResolvedValue({
+      id: "agent-9",
+      slug: "hermes-untagged",
+      name: "Hermes Untagged",
+      purpose: null,
+      kind: "agent",
+      registered: true,
+      agentId: "agent-9",
+      role: "general",
+      title: "Research Analyst",
+      status: "idle",
+      adapterType: "hermes_gateway",
+      grokBotTwin: false,
+      taggedAsBot: false,
+      gateway: null,
+      note: "Runs on the Hermes gateway but has no bot metadata yet.",
+      updatedAt: "2026-11-22T12:00:00.000Z",
+      routines: [
+        {
+          id: "routine-1",
+          title: "Morning research",
+          status: "active",
+          triggers: [
+            {
+              kind: "schedule",
+              cronExpression: "0 8 * * *",
+              timezone: "America/New_York",
+              enabled: true,
+              nextRunAt: "2026-11-23T13:00:00.000Z",
+              lastFiredAt: null,
+            },
+          ],
+        },
+      ],
+      recentActivity: [
+        {
+          id: "activity-1",
+          action: "agent.heartbeat",
+          entityType: "agent",
+          entityId: "agent-9",
+          createdAt: "2026-11-22T12:00:00.000Z",
+          source: "activity",
+        },
+      ],
+    });
+
+    await render(<BotDetail />);
+    const text = container.textContent ?? "";
+
+    expect(text).toContain("Not tagged as a bot");
+    expect(text).toContain("no bot metadata");
+    expect(text).toContain("Morning research");
+    expect(text).toContain("0 8 * * *");
+    expect(text).toContain("agent.heartbeat");
+    const agentLink = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent?.includes("Open agent"));
+    expect(agentLink?.getAttribute("href")).toBe("/agents/agent-9");
+  });
+
+  it("shows the catalog purpose for a known bot that has one", async () => {
+    params.botId = "catalog:funnel-builder";
+    getMock.mockResolvedValue({
+      ...funnelCatalogBot,
+      purpose: "Builds and maintains funnels and landing pages through the gateway website-builder policy.",
+      routines: [],
+      recentActivity: [],
+    });
+
+    await render(<BotDetail />);
+    expect(container.textContent).toContain("Builds and maintains funnels and landing pages");
+  });
+
+  it("renders a readable line in every section for a bot with no data yet", async () => {
+    params.botId = "catalog:kiwi";
+    getMock.mockResolvedValue({ ...funnelCatalogBot, slug: "kiwi", name: "Kiwi", id: "catalog:kiwi", purpose: null, note: null, routines: [], recentActivity: [] });
+
+    await render(<BotDetail />);
+    const text = container.textContent ?? "";
+
+    for (const heading of ["What it does", "Gateway key and policy", "Routines and schedules", "Status", "Recent activity"]) {
+      expect(text, `${heading} section`).toContain(heading);
+    }
+    expect(text).toContain("No purpose recorded yet");
+    expect(text).toContain("No gateway key is linked to this bot yet.");
+    expect(text).toContain("No routines assigned.");
+    expect(text).toContain("No agent row yet, so there is no live status to report.");
+    expect(text).toContain("No recorded activity.");
   });
 
   it("tells an unregistered bot exactly which metadata fields to fill in", async () => {
