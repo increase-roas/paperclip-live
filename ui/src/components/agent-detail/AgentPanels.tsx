@@ -84,7 +84,7 @@ export function AgentMetricTile({
         <Icon className="size-5 shrink-0 text-muted-foreground" aria-hidden />
       </span>
       <span className="mt-1 text-sm text-muted-foreground">{label}</span>
-      <span className="mt-1.5 text-xs text-muted-foreground/70">{description}</span>
+      <span className="mt-1.5 text-xs text-muted-foreground">{description}</span>
     </Link>
   );
 }
