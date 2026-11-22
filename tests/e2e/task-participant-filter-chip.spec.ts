@@ -33,9 +33,11 @@ test("an agent task link shows its participant filter as a removable chip", asyn
   test.setTimeout(90_000);
   const { company, agent } = await seedParticipantTask(request);
 
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/${company.issuePrefix}/issues?participantAgentId=${agent.id}`);
 
   const chip = page.getByTestId("task-participant-filter");
+  await expect(chip).toBeVisible();
   await expect(chip).toContainText(`Participant: ${agent.name}`);
 
   await chip.getByRole("button", { name: `Remove filter Participant: ${agent.name}` }).click();
