@@ -115,3 +115,6 @@ test-results/
 attachments/
 readiness-dev.png
 shot-readiness.cjs
+
+# Local CI stand-in output (scripts/ci-local.sh).
+.ci-local/
