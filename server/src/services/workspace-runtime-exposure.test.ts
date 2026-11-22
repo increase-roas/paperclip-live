@@ -711,13 +711,19 @@ describe("loopback bind is forced on the guest, not merely requested (PAP-17256)
     const { broker } = createBroker();
     installDeps({ broker });
 
+    // The runtime starts a guest with `bash -lc`, and a login shell may print
+    // its own startup noise to the same stderr the failure excerpt captures. A
+    // host profile that writes a warning (this machine's /etc/profile.d reads a
+    // root-only secret file) must not hide what the guest itself said, so the
+    // excerpt is matched as "actionable message … output: … guest line" instead
+    // of requiring the guest line to be the first thing after "output:".
     await expect(startRuntimeServicesForWorkspaceControl(startInput({
       serviceName: "paperclip-dev",
       command: guestCommand("dev-runner-bind-conflict.mjs"),
       expose: LEGACY_HTTP_EXPOSE,
       port: { type: "auto", envKey: "PORT" },
     }))).rejects.toThrow(
-      /deployment\/bind conflict: local_trusted requires server\.bind=loopback.*output: local_trusted requires server\.bind=loopback/s,
+      /deployment\/bind conflict: local_trusted requires server\.bind=loopback[\s\S]*output: [\s\S]*local_trusted requires server\.bind=loopback/,
     );
   }, 20_000);
 });
