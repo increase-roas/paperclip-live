@@ -40,18 +40,34 @@ jobs:
         run: pnpm typecheck
 
   test:
-    name: test (${{ matrix.mode }})
+    name: test (${{ matrix.mode }}${{ matrix.mode == 'serialized' && format(' {0}/{1}', matrix.shard_index + 1, matrix.shard_count) || '' }})
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        mode: [general, serialized]
+        include:
+          - mode: general
+            shard_index: 0
+            shard_count: 1
+          # The serialized shard needs more than two hours on an eight-core host,
+          # so it runs as six parallel jobs here. Same flags as pr-trusted.yml.
+          - { mode: serialized, shard_index: 0, shard_count: 6 }
+          - { mode: serialized, shard_index: 1, shard_count: 6 }
+          - { mode: serialized, shard_index: 2, shard_count: 6 }
+          - { mode: serialized, shard_index: 3, shard_count: 6 }
+          - { mode: serialized, shard_index: 4, shard_count: 6 }
+          - { mode: serialized, shard_index: 5, shard_count: 6 }
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/ir-setup
       - name: Test
-        run: pnpm test:run:${{ matrix.mode }}
+        run: |
+          if [ "${{ matrix.mode }}" = "serialized" ]; then
+            pnpm test:run:serialized -- --shard-index ${{ matrix.shard_index }} --shard-count ${{ matrix.shard_count }}
+          else
+            pnpm test:run:general
+          fi
 
   ir-scripts:
     name: IR files
