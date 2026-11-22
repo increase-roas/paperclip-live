@@ -1144,6 +1144,10 @@ are unchanged:
 
 - **install** is skipped when the lockfile, every `package.json`, `patches/`, Node
   and pnpm match this worktree's last install.
+- **Workspace runtime dist** builds `@paperclipai/plugin-sdk` once when its
+  `dist/index.js` is missing. The server imports it at runtime and it has no
+  prepare script or Vitest alias, so a spawned server process in a fresh worktree
+  otherwise fails with `ERR_MODULE_NOT_FOUND`.
 - **Runner build** is skipped when the Runner's build stamp is current. When another
   worktree built the same inputs (the build-input digest described under
   "Reused Runner build in the server build", plus the compiler), the Runner and eval

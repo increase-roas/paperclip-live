@@ -14,6 +14,11 @@
 // Steps:
 //   install       skipped when the lockfile, manifests, patches and toolchain
 //                 match the last successful install in this worktree
+//   workspace dist  `@paperclipai/plugin-sdk` is imported by the server at
+//                 runtime but has no prepare script and no vitest alias, so a
+//                 fresh worktree has no dist and any test that spawns a server
+//                 process dies with ERR_MODULE_NOT_FOUND. Build it once when
+//                 its dist entry is missing.
 //   runner build  skipped when the Runner's own build stamp is current;
 //                 restored from the cache when another worktree built the same
 //                 inputs; otherwise built, then published
@@ -138,6 +143,28 @@ function publishSeed(root, cache, toolchain, bins) {
     if (!seedIsScrubbed(copy)) throw new Error("seed still holds a workspace crate unit");
   }, { meta: { profiles }, replace: existing => profiles.some(profile => !existing.profiles?.includes(profile)) });
   return published ? { step: "cargo-seed", action: "published", profiles } : null;
+}
+
+// --- Workspace runtime dist ------------------------------------------------
+
+// Workspace packages the server imports at runtime that `pnpm install` does not
+// build. `@paperclipai/plugin-sdk` is reachable from server services but has no
+// prepare script and no Vitest alias, so a spawned server process resolves it to
+// `dist/index.js`. Tests that start one (for example the quota receiver process
+// in ai-connections) fail with ERR_MODULE_NOT_FOUND until it is built.
+const SERVER_RUNTIME_WORKSPACE_PACKAGES = ["packages/plugins/sdk"];
+
+function workspaceRuntimeDistStep(root) {
+  const built = [];
+  for (const relative of SERVER_RUNTIME_WORKSPACE_PACKAGES) {
+    const packageRoot = path.join(root, relative);
+    if (existsSync(path.join(packageRoot, "dist", "index.js"))) continue;
+    const name = readJson(path.join(packageRoot, "package.json"))?.name;
+    if (!name) continue;
+    exec("pnpm", ["--filter", name, "build"], root);
+    built.push(name);
+  }
+  return built.length === 0 ? null : { step: "workspace dist", action: `built ${built.join(", ")}` };
 }
 
 // --- Runner build (dist) ---------------------------------------------------
@@ -294,6 +321,7 @@ export function preflight({ root, options, env = process.env }) {
 
   const toolchain = toolchainIdentity(root, env);
   record(installStep(root, options, toolchain));
+  record(workspaceRuntimeDistStep(root));
   const bins = debugContract(root).bins;
   record(restoreSeed(root, cache, toolchain));
   record(runnerBuildStep(root, cache, toolchain));
