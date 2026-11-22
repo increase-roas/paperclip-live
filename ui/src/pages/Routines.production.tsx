@@ -984,7 +984,7 @@ export function Routines() {
               <textarea
                 ref={titleInputRef}
                 aria-label="Routine title"
-                className="w-full resize-none overflow-hidden bg-transparent text-xl font-semibold outline-none placeholder:text-muted-foreground/50"
+                className="w-full resize-none overflow-hidden bg-transparent text-xl font-semibold rounded-sm outline-none focus-visible:ring-(length:--rad-3) focus-visible:ring-ring/50 placeholder:text-muted-foreground/50"
                 placeholder="Routine title"
                 rows={1}
                 value={draft.title}

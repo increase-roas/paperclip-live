@@ -1389,7 +1389,23 @@ function AccountNewIssueDialog({ ignoreDefaults }: { ignoreDefaults: boolean }) 
         onKeyDown={handleKeyDown}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
-          dialogBodyRef.current?.querySelector<HTMLElement>('[contenteditable="true"]')?.focus();
+          // The composer editor is a lazy chunk and can mount well after the
+          // open event, sometimes through a second render of the dialog. Watch
+          // the document for the editor instead of guessing a delay, and stop
+          // once focus lands. Without this, focus stays on the trigger behind
+          // the overlay and the first keystroke goes nowhere.
+          const focusComposer = () => {
+            const editor = document.querySelector<HTMLElement>('[role="dialog"] [contenteditable="true"]');
+            if (!editor) return false;
+            editor.focus();
+            return document.activeElement === editor;
+          };
+          if (focusComposer()) return;
+          const observer = new MutationObserver(() => {
+            if (focusComposer()) observer.disconnect();
+          });
+          observer.observe(document.body, { childList: true, subtree: true });
+          setTimeout(() => observer.disconnect(), 5_000);
         }}
         onEscapeKeyDown={(event) => {
           if (event.defaultPrevented) return;

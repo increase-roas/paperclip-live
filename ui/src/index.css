@@ -4801,6 +4801,22 @@ html:has(.design-proposal-theme) .design-navigation-group-label {
 .design-view-toggle .design-toolbar-button:first-child { border-start-start-radius: var(--design-page-control-radius); border-end-start-radius: var(--design-page-control-radius); }
 .design-view-toggle .design-toolbar-button:last-child { border-start-end-radius: var(--design-page-control-radius); border-end-end-radius: var(--design-page-control-radius); }
 .design-view-toggle .design-toolbar-button:focus-visible { position: relative; z-index: var(--z-1); }
+/* The toolbar rules above reset `box-shadow` in an unlayered rule, which also
+   removes the shared focus ring from every toolbar button. Restore the ring for
+   keyboard focus only, so pointer clicks keep the compact surface. */
+.design-page-toolbar .design-toolbar-button:focus-visible,
+.design-page-toolbar .design-toolbar-filter > button:focus-visible {
+  border-color: var(--ring);
+  box-shadow: var(--focus-ring-shadow);
+  outline: none;
+}
+/* The routine title is a borderless textarea inside the page header. Restore
+   the shared ring for keyboard focus without changing its layout. */
+textarea[data-autosize-title]:focus-visible {
+  border-radius: var(--radius-sm);
+  outline: none;
+  box-shadow: var(--focus-ring-shadow);
+}
 .design-toolbar-actions { display: flex; align-items: center; gap: var(--design-page-action-gap); margin-inline-start: auto; }
 .design-page-toolbar .design-new-task { margin-inline-start: var(--design-page-toolbar-gap); background: var(--foreground); color: var(--background); font-weight: var(--font-weight-semibold); }
 .design-page-toolbar .design-new-task:hover { background: color-mix(in oklab, var(--foreground) 90%, var(--task-list-surface)); color: var(--background); }

@@ -241,4 +241,40 @@ describe("IssueFiltersPopover", () => {
 
     act(() => root.unmount());
   });
+
+  it("names the icon-only filter trigger and reports the active count", () => {
+    const root = createRoot(container);
+
+    act(() => {
+      root.render(
+        <IssueFiltersPopover
+          presentation="refreshed"
+          state={defaultIssueFilterState}
+          onChange={vi.fn()}
+          activeFilterCount={0}
+          iconOnly
+        />,
+      );
+    });
+
+    const trigger = container.querySelector("button");
+    expect(trigger?.getAttribute("aria-label")).toBe("Filters");
+    expect(trigger?.getAttribute("title")).toBe("Filter");
+
+    act(() => {
+      root.render(
+        <IssueFiltersPopover
+          presentation="refreshed"
+          state={defaultIssueFilterState}
+          onChange={vi.fn()}
+          activeFilterCount={2}
+          iconOnly
+        />,
+      );
+    });
+
+    expect(container.querySelector("button")?.getAttribute("aria-label")).toBe("Filters (2 active)");
+
+    act(() => root.unmount());
+  });
 });
