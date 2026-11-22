@@ -227,15 +227,17 @@ export function CompanySettings() {
           General
         </div>
         <div className="space-y-3">
-          <Field label="Organization name" hint="The display name for your organization.">
+          <Field label="Organization name" hint="The display name for your organization." htmlFor="company-settings-name">
             <input
+              id="company-settings-name"
               className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
               type="text"
               value={companyName}
+              aria-describedby={isCloudManaged ? "company-settings-rename-hint" : undefined}
               onChange={(e) => setCompanyName(e.target.value)}
             />
             {isCloudManaged && (
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p id="company-settings-rename-hint" className="mt-1 text-xs text-muted-foreground">
                 Renaming can change this company's task ID prefix. Existing task IDs are
                 renumbered and old task links stop resolving.
               </p>
@@ -244,8 +246,10 @@ export function CompanySettings() {
           <Field
             label="Description"
             hint="Optional description shown in the organization profile."
+            htmlFor="company-settings-description"
           >
             <input
+              id="company-settings-description"
               className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
               type="text"
               value={description}
@@ -274,9 +278,11 @@ export function CompanySettings() {
               <Field
                 label="Logo"
                 hint="Upload a PNG, JPEG, WEBP, GIF, or SVG logo image."
+                htmlFor="company-settings-logo"
               >
                 <div className="space-y-2">
                   <input
+                    id="company-settings-logo"
                     type="file"
                     accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
                     onChange={handleLogoFileChange}

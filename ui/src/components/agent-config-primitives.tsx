@@ -72,11 +72,15 @@ export const roleLabels = AGENT_ROLE_LABELS as Record<string, string>;
 
 /* ---- Primitive components ---- */
 
-export function HintIcon({ text }: { text: string }) {
+export function HintIcon({ text, label }: { text: string; label?: string }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button type="button" aria-label={text} className="inline-flex text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+        <button
+          type="button"
+          aria-label={label ? `More information: ${label}` : "More information"}
+          className="inline-flex text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+        >
           <HelpCircle className="h-3 w-3" aria-hidden />
         </button>
       </TooltipTrigger>
@@ -87,12 +91,12 @@ export function HintIcon({ text }: { text: string }) {
   );
 }
 
-export function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode; configSection?: import("../adapters/types").AdapterConfigSection }) {
+export function Field({ label, hint, htmlFor, children }: { label: string; hint?: string; htmlFor?: string; children: React.ReactNode; configSection?: import("../adapters/types").AdapterConfigSection }) {
   return (
     <div>
       <div className="flex items-center gap-1.5 mb-1">
-        <label className="text-xs text-muted-foreground">{label}</label>
-        {hint && <HintIcon text={hint} />}
+        <label htmlFor={htmlFor} className="text-xs text-muted-foreground">{label}</label>
+        {hint && <HintIcon text={hint} label={label} />}
       </div>
       {children}
     </div>
@@ -116,7 +120,7 @@ export function ToggleField({
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-1.5">
         <span className="text-xs text-muted-foreground">{label}</span>
-        {hint && <HintIcon text={hint} />}
+        {hint && <HintIcon text={hint} label={label} />}
       </div>
       {/* Gallery feedback r3: was a hand-rolled h-5 w-9 pill with a bg-green-600
           track — the app's second switch implementation. Converged on the one
@@ -159,7 +163,7 @@ export function ToggleWithNumber({
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-muted-foreground">{label}</span>
-          {hint && <HintIcon text={hint} />}
+          {hint && <HintIcon text={hint} label={label} />}
         </div>
         <ToggleSwitch
           checked={checked}
@@ -449,12 +453,12 @@ export function ChoosePathButton() {
 /**
  * Label + input rendered on the same line (inline layout for compact fields).
  */
-export function InlineField({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+export function InlineField({ label, hint, htmlFor, children }: { label: string; hint?: string; htmlFor?: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3">
       <div className="flex items-center gap-1.5 shrink-0">
-        <label className="text-xs text-muted-foreground">{label}</label>
-        {hint && <HintIcon text={hint} />}
+        <label htmlFor={htmlFor} className="text-xs text-muted-foreground">{label}</label>
+        {hint && <HintIcon text={hint} label={label} />}
       </div>
       <div className="w-24 ml-auto">{children}</div>
     </div>
