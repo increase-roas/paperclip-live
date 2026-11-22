@@ -14,6 +14,10 @@ interface SidebarContextValue {
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
   isMobile: boolean;
+  /** Tablet shell: 768px through 1023px. The primary nav is a drawer here. */
+  isTablet: boolean;
+  /** Mobile or tablet: the primary nav is off-canvas rather than in flow. */
+  isCompactShell: boolean;
   // Back-compat collapse API. The global navigation is permanently expanded;
   // these values remain for callers that have not removed old requests.
   collapsed: boolean;
@@ -35,22 +39,40 @@ interface SidebarContextValue {
 const SidebarContext = createContext<SidebarContextValue | null>(null);
 
 const MOBILE_BREAKPOINT = 768;
+const DESKTOP_BREAKPOINT = 1024;
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < MOBILE_BREAKPOINT);
-  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= MOBILE_BREAKPOINT);
+  const [isTablet, setIsTablet] = useState(
+    () => window.innerWidth >= MOBILE_BREAKPOINT && window.innerWidth < DESKTOP_BREAKPOINT,
+  );
+  // The primary nav is in flow only on desktop. Below `lg` it is a drawer, so
+  // the agent-detail content column keeps a readable width on a tablet.
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= DESKTOP_BREAKPOINT);
 
   const [routeRequestsCollapsed, setRouteRequestsCollapsed] = useState(false);
   const [forceCollapsed, setForceCollapsed] = useState(false);
 
   useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
-    const onChange = (e: MediaQueryListEvent) => {
-      setIsMobile(e.matches);
-      setSidebarOpen(!e.matches);
+    const mobileQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
+    const tabletQuery = window.matchMedia(
+      `(min-width: ${MOBILE_BREAKPOINT}px) and (max-width: ${DESKTOP_BREAKPOINT - 1}px)`,
+    );
+    const onChange = () => {
+      const mobile = mobileQuery.matches;
+      const tablet = tabletQuery.matches;
+      setIsMobile(mobile);
+      setIsTablet(tablet);
+      // Entering a compact shell closes the drawer. Entering desktop restores
+      // the in-flow primary nav.
+      setSidebarOpen(!mobile && !tablet);
     };
-    mql.addEventListener("change", onChange);
-    return () => mql.removeEventListener("change", onChange);
+    mobileQuery.addEventListener("change", onChange);
+    tabletQuery.addEventListener("change", onChange);
+    return () => {
+      mobileQuery.removeEventListener("change", onChange);
+      tabletQuery.removeEventListener("change", onChange);
+    };
   }, []);
 
   // The icon rail has been retired. Keep the old API inert so routes and
@@ -70,6 +92,8 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
       setSidebarOpen,
       toggleSidebar,
       isMobile,
+      isTablet,
+      isCompactShell: isMobile || isTablet,
       collapsed,
       setCollapsed,
       toggleCollapsed,
@@ -86,6 +110,7 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
       setSidebarOpen,
       toggleSidebar,
       isMobile,
+      isTablet,
       collapsed,
       setCollapsed,
       toggleCollapsed,
