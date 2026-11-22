@@ -50,6 +50,7 @@ import { getRecentProjectIds } from "../../lib/recent-projects";
 import { orderItemsBySelectedAndRecent } from "../../lib/recent-selections";
 import { formatAssigneeUserLabel, formatUserLabel } from "../../lib/assignees";
 import { buildExecutionPolicy, stageParticipantValues } from "../../lib/issue-execution-policy";
+import { activeStageReviewStage, buildStageDecisionUpdate } from "../../lib/stage-review-actions";
 import { useExecutionPolicy } from "../../hooks/useExecutionPolicy";
 import {
   areAutomaticMonitorChecksPaused,
@@ -975,6 +976,9 @@ export function IssueProperties({
   );
   const reviewerValues = stageParticipantValues(issue.executionPolicy, "review");
   const approverValues = stageParticipantValues(issue.executionPolicy, "approval");
+  const activeReviewStage = activeStageReviewStage(issue, currentUserId);
+  const statusChangeUpdate = (status: string, comment?: string) =>
+    onUpdate(comment ? { status, comment } : { status });
   const userLabel = (userId: string | null | undefined) => formatAssigneeUserLabel(userId, currentUserId, userLabelMap);
   const actualUserLabel = (userId: string | null | undefined) => formatUserLabel(userId, userLabelMap);
   const assigneeUserLabel = userLabel(issue.assigneeUserId);
@@ -2371,7 +2375,13 @@ export function IssueProperties({
             {...taskStatusIconProps(issue)}
             glyphContainerClassName="inline-flex size-6 shrink-0 items-center justify-center"
             blockerAttention={issue.blockerAttention}
-            onChange={(status) => onUpdate({ status })}
+            onChange={statusChangeUpdate}
+            commentable
+            reviewActions={activeReviewStage ? {
+              stageType: activeReviewStage,
+              onApprove: (comment) => onUpdate(buildStageDecisionUpdate("approve", comment)),
+              onRequestChanges: (comment) => onUpdate(buildStageDecisionUpdate("request_changes", comment)),
+            } : null}
             showLabel
           />
         </PropertyRow>

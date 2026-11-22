@@ -401,6 +401,7 @@ import {
   isUuidLike,
 } from "@paperclipai/shared";
 import { taskStatusIconProps } from "@/lib/task-status-presentation";
+import { activeStageReviewStage, buildStageDecisionUpdate } from "@/lib/stage-review-actions";
 
 // Stable empty array for React Query `data` defaults. A literal `= []` default
 // creates a new array reference on every render while `data` is undefined
@@ -7583,12 +7584,21 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
       />
     ) : null;
 
+  const activeReviewStage = activeStageReviewStage(issue, currentUserId);
   const issueStatusControl = (
     <StatusIcon
       {...taskStatusIconProps(issue)}
       size={proposedTaskHeader ? "md" : "lg"}
       blockerAttention={issue.blockerAttention}
-      onChange={(status) => updateIssue.mutate({ status })}
+      commentable
+      onChange={(status, comment) =>
+        updateIssue.mutate(comment ? { status, comment } : { status })
+      }
+      reviewActions={activeReviewStage ? {
+        stageType: activeReviewStage,
+        onApprove: (comment) => updateIssue.mutate(buildStageDecisionUpdate("approve", comment)),
+        onRequestChanges: (comment) => updateIssue.mutate(buildStageDecisionUpdate("request_changes", comment)),
+      } : null}
     />
   );
 
