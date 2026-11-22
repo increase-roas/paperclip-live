@@ -16706,10 +16706,20 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
         const initial = await windows();
         expect(initial).toHaveLength(5);
         expect(new Set(initial.map(row => row.companyId)).size).toBe(2);
-        await vi.waitFor(async () => {
+        // Drive the fake schedule one pass at a time instead of letting a
+        // single real-time poll cover ~21 DB batches. Batches are spaced one
+        // fake second apart, so the old 10s wall-clock budget raced the
+        // database on a loaded runner. A pass clears the next wake while it
+        // runs and schedules the following deadline when it settles, so wait
+        // for that signal (or completion) instead of sleeping.
+        const maxPasses = Math.ceil(ids.length / 5) + 5;
+        for (let pass = 0; pass < maxPasses && (await windows()).length < ids.length; pass += 1) {
           await vi.advanceTimersByTimeAsync(1000);
-          expect(await windows()).toHaveLength(106);
-        }, { timeout: 10_000 });
+          await vi.waitFor(async () => {
+            expect(coordinator.nextWakeAt() !== null || (await windows()).length === ids.length).toBe(true);
+          }, { timeout: 30_000 });
+        }
+        expect(await windows()).toHaveLength(ids.length);
         expect(first.requests).toEqual([]); expect(second.requests).toEqual([]); expect(errors).toEqual([]);
       } finally { await coordinator.stop(); vi.useRealTimers(); }
     });
