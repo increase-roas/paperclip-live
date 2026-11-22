@@ -49,7 +49,7 @@ Setup is covered in [connection setup](./connection-setup.md).
 
 ### `external-thread`
 
-Automated: [channel integration](../../server/src/__tests__/chat-channels.integration.test.ts) uses provider fixtures; it does not prove a live Slack, Discord, Teams, Telegram, GitHub, email, or Photon delivery.
+Automated: [channel integration](../../server/src/__tests__/chat-channels/) uses provider fixtures; it does not prove a live Slack, Discord, Teams, Telegram, GitHub, email, or Photon delivery.
 
 Monitor continuation regression: [database checks](../../server/src/services/chat-monitor-continuation.test.ts)
 verify the exact originating conversation, rejected forged/mismatched receipts,
@@ -159,7 +159,7 @@ write safety; record hosted destination acceptance separately.
 
 ### `endpoint-management`
 
-Automated: [channel integration](../../server/src/__tests__/chat-channels.integration.test.ts) covers shared endpoint/delivery behavior; live credential repair and provider ownership remain manual checks.
+Automated: [channel integration](../../server/src/__tests__/chat-channels/) covers shared endpoint/delivery behavior; live credential repair and provider ownership remain manual checks.
 
 Manual: Inspect the bound agent and identity, recent activity, and delivery failure details. Repair a disposable credential, retry a safe message when offered, and verify exactly one external reply. Disable the endpoint and confirm new traffic is not silently processed.
 
@@ -250,7 +250,7 @@ Capability ID: `chat-channels/attachments`.
 Scope: ui
 Storybook: Mount TaskChatBubble attachments and ChatEndpointDetail provider-specific consent/upload/delivery failure and unknown-outcome states. Local email attachment dialog remains a prototype.
 Production: Transfer a disposable supported file through each affected provider; verify recipient delivery, read scope, duplicate/replay handling and failure/unknown state without treating notification as file-upload proof.
-Sources: Source: [TaskChatBubble.tsx](../../ui/src/components/task-chat/TaskChatBubble.tsx), [ChatEndpointDetail.tsx](../../ui/src/pages/apps/chat/ChatEndpointDetail.tsx), [chatEndpoints.ts](../../ui/src/api/chatEndpoints.ts), [chat-channels.ts](../../server/src/routes/chat-channels.ts). Tests: [TaskChatBubble.test.tsx](../../ui/src/components/task-chat/TaskChatBubble.test.tsx), [task-chat-attachments.test.ts](../../ui/src/components/task-chat/task-chat-attachments.test.ts), [chat-channels.integration.test.ts](../../server/src/__tests__/chat-channels.integration.test.ts), [issue-attachment-routes.test.ts](../../server/src/__tests__/issue-attachment-routes.test.ts)
+Sources: Source: [TaskChatBubble.tsx](../../ui/src/components/task-chat/TaskChatBubble.tsx), [ChatEndpointDetail.tsx](../../ui/src/pages/apps/chat/ChatEndpointDetail.tsx), [chatEndpoints.ts](../../ui/src/api/chatEndpoints.ts), [chat-channels.ts](../../server/src/routes/chat-channels.ts). Tests: [TaskChatBubble.test.tsx](../../ui/src/components/task-chat/TaskChatBubble.test.tsx), [task-chat-attachments.test.ts](../../ui/src/components/task-chat/task-chat-attachments.test.ts), [chat-channels area tests](../../server/src/__tests__/chat-channels/), [issue-attachment-routes.test.ts](../../server/src/__tests__/issue-attachment-routes.test.ts)
 
 ### Documentation scope: Chat and email channel setup
 

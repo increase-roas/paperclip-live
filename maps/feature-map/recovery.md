@@ -95,7 +95,7 @@ stopped-run recovery checks.
 
 ### `operator-retry`
 
-The [connected-task regression](../../server/src/__tests__/chat-channels.integration.test.ts)
+The [connected-task regression](../../server/src/__tests__/chat-channels/)
 uses HTTP Retry after an accepted board message fails before provider startup.
 It checks the canonical intent, same-user identity and actual queue dispatch,
 then repeats Retry after another contained preparation failure with the same
@@ -114,7 +114,7 @@ containment, the same chat receipt must admit one successor with the original
 source batch. Reload and repeat reconciliation. Check that a paused endpoint,
 changed source, superseded request or revoked access cannot start that work.
 The connected-chat database regression in
-[chat channel integration](../../server/src/__tests__/chat-channels.integration.test.ts)
+[chat channel integration](../../server/src/__tests__/chat-channels/)
 exercises admission and queue continuation. It does not establish hosted
 provider recovery or successful delivery.
 

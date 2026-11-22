@@ -692,7 +692,7 @@ Endpoint settings, linked identity, tool profiles, and invocation policy still
 apply on each call. The native tool contract rotates older provider sessions so
 an empty retained catalog is not reused. PostgreSQL fixtures cover discovery,
 review publication, Slack reads, and revocation in
-[channel integration](../../server/src/__tests__/chat-channels.integration.test.ts)
+[channel integration](../../server/src/__tests__/chat-channels/)
 and [provenance controls](../../server/src/services/chat-channels/run-origin.test.ts).
 The [voice gateway fixture](../../server/src/__tests__/voice-session-store.integration.test.ts)
 also verifies durable task binding for a later personal callback invocation.
