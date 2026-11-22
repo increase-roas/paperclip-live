@@ -25,6 +25,7 @@ export {
 export {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
+  embeddedPostgresRootSkipReason,
   EMBEDDED_POSTGRES_TEST_TIMEOUT_MS,
   type EmbeddedPostgresTestDatabase,
   type EmbeddedPostgresTestSupport,

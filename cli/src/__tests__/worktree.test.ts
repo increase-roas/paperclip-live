@@ -16,6 +16,7 @@ import {
   companyMemberships,
   createDb,
   closeRegisteredClients,
+  embeddedPostgresRootSkipReason,
   ensurePostgresDatabase,
   executionWorkspaces,
   inspectMigrations,
@@ -87,6 +88,19 @@ function itEmbeddedPostgres(name: string, fn: () => Promise<void>): void {
   it(name, fn, EMBEDDED_POSTGRES_TEST_TIMEOUT_MS);
 }
 const describeEmbeddedPostgres = embeddedPostgresSupport.supported ? describe : describe.skip;
+
+// A worktree init writes an embedded-Postgres config for its target, so these
+// tests start that cluster directly. PAPERCLIP_TEST_POSTGRES_ADMIN_URL cannot
+// replace it, and Postgres refuses to start as root, so skip the embedded
+// runtime as root even when the admin URL makes the shared fixture available.
+function itEmbeddedCluster(name: string, fn: () => Promise<void>): void {
+  const rootReason = embeddedPostgresRootSkipReason();
+  if (rootReason) {
+    it.skip(`${name} (${rootReason})`, fn);
+    return;
+  }
+  itEmbeddedPostgres(name, fn);
+}
 
 function mockVerifiedSeedResult() {
   return {
@@ -1552,7 +1566,7 @@ describe("worktree helpers", () => {
     }
   });
 
-  itEmbeddedPostgres(
+  itEmbeddedCluster(
     "seeds a local-trusted implicit board user without a credential account",
     async () => {
       const tempRoot = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "paperclip-worktree-local-board-seed-"));
@@ -1654,7 +1668,7 @@ describe("worktree helpers", () => {
     },
   );
 
-  itEmbeddedPostgres(
+  itEmbeddedCluster(
     "seeds a lagging source whose migration application order differs from filename order",
     async () => {
       const tempRoot = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "paperclip-worktree-auth-seed-"));
