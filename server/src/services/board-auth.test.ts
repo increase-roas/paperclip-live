@@ -422,7 +422,17 @@ databaseSuite("CLI challenge authority and transitions (real PostgreSQL)", () =>
       const outcomes = [0, 1, 2].map(i => {
         const worker = path.join(folder, `client-${i}.mjs`);
         fs.writeFileSync(worker, `import { loginBoardCli } from ${JSON.stringify(module)}; await loginBoardCli(${JSON.stringify({ apiBase, requestedAccess: "board", requestedCompanyId: f.companyId, storePath: path.join(folder, `auth-${i}.json`), openBrowser: false, print: false })});`, { mode: 0o600 });
-        const child = spawn(process.execPath, ["--import", loader, worker], { cwd: folder, stdio: ["ignore", "ignore", "pipe"] }); children.push(child);
+        // The CLI must finish with clean stderr. Scrub the harness's own Node
+        // TLS overrides first: this machine sets NODE_EXTRA_CA_CERTS to a
+        // root-owned file, and every child prints an OpenSSL "Ignoring extra
+        // certs" warning that has nothing to do with the login under test.
+        const child = spawn(process.execPath, ["--import", loader, worker], {
+          cwd: folder,
+          stdio: ["ignore", "ignore", "pipe"],
+          env: Object.fromEntries(
+            Object.entries(process.env).filter(([key]) => key !== "NODE_EXTRA_CA_CERTS" && key !== "NODE_OPTIONS"),
+          ),
+        }); children.push(child);
         let errors = ""; child.stderr?.on("data", chunk => { errors += chunk.toString(); });
         return new Promise<{ code: number | null; errors: string }>(resolve => child.once("exit", code => resolve({ code, errors })));
       });
