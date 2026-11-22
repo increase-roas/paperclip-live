@@ -2,14 +2,14 @@ import { connectionActorUserId } from "../actor.js";
 import { actorForSecret } from "../oauth/credential-store.js";
 import type { ActorInfo } from "../types.js";
 import { remoteEndpoint, projectedConnectionHeaders } from "../connection-methods.js";
-import { AGGREGATOR_NAMES, isAppAggregator, type AggregatorAppsResponse, type ArcadeDiscoverySetupInput } from "@paperclipai/shared/aggregator-apps";
+import { AGGREGATOR_APP_SYNC_TTL_MS, AGGREGATOR_NAMES, isAppAggregator, type AggregatorAppsResponse, type ArcadeDiscoverySetupInput } from "@paperclipai/shared/aggregator-apps";
 import { resolveAggregatorApp, type AppCatalogAggregator } from "@paperclipai/shared/aggregator-app-catalog";
 import { AggregatorDiscoveryUnavailableError, discoverArcadeApps, discoverExecutorApps, type DiscoveredApp } from "../../aggregator-app-discovery.js";
 import { COMPOSIO_APP_TOOLKITS, findComposioCatalogApp } from "@paperclipai/shared/aggregator-app-catalog";
 import type { ComposioAppAccount, ComposioAppAccountInput, ComposioAppSetupInput, ComposioAppSetupResult, ComposioAppSnapshot, ComposioAppsResponse } from "@paperclipai/shared";
 import { composioAppAccounts, composioAppSetupResult } from "../../composio-app-setup.js";
 import { createHash, randomUUID } from "node:crypto";
-import { and, asc, desc, eq, inArray, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lt, lte, ne, notInArray, or, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { companySecrets, toolAccessAuditEvents, toolCatalogEntries, toolConnectionAppSnapshots, toolConnectionAppSyncs, toolConnections } from "@paperclipai/db";
 import { conflict, forbidden, HttpError, notFound, unprocessable } from "../../../errors.js";
@@ -49,7 +49,8 @@ export function createAggregatorAccounts(db: Db, { options, secrets, audit, cred
   const { vaultGrantForConnection, resolveCredentialHeaders, resolvedRemoteEndpoint } = credentials;
   const composioSyncJobs = new Map<string, Promise<void>>();
 
-  const composioSyncTtlMs = 5 * 60_000;
+  // The one shared freshness window; the scheduled sweep refreshes inside it.
+  const composioSyncTtlMs = AGGREGATOR_APP_SYNC_TTL_MS;
 
   const composioSyncLeaseMs = 4 * 60_000;
 
@@ -227,6 +228,108 @@ export function createAggregatorAccounts(db: Db, { options, secrets, audit, cred
     return composioAppsResponse(await getConnectionRow(connectionId), actor);
   }
 
+  // The scheduled refresh. Sync rows are per responsible user, so each due row
+  // is refreshed on behalf of the user who connected the gateway. Rows whose
+  // last check failed are left for an explicit Refresh: the UI reports them as
+  // needing attention, and retrying a broken gateway on a timer adds no value.
+  /**
+   * Refreshes the oldest due account lists.
+   *
+   * A tick works through batches until nothing is due, the row budget is spent
+   * or the time budget runs out, so a backlog larger than one batch still clears
+   * instead of trickling ten rows per tick.
+   */
+  async function sweepComposioAppSyncs(input: {
+    staleAfterMs?: number;
+    limit?: number;
+    maxRows?: number;
+    timeBudgetMs?: number;
+  } = {}) {
+    const staleAfterMs = input.staleAfterMs ?? composioSyncTtlMs;
+    const cutoff = new Date(Date.now() - staleAfterMs);
+    const batchSize = Math.max(1, input.limit ?? 25);
+    const maxRows = Math.max(1, input.maxRows ?? 200);
+    const deadline = Date.now() + Math.max(0, input.timeBudgetMs ?? 20_000);
+    let checked = 0;
+    let refreshed = 0;
+    let skipped = 0;
+    let batches = 0;
+    const failedConnectionIds: string[] = [];
+    const seen: string[] = [];
+    while (checked < maxRows && Date.now() < deadline) {
+      const due = await db.select({
+        id: toolConnectionAppSyncs.id,
+        companyId: toolConnectionAppSyncs.companyId,
+        connectionId: toolConnectionAppSyncs.connectionId,
+        userId: toolConnectionAppSyncs.userId,
+        credentialKey: toolConnectionAppSyncs.credentialKey,
+        connection: toolConnections,
+      }).from(toolConnectionAppSyncs)
+        .innerJoin(toolConnections, and(
+          eq(toolConnections.id, toolConnectionAppSyncs.connectionId),
+          eq(toolConnections.companyId, toolConnectionAppSyncs.companyId),
+        ))
+        .where(and(
+          eq(toolConnectionAppSyncs.status, "ready"),
+          lt(toolConnectionAppSyncs.lastCompletedAt, cutoff),
+          eq(toolConnections.enabled, true),
+          eq(toolConnections.status, "active"),
+          sql`${toolConnections.config}->>'sourceTemplateKey' = 'composio'`,
+          seen.length > 0 ? notInArray(toolConnectionAppSyncs.id, seen) : undefined,
+        ))
+        .orderBy(asc(toolConnectionAppSyncs.lastCompletedAt))
+        .limit(Math.min(batchSize, maxRows - checked));
+      if (due.length === 0) break;
+      batches += 1;
+      for (const row of due) {
+        checked += 1;
+        seen.push(row.id);
+        const actor = { actorType: "user" as const, actorId: row.userId };
+        let currentCredentialKey: string;
+        try {
+          currentCredentialKey = await composioCredentialKey(row.connection, actor);
+        } catch {
+          // A rotated or unreadable credential is a per-row condition; the row
+          // is retired below so it cannot starve the rest of the sweep.
+          failedConnectionIds.push(row.connectionId);
+          await markStartFailure(row.id);
+          continue;
+        }
+        if (currentCredentialKey !== row.credentialKey) {
+          // This row belongs to a credential that has been rotated away. Reads
+          // select by the current key, so it is already invisible; retiring it
+          // from the due set stops it from occupying every future batch.
+          skipped += 1;
+          await retireRotatedRow(row.id);
+          continue;
+        }
+        try {
+          await startComposioAppSync(row.connectionId, false, actor);
+          refreshed += 1;
+        } catch {
+          failedConnectionIds.push(row.connectionId);
+          await markStartFailure(row.id);
+        }
+      }
+    }
+    return { checked, refreshed, skipped, batches, failedConnectionIds };
+  }
+
+  async function retireRotatedRow(id: string) {
+    await db.update(toolConnectionAppSyncs)
+      .set({ lastCompletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(toolConnectionAppSyncs.id, id));
+  }
+
+  async function markStartFailure(id: string) {
+    // A refresh that cannot start is a failed check, not a healthy one. The
+    // row leaves the ready set so the app shows "Last check failed", and an
+    // explicit Refresh takes over from the timer.
+    await db.update(toolConnectionAppSyncs)
+      .set({ status: "error", updatedAt: new Date() })
+      .where(and(eq(toolConnectionAppSyncs.id, id), eq(toolConnectionAppSyncs.status, "ready")));
+  }
+
   function aggregatorProvider(connection: typeof toolConnections.$inferSelect): AppCatalogAggregator {
     const provider = connection.config.sourceTemplateKey;
     if (!isAppAggregator(provider) || connection.transport !== "mcp_remote") throw notFound("Aggregator gateway not found");
@@ -277,7 +380,9 @@ export function createAggregatorAccounts(db: Db, { options, secrets, audit, cred
     const discovery = await aggregatorDiscoveryState(connection, actor);
     return { provider, discovery, apps: result.apps.map(snapshot => {
       const app = resolveAggregatorApp(provider, snapshot.toolkit, snapshot.accounts[0]?.appName);
-      return { ...snapshot, provider, freshness: discovery.availability !== "available" || snapshot.errorAt || result.sync.status === "error" || connection.status !== "active" || !connection.enabled || Date.now() - new Date(snapshot.checkedAt).getTime() > composioSyncTtlMs ? "stale" as const : "fresh" as const, appSlug: app.slug.startsWith(`${provider}:`) ? `${provider}:${connection.id}:${snapshot.toolkit}` : snapshot.accounts[0]?.appSlug ?? app.slug, appName: snapshot.accounts[0]?.appName ?? app.name };
+      // Age alone is not an attention state: the scheduled sweep keeps the list
+      // current, so only a failed check or an unusable gateway marks it stale.
+      return { ...snapshot, provider, freshness: discovery.availability !== "available" || snapshot.errorAt || result.sync.status === "error" || connection.status !== "active" || !connection.enabled ? "stale" as const : "fresh" as const, appSlug: app.slug.startsWith(`${provider}:`) ? `${provider}:${connection.id}:${snapshot.toolkit}` : snapshot.accounts[0]?.appSlug ?? app.slug, appName: snapshot.accounts[0]?.appName ?? app.name };
     }), sync: { ...result.sync, coverage: provider === "composio" ? "supported_catalog" : provider === "arcade" ? "gateway_tools" : "visible_accounts",
       error: result.sync.error ? `Couldn’t finish checking ${AGGREGATOR_NAMES[provider]} apps. Refresh to try again.` : null,
     } };
@@ -443,6 +548,7 @@ export function createAggregatorAccounts(db: Db, { options, secrets, audit, cred
       return syncAggregatorApps(connectionId, true, actor);
     },
     syncComposioApps: startComposioAppSync,
+    sweepComposioAppSyncs,
     async listComposioApps(connectionId: string, actor: ActorInfo) {
       const connection = await getConnectionRow(connectionId);
       await actor.managementContext?.reauthorize();

@@ -677,6 +677,20 @@ connection, grant, catalog, profile, policy, and run state; resolves the needed
 secret version; projects only the reviewed headers/arguments; calls the
 provider; and writes redacted audit evidence.
 
+### Aggregator account lists and freshness
+
+Composio, Arcade and Executor gateway account lists are observations, not
+access. They are cached per responsible user and credential version. One shared
+window, `AGGREGATOR_APP_SYNC_TTL_MS`, decides when a cached list is due for
+another check; `AGGREGATOR_APP_SYNC_SWEEP_MS` (shorter) is the scheduled
+refresh in `registerAggregatorAppSyncWork`. The sweep refreshes only healthy,
+active gateways whose last completed check is older than the shared window, and
+it skips rows whose stored credential version no longer matches. A failed check
+stays failed until a person presses Refresh: only a real failure, an unusable
+gateway, or a user action marks an account as needing attention, never age
+alone. Account sync does not gate tool calls. A stale list still resolves and
+runs tools through the gateway.
+
 For a reviewed remote MCP method that accepts discovery before initialization
 but requires an initialized session for calls, set
 `defaults.mcpSessionRequired: true`. Tavily uses this compatibility preference.

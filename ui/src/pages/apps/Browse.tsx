@@ -272,8 +272,8 @@ function chatEndpointNeedsSetup(endpoint: ChatEndpoint): boolean {
 function upstreamAccountState(connection: ToolConnection, snapshot: UpstreamAppSnapshot, account: UpstreamAppSnapshot["accounts"][number]): ConnectionState {
   const gatewayState = connectionState(connection);
   return gatewayState.kind !== "connected" ? gatewayState
-    : snapshot.freshness === "stale" || snapshot.errorAt || Date.now() - new Date(snapshot.checkedAt).getTime() > 5 * 60_000
-      ? { kind: "attention", label: "Not verified", message: "Last known account · Refresh to verify" }
+    : snapshot.freshness === "stale" || snapshot.errorAt
+      ? { kind: "attention", label: "Not verified", message: "Last check failed · Refresh to verify" }
     : account.status === "UNVERIFIED" ? { kind: "attention", label: "Not verified", message: "Account found upstream · Authorization not verified" }
     : account.status === "ACTIVE" ? { kind: "connected", label: "Connected", message: null }
     : account.status === "INITIATED" ? { kind: "draft", label: "Waiting for sign-in", message: "Finish connecting this account." }

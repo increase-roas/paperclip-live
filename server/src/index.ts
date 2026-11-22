@@ -19,6 +19,7 @@ import { registerRunEvidenceMigrationWork } from "./services/run-evidence-migrat
 import { registerSkillVersionRetentionWork } from "./services/skill-version-retention-work.js";
 import { registerDatabaseBackupWork } from "./services/database-backup-work.js";
 import { registerToolConnectionHealthWork } from "./services/tool-connection-health-work.js";
+import { registerAggregatorAppSyncWork } from "./services/aggregator-app-sync-work.js";
 import { approvalQueueSeedingService, registerApprovalQueueSeedingWork } from "./services/approval-queue-seeding-work.js";
 import { joinRequestRetentionService, registerJoinRequestRetentionWork } from "./services/join-request-retention.js";
 import { approvalRetentionService, registerApprovalRetentionWork } from "./services/approval-retention.js";
@@ -1873,6 +1874,9 @@ async function startServerWithDatabaseTeardown(
         config.heartbeatSchedulerIntervalMs).ready);
       await step("tool_connection_health", () => registerToolConnectionHealthWork(deliveryWork, tools.scheduledHealth,
         () => !isIdleTaskDrainActive() && !isWarmStandby() && !heartbeatSchedulerStopped).ready);
+      await step("aggregator_app_sync", () => registerAggregatorAppSyncWork(deliveryWork, {
+        sweep: staleAfterMs => tools.sweepAggregatorAppSyncs({ staleAfterMs }),
+      }, () => !isIdleTaskDrainActive() && !isWarmStandby() && !heartbeatSchedulerStopped).ready);
       await step("decision_continuation_worker", () => registerDecisionContinuationWork(deliveryWork, decisionExecutor,
         () => !isIdleTaskDrainActive() && !isWarmStandby() && !heartbeatSchedulerStopped).ready);
       await step("decision_expiry_worker", () => registerDecisionExpiryWork(deliveryWork, decisionExecutor,

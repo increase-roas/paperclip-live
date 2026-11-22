@@ -4788,6 +4788,7 @@ export function toolAccessService(
 
     sweepConnectionHealth,
     scheduledHealth: connectionHealthSchedule(db, checkConnectionHealth),
+    sweepAggregatorAppSyncs: aggregatorAccounts.sweepComposioAppSyncs,
 
     sweepGitHubConnectionContinuity,
     nextGitHubConnectionContinuityAt,
