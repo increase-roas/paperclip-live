@@ -12,6 +12,9 @@ import { enqueueChatRunMilestones, resolveChatRunPresentationAuthorizationReason
 import { fakeSlackFetch, makeMessage, makeThread, slackProtocolCapture } from ".././helpers/chat-channels-fixture.js";
 import { addSelectedChatFinal, configuredSlackEndpoint, db, deliverMessage, describeChatChannelsSuite, fixtureServices, qualifySetupRoundTrip, readChatConversationsByEndpointId, readChatPublicationsByCommentId, readHeartbeatRunsById, receiptBackedWakeup, retirePublicationFixture, seedCompany } from "../helpers/chat-channels-harness.js";
 
+/** Slack acknowledges an interaction within three seconds. */
+const SLACK_ACK_WINDOW_MS = 3_000;
+
 
 
 
@@ -366,7 +369,7 @@ describeChatChannelsSuite("chat channels 24-publishes-a-closed-choice-question-s
       Promise.race([
         providerAcknowledgement.then(() => "acknowledged" as const),
         new Promise<"timed_out">((resolve) =>
-          setTimeout(() => resolve("timed_out"), 250),
+          setTimeout(() => resolve("timed_out"), SLACK_ACK_WINDOW_MS),
         ),
       ]),
     ).resolves.toBe("acknowledged");
