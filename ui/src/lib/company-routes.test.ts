@@ -39,6 +39,15 @@ describe("company routes", () => {
     );
   });
 
+  it("prefixes bot pages so a bot link never becomes an unknown company", () => {
+    expect(isBoardPathWithoutPrefix("/bots")).toBe(true);
+    expect(isBoardPathWithoutPrefix("/bots/agent-1")).toBe(true);
+    expect(extractCompanyPrefixFromPath("/bots/agent-1")).toBeNull();
+    expect(applyCompanyPrefix("/bots", "BOTS")).toBe("/BOTS/bots");
+    expect(applyCompanyPrefix("/bots/agent-1", "BOTS")).toBe("/BOTS/bots/agent-1");
+    expect(toCompanyRelativePath("/BOTS/bots/agent-1")).toBe("/bots/agent-1");
+  });
+
   it("treats /search as a board route that needs a company prefix", () => {
     expect(isBoardPathWithoutPrefix("/search")).toBe(true);
     expect(extractCompanyPrefixFromPath("/search")).toBeNull();

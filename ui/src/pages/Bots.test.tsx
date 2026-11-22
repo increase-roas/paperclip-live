@@ -13,6 +13,7 @@ import { BotDetail } from "./BotDetail";
 const listMock = vi.hoisted(() => vi.fn());
 const getMock = vi.hoisted(() => vi.fn());
 const setBreadcrumbsMock = vi.hoisted(() => vi.fn());
+const navigateMock = vi.hoisted(() => vi.fn());
 const params = vi.hoisted(() => ({ botId: "" }));
 
 vi.mock("@/api/bots", () => ({
@@ -33,6 +34,7 @@ vi.mock("@/context/BreadcrumbContext", () => ({
 vi.mock("@/lib/router", () => ({
   Link: ({ to, children }: { to: string; children: React.ReactNode }) => <a href={to}>{children}</a>,
   useParams: () => ({ botId: params.botId }),
+  useNavigate: () => navigateMock,
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -110,6 +112,7 @@ describe("Bots", () => {
     listMock.mockReset();
     getMock.mockReset();
     setBreadcrumbsMock.mockReset();
+    navigateMock.mockReset();
     params.botId = "";
   });
 
@@ -164,7 +167,25 @@ describe("Bots", () => {
     expect(registered?.textContent).toContain("gk_live_research");
     expect(registered?.textContent).toContain("researcher");
     expect(unregistered?.textContent).toContain("Funnel Builder");
-    expect(unregistered?.textContent).toContain("No agent or gateway key yet.");
+    expect(unregistered?.textContent).toContain("Runs on the gateway website-builder policy");
+    expect(unregistered?.textContent).toContain("Not registered");
+  });
+
+  it("finds a known bot by the note that describes its work", async () => {
+    const driveOrganizer = KNOWN_GATEWAY_BOTS.find((bot) => bot.slug === "drive-organizer")!;
+    listMock.mockResolvedValue({ bots: [catalogFixture(driveOrganizer), researchBot] });
+
+    await render(<Bots />);
+    const input = container.querySelector<HTMLInputElement>('input[aria-label="Search bots"]');
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      setter?.call(input, "shared drive");
+      input!.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await flush();
+
+    expect(container.textContent).toContain("Drive Organizer");
+    expect(container.textContent).not.toContain("Research Analyst");
   });
 
   it("filters by gateway key id and policy", async () => {
@@ -393,5 +414,132 @@ describe("Bots", () => {
 
     expect(getMock).toHaveBeenCalledTimes(2);
     expect(container.textContent).toContain("Research Analyst");
+  });
+
+  it("gives every bot page section a real heading with operator-readable status", async () => {
+    params.botId = "catalog:funnel-builder";
+    getMock.mockResolvedValue({ ...funnelCatalogBot, routines: [], recentActivity: [] });
+
+    await render(<BotDetail />);
+
+    const headings = [...container.querySelectorAll("h2")].map((heading) => heading.textContent);
+    expect(headings).toEqual([
+      "How to register",
+      "What it does",
+      "Gateway key and policy",
+      "Routines and schedules",
+      "Status",
+      "Recent activity",
+    ]);
+    expect(container.textContent).toContain("Not registered");
+    expect(container.textContent).not.toMatch(/\bunregistered\b/);
+  });
+
+  it("writes routine times as readable time elements instead of 'Never'", async () => {
+    params.botId = "agent-1";
+    getMock.mockResolvedValue({
+      ...researchBot,
+      routines: [
+        {
+          id: "routine-1",
+          title: "Weekly review",
+          status: "active",
+          triggers: [
+            { kind: "schedule", cronExpression: "0 9 * * 1", timezone: null, enabled: false, nextRunAt: null, lastFiredAt: null },
+          ],
+        },
+      ],
+      recentActivity: [],
+    });
+
+    await render(<BotDetail />);
+
+    const text = container.textContent ?? "";
+    expect(text).toContain("no next run");
+    expect(text).not.toContain("next Never");
+    expect(text).toContain("Weekly review");
+  });
+
+  it("marks the bot's status for assistive technology", async () => {
+    params.botId = "agent-1";
+    getMock.mockResolvedValue({ ...researchBot, routines: [], recentActivity: [] });
+
+    await render(<BotDetail />);
+
+    const statusLabels = [...container.querySelectorAll(".sr-only")].map((node) => node.textContent);
+    expect(statusLabels).toContain("Status:");
+  });
+
+  it("tells a registered bot what to do when routines and activity are empty", async () => {
+    params.botId = "agent-1";
+    getMock.mockResolvedValue({ ...researchBot, routines: [], recentActivity: [] });
+
+    await render(<BotDetail />);
+
+    const text = container.textContent ?? "";
+    expect(text).toContain("Assign a routine to schedule this bot's work.");
+    expect(text).toContain("Runs and agent actions will appear here.");
+  });
+
+  it("offers a way back to the roster from a missing bot", async () => {
+    params.botId = "missing-bot";
+    getMock.mockRejectedValue(new ApiError("Not found", 404, null));
+
+    await render(<BotDetail />);
+
+    const open = [...container.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Open Bots");
+    expect(open).toBeTruthy();
+    await act(async () => {
+      open!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(navigateMock).toHaveBeenCalledWith("/bots");
+  });
+
+  it("shows guidance instead of a blank roster when the company has no bots", async () => {
+    listMock.mockResolvedValue({ bots: [], suggestedAgents: [] });
+
+    await render(<Bots />);
+
+    expect(container.textContent).toContain("No bots yet");
+    expect(container.textContent).toContain("Tag an agent as a bot");
+    const open = [...container.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Open agents");
+    expect(open).toBeTruthy();
+    await act(async () => {
+      open!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(navigateMock).toHaveBeenCalledWith("/agents/all");
+  });
+
+  it("clears an empty search from the no-match state", async () => {
+    listMock.mockResolvedValue({ bots: [researchBot], suggestedAgents: [] });
+
+    await render(<Bots />);
+    const input = container.querySelector<HTMLInputElement>('input[aria-label="Search bots"]');
+    expect(input).toBeTruthy();
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      setter?.call(input, "nothing-matches");
+      input!.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await flush();
+
+    expect(container.textContent).toContain("No bots match");
+    const clear = [...container.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Show all bots");
+    expect(clear).toBeTruthy();
+    await act(async () => {
+      clear!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flush();
+
+    expect(container.textContent).toContain("Research Analyst");
+  });
+
+  it("announces how many bots the roster shows", async () => {
+    listMock.mockResolvedValue({ bots: [researchBot, funnelCatalogBot], suggestedAgents: [] });
+
+    await render(<Bots />);
+
+    const status = container.querySelector('[role="status"]');
+    expect(status?.textContent).toContain("2 bots.");
   });
 });
