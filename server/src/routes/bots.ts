@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { Db } from "@paperclipai/db";
 import { assertCompanyAccess } from "./authz.js";
 import { botsService } from "../services/bots.js";
+import { botRegistrationService } from "../services/bot-registration.js";
 import {
   createGatewayBotsClient,
   type GatewayBotSummary,
@@ -16,6 +17,7 @@ export interface BotsRoutesOptions {
 export function botsRoutes(db: Db, options: BotsRoutesOptions = {}) {
   const router = Router();
   const service = botsService(db);
+  const registration = botRegistrationService(db);
   const gateway = options.gateway ?? createGatewayBotsClient();
 
   // Bots are read-only here. Their gateway key id and policy come from agent
@@ -65,6 +67,22 @@ export function botsRoutes(db: Db, options: BotsRoutesOptions = {}) {
     }
     const result = await gateway.summary(bot.slug);
     res.json(result);
+  });
+
+  /**
+   * Read-only registration plan for this company's catalog bots. It says which
+   * bots would become agents and the exact row each create would insert;
+   * nothing is written from this route.
+   */
+  router.get("/companies/:companyId/bots/registration", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const plan = await registration.plan(companyId);
+    if (!plan) {
+      res.status(404).json({ error: "Company not found" });
+      return;
+    }
+    res.json(plan);
   });
 
   router.get("/companies/:companyId/bots/:botId", async (req, res) => {

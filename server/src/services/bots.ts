@@ -57,7 +57,7 @@ export function botsService(db: Db) {
       id: `${CATALOG_PREFIX}${known.slug}`,
       slug: known.slug,
       name: known.name,
-      purpose: null,
+      purpose: known.purpose,
       kind: "gateway",
       registered: false,
       agentId: null,

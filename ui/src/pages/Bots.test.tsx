@@ -446,6 +446,36 @@ describe("Bots", () => {
     expect(agentLink?.getAttribute("href")).toBe("/agents/agent-9");
   });
 
+  it("shows the catalog purpose for a known bot that has one", async () => {
+    params.botId = "catalog:funnel-builder";
+    getMock.mockResolvedValue({
+      ...funnelCatalogBot,
+      purpose: "Builds and maintains funnels and landing pages through the gateway website-builder policy.",
+      routines: [],
+      recentActivity: [],
+    });
+
+    await render(<BotDetail />);
+    expect(container.textContent).toContain("Builds and maintains funnels and landing pages");
+  });
+
+  it("renders a readable line in every section for a bot with no data yet", async () => {
+    params.botId = "catalog:kiwi";
+    getMock.mockResolvedValue({ ...funnelCatalogBot, slug: "kiwi", name: "Kiwi", id: "catalog:kiwi", purpose: null, note: null, routines: [], recentActivity: [] });
+
+    await render(<BotDetail />);
+    const text = container.textContent ?? "";
+
+    for (const heading of ["What it does", "Gateway key and policy", "Routines and schedules", "Status", "Recent activity"]) {
+      expect(text, `${heading} section`).toContain(heading);
+    }
+    expect(text).toContain("No purpose recorded yet");
+    expect(text).toContain("No gateway key is linked to this bot yet.");
+    expect(text).toContain("No routines assigned.");
+    expect(text).toContain("No agent row yet, so there is no live status to report.");
+    expect(text).toContain("No recorded activity.");
+  });
+
   it("tells an unregistered bot exactly which metadata fields to fill in", async () => {
     params.botId = "catalog:funnel-builder";
     getMock.mockResolvedValue({ ...funnelCatalogBot, routines: [], recentActivity: [] });

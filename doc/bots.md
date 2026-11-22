@@ -39,6 +39,29 @@ do: the key itself stays in the gateway or the company secret store.
 block instead of guessing, so a page never shows a key id without its policy.
 The API returns `gateway: null` in that case and the page says "Not linked".
 
+## Registering a catalog bot
+
+The six catalog bots have no agent row until someone registers them. Registration
+is a plan first and a write second:
+
+```sh
+pnpm bots:register                                  # dry run: what it would create
+pnpm bots:register -- --company <companyId>          # one company
+pnpm bots:register -- --company <companyId> --apply  # create the rows
+```
+
+- The plan lists every catalog bot for the company with `CREATE` or `skip` and
+  the exact row (`name`, `adapter`, `status`, `metadata`). Nothing is written
+  without `--apply`.
+- Every created agent is `paused`, uses `hermes_gateway`, and carries
+  `metadata.agentKind: "bot"` plus `metadata.bot.purpose`. Registration gives the
+  bot a page, a status and a place for routines; it does not start work.
+- `apply` is idempotent: the slug check runs inside the inserting transaction, so
+  a second run — or a concurrent one — creates nothing twice, and an existing
+  agent's metadata is never overwritten.
+- `GET /api/companies/:companyId/bots/registration` returns the same plan,
+  read-only, for a future UI action.
+
 ## Pages for untagged Hermes agents
 
 A Hermes gateway agent with no `grokBotTwin` or `agentKind: "bot"` metadata is

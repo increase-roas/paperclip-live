@@ -13,6 +13,7 @@ import { hasCompanyHoldMismatch, projectCompanyHolds } from "./adapters/company-
 import { createLifecycleWorker } from "./application/worker.js";
 import type { LifecycleDriver } from "./application/ports.js";
 
+export { insertBotAgents, type BotAgentInsert } from "./adapters/bot-agents.js";
 export { applyAgentPolicyHoldsInTransaction, releaseAgentLifecycleLeaseOfHolderInTransaction, requestAgentLifecycleRecheckInTransaction } from "./adapters/postgres.js";
 export { companyHoldMismatch, fenceActiveCompanyAgentStopsInTransaction } from "./adapters/company-policy.js";
 

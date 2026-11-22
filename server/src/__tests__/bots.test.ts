@@ -414,6 +414,33 @@ describePostgres("bots", () => {
     expect(taggedPage.body).toMatchObject({ taggedAsBot: true });
   });
 
+  it("plans catalog bot registration without writing agents", async () => {
+    const company = await createCompanyNamed(db, "Increase Roas");
+    const app = await createApp(db, boardActor(company.id));
+
+    const response = await request(app).get(`/api/companies/${company.id}/bots/registration`).expect(200);
+    expect(response.body).toMatchObject({ companyName: "Increase Roas", creates: 6, skips: 0 });
+    expect(response.body.entries.map((entry: { slug: string }) => entry.slug)).toEqual(
+      KNOWN_GATEWAY_BOTS.map((bot) => bot.slug),
+    );
+    const funnel = response.body.entries.find((entry: { slug: string }) => entry.slug === "funnel-builder");
+    expect(funnel.agent).toMatchObject({
+      adapterType: "hermes_gateway",
+      status: "paused",
+      metadata: { agentKind: "bot", bot: { transport: "hermes_gateway" } },
+    });
+
+    // Read-only: the roster is unchanged.
+    expect(await db.select().from(agents)).toEqual([]);
+  });
+
+  it("does not offer registration in a company that runs no catalog bots", async () => {
+    const company = await createCompany(db, "Elsewhere");
+    const app = await createApp(db, boardActor(company.id));
+    const response = await request(app).get(`/api/companies/${company.id}/bots/registration`).expect(200);
+    expect(response.body).toMatchObject({ entries: [], creates: 0, skips: 0 });
+  });
+
   describe("gateway data", () => {
     const gatewayBot = (agent: string) => ({
       agent,
