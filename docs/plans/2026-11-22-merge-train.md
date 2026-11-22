@@ -104,7 +104,7 @@ files and the later PR expects the earlier copy.
 | K. State recovery | #154 #155 #156 | Empty, loading and failed query states name their subject; drawer keeps focus inside and Esc closes; activity metric error is visible. |
 | L. Bots loading, copy, forms, approvals | #158 #159 #160 #161 | Bot roster and bot page reserve their shape; file-panel controls are labelled; empty routine title blocks save with a message; one approval decision locks the others. |
 | M. Bots invalidation and links | #163 #164 | Renaming an agent refreshes the roster and bot page; every bot back link stays inside `/<prefix>/bots`. |
-| N. Follow-up batch | #166 #168 #169 #170 | #166 is this runbook and simulator. #168 restores keyboard focus rings on toolbars and dialogs. #169 explains failed loads on adapters, the plugin agent view, the timeline and user profiles. #170 names shared settings fields and the inbox search. Run the keyboard and state Playwright specs named in each PR. |
+| N. Follow-up batch | #166 #168 #169 #170 | #166 is this runbook and simulator. #168 restores keyboard focus rings on toolbars and dialogs. #169 explains failed loads on adapters, the timeline and user profiles. #170 names direct fields that have no htmlFor association and the inbox search. Run the keyboard and state Playwright specs named in each PR. |
 
 ## What supersedes what
 
