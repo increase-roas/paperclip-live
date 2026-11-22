@@ -28,6 +28,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToastActions } from "@/context/ToastContext";
+import { QueryErrorState } from "@/components/QueryView";
 import { cn } from "@/lib/utils";
 import { ChoosePathButton } from "@/components/PathInstructionsModal";
 import { invalidateDynamicParser } from "@/adapters/dynamic-loader";
@@ -275,7 +276,7 @@ export function AdapterManager() {
     ]);
   }, [selectedCompany?.name, setBreadcrumbs]);
 
-  const { data: adapters, isLoading } = useQuery({
+  const { data: adapters, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: queryKeys.adapters.all,
     queryFn: () => adaptersApi.list(),
   });
@@ -392,6 +393,28 @@ export function AdapterManager() {
     }));
 
   if (isLoading) return <div className="p-4 text-sm text-muted-foreground">Loading adapters...</div>;
+
+  // A failed list request must not read as an instance with no adapters. Say
+  // what failed and let the operator retry without leaving the page.
+  if (error) {
+    return (
+      <div className="max-w-6xl space-y-6">
+        <div className="flex items-center gap-2">
+          <Cpu className="h-6 w-6 text-muted-foreground" />
+          <h1 className="text-xl font-semibold">Adapters</h1>
+          <Badge variant="outline" className="text-amber-600 border-amber-400">
+            Alpha
+          </Badge>
+        </div>
+        <QueryErrorState
+          error={error}
+          action="load adapters"
+          onRetry={() => void refetch()}
+          retrying={isFetching}
+        />
+      </div>
+    );
+  }
 
   const isMutating = installMutation.isPending || removeMutation.isPending || toggleMutation.isPending || overrideMutation.isPending || reloadMutation.isPending || reinstallMutation.isPending;
 
