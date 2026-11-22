@@ -94,6 +94,7 @@ export function Layout({ sidebarSections }: { sidebarSections?: ReactNode }) {
     peeking,
     setPeeking,
     isMobile,
+    isTablet,
     setForceCollapsed,
   } = useSidebar();
   const { openNewIssue, openOnboarding } = useDialogActions();
@@ -238,6 +239,12 @@ export function Layout({ sidebarSections }: { sidebarSections?: ReactNode }) {
   );
   const replacesPrimarySidebar = streamlinedUiEnabled && hasSecondarySidebar && !keepsPrimarySidebar;
   const showsAdjacentSecondarySidebar = hasSecondarySidebar && (!streamlinedUiEnabled || keepsPrimarySidebar);
+  // On a tablet, two 240px rails leave the agent-detail content column at
+  // 225px. Keep the contextual rail in flow, but move the primary nav into the
+  // existing off-canvas drawer below `lg`. Routes without a second rail keep
+  // the primary nav in flow.
+  const primaryNavDrawer = isMobile || (isTablet && hasSecondarySidebar && keepsPrimarySidebar);
+  const primaryNavOpen = primaryNavDrawer ? sidebarOpen : true;
   const contextualSurface: ContextualSidebarSurface | null = !streamlinedUiEnabled || !hasSecondarySidebar
     ? null
     : routeSidebarSlot && !shellRoute.builtInContextualSurface
@@ -463,11 +470,11 @@ export function Layout({ sidebarSections }: { sidebarSections?: ReactNode }) {
 
   useCompanyPageMemory();
 
-  // The phone drawer is not a Radix dialog, so it owns its own keyboard
+  // The navigation drawer is not a Radix dialog, so it owns its own keyboard
   // contract: move focus into the drawer on open, close on Escape, and return
   // focus to the trigger when it closes without navigating.
   useEffect(() => {
-    if (!isMobile || !sidebarOpen) return;
+    if (!primaryNavDrawer || !sidebarOpen) return;
     const drawer = mobileDrawerRef.current;
     if (!drawer) return;
     const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -490,7 +497,7 @@ export function Layout({ sidebarSections }: { sidebarSections?: ReactNode }) {
         returnFocus.focus({ preventScroll: true });
       }
     };
-  }, [isMobile, sidebarOpen, setSidebarOpen]);
+  }, [primaryNavDrawer, sidebarOpen, setSidebarOpen]);
 
   useKeyboardShortcuts({
     onNewIssue: () => openNewIssue(),
@@ -646,7 +653,7 @@ export function Layout({ sidebarSections }: { sidebarSections?: ReactNode }) {
       <WorktreeBanner />
       <DevRestartBanner devServer={health?.devServer} />
       <div className={cn("app-main-row min-h-0 flex-1", isMobile ? "w-full" : "flex overflow-clip")}>
-        {isMobile && sidebarOpen && (
+        {primaryNavDrawer && sidebarOpen && (
           <button
             type="button"
             className="fixed inset-0 z-40 bg-black/50"
@@ -655,7 +662,7 @@ export function Layout({ sidebarSections }: { sidebarSections?: ReactNode }) {
           />
         )}
 
-        {isMobile ? (
+        {primaryNavDrawer ? (
           <div
             ref={mobileDrawerRef}
             role="dialog"
@@ -671,7 +678,7 @@ export function Layout({ sidebarSections }: { sidebarSections?: ReactNode }) {
           >
             <div className="flex flex-1 min-h-0 overflow-hidden">
               <div className="w-60 shrink-0 overflow-hidden">
-                {hasSecondarySidebar ? (
+                {isMobile && hasSecondarySidebar ? (
                   <SecondarySidebar>{secondarySidebar}</SecondarySidebar>
                 ) : (
                   <Sidebar>{sidebarSections}</Sidebar>
@@ -685,7 +692,7 @@ export function Layout({ sidebarSections }: { sidebarSections?: ReactNode }) {
           </div>
         ) : (
           <SidebarShell
-            open={sidebarOpen}
+            open={primaryNavOpen}
             collapsed={designSandbox || replacesPrimarySidebar ? false : collapsed}
             peeking={designSandbox || replacesPrimarySidebar ? false : peeking}
             resizable
@@ -706,7 +713,7 @@ export function Layout({ sidebarSections }: { sidebarSections?: ReactNode }) {
               {/* Dock optional announcements in the sidebar column so they never
                   cover the task thread or composer. While the sidebar is a rail
                   the card waits until the sidebar is expanded again. */}
-              {sidebarOpen && (replacesPrimarySidebar || !collapsed) ? (
+              {primaryNavOpen && (replacesPrimarySidebar || !collapsed) ? (
                 <AnnouncementWell health={health} placement="sidebar" />
               ) : null}
               <SidebarAccountMenu
@@ -732,7 +739,7 @@ export function Layout({ sidebarSections }: { sidebarSections?: ReactNode }) {
             )}
           >
             <StandaloneBrowserControls mobile={isMobile} />
-            <BreadcrumbBar showPropertiesToggle={isAgentChatRoute} />
+            <BreadcrumbBar showPropertiesToggle={isAgentChatRoute} showPrimaryNavButton={primaryNavDrawer} />
             {isMobile && isCompanySettingsRoute ? (
               <div className="border-b border-border px-4 pb-3">
                 <CompanySettingsNav />
@@ -745,7 +752,10 @@ export function Layout({ sidebarSections }: { sidebarSections?: ReactNode }) {
             !isMobile && useStreamlinedTaskDetailShell && "streamlined-task-detail-surface",
           )}>
             {!isMobile && (keepsPrimarySidebar || isAgentChatRoute) ? (
-              <SecondarySidebar className={cn(isAgentChatRoute ? "w-70" : "w-60", "shrink-0 bg-background")}>
+              <SecondarySidebar className={cn(
+                isTablet ? "w-56" : isAgentChatRoute ? "w-70" : "w-60",
+                "shrink-0 bg-background",
+              )}>
                 {secondarySidebar}
               </SecondarySidebar>
             ) : null}
@@ -753,7 +763,7 @@ export function Layout({ sidebarSections }: { sidebarSections?: ReactNode }) {
               {!isMobile && useInsetTaskDetailHeader ? (
                 <>
                   <StandaloneBrowserControls mobile={false} />
-                  <BreadcrumbBar taskDetailLayout />
+                  <BreadcrumbBar taskDetailLayout showPrimaryNavButton={primaryNavDrawer} />
                 </>
               ) : null}
               <main
@@ -781,7 +791,7 @@ export function Layout({ sidebarSections }: { sidebarSections?: ReactNode }) {
                   : undefined
               }
               className={cn(
-                "flex-1 scroll-mt-(--sz-60px) p-4 outline-none md:p-6",
+                "flex-1 scroll-mt-(--sz-60px) p-4 outline-none lg:p-6",
                 // The task thread owns its scrollable top spacing. Leaving the
                 // page shell's top padding in place creates a stationary dark
                 // strip below the breadcrumb while messages scroll behind it.

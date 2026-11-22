@@ -88,7 +88,7 @@ export function SidebarNavItem({
   trailingLabel,
   liveAccessory,
 }: SidebarNavItemProps) {
-  const { isMobile, setSidebarOpen, collapsed, peeking } = useSidebar();
+  const { isCompactShell, setSidebarOpen, collapsed, peeking } = useSidebar();
   // A contextual takeover forces full labels even when the saved global app
   // sidebar preference is collapsed.
   const forceExpanded = useSidebarNavExpanded();
@@ -120,7 +120,7 @@ export function SidebarNavItem({
       state={SIDEBAR_SCROLL_RESET_STATE}
       end={end}
       aria-label={railAriaLabel}
-      onClick={() => { if (isMobile) setSidebarOpen(false); }}
+      onClick={() => { if (isCompactShell) setSidebarOpen(false); }}
       className={({ isActive }) =>
         cn(
           // One rhythm and one inset pill highlight: mx-2 floats the row off

@@ -10,6 +10,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 const sidebarState = vi.hoisted(() => ({
   isMobile: false,
+  isTablet: false,
+  isCompactShell: false,
   setSidebarOpen: () => {},
   collapsed: false,
   peeking: false,

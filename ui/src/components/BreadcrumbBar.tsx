@@ -53,7 +53,16 @@ function GlobalToolbar({
   );
 }
 
-export function BreadcrumbBar({ taskDetailLayout = false, showPropertiesToggle = taskDetailLayout }: { taskDetailLayout?: boolean; showPropertiesToggle?: boolean }) {
+export function BreadcrumbBar({
+  taskDetailLayout = false,
+  showPropertiesToggle = taskDetailLayout,
+  showPrimaryNavButton,
+}: {
+  taskDetailLayout?: boolean;
+  showPropertiesToggle?: boolean;
+  /** Shows the drawer trigger on tablet routes whose primary nav is off-canvas. */
+  showPrimaryNavButton?: boolean;
+}) {
   const coordinatorEnabled = useCoordinatorPresentation();
   const {
     breadcrumbs,
@@ -61,7 +70,7 @@ export function BreadcrumbBar({ taskDetailLayout = false, showPropertiesToggle =
     breadcrumbPanelControl,
     mobileToolbar,
   } = useBreadcrumbs();
-  const { toggleSidebar, isMobile } = useSidebar();
+  const { toggleSidebar, isMobile, isCompactShell } = useSidebar();
   const { panelVisible, togglePanelVisible } = usePanel();
   const { selectedCompanyId, selectedCompany } = useCompany();
   const taskPanelOpen = breadcrumbPanelControl?.open ?? panelVisible;
@@ -102,15 +111,8 @@ export function BreadcrumbBar({ taskDetailLayout = false, showPropertiesToggle =
     );
   }
 
-  if (breadcrumbs.length === 0) {
-    return (
-      <div className="h-(--sz-60px) shrink-0 flex items-center justify-end border-b border-border px-4 md:px-6">
-        {globalToolbarSlots}
-      </div>
-    );
-  }
-
-  const menuButton = isMobile && (
+  const primaryNavButtonVisible = showPrimaryNavButton ?? isCompactShell;
+  const menuButton = primaryNavButtonVisible && (
     <Button
       variant="ghost"
       size="icon-sm"
@@ -122,6 +124,15 @@ export function BreadcrumbBar({ taskDetailLayout = false, showPropertiesToggle =
       <Menu className="h-5 w-5" />
     </Button>
   );
+
+  if (breadcrumbs.length === 0) {
+    return (
+      <div className="h-(--sz-60px) shrink-0 flex items-center justify-between border-b border-border px-4 md:px-6">
+        {menuButton}
+        {globalToolbarSlots}
+      </div>
+    );
+  }
 
   const currentCrumb = breadcrumbs[breadcrumbs.length - 1];
   if (isMobile && breadcrumbs[0]?.label === "Tasks" && currentCrumb.identifier) {

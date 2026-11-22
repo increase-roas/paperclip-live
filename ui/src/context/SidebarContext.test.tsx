@@ -108,4 +108,33 @@ describe("SidebarContext", () => {
 
     expect(capturedValue?.sidebarOpen).toBe(!initial);
   });
+
+  it("keeps the primary nav in flow on desktop", () => {
+    active = renderProvider();
+
+    expect(capturedValue?.isMobile).toBe(false);
+    expect(capturedValue?.isTablet).toBe(false);
+    expect(capturedValue?.isCompactShell).toBe(false);
+    expect(capturedValue?.sidebarOpen).toBe(true);
+  });
+
+  it("treats a 900px viewport as a tablet and starts with the nav drawer closed", () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: 900 });
+    active = renderProvider();
+
+    expect(capturedValue?.isMobile).toBe(false);
+    expect(capturedValue?.isTablet).toBe(true);
+    expect(capturedValue?.isCompactShell).toBe(true);
+    expect(capturedValue?.sidebarOpen).toBe(false);
+  });
+
+  it("keeps the 375px phone in the mobile shell", () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: 375 });
+    active = renderProvider();
+
+    expect(capturedValue?.isMobile).toBe(true);
+    expect(capturedValue?.isTablet).toBe(false);
+    expect(capturedValue?.isCompactShell).toBe(true);
+    expect(capturedValue?.sidebarOpen).toBe(false);
+  });
 });

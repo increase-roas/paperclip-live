@@ -33,6 +33,8 @@ vi.mock("../context/SidebarContext", () => ({
   useSidebar: () => ({
     collapsed: false,
     isMobile: viewport.isMobile,
+    isTablet: false,
+    isCompactShell: viewport.isMobile,
     toggleCollapsed: vi.fn(),
     toggleSidebar: vi.fn(),
   }),

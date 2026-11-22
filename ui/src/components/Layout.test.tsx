@@ -44,6 +44,7 @@ const mockSetForceCollapsed = vi.hoisted(() => vi.fn());
 const mockSidebarState = vi.hoisted(() => ({
   sidebarOpen: true,
   isMobile: false,
+  isTablet: false,
   collapsed: false,
   peeking: false,
 }));
@@ -255,6 +256,8 @@ vi.mock("../context/SidebarContext", () => ({
     setPeeking: mockSetPeeking,
     setForceCollapsed: mockSetForceCollapsed,
     isMobile: mockSidebarState.isMobile,
+    isTablet: mockSidebarState.isTablet,
+    isCompactShell: mockSidebarState.isMobile || mockSidebarState.isTablet,
     routeRequestsCollapsed: false,
     setRouteRequestsCollapsed: vi.fn(),
   }),
@@ -431,7 +434,7 @@ describe("Layout", () => {
       container.querySelector("#main-content")?.classList.contains("p-4"),
     ).toBe(true);
     expect(
-      container.querySelector("#main-content")?.classList.contains("md:p-6"),
+      container.querySelector("#main-content")?.classList.contains("lg:p-6"),
     ).toBe(true);
     expect(
       container.querySelector("#main-content")?.classList.contains("pr-0"),
