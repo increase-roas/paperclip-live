@@ -5,9 +5,19 @@ import { XIcon } from "lucide-react"
 import { Dialog as SheetPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
+import {
+  ModalReturnFocusProvider,
+  useModalReturnFocus,
+  useModalReturnFocusTarget,
+} from "@/components/ui/modal-return-focus"
 
-function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
-  return <SheetPrimitive.Root data-slot="sheet" {...props} />
+function Sheet({ open, ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
+  const returnFocusTarget = useModalReturnFocusTarget(open)
+  return (
+    <ModalReturnFocusProvider target={returnFocusTarget}>
+      <SheetPrimitive.Root data-slot="sheet" open={open} {...props} />
+    </ModalReturnFocusProvider>
+  )
 }
 
 function SheetTrigger({
@@ -49,11 +59,13 @@ function SheetContent({
   children,
   side = "right",
   showCloseButton = true,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
   showCloseButton?: boolean
 }) {
+  const focus = useModalReturnFocus({ onCloseAutoFocus })
   return (
     <SheetPortal>
       <SheetOverlay />
@@ -71,6 +83,7 @@ function SheetContent({
             "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 h-auto border-t",
           className
         )}
+        onCloseAutoFocus={focus.onCloseAutoFocus}
         {...props}
       >
         {children}

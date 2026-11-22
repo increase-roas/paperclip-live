@@ -4,11 +4,22 @@ import { Dialog as DialogPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import {
+  ModalReturnFocusProvider,
+  useModalReturnFocus,
+  useModalReturnFocusTarget,
+} from "@/components/ui/modal-return-focus"
 
 function Dialog({
+  open,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+  const returnFocusTarget = useModalReturnFocusTarget(open)
+  return (
+    <ModalReturnFocusProvider target={returnFocusTarget}>
+      <DialogPrimitive.Root data-slot="dialog" open={open} {...props} />
+    </ModalReturnFocusProvider>
+  )
 }
 
 function DialogTrigger({
@@ -49,10 +60,12 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
 }) {
+  const focus = useModalReturnFocus({ onCloseAutoFocus })
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
@@ -62,6 +75,7 @@ function DialogContent({
           "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-[0.97] data-[state=open]:zoom-in-[0.97] data-[state=closed]:slide-out-to-top-[1%] data-[state=open]:slide-in-from-top-[1%] fixed top-(--sz-calc-26) md:top-(--pct-50) left-(--pct-50) z-50 grid w-full max-w-(--sz-calc-25) translate-x-(--pct-neg-50) translate-y-0 md:translate-y-(--pct-neg-50) gap-4 rounded-lg border p-6 shadow-lg duration-150 ease-(--e-cubic-bezier-0_16-1-0_3-1) outline-none sm:max-w-lg [&>*]:min-w-0 motion-reduce:animate-none motion-reduce:transition-none",
           className
         )}
+        onCloseAutoFocus={focus.onCloseAutoFocus}
         {...props}
       >
         {children}
