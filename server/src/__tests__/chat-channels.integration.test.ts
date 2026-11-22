@@ -1140,6 +1140,9 @@ function webhookApp(
   return app;
 }
 
+/** Slack acknowledges an interaction within three seconds. */
+const SLACK_ACK_WINDOW_MS = 3_000;
+
 describeEmbeddedPostgres("chat channel control-plane integration", () => {
   let db!: TestDb;
   let tempDb: Awaited<
@@ -44267,11 +44270,17 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
     });
     onTestFinished(unsubscribeReceipt);
     const providerAcknowledgement = Promise.resolve(callbacks.onAction(actionEvent()));
+    // Slack requires the HTTP acknowledgement within three seconds of the
+    // interaction. The previous budget here was 250 ms, which measured CPU
+    // speed on a loaded machine rather than the property under test: that the
+    // callback returns without processing the resolution publication. The
+    // budget now matches the provider's window, and the assertions below still
+    // prove the publication is untouched until the explicit flush.
     await expect(
       Promise.race([
         providerAcknowledgement.then(() => "acknowledged" as const),
         new Promise<"timed_out">((resolve) =>
-          setTimeout(() => resolve("timed_out"), 250),
+          setTimeout(() => resolve("timed_out"), SLACK_ACK_WINDOW_MS),
         ),
       ]),
     ).resolves.toBe("acknowledged");
