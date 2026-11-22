@@ -14,8 +14,13 @@ interface EmptyStateProps {
   description?: string;
   action?: string;
   onAction?: () => void;
+  /** Icon for the primary action; defaults to the create glyph. */
+  actionIcon?: LucideIcon;
   /** Hide the leading "+" glyph on the action button (e.g. for a "Set up" CTA). */
   hideActionIcon?: boolean;
+  /** Optional escape hatch rendered as a quieter action below the primary one. */
+  secondaryAction?: string;
+  onSecondaryAction?: () => void;
 }
 
 export function EmptyState({
@@ -26,7 +31,10 @@ export function EmptyState({
   description,
   action,
   onAction,
+  actionIcon: ActionIcon = Plus,
   hideActionIcon = false,
+  secondaryAction,
+  onSecondaryAction,
 }: EmptyStateProps) {
   return (
     <div className={graphic ? "empty-state-artwork flex flex-col items-center justify-center gap-5 py-16 text-center" : "flex flex-col items-center justify-center py-16 text-center"}>
@@ -44,12 +52,21 @@ export function EmptyState({
           {description && <p className="max-w-md text-sm text-muted-foreground mb-4">{description}</p>}
         </>
       )}
-      {action && onAction && (
-        <Button onClick={onAction}>
-          {!hideActionIcon && <Plus className="h-4 w-4 mr-1.5" />}
-          {action}
-        </Button>
-      )}
+      {(action && onAction) || (secondaryAction && onSecondaryAction) ? (
+        <div className="flex flex-col items-center gap-2">
+          {action && onAction && (
+            <Button onClick={onAction}>
+              {!hideActionIcon && <ActionIcon className="h-4 w-4 mr-1.5" />}
+              {action}
+            </Button>
+          )}
+          {secondaryAction && onSecondaryAction && (
+            <Button variant="outline" onClick={onSecondaryAction}>
+              {secondaryAction}
+            </Button>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -12,6 +12,7 @@ import {
   issueAgeBucketsCrossed,
   issueAgeSeparatorLabel,
 } from "./IssuesList";
+import { IssuesList as LegacyIssuesList } from "./LegacyIssuesList";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useShowAgentCreatedTasks } from "../hooks/useShowAgentCreatedTasks";
 import { ApiError } from "../api/client";
@@ -746,6 +747,29 @@ describe("IssuesList", () => {
       await act(() => button!.click());
       expect(retry).toHaveBeenCalledOnce();
     } finally { await act(() => root.unmount()); queryClient.clear(); container.remove(); }
+  });
+
+  it.each([false, true])("offers a filter reset when the current filters hide every task (streamlined=%s)", async (streamlined) => {
+    mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableStreamlinedUi: streamlined, enableExternalObjects: false });
+    localStorage.setItem("paperclip:test-issues:company-1", JSON.stringify({ statuses: ["done"] }));
+    const onSearchChange = vi.fn();
+    const List = streamlined ? IssuesList : LegacyIssuesList;
+    const { root, queryClient } = renderWithQueryClient(<List
+      issues={[]} agents={[]} projects={[]} viewStateKey="paperclip:test-issues"
+      initialSearch="bug" onSearchChange={onSearchChange} onUpdateIssue={() => undefined}
+    />, container);
+    try {
+      await waitForAssertion(() => expect(container.textContent).toContain("No tasks match"));
+      const clear = [...container.querySelectorAll("button")].find(button => button.textContent?.trim() === "Clear filters & search");
+      expect(clear).toBeDefined();
+      expect(container.textContent).toContain("Create Task");
+      await act(() => clear!.click());
+      const saved = JSON.parse(localStorage.getItem("paperclip:test-issues:company-1") ?? "{}");
+      expect(saved.statuses).toEqual([]);
+      expect(saved.routineTasksOnly).toBe(false);
+      expect(onSearchChange).toHaveBeenCalledWith("");
+      await waitForAssertion(() => expect(container.textContent).toContain("No tasks yet"));
+    } finally { act(() => root.unmount()); queryClient.clear(); }
   });
 
   it.each([null, 429, 503])("offers retry after a settled external-status failure while reachable (%s)", async status => {

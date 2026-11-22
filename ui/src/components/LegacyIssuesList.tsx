@@ -76,7 +76,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
-import { CircleDot, Plus, ArrowUpDown, Layers, Check, ChevronRight, List, ListTree, User, Search, CircleSlash2, ChevronsDownUp, PanelTopClose, RotateCcw, ListCollapse,
+import { CircleDot, Plus, ArrowUpDown, Layers, Check, ChevronRight, List, ListTree, User, Search, CircleSlash2, ChevronsDownUp, PanelTopClose, RotateCcw, ListCollapse, FilterX,
   SquareKanban,
 } from "lucide-react";
 import {
@@ -816,6 +816,12 @@ export function IssuesList({
     });
   }, [scopedKey, selectedCompanyId, viewStateKey, visibleIssueColumns, onRoutineTasksOnlyChange, onSortChange, sort, viewState.sortField, viewState.sortDir]);
 
+  const clearTaskFilters = useCallback(() => {
+    updateView(defaultIssueFilterState);
+    setIssueSearch("");
+    onSearchChange?.("");
+  }, [onSearchChange, updateView]);
+
   useEffect(() => {
     if (!experimentalSettingsLoaded || externalObjectsEnabled || viewState.externalObjectStatuses.length === 0) return;
     updateView({ externalObjectStatuses: [] });
@@ -1211,6 +1217,7 @@ export function IssuesList({
   });
 
   const activeFilterCount = countActiveIssueFilters(viewState, enableAgentCreatedVisibilityFilter);
+  const hasActiveSearchOrFilters = activeFilterCount > 0 || normalizedIssueSearch.length > 0;
   const boardHighVolume = viewState.viewMode === "board" && filtered.length > KANBAN_BOARD_HIGH_VOLUME_THRESHOLD;
   const boardCompactCards =
     viewState.boardCardDensity === "compact"
@@ -1964,9 +1971,15 @@ export function IssuesList({
       {!isLoading && !error && !externalObjectFilterLoading && visibleListRowCount === 0 && viewState.viewMode === "list" && (
         <EmptyState
           icon={CircleDot}
-          message="No tasks match the current filters or search."
-          action={createActionLabel}
-          onAction={() => openCreateIssueDialog()}
+          title={hasActiveSearchOrFilters ? "No tasks match" : "No tasks yet"}
+          message={hasActiveSearchOrFilters
+            ? "Nothing matches this search and filter combination."
+            : "Create a task to start work."}
+          action={hasActiveSearchOrFilters ? "Clear filters & search" : createActionLabel}
+          actionIcon={hasActiveSearchOrFilters ? FilterX : undefined}
+          onAction={hasActiveSearchOrFilters ? clearTaskFilters : () => openCreateIssueDialog()}
+          secondaryAction={hasActiveSearchOrFilters ? createActionLabel : undefined}
+          onSecondaryAction={hasActiveSearchOrFilters ? () => openCreateIssueDialog() : undefined}
         />
       )}
 
