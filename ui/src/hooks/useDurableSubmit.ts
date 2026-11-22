@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createUuid } from "../lib/uuid";
 import { describeError, type ErrorDescription } from "@/api/errors";
 import { useConnectivity, useConnectivityStore, usePendingWritesReporter } from "@/lib/connectivity";
 import {
@@ -266,7 +267,7 @@ export function useDurableSubmit<T, R>(options: DurableSubmitOptions<T, R>): Dur
     async (payload: T, submitOptions: { idempotencyKey?: string } = {}): Promise<DurableSubmitResult<R>> => {
       if (pendingRef.current) return { kind: "pending", error: null };
       const record: PendingSend<T> = {
-        idempotencyKey: submitOptions.idempotencyKey ?? crypto.randomUUID(),
+        idempotencyKey: submitOptions.idempotencyKey ?? createUuid(),
         payload,
         createdAt: Date.now(),
       };
