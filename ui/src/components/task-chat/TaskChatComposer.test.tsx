@@ -310,6 +310,29 @@ function renderComposer(props: ComponentProps<typeof TaskChatComposer>) {
 }
 
 describe("TaskChatComposer", () => {
+  it("names the reason a disabled creation submit cannot run", () => {
+    const creation = {
+      value: "",
+      onChange: vi.fn(), onSubmit: vi.fn().mockResolvedValue(undefined),
+      submitLabel: "Create task", onSelectFiles: vi.fn(),
+      runSettings: null, onRunSettingsChange: vi.fn(),
+    };
+    render(<TaskChatComposer creation={creation} workMode="standard" />);
+    const button = container.querySelector<HTMLButtonElement>('[data-testid="task-chat-composer-send"]')!;
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute("title")).toBe("Add a task description to create the task.");
+    const describedBy = button.getAttribute("aria-describedby");
+    expect(describedBy).toBeTruthy();
+    expect(document.getElementById(describedBy!)?.textContent).toBe("Add a task description to create the task.");
+  });
+
+  it("names the reason an empty message cannot be sent", () => {
+    render(<TaskChatComposer onAdd={vi.fn()} workMode="standard" />);
+    const button = container.querySelector<HTMLButtonElement>('[data-testid="task-chat-composer-send"]')!;
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute("title")).toBe("Write a message to send.");
+  });
+
   it("stages creation images above the editor without changing the text", async () => {
     const creation = {
       value: "Before the screenshot",

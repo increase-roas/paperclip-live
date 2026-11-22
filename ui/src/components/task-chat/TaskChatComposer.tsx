@@ -885,6 +885,18 @@ export function TaskChatComposer({
     Boolean(onStop || stopControl.stopping);
   const uploadPending = attachments.some((item) => item.status === "uploading");
   const uploadFailed = attachments.some((item) => item.status === "error");
+  // A disabled submit button still needs to say why. The placeholder explains
+  // the empty case by example, but the button itself carries the shortcut text.
+  const emptyDraft = body.trim().length === 0 && attachedRefs.length === 0 && !creation?.canSubmitWithoutBody;
+  const submitHint = uploadPending
+    ? "Wait for the upload to finish, then send."
+    : uploadFailed
+      ? "Remove the failed attachment before sending."
+      : emptyDraft
+        ? creation
+          ? "Add a task description to create the task."
+          : "Write a message to send."
+        : null;
   const takeoverVisible = Boolean(takeover && !pause);
   const previousTakeoverVisibleRef = useRef(takeoverVisible);
   useEffect(() => {
@@ -1198,6 +1210,7 @@ export function TaskChatComposer({
   }
 
   const resendSourceId = useId();
+  const submitHintId = useId();
   const autoResend = useAutoResend({
     sourceId: `task-chat-composer:${resendSourceId}`,
     active: Boolean(replayableRequest(uncertainSubmission, draftOwner)) && !submitting,
@@ -1625,6 +1638,7 @@ export function TaskChatComposer({
                 Cancel
               </button>
             ) : null}
+            {submitHint ? <span id={submitHintId} className="sr-only">{submitHint}</span> : null}
             <button
               type="button"
               onClick={() => void (showStop ? stopControl.stop() : submit())}
@@ -1653,8 +1667,9 @@ export function TaskChatComposer({
                       ? "Waiting for upload to finish"
                       : uploadFailed
                         ? "Remove the failed attachment to send"
-                        : `${creation?.submitLabel ?? "Send"} (${submitKey === "mod-enter" ? "⌘/Ctrl+Enter" : "Enter"})`
+                        : submitHint ?? `${creation?.submitLabel ?? "Send"} (${submitKey === "mod-enter" ? "⌘/Ctrl+Enter" : "Enter"})`
               }
+              aria-describedby={submitHint ? submitHintId : undefined}
               aria-label={
                 showStop
                   ? stopControl.stopping
