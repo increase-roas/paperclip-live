@@ -5,6 +5,7 @@ import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { FolderListResult, Issue, RoutineListItem } from "@paperclipai/shared";
+import { ApiError } from "@/api/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Routines, buildRoutineGroups, buildRoutineSections, sortRoutines } from "./Routines";
 
@@ -1150,5 +1151,75 @@ describe("Routines page", () => {
     await act(async () => {
       root.unmount();
     });
+  });
+
+  it("recovers a failed folder load instead of suggesting the first folder", async () => {
+    routinesListMock.mockResolvedValue([createRoutine({ id: "routine-1", title: "Morning sync", folderId: "folder-rpi" })]);
+    issuesListMock.mockResolvedValue([]);
+    foldersListMock
+      .mockRejectedValueOnce(new ApiError("Service unavailable", 503, null))
+      .mockResolvedValueOnce({
+        kind: "routine",
+        folders: [
+          {
+            id: "folder-rpi",
+            companyId: "company-1",
+            kind: "routine",
+            parentId: null,
+            name: "RPI",
+            slug: "rpi",
+            systemKey: null,
+            path: "rpi",
+            depth: 0,
+            color: null,
+            position: 0,
+            createdAt: new Date("2026-04-01T00:00:00.000Z"),
+            updatedAt: new Date("2026-04-01T00:00:00.000Z"),
+            itemCount: 1,
+          },
+        ],
+        allCount: 1,
+        unfiledCount: 0,
+      });
+
+    const root = createRoot(container);
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+      },
+    });
+
+    try {
+      await act(async () => {
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <Routines />
+          </QueryClientProvider>,
+        );
+        await flush();
+      });
+
+      await vi.waitFor(() => expect(container.textContent).toContain("Paperclip is temporarily unavailable"));
+      expect(container.textContent).not.toContain("Create your first folder");
+      expect(container.textContent).toContain("Morning sync");
+
+      const retry = Array.from(container.querySelectorAll("button")).find(
+        (button) => button.textContent?.trim() === "Retry",
+      );
+      expect(retry).toBeTruthy();
+      await act(async () => {
+        retry!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        await flush();
+      });
+
+      await vi.waitFor(() => expect(foldersListMock).toHaveBeenCalledTimes(2));
+      await vi.waitFor(() => expect(container.textContent).not.toContain("Paperclip is temporarily unavailable"));
+      expect(container.textContent).toContain("RPI");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      queryClient.clear();
+    }
   });
 });
