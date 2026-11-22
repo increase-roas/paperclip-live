@@ -212,6 +212,9 @@ describe("AgentActionButtons", () => {
     await flushReact();
     const chat = [...container.querySelectorAll("button")].find(button => button.textContent === "New chat");
     expect(chat?.getAttribute("aria-label")).toBe("New chat with Alpha Agent");
+    // Phones keep the icon and the accessible name, not the 75px text label:
+    // the adjacent primary task action must stay inside the viewport.
+    expect(chat?.querySelector("span")?.className).toContain("hidden sm:inline");
     await act(() => chat!.click());
     expect(mockNavigate).toHaveBeenCalledWith("/chats/alpha");
   });
