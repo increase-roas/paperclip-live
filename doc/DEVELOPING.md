@@ -1234,7 +1234,19 @@ pnpm check:local
 ```
 
 It runs, in order: `pnpm lint`, actionlint over `.github/workflows`,
-`pnpm check:readiness`, `pnpm run typecheck`, and `pnpm test:run`.
+`pnpm check:readiness`, `pnpm run typecheck`, and a bounded Vitest unit/jsdom
+lane. The default tests step runs the non-server workspace projects (UI, CLI,
+shared, adapters and plugins) through `test:run --mode general --group
+general-unit`, so the gate finishes in about 15 minutes on a laptop-class
+machine without an embedded PostgreSQL server. It does not cover the server
+shards or the `packages/db` migration suites.
+
+`pnpm check:local --full` runs the complete `pnpm test:run` path instead,
+including server shards, embedded-Postgres suites and chat integration. Use it
+when the bounded lane cannot prove the change, for example server-only work.
+Both test modes run with `PAPERCLIP_VITEST_RETRY=1` by default, matching the
+one-retry contention safety net in PR CI; the retry reporter prints any test
+that needed a retry. Set `PAPERCLIP_VITEST_RETRY=0` to disable it.
 `pnpm check:local --quick` keeps the lint, actionlint and readiness checks and
 skips typecheck and tests. Use `--only <step>` and `--skip <step>` for a smaller
 run, and `--keep-going` to see every failure. The command exits non-zero on the
@@ -1249,11 +1261,12 @@ published SHA-256. Set `ACTIONLINT_BIN` to force a specific binary, or pass
 `--no-download` for an offline run.
 
 Run the full gate as a non-root account when the embedded PostgreSQL integration
-suites must execute. As root, the tests step passes `--skip-chat-integration` to
-`pnpm test:run` so the rest of the suite still runs and the chat-channel
-integration shard is skipped instead of failing collection. Browser suites
-remain separate (`pnpm test:e2e`, `pnpm test:release-smoke`). A local pass does
-not replace required CI on the final revision when hosted Actions are available.
+suites must execute. As root, the full tests step passes `--skip-chat-integration`
+to `pnpm test:run` so the rest of the suite still runs and the chat-channel
+integration shard is skipped instead of failing collection. The bounded default
+lane never includes that shard, so it behaves the same for both accounts. Browser
+suites remain separate (`pnpm test:e2e`, `pnpm test:release-smoke`). A local pass
+does not replace required CI on the final revision when hosted Actions are available.
 
 The full local Vitest commands remain available:
 

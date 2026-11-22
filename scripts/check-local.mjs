@@ -8,19 +8,24 @@ import { fileURLToPath, pathToFileURL } from "node:url";
  *
  * Hosted Actions can be unavailable (for example while an organization Actions
  * budget is exhausted). This command produces the same PR evidence locally in
- * one pass: readiness checks, lint, actionlint, recursive typecheck, and the
- * full Vitest unit/jsdom suite.
+ * one pass: readiness checks, lint, actionlint, recursive typecheck, and a
+ * bounded Vitest unit/jsdom lane.
  *
  * Usage:
  *   pnpm check:local
+ *   pnpm check:local --full             # add server, db and integration suites
  *   pnpm check:local --quick            # readiness, lint, actionlint only
  *   pnpm check:local --skip tests
  *   pnpm check:local --only actionlint
  *   pnpm check:local --keep-going
  *   pnpm check:local --no-download      # actionlint must already be installed
  *
- * The full run includes integration suites. Run it as a non-root account when
- * you need the embedded PostgreSQL tests; root runs skip them.
+ * The default tests step is bounded so the gate finishes in about 15 minutes on
+ * a laptop-class machine: it runs the non-server workspace projects only (ui,
+ * cli, shared, adapters and plugins). `--full` runs the complete `test:run`
+ * path, including the server shards, embedded-Postgres suites and chat
+ * integration. Run a full gate as a non-root account when you need the
+ * embedded PostgreSQL tests; root runs skip the chat integration shard.
  */
 
 const repoRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -31,8 +36,15 @@ export const STEPS = [
   { name: "actionlint", command: [process.execPath, "scripts/check-actionlint.mjs"] },
   { name: "readiness", command: [process.execPath, "scripts/run-readiness-checks.mjs"] },
   { name: "typecheck", command: [pnpm, "run", "typecheck"] },
-  { name: "tests", command: [pnpm, "run", "test:run"] },
+  {
+    name: "tests",
+    // The bounded lane is the non-server workspace projects. It needs no
+    // embedded PostgreSQL and stays well inside a single local command budget.
+    command: [pnpm, "run", "test:run", "--", "--mode", "general", "--group", "general-unit"],
+  },
 ];
+
+export const FULL_TEST_COMMAND = [pnpm, "run", "test:run"];
 
 export function selectSteps({ only = [], skip = [], quick = false } = {}) {
   const skipped = new Set(skip);
@@ -48,7 +60,7 @@ export function selectSteps({ only = [], skip = [], quick = false } = {}) {
 }
 
 export function parseArguments(argv) {
-  const options = { only: [], skip: [], quick: false, keepGoing: false, noDownload: false, list: false };
+  const options = { only: [], skip: [], quick: false, keepGoing: false, noDownload: false, list: false, full: false };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     const value = argv[index + 1];
@@ -65,6 +77,9 @@ export function parseArguments(argv) {
         break;
       case "--quick":
         options.quick = true;
+        break;
+      case "--full":
+        options.full = true;
         break;
       case "--keep-going":
         options.keepGoing = true;
@@ -96,16 +111,21 @@ function usage() {
   return [
     "Usage: pnpm check:local [options]",
     "",
-    "Runs the CI-independent PR gate: lint, actionlint, readiness, typecheck and tests.",
+    "Runs the CI-independent PR gate: lint, actionlint, readiness, typecheck and a",
+    "bounded unit/jsdom test lane (or the full Vitest suite with --full).",
     "",
     "Options:",
     "  --only <step>      Run one step (repeatable).",
     "  --skip <step>      Skip one step (repeatable).",
     "  --quick            Skip typecheck and tests.",
+    "  --full             Run the full Vitest suite instead of the bounded lane.",
     "  --keep-going       Run every selected step even after a failure.",
     "  --no-download      Do not download actionlint.",
     "  --list             Print the steps and exit.",
     "  --help             Print this help.",
+    "",
+    "The bounded tests step runs the non-server workspace projects only. Use",
+    "--full for server shards, embedded-Postgres suites and chat integration.",
     "",
     `Steps: ${STEPS.map((step) => step.name).join(", ")}`,
   ].join("\n");
@@ -115,12 +135,15 @@ function seconds(startedAt) {
   return `${(Number(process.hrtime.bigint() - startedAt) / 1e9).toFixed(1)}s`;
 }
 
-export function stepCommand(step, { noDownload = false, isRoot = isRootUser() } = {}) {
-  const command = [...step.command];
+export function stepCommand(step, { noDownload = false, isRoot = isRootUser(), full = false } = {}) {
+  const command = step.name === "tests" && full
+    ? [...FULL_TEST_COMMAND]
+    : [...step.command];
   if (step.name === "actionlint" && noDownload) command.push("--no-download");
   // The embedded-Postgres chat shard cannot start as root. The runner can
-  // skip it cleanly so the rest of the unit/jsdom gate still runs.
-  if (step.name === "tests" && isRoot) command.push("--", "--skip-chat-integration");
+  // skip it cleanly so the rest of the full unit/jsdom gate still runs. The
+  // bounded lane never includes the chat suite.
+  if (step.name === "tests" && full && isRoot) command.push("--", "--skip-chat-integration");
   return command;
 }
 
@@ -128,9 +151,20 @@ function isRootUser() {
   return typeof process.getuid === "function" && process.getuid() === 0;
 }
 
-function runStep(step, { noDownload }) {
-  const command = stepCommand(step, { noDownload });
-  if (step.name === "tests" && isRootUser()) {
+/**
+ * The tests step matches PR CI's one-retry contention safety net. A loaded
+ * machine can miss a wall-clock perf assertion or a 5s component timeout on
+ * the first pass; the retry reporter prints anything that needed the retry.
+ * An explicit PAPERCLIP_VITEST_RETRY (including 0) still wins.
+ */
+export function stepEnv(step, baseEnv = process.env) {
+  if (step.name !== "tests") return baseEnv;
+  return { ...baseEnv, PAPERCLIP_VITEST_RETRY: baseEnv.PAPERCLIP_VITEST_RETRY ?? "1" };
+}
+
+function runStep(step, { noDownload, full }) {
+  const command = stepCommand(step, { noDownload, full });
+  if (step.name === "tests" && full && isRootUser()) {
     process.stdout.write("  Root run: skipping the embedded-Postgres chat integration shard. Run as a non-root user to include it.\n");
   }
   const printable = command
@@ -141,6 +175,7 @@ function runStep(step, { noDownload }) {
   const startedAt = process.hrtime.bigint();
   const result = spawnSync(command[0], command.slice(1), {
     cwd: repoRoot,
+    env: stepEnv(step),
     stdio: "inherit",
     shell: process.platform === "win32" && command[0] === pnpm,
   });
@@ -172,7 +207,7 @@ function main() {
   }
   if (options.list) {
     for (const step of STEPS) {
-      process.stdout.write(`${step.name}\t${step.command.join(" ")}\n`);
+      process.stdout.write(`${step.name}\t${stepCommand(step, { full: options.full }).join(" ")}\n`);
     }
     return;
   }

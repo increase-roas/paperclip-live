@@ -151,6 +151,11 @@ const generalWorkspacesCProjects = ["@paperclipai/db"];
 const generalWorkspacesBProjects = nonServerProjects.filter(
   (project) => !generalWorkspacesAProjects.includes(project) && !generalWorkspacesCProjects.includes(project),
 );
+// Bounded local-gate lane: every non-server project that needs no embedded
+// PostgreSQL. `pnpm check:local` defaults to this group; `--full` runs the
+// complete suite. Kept out of generalGroupNames so all mode is unchanged.
+const generalUnitGroupName = "general-unit";
+const generalUnitProjects = [...generalWorkspacesAProjects, ...generalWorkspacesBProjects];
 const generalGroupNames = [
   generalServerGroupName,
   generalWorkspacesAGroupName,
@@ -159,6 +164,7 @@ const generalGroupNames = [
 ];
 const allowedGeneralGroupNames = [
   ...generalGroupNames,
+  generalUnitGroupName,
   generalServerWithoutChatGroupName,
   generalServerWithoutChatOrNativeRunnerGroupName,
   generalChatGroupName,
@@ -606,6 +612,11 @@ async function runGeneralGroup(routeTests, groupName, shardIndex = null, shardCo
     return;
   }
 
+  if (groupName === generalUnitGroupName) {
+    await runProjectGroup(generalUnitProjects, groupName);
+    return;
+  }
+
   if (groupName === generalWorkspacesAGroupName) {
     // The ui project dominates this lane (~224s of a 319s job in actions run
     // 31371439296, 2026-08-10, where workspaces-a was the slowest PR check).
@@ -678,9 +689,10 @@ const generalServerTestFiles = [
 const options = parseCliOptions(process.argv.slice(2));
 const selectionProjects = options.mode === serializedModeName || generalServerGroups.includes(options.group)
   ? ["@paperclipai/server"]
-  : options.group === generalWorkspacesAGroupName ? generalWorkspacesAProjects
-    : options.group === generalWorkspacesBGroupName ? generalWorkspacesBProjects
-      : options.group === generalWorkspacesCGroupName ? generalWorkspacesCProjects : [];
+  : options.group === generalUnitGroupName ? generalUnitProjects
+    : options.group === generalWorkspacesAGroupName ? generalWorkspacesAProjects
+      : options.group === generalWorkspacesBGroupName ? generalWorkspacesBProjects
+        : options.group === generalWorkspacesCGroupName ? generalWorkspacesCProjects : [];
 const selection = process.env.PAPERCLIP_CI_TEST_SELECTION
   ? selectedShard(loadSelection(), options, selectionProjects) : null;
 if (selection?.["@paperclipai/server"]) {
@@ -734,13 +746,15 @@ if (options.dryRun) {
         chatVitestShards: options.group === generalChatGroupName
           ? chatShardWorkers(options.shardIndex, options.shardCount) : defaultChatShards,
         workspaceProjects:
-          options.group === generalWorkspacesAGroupName
-            ? generalWorkspacesAProjects
-            : options.group === generalWorkspacesBGroupName
-              ? generalWorkspacesBProjects
-              : options.group === generalWorkspacesCGroupName
-                ? generalWorkspacesCProjects
-                : null,
+          options.group === generalUnitGroupName
+            ? generalUnitProjects
+            : options.group === generalWorkspacesAGroupName
+              ? generalWorkspacesAProjects
+              : options.group === generalWorkspacesBGroupName
+                ? generalWorkspacesBProjects
+                : options.group === generalWorkspacesCGroupName
+                  ? generalWorkspacesCProjects
+                  : null,
         workspacesVitestShard:
           options.group === generalWorkspacesAGroupName &&
           options.shardCount !== null &&
