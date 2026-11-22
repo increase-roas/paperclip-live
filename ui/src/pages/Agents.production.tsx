@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import { Link, useNavigate, useLocation } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
 import { agentsApi, type OrgNode } from "../api/agents";
+import { describeError } from "../api/errors";
 import { builtInAgentsApi, type BuiltInAgentState } from "../api/builtInAgents";
 import { environmentsApi } from "../api/environments";
 import { heartbeatsApi } from "../api/heartbeats";
@@ -217,7 +218,13 @@ export function Agents() {
   const { data: agents, isLoading } = agentsQuery;
   const agentsView = useQueryView(agentsQuery);
 
-  const { data: orgTree } = useQuery({
+  const {
+    data: orgTree,
+    error: orgTreeError,
+    isLoading: orgTreeLoading,
+    isFetching: orgTreeFetching,
+    refetch: refetchOrgTree,
+  } = useQuery({
     queryKey: queryKeys.org(selectedCompanyId!),
     queryFn: () => agentsApi.org(selectedCompanyId!),
     enabled: !!selectedCompanyId && effectiveView === "org",
@@ -478,6 +485,30 @@ export function Agents() {
 
 
       {/* Org chart view */}
+      {effectiveView === "org" && orgTreeLoading && !orgTree && (
+        <p className="py-8 text-center text-sm text-muted-foreground">Loading org chart…</p>
+      )}
+
+      {effectiveView === "org" && orgTreeError && !orgTree && (
+        <div
+          role="alert"
+          className="mx-auto max-w-md space-y-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-center"
+        >
+          <p className="text-sm font-medium text-foreground">Could not load the org chart.</p>
+          <p className="text-xs text-muted-foreground">
+            {describeError(orgTreeError, { action: "load the org chart" }).body}
+          </p>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button size="sm" onClick={() => void refetchOrgTree()} disabled={orgTreeFetching}>
+              {orgTreeFetching ? "Retrying…" : "Retry"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setView("list")}>
+              Switch to list
+            </Button>
+          </div>
+        </div>
+      )}
+
       {effectiveView === "org" && filteredOrg.length > 0 && (
         <div className="py-1">
           {filteredOrg.map((node) => (

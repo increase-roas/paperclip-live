@@ -41,6 +41,7 @@ const mockHeartbeatsApi = vi.hoisted(() => ({
 
 const mockInstanceSettingsApi = vi.hoisted(() => ({
   get: vi.fn(),
+  getExperimental: vi.fn(),
 }));
 
 const mockResourceMembershipsApi = vi.hoisted(() => ({
@@ -366,6 +367,7 @@ describe("Agents", () => {
     ]);
     mockEnvironmentsApi.capabilities.mockResolvedValue(environmentCapabilities);
     mockInstanceSettingsApi.get.mockResolvedValue(makeInstanceSettings());
+    mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableStreamlinedUi: true });
     mockHeartbeatsApi.liveRunsForCompany.mockResolvedValue([]);
     mockResourceMembershipsApi.listMine.mockResolvedValue({
       projectMemberships: {},
@@ -1073,6 +1075,46 @@ describe("Agents", () => {
       expect(alert?.textContent).toContain("Couldn't load agents");
       expect(alert?.textContent).not.toContain("boom_stack_trace");
       expect(alert?.querySelector("button")?.textContent).toContain("Retry");
+    });
+
+    it.each([
+      ["streamlined", Agents],
+      ["production", ProductionAgents],
+    ] as const)("%s: offers Retry and a list fallback when the org chart fails before the first load", async (_mode, AgentList) => {
+      mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableStreamlinedUi: false });
+      mockAgentsApi.org.mockReset();
+      mockAgentsApi.org.mockRejectedValue(
+        new ApiError("org_boom_stack_trace", 500, { error: "org_boom_stack_trace" }),
+      );
+      root = createRoot(container);
+      await act(async () => {
+        root!.render(
+          <QueryClientProvider client={queryClient}>
+            <TooltipProvider><ToastProvider>
+              <AgentList />
+            </ToastProvider></TooltipProvider>
+          </QueryClientProvider>,
+        );
+      });
+      await flushReact();
+      await flushReact();
+
+      const alert = container.querySelector('[role="alert"]');
+      expect(alert).not.toBeNull();
+      expect(alert?.textContent).toContain("Could not load the org chart");
+      expect(alert?.textContent).not.toContain("org_boom_stack_trace");
+      expect(alert?.textContent).toContain("Retry");
+      const switchButton = Array.from(alert?.querySelectorAll("button") ?? []).find(
+        (button) => button.textContent?.trim() === "Switch to list",
+      );
+      expect(switchButton).toBeTruthy();
+
+      await act(async () => {
+        switchButton!.click();
+      });
+      await flushReact();
+
+      expect(findAgentRow(container, "Alpha")).not.toBeNull();
     });
 
     it.each([
