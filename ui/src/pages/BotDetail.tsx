@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { CompanyBotDetail } from "@paperclipai/shared";
 import { ArrowLeft, Bot, CircleAlert, RefreshCw } from "lucide-react";
@@ -8,6 +9,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { Link, useParams } from "@/lib/router";
 import { formatDateTime } from "@/lib/utils";
 import { useCompany } from "@/context/CompanyContext";
+import { useBreadcrumbs } from "@/context/BreadcrumbContext";
 import { queryKeys } from "@/lib/queryKeys";
 import { botsApi } from "@/api/bots";
 
@@ -62,12 +64,21 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export function BotDetail() {
   const { botId = "" } = useParams<{ botId?: string }>();
-  const { selectedCompanyId } = useCompany();
+  const { selectedCompanyId, selectedCompany } = useCompany();
+  const { setBreadcrumbs } = useBreadcrumbs();
   const botQuery = useQuery({
     queryKey: queryKeys.bots.detail(selectedCompanyId, botId),
     queryFn: () => botsApi.get(selectedCompanyId!, botId),
     enabled: Boolean(selectedCompanyId && botId),
   });
+  const botsHref = selectedCompany?.issuePrefix ? `/${selectedCompany.issuePrefix}/bots` : "/bots";
+
+  useEffect(() => {
+    setBreadcrumbs([
+      { label: "Bots", href: botsHref },
+      { label: botQuery.data?.name ?? "Bot" },
+    ]);
+  }, [botQuery.data?.name, botsHref, setBreadcrumbs]);
 
   if (!selectedCompanyId) {
     return (

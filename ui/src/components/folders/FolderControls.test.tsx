@@ -434,6 +434,32 @@ describe("FolderControls", () => {
     expect(document.querySelector('[data-folder-id="engineering"] > .pl-3 [data-folder-id="code-review"]')).not.toBeNull();
   });
 
+  it("gives the folder suggestion message its own row on small screens", () => {
+    const storageKey = "paperclip:test-folder-layout";
+    window.localStorage.removeItem(storageKey);
+    root = createRoot(container);
+    act(() => {
+      root?.render(
+        <AllUnfiledBanner
+          storageKey={storageKey}
+          itemLabelPlural="routines"
+          onCreateFolder={vi.fn()}
+        />,
+      );
+    });
+
+    const message = [...container.querySelectorAll("span")]
+      .find((element) => element.textContent?.includes("Group these routines"));
+    const messageRow = message?.parentElement;
+    expect(messageRow?.className).toContain("basis-full");
+    expect(messageRow?.className).toContain("sm:basis-0");
+
+    const actions = messageRow?.nextElementSibling;
+    expect(actions?.className).toContain("shrink-0");
+    expect(actions?.textContent).toContain("Create your first folder");
+    window.localStorage.removeItem(storageKey);
+  });
+
   it("persists AllUnfiledBanner dismissal across mounts", () => {
     const storageKey = "paperclip:test-folder-nudge";
     window.localStorage.removeItem(storageKey);

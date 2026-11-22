@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Bot, CircleAlert, RefreshCw } from "lucide-react";
 import type { CompanyBotSummary, SuggestedAgentBot } from "@paperclipai/shared";
@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { ToolbarSearch } from "@/components/ToolbarSearch";
 import { Link } from "@/lib/router";
 import { useCompany } from "@/context/CompanyContext";
+import { useBreadcrumbs } from "@/context/BreadcrumbContext";
 import { queryKeys } from "@/lib/queryKeys";
 import { botsApi } from "@/api/bots";
 
@@ -93,7 +94,12 @@ function BotSection({ title, bots }: { title: string; bots: CompanyBotSummary[] 
 
 export function Bots() {
   const { selectedCompanyId } = useCompany();
+  const { setBreadcrumbs } = useBreadcrumbs();
   const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    setBreadcrumbs([{ label: "Bots" }]);
+  }, [setBreadcrumbs]);
   const botsQuery = useQuery({
     queryKey: queryKeys.bots.list(selectedCompanyId),
     queryFn: () => botsApi.list(selectedCompanyId!),
