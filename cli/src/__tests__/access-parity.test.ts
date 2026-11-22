@@ -61,6 +61,8 @@ describe("access parity commands", () => {
 
     expect(fetchMock.mock.calls.map((call) => [call[1]?.method ?? "GET", call[0]])).toEqual([
       ["GET", "http://localhost:3100/api/health"],
+      ["GET", "http://localhost:3100/api/ready"],
+      ["GET", "http://localhost:3100/api/liveness"],
       ["GET", "http://localhost:3100/api/cli-auth/me"],
       ["GET", "http://localhost:3100/api/cli-auth/me"],
       ["GET", "http://localhost:3100/api/auth/get-session"],
