@@ -83708,7 +83708,12 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
     );
   });
 
-  describe("Lossless long Board publications", () => {
+  // A 100,000-character Slack send is ten durable parts, and each part costs
+  // a provider post plus database writes. At 3-way file parallelism this block
+  // measured up to 7.1s per test; a full concurrent verification run can push
+  // the same work past the file-wide 15s budget. Give only these durability
+  // cases room to settle without weakening the shared timeout.
+  describe("Lossless long Board publications", { timeout: 45_000 }, () => {
     async function longFixture(
       provider: "slack" | "github" | "microsoft-teams",
     ) {
@@ -83785,6 +83790,23 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
           asc(sql`${chatPublications.payload}->'transportPart'->>'orderKey'`),
         );
 
+    // `publishBoardMessage` already awaits one drain. A 100,000-character send
+    // splits into up to ten durable parts, and each extra drain runs global
+    // wakeup and confirmation maintenance even when nothing is pending. Poll
+    // the batch instead of paying twenty idle scans per case; the final
+    // assertions still require every part to be published.
+    const drainPublicationBatch = async (
+      service: ChatChannelService,
+      commentId: string,
+    ) => {
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        const rows = await readChatPublicationsByCommentId(commentId);
+        if (rows.length > 0 && rows.every((row) => row.state === "published"))
+          return;
+        await service.processPendingPublications();
+      }
+    };
+
     it.each([
       ["slack", "new"],
       ["slack", "existing"],
@@ -83819,8 +83841,7 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
                 "lossless-long-board-send",
                 "owner-user",
               );
-          for (let drain = 0; drain < 20; drain++)
-            await service.processPendingPublications();
+          await drainPublicationBatch(service, publication.commentId!);
           expect(publication?.commentId).toBeTruthy();
           const expectedText = provider === "slack" && source === "new" ? `**Owner User (via Paperclip)**\n\n${body}` : body;
           const rows = await orderedBatch(publication!.commentId!);
@@ -83880,8 +83901,7 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
             "long-rich-board-send",
             "owner-user",
           );
-          for (let drain = 0; drain < 20; drain++)
-            await service.processPendingPublications();
+          await drainPublicationBatch(service, publication.commentId!);
           const rows = await orderedBatch(publication.commentId!);
           expect(rows.every((row) => row.state === "published")).toBe(true);
           expect(rows.map((row) => row.payload.text).join("") === safe).toBe(
@@ -83931,8 +83951,7 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
             "long-document-board-send",
             "owner-user",
           );
-          for (let drain = 0; drain < 5; drain++)
-            await context.service.processPendingPublications();
+          await drainPublicationBatch(context.service, publication.commentId!);
           const rows = await orderedBatch(publication.commentId!);
           expect(rows).toHaveLength(1);
           expect(rows[0]!.state).toBe("published");
@@ -84004,8 +84023,7 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
             "retry_anyway",
             "owner-user",
           );
-          for (let drain = 0; drain < 20; drain++)
-            await restarted.processPendingPublications();
+          await drainPublicationBatch(restarted, blocked.commentId!);
           const final = await orderedBatch(blocked.commentId!);
           expect(final[0]).toEqual(initial[0]);
           expect(final.every((row) => row.state === "published")).toBe(true);
