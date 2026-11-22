@@ -6,9 +6,10 @@ Base: `origin/master` (`6de064ea94` when this runbook was written)
 
 This page is the single source of truth for the usability train: the 42-PR
 initial batch, the four follow-up PRs from the same round, the five newer PRs
-added on the next pass, and the one new lane A test-helper PR added after that.
-It lists the exact merge order, which PRs are superseded, what to check after
-each batch, and one command that proves the whole order still merges cleanly.
+added on the next pass, the lane A test-helper PR, and the six usability fixes
+plus two lane A fixes added on the final pass. It lists the exact merge order,
+which PRs are superseded, what to check after each batch, and one command that
+proves the whole order still merges cleanly.
 
 ## One-command verification
 
@@ -23,11 +24,13 @@ pushes nothing. It merges each PR head into a running tree with
 first conflict with the conflicted paths. Exit code `0` means the whole order is
 clean; `1` means a conflict; `2` means a usage or git error.
 
-Last verified: 2026-11-22 (fifth pass), 52 of 52 merged, no conflicts, base
+Last verified: 2026-11-22 (sixth pass), 60 of 60 merged, no conflicts, base
 `6de064ea94`. #158 was rebased onto #118 to clear the one conflict (see below).
 #167 is a draft combo branch and must be marked ready before it merges. #145 and
 #162 are covered by #167; do not merge all three. #171 is stacked on #167 and
-must merge after it. #173 and #174 are independent of the stack and merge last.
+must merge after it. #173, #174, #176 and #181 are independent. #175 is stacked
+on #169 and must merge after it. #177-#182 are independent usability fixes and
+merge last.
 
 Useful variants:
 
@@ -92,13 +95,23 @@ node scripts/merge-train-simulate.mjs --json
 #165
 #173
 #174
+#176
+#181
+#175
+#177
+#178
+#179
+#180
+#182
 ```
 
 Keep `#115` before `#149` and `#136` before `#148`; those pairs touch the same
 files and the later PR expects the earlier copy. Keep `#158` immediately before
 `#167`: the combo branch contains #158 and applies #162 (plus #145) on top of it.
 Keep `#167` before `#171`: the routine-link branch is stacked on the combo so it
-inherits the skeleton, coverage and gateway sections.
+inherits the skeleton, coverage and gateway sections. Keep `#169` before `#175`:
+the timeline recovery branch is stacked on the state-recovery PR, which adds the
+timeline Retry, and adds the range controls, section heading and range group.
 
 ### Batches and what to check after each
 
@@ -122,6 +135,13 @@ inherits the skeleton, coverage and gateway sections.
 | P. Bot detail routine links | #171 | Bot pages list each routine as a link. Run `cd ui && npx vitest run src/pages/Bots.test.tsx` (24) and the bots Playwright file (5 passed) at 390px and 1280px. |
 | Q. Bot detail run links | #173 | Bot pages list each run row with a "View run" link. Run `cd ui && npx vitest run src/pages/Bots.test.tsx` (24) and `npx playwright test --config tests/e2e/playwright.config.ts tests/e2e/bot-run-link.spec.ts` (1 passed; it seeds a heartbeat run through the test database). |
 | R. Maintenance test helper | #174 | `cd server && npx vitest run src/__tests__/helpers/maintenance/runtime-build.test.ts` (5 passed). Then rerun it under `npx vitest` to confirm the setup no longer reports `Unknown command: "@paperclipai/plugin-sdk"`. |
+| S. Final lane A fixes | #176 #181 | #176: run the wake-diagnostic server tests named in the PR body and confirm a raw provider error no longer reaches the wake copy. #181: run the aggregator freshness tests named in the PR body and confirm the sync waits for the deadline instead of polling. |
+| T. Timeline recovery | #175 | `cd ui && npx vitest run src/pages/Timeline.test.tsx` (10 passed) and `npx playwright test --config tests/e2e/playwright.config.ts tests/e2e/timeline-load-recovery.spec.ts` (1 passed). Requires #169 first. |
+| U. Adapter list recovery | #177 | `cd ui && npx vitest run src/pages/AdapterManager.test.tsx` (1 passed) and the `tests/e2e/adapter-load-recovery.spec.ts` browser case (1 passed). |
+| V. Missing task | #178 | `cd ui && npx vitest run src/pages/IssueDetail.test.tsx -t "names a missing task"` (1 passed) and `tests/e2e/task-not-found.spec.ts` (1 passed). |
+| W. Routine Runs empty state | #179 | `cd ui && npx vitest run src/components/routine-sections/operate-sections.test.tsx` (5 passed) and `tests/e2e/routine-runs-empty-state.spec.ts` (1 passed). |
+| X. Routine archive Undo | #180 | `cd ui && npx vitest run src/pages/Routines.test.tsx -t "offers Undo after archiving"` (1 passed) and `tests/e2e/routine-archive-undo.spec.ts` (1 passed). |
+| Y. Inbox read errors | #182 | `cd ui && npx vitest run src/pages/Inbox.test.tsx -t "reports a failed mark-all-read"` (1 passed) and `tests/e2e/inbox-read-error.spec.ts` (1 passed). |
 
 ## What supersedes what
 
@@ -153,6 +173,17 @@ inherits the skeleton, coverage and gateway sections.
   picks pnpm for the maintenance runtime build regardless of the launcher. It
   touches only `server/src/__tests__/helpers/maintenance/`, so it neither needs
   nor blocks the stack.
+- **#175 is stacked on #169.** #169 already replaces the gray timeline error with
+  `QueryErrorState` and Retry in `ui/src/pages/Timeline.tsx`. #175 was rebased
+  onto #169 and adds the range controls to the error branch, an `h2` for the
+  embedded audit view, and a name for the range preset group. Merge #169 first.
+- **#176 and #181 are the final lane A fixes.** #176 keeps raw wake errors out of
+  the diagnostic copy. #181 makes the aggregator sync wait for the freshness
+  deadline instead of polling. Both are independent of the stack.
+- **#177-#182 are independent usability fixes.** They touch the adapter list, the
+  missing-task state, the routine Runs tab, routine archive Undo and the inbox
+  read-error alert. None overlaps another train PR, so they merge last in any
+  order after the stack.
 - **Branches edited in this pass.** #167 moved its `bots:coverage` script next to
   `bots:register` so #165's `test:chat-shard-workers` entry no longer contests
   the same `package.json` slot. #171 was rebased onto #167 and #158 was rebased
