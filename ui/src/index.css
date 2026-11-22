@@ -2857,7 +2857,10 @@ span.paperclip-mention-chip[data-mention-kind="external-object"] {
    reads on dark surfaces. A single hue covers both modes. */
 .status-chip {
   background-color: color-mix(in srgb, var(--sc) 15%, white);
-  color: color-mix(in srgb, var(--sc) 82%, black);
+  /* 60% hue + 40% black keeps every status label at 4.5:1 or better on its
+     15% tinted fill. The previous 82% recipe left gray, amber and green near
+     2.8-3.0:1. */
+  color: color-mix(in srgb, var(--sc) 60%, black);
   border-color: var(--sc);
 }
 .dark .status-chip {
