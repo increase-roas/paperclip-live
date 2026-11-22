@@ -207,6 +207,7 @@ import {
   verifyToolArgumentsSignature,
 } from "./tool-content-guards.js";
 import { extendApprovedExecutionWaitDeadline } from "./approved-execution-wait.js";
+import { oauthRefreshReplayEnabled, shouldReplayReadAfterOAuthRefresh } from "./tool-gateway-oauth-replay.js";
 
 const DEFAULT_SESSION_TTL_MS = 15 * 60 * 1000;
 const MAX_SESSION_TTL_MS = 60 * 60 * 1000;
@@ -6453,7 +6454,20 @@ export function createToolGatewayService(
         });
         headers = builtHeaders.headers;
         headerSummary = builtHeaders.summary;
-        await requireExplicitRetryAfterOAuthRefresh(response);
+        // Prototype: replay one read after the refresh. Off by default; a
+        // session-based or non-read call keeps the explicit-retry behavior.
+        if (shouldReplayReadAfterOAuthRefresh({
+          enabled: oauthRefreshReplayEnabled(),
+          riskLevel: entry.riskLevel,
+          usesMcpSession: connectionRequiresMcpSession(connection),
+        })) {
+          await response.body?.cancel().catch(() => undefined);
+          response = await dispatchRemote(endpoint, {
+            ...requestInit,
+            headers: mcpHttpRequestHeaders(requestHeaders),
+          });
+        }
+        if (response.status === 401) await requireExplicitRetryAfterOAuthRefresh(response);
       }
       if (
         response.status === 401 &&
