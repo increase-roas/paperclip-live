@@ -13,6 +13,7 @@ import {
   computeMentionMenuPosition,
   findClosestAutocompleteAnchor,
   findMentionMatch,
+  focusAdjacentOutside,
   isSameAutocompleteSession,
   issueMentionTitle,
   MarkdownEditor,
@@ -308,6 +309,25 @@ describe("issueMentionTitle", () => {
     expect(
       issueMentionTitle({ id: "issue:1", kind: "issue", name: "Some task" }),
     ).toBe("Some task");
+  });
+});
+
+describe("focusAdjacentOutside", () => {
+  it("returns the next and previous focusable control outside the editor", () => {
+    const host = document.createElement("div");
+    host.innerHTML = `
+      <button id="before">Before</button>
+      <div id="editor"><div contenteditable="true">Body</div></div>
+      <button id="after">After</button>
+    `;
+    document.body.appendChild(host);
+    for (const element of host.querySelectorAll<HTMLElement>("button, [contenteditable]")) {
+      element.getClientRects = () => [{ width: 1, height: 1 } as DOMRect] as unknown as DOMRectList;
+    }
+    const editor = host.querySelector<HTMLElement>("#editor")!;
+    expect(focusAdjacentOutside(editor)?.id).toBe("after");
+    expect(focusAdjacentOutside(editor, true)?.id).toBe("before");
+    host.remove();
   });
 });
 

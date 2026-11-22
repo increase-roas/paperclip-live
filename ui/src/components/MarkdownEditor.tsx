@@ -754,6 +754,34 @@ function applyMention(markdown: string, state: MentionState, option: Autocomplet
 
 /* ---- Component ---- */
 
+const FOCUSABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  '[contenteditable="true"]',
+  '[tabindex]:not([tabindex="-1"])',
+].join(",");
+
+/**
+ * Lexical's tab-indentation plugin swallows Tab and Shift+Tab, so keyboard
+ * focus never leaves the editor. Find the next control after (or before) the
+ * whole editor so Tab can move on. Tab in a list item keeps indenting.
+ */
+export function focusAdjacentOutside(container: HTMLElement | null, backwards = false): HTMLElement | null {
+  if (!container) return null;
+  const candidates = [...document.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)].filter((element) => {
+    if (container.contains(element)) return false;
+    if (element.closest('[aria-hidden="true"], [inert]')) return false;
+    const style = window.getComputedStyle(element);
+    return style.visibility !== "hidden" && style.display !== "none" && element.getClientRects().length > 0;
+  });
+  const ordered = backwards ? candidates.reverse() : candidates;
+  const direction = backwards ? Node.DOCUMENT_POSITION_PRECEDING : Node.DOCUMENT_POSITION_FOLLOWING;
+  return ordered.find((element) => container.compareDocumentPosition(element) & direction) ?? null;
+}
+
 export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>(function MarkdownEditor({
   value,
   onChange,
@@ -789,11 +817,35 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
   );
   const containerRef = useRef<HTMLDivElement>(null);
   const ref = useRef<MDXEditorMethods>(null);
+  const readOnlyRef = useRef(readOnly);
+  readOnlyRef.current = readOnly;
   const fallbackTextareaRef = useRef<HTMLTextAreaElement>(null);
   const valueRef = useRef(editorValue);
   valueRef.current = editorValue;
   const latestValueRef = useRef(editorValue);
   const initialChildOnChangeRef = useRef(true);
+
+  // Lexical consumes Shift+Tab for outdent before the wrapper sees the event,
+  // so a keyboard user cannot move back to a control above the editor. Catch
+  // that one gesture on the document before the editor handles it. Forward Tab
+  // is handled by the wrapper's capture handler.
+  useEffect(() => {
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Tab" || !event.shiftKey || event.isComposing) return;
+      const active = document.activeElement;
+      if (!(active instanceof HTMLElement) || !containerRef.current?.contains(active)) return;
+      if (!active.closest('[contenteditable="true"]')) return;
+      if (!readOnlyRef.current && active.closest('li,[role="listitem"]')) return;
+      const previous = focusAdjacentOutside(containerRef.current, true);
+      if (!previous) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      previous.focus();
+    };
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, []);
   /**
    * After imperative `setMarkdown` (prop sync, mentions, image upload), MDXEditor may emit `onChange`
    * with the same markdown. Skip notifying the parent for that echo so controlled parents that
@@ -1507,6 +1559,24 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
               selectMention(filteredMentions[mentionIndex]);
               return;
             }
+          }
+        }
+
+        // Tab must not trap focus. The list plugin owns Tab only while the
+        // caret is in a list item, where Tab indents the item.
+        if (
+          e.key === "Tab"
+          && !(mentionActive && filteredMentions.length > 0)
+          && e.target instanceof HTMLElement
+          && e.target.closest('[contenteditable="true"]')
+          && !e.target.closest('li,[role="listitem"]')
+        ) {
+          const next = focusAdjacentOutside(containerRef.current, e.shiftKey);
+          if (next) {
+            e.preventDefault();
+            e.stopPropagation();
+            next.focus();
+            return;
           }
         }
 
