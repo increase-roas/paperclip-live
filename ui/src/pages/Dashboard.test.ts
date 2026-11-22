@@ -1,6 +1,6 @@
 import type { Agent } from "@paperclipai/shared";
 import { describe, expect, it } from "vitest";
-import { derivePausedAgentBanner } from "./Dashboard";
+import { countEnabledAgents, derivePausedAgentBanner } from "./Dashboard";
 
 function agent(overrides: Partial<Agent>): Agent {
   return {
@@ -41,5 +41,20 @@ describe("derivePausedAgentBanner", () => {
       agent({ id: "b", status: "idle" }),
     ]);
     expect(banner).toBeNull();
+  });
+});
+
+describe("countEnabledAgents", () => {
+  it("reports zero beside the all-paused banner", () => {
+    expect(countEnabledAgents({ active: 0, running: 0, paused: 3, error: 0 })).toBe(0);
+  });
+
+  it("counts active, running and errored agents but excludes paused agents", () => {
+    expect(countEnabledAgents({ active: 2, running: 1, paused: 4, error: 1 })).toBe(4);
+  });
+
+  it("matches the sum of every non-paused bucket", () => {
+    const buckets = { active: 5, running: 2, paused: 9, error: 3 };
+    expect(countEnabledAgents(buckets)).toBe(buckets.active + buckets.running + buckets.error);
   });
 });

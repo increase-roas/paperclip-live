@@ -73,6 +73,20 @@ export function derivePausedAgentBanner(agents: Agent[] | undefined): PausedAgen
   return null;
 }
 
+/**
+ * "Agents Enabled" counts agents that can start work. Paused agents are parked
+ * and remain listed in the card description, but they must not inflate the
+ * headline beside the all-paused banner.
+ */
+export function countEnabledAgents(agents: {
+  active: number;
+  running: number;
+  paused: number;
+  error: number;
+}): number {
+  return agents.active + agents.running + agents.error;
+}
+
 export function Dashboard() {
   const designSandbox = useDesignSandbox();
   const { selectedCompanyId, companies } = useCompany();
@@ -421,7 +435,7 @@ export function Dashboard() {
             <MetricCard
               appearance={designSandbox ? "card" : "plain"}
               icon={Bot}
-              value={data.agents.active + data.agents.running + data.agents.paused + data.agents.error}
+              value={countEnabledAgents(data.agents)}
               label="Agents Enabled"
               to="/agents"
               description={
