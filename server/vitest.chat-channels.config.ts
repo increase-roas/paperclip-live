@@ -17,9 +17,8 @@ import base from "./vitest.config";
  * timing-sensitive under that load and failed there while passing alone:
  * `08-github-webhook-recovery-scheduling` (a 10s real-time poll for 21 database
  * batches; PR #110 replaces it with an explicit pass loop) and
- * `24-publishes-a-closed-choice-question-sett` (a real Slack acknowledgement
- * deadline). Re-run after #110 lands; 24 still needs its own fix before a
- * parallel run can be a gate.
+ * `24-publishes-a-closed-choice-question-sett` (a 250 ms acknowledgement race,
+ * fixed by the Slack three-second window in #121). Re-run after those land.
  *
  * The timeouts are higher than the base config because several embedded
  * Postgres instances and Node workers share one machine: a case that takes 3s
