@@ -94,6 +94,7 @@ export function Layout({ sidebarSections }: { sidebarSections?: ReactNode }) {
     peeking,
     setPeeking,
     isMobile,
+    isTablet,
     setForceCollapsed,
   } = useSidebar();
   const { openNewIssue, openOnboarding } = useDialogActions();
@@ -699,7 +700,13 @@ export function Layout({ sidebarSections }: { sidebarSections?: ReactNode }) {
             !isMobile && useStreamlinedTaskDetailShell && "streamlined-task-detail-surface",
           )}>
             {!isMobile && (keepsPrimarySidebar || isAgentChatRoute) ? (
-              <SecondarySidebar className={cn(isAgentChatRoute ? "w-70" : "w-60", "shrink-0 bg-background")}>
+              <SecondarySidebar className={cn(
+                // A tablet keeps the contextual rail in flow beside the 64px
+                // primary icon rail, so trim it to leave a readable content
+                // column. Desktop keeps its 240px rail.
+                isTablet ? "w-56" : isAgentChatRoute ? "w-70" : "w-60",
+                "shrink-0 bg-background",
+              )}>
                 {secondarySidebar}
               </SecondarySidebar>
             ) : null}
@@ -735,7 +742,7 @@ export function Layout({ sidebarSections }: { sidebarSections?: ReactNode }) {
                   : undefined
               }
               className={cn(
-                "flex-1 p-4 outline-none md:p-6",
+                "flex-1 p-4 outline-none lg:p-6",
                 // The task thread owns its scrollable top spacing. Leaving the
                 // page shell's top padding in place creates a stationary dark
                 // strip below the breadcrumb while messages scroll behind it.

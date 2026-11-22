@@ -14,14 +14,19 @@ interface SidebarContextValue {
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
   isMobile: boolean;
-  // Back-compat collapse API. The global navigation is permanently expanded;
-  // these values remain for callers that have not removed old requests.
+  /** Between the mobile breakpoint and `lg`: the primary nav is a 64px rail. */
+  isTablet: boolean;
+  /** True when the primary nav is not an in-flow expanded sidebar. */
+  isCompactShell: boolean;
+  // Back-compat collapse API. The global navigation is expanded on desktop and
+  // collapsed to the icon rail on tablet; these values remain for callers that
+  // have not removed old requests.
   collapsed: boolean;
   setCollapsed: (next: boolean) => void;
   toggleCollapsed: () => void;
-  // Retained compatibility value; always false now that the rail is retired.
+  // Retained compatibility value; the rail cannot be locked.
   collapseLocked: boolean;
-  // Retained compatibility value; the retired rail can no longer peek.
+  // Retained compatibility value; the tablet rail does not peek.
   peeking: boolean;
   setPeeking: (next: boolean) => void;
   // Legacy requests remain observable without affecting the global nav.
@@ -35,9 +40,13 @@ interface SidebarContextValue {
 const SidebarContext = createContext<SidebarContextValue | null>(null);
 
 const MOBILE_BREAKPOINT = 768;
+const TABLET_BREAKPOINT = 1024;
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < MOBILE_BREAKPOINT);
+  const [isTablet, setIsTablet] = useState(
+    () => window.innerWidth >= MOBILE_BREAKPOINT && window.innerWidth < TABLET_BREAKPOINT,
+  );
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= MOBILE_BREAKPOINT);
 
   const [routeRequestsCollapsed, setRouteRequestsCollapsed] = useState(false);
@@ -53,9 +62,20 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
     return () => mql.removeEventListener("change", onChange);
   }, []);
 
-  // The icon rail has been retired. Keep the old API inert so routes and
-  // plugins compiled against it cannot collapse the global navigation.
-  const collapsed = false;
+  useEffect(() => {
+    const mql = window.matchMedia(
+      `(min-width: ${MOBILE_BREAKPOINT}px) and (max-width: ${TABLET_BREAKPOINT - 1}px)`,
+    );
+    const onChange = (e: MediaQueryListEvent) => setIsTablet(e.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+
+  // Desktop keeps the expanded navigation. Between the mobile breakpoint and
+  // `lg` it collapses to the existing 64px icon rail so two sidebars do not
+  // squeeze a tablet content column. The legacy collapse API stays inert;
+  // only the viewport decides the rail.
+  const collapsed = isTablet;
   const collapseLocked = false;
   const peeking = false;
   const setCollapsed = useCallback((_next: boolean) => {}, []);
@@ -70,6 +90,8 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
       setSidebarOpen,
       toggleSidebar,
       isMobile,
+      isTablet,
+      isCompactShell: isMobile || isTablet,
       collapsed,
       setCollapsed,
       toggleCollapsed,
@@ -86,6 +108,7 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
       setSidebarOpen,
       toggleSidebar,
       isMobile,
+      isTablet,
       collapsed,
       setCollapsed,
       toggleCollapsed,

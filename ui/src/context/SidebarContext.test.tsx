@@ -91,6 +91,32 @@ describe("SidebarContext", () => {
     expect(capturedValue?.peeking).toBe(false);
   });
 
+  it("collapses the primary navigation to the 64px rail on tablet widths", () => {
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      writable: true,
+      value: 900,
+    });
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: query.includes("min-width: 768px"),
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+
+    active = renderProvider();
+
+    expect(capturedValue?.isMobile).toBe(false);
+    expect(capturedValue?.isTablet).toBe(true);
+    expect(capturedValue?.isCompactShell).toBe(true);
+    expect(capturedValue?.collapsed).toBe(true);
+    expect(capturedValue?.peeking).toBe(false);
+  });
+
   it("tracks route requests for compatibility without collapsing the navigation", () => {
     active = renderProvider();
 
