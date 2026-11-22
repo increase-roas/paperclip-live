@@ -2025,5 +2025,5 @@ describeChatChannelsSuite("chat channels 05-automatic-slack-registration", () =>
     await expect(resolveConnectorAssignments(db, recovered)).resolves.toEqual([]);
     await expect(executeConnectorTool(db, recovered, "slack_history", { channel: "CTOOLS" })).rejects.toThrow("no longer assigned");
     await service.shutdown();
-  });
-}, 30_000);
+  }, 30_000);
+});
