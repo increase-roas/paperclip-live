@@ -2,18 +2,14 @@ import { AgentIdentity } from "../components/AgentIdentity";
 import { TaskSummaryList } from "../components/TaskSummaryList";
 import { useDesignSandbox } from "../context/DesignSandboxContext";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "@/lib/router";
-import { shouldRouteAgentlessCompanyToOnboarding } from "../lib/onboarding-route";
-import { claimOnboardingOffer, dashboardOnboardingOptions } from "../lib/onboarding-auto-open";
-import { onboardingDraftStorage } from "../lib/onboarding-state";
 import { Link } from "@/lib/router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { dashboardApi } from "../api/dashboard";
 import { activityApi } from "../api/activity";
-import { accessApi } from "../api/access";
 import { issuesApi } from "../api/issues";
 import { agentsApi } from "../api/agents";
-import { projectsApi } from "../api/projects";
+import { useAgentlessOnboardingOffer } from "../hooks/useAgentlessOnboardingOffer";
+import { useCompanyMembers, useCompanyProjects } from "../hooks/useCompanyDirectoryQueries";
+import { useDashboardSummary } from "../hooks/useDashboardSummary";
 import { buildCompanyUserProfileMap } from "../lib/company-members";
 import { useCompany } from "../context/CompanyContext";
 import { useDialogActions } from "../context/DialogContext";
@@ -33,7 +29,7 @@ import { Bot, CircleDot, DollarSign, ShieldCheck, LayoutDashboard, PauseCircle }
 import { ActiveAgentsPanel } from "../components/ActiveAgentsPanel";
 import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
 import { PageSkeleton } from "../components/PageSkeleton";
-import { QueryErrorState, useQueryView } from "../components/QueryView";
+import { QueryErrorState } from "../components/QueryView";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { InlineBanner } from "../components/InlineBanner";
@@ -77,21 +73,17 @@ export function DashboardOperations() {
   const designSandbox = useDesignSandbox();
   const { selectedCompanyId, companies } = useCompany();
   const { openOnboarding } = useDialogActions();
-  const location = useLocation();
   const { setBreadcrumbs } = useBreadcrumbs();
   const [animatedActivityIds, setAnimatedActivityIds] = useState<Set<string>>(new Set());
   const seenActivityIdsRef = useRef<Set<string>>(new Set());
   const hydratedActivityRef = useRef(false);
   const activityAnimationTimersRef = useRef<number[]>([]);
 
-  // `isFetching` is read alongside the data: a cached list is served while its
-  // refetch runs, and an empty one from before the first hire must not pass
-  // for the company's current state — see `shouldRouteAgentlessCompanyToOnboarding`.
-  const { data: agents, isFetching: agentsRefreshing } = useQuery({
-    queryKey: queryKeys.agents.list(selectedCompanyId!),
-    queryFn: () => agentsApi.list(selectedCompanyId!),
-    enabled: !!selectedCompanyId,
-  });
+  // A company with no agent cannot do anything, so the wizard opens as a
+  // dialog (it is mounted globally: no route to race, no redirect to loop).
+  // This also catches a Cloud-provisioned company, created before the tenant
+  // boots, whose customer lands here straight out of signup.
+  const { data: agents, isFetching: agentsRefreshing } = useAgentlessOnboardingOffer(selectedCompanyId);
 
   // Bulk resume for agents parked by a company import. Sequential on purpose
   // (mirrors the import page's activation checklist); a per-agent failure is
@@ -118,68 +110,12 @@ export function DashboardOperations() {
     },
   });
 
-  // A company with no agent cannot do anything — no runs, no tasks, nothing
-  // to show. The banner below already says so and offers a link; this takes
-  // the customer there instead of asking them to notice.
-  //
-  // It also closes the gap a Cloud-provisioned stack falls into. Cloud creates
-  // the company before the tenant boots, so the companyless redirect never
-  // fires and a seeded customer lands here, on an empty dashboard, straight
-  // out of signup.
-  //
-  // Opened as the dialog rather than navigated to: the wizard is already
-  // mounted globally, so there is no route to race and no redirect to loop.
-  // Placed with the other hooks — the early returns below mean anything
-  // further down would be called conditionally.
-  //
-  // The company and the step are both passed. Opening with empty options would
-  // start the wizard at the front door with no company, and the new-company
-  // path there would create a *second* company instead of giving this one an
-  // agent.
-  // A saved agent that is still in setup is unfinished onboarding after reload.
-  // Only the matching browser draft may resume it; other setup records stay put.
-  const onboardingOptions = selectedCompanyId
-    ? dashboardOnboardingOptions(selectedCompanyId, agents, onboardingDraftStorage.read())
-    : null;
-  const onboardingInitialStep = onboardingOptions?.initialStep;
-  const shouldOpenOnboarding = shouldRouteAgentlessCompanyToOnboarding({
-    pathname: location.pathname,
-    agentsLoaded: agents !== undefined,
-    agentsRefreshing,
-    agentCount: onboardingOptions ? 0 : agents?.length ?? 0,
-  });
-  // Auto-open once per company. Every input to the effect sits behind a query,
-  // so a refetch re-runs it, and the customer can also navigate away and come
-  // back — both would otherwise call `openOnboarding` again and reopen a
-  // wizard that was deliberately closed. `claimOnboardingOffer` holds the
-  // companies already offered; see it for why that outlives this component.
-  useEffect(() => {
-    if (!shouldOpenOnboarding || !selectedCompanyId || !onboardingInitialStep) return;
-    if (!claimOnboardingOffer(selectedCompanyId)) return;
-    openOnboarding({ companyId: selectedCompanyId, initialStep: onboardingInitialStep });
-    // No mission lookup to wait on any more: the step this opens is the same
-    // whatever the goals say, so waiting only delayed the open.
-  }, [shouldOpenOnboarding, selectedCompanyId, onboardingInitialStep, openOnboarding]);
-
   useEffect(() => {
     setBreadcrumbs([{ label: "Dashboard", href: "/dashboard" }, { label: "Operations" }]);
   }, [setBreadcrumbs]);
 
-  const dashboardQueryKey = queryKeys.dashboard(selectedCompanyId!);
-  const sharedDashboard = useSharedPollingQuery({
-    companyId: selectedCompanyId,
-    resourceKey: "dashboard",
-    queryKey: dashboardQueryKey,
-    enabled: !!selectedCompanyId,
-  });
-  const dashboardQuery = useQuery({
-    queryKey: dashboardQueryKey,
-    queryFn: () => dashboardApi.summary(selectedCompanyId!),
-    enabled: !!selectedCompanyId,
-  });
-  const { data, isLoading, dataUpdatedAt: dashboardUpdatedAt } = dashboardQuery;
-  const dashboardView = useQueryView(dashboardQuery);
-  usePublishSharedQueryData(sharedDashboard, data, dashboardUpdatedAt);
+  const { query: dashboardQuery, view: dashboardView } = useDashboardSummary(selectedCompanyId);
+  const { data, isLoading } = dashboardQuery;
 
   const activityQueryKey = [...queryKeys.activity(selectedCompanyId!), { limit: DASHBOARD_ACTIVITY_LIMIT }] as const;
   const sharedActivity = useSharedPollingQuery({
@@ -201,17 +137,8 @@ export function DashboardOperations() {
     enabled: !!selectedCompanyId,
   });
 
-  const { data: projects } = useQuery({
-    queryKey: queryKeys.projects.list(selectedCompanyId!, { includeArchived: true }),
-    queryFn: () => projectsApi.list(selectedCompanyId!, { includeArchived: true }),
-    enabled: !!selectedCompanyId,
-  });
-
-  const { data: companyMembers } = useQuery({
-    queryKey: queryKeys.access.companyUserDirectory(selectedCompanyId!),
-    queryFn: () => accessApi.listUserDirectory(selectedCompanyId!),
-    enabled: !!selectedCompanyId,
-  });
+  const { data: projects } = useCompanyProjects(selectedCompanyId);
+  const { data: companyMembers } = useCompanyMembers(selectedCompanyId);
 
   const userProfileMap = useMemo(
     () => buildCompanyUserProfileMap(companyMembers?.users),

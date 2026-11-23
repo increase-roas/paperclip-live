@@ -1,15 +1,10 @@
 import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { LayoutDashboard } from "lucide-react";
-import { Link, Navigate, useLocation, useParams, useSearchParams } from "@/lib/router";
+import { Link, Navigate, useParams, useSearchParams } from "@/lib/router";
 import { useCompany } from "@/context/CompanyContext";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
 import { useDialogActions } from "@/context/DialogContext";
-import { agentsApi } from "@/api/agents";
-import { queryKeys } from "@/lib/queryKeys";
-import { claimOnboardingOffer, dashboardOnboardingOptions } from "@/lib/onboarding-auto-open";
-import { onboardingDraftStorage } from "@/lib/onboarding-state";
-import { shouldRouteAgentlessCompanyToOnboarding } from "@/lib/onboarding-route";
+import { useAgentlessOnboardingOffer } from "@/hooks/useAgentlessOnboardingOffer";
 import { EmptyState } from "@/components/EmptyState";
 import { cn } from "@/lib/utils";
 import { BoardPlaceholder } from "./BoardPlaceholder";
@@ -34,7 +29,6 @@ import {
 export function DashboardShell() {
   const { selectedCompanyId, companies } = useCompany();
   const { openOnboarding } = useDialogActions();
-  const location = useLocation();
   const { boardId: boardIdParam } = useParams<{ boardId?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const { setBreadcrumbs } = useBreadcrumbs();
@@ -44,30 +38,9 @@ export function DashboardShell() {
   const boardMeta = dashboardBoardMeta(boardId);
   const board = registeredDashboard(boardId);
 
-  // Auto-offer onboarding to a company with no agents. This lived on the old
-  // dashboard page; the shell is now where a new company lands, so the offer
-  // moved with it. See `shouldRouteAgentlessCompanyToOnboarding` for why the
-  // loaded/refreshing guards are required.
-  const { data: agents, isFetching: agentsRefreshing } = useQuery({
-    queryKey: queryKeys.agents.list(selectedCompanyId!),
-    queryFn: () => agentsApi.list(selectedCompanyId!),
-    enabled: !!selectedCompanyId,
-  });
-  const onboardingOptions = selectedCompanyId
-    ? dashboardOnboardingOptions(selectedCompanyId, agents, onboardingDraftStorage.read())
-    : null;
-  const onboardingInitialStep = onboardingOptions?.initialStep;
-  const shouldOpenOnboarding = shouldRouteAgentlessCompanyToOnboarding({
-    pathname: location.pathname,
-    agentsLoaded: agents !== undefined,
-    agentsRefreshing,
-    agentCount: onboardingOptions ? 0 : agents?.length ?? 0,
-  });
-  useEffect(() => {
-    if (!shouldOpenOnboarding || !selectedCompanyId || !onboardingInitialStep) return;
-    if (!claimOnboardingOffer(selectedCompanyId)) return;
-    openOnboarding({ companyId: selectedCompanyId, initialStep: onboardingInitialStep });
-  }, [shouldOpenOnboarding, selectedCompanyId, onboardingInitialStep, openOnboarding]);
+  // The shell is where a new company lands, so it carries the onboarding offer
+  // that lived on the old single dashboard page.
+  useAgentlessOnboardingOffer(selectedCompanyId);
 
   const boardTitle = boardMeta?.title ?? null;
   useEffect(() => {
