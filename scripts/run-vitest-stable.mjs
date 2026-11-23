@@ -168,6 +168,14 @@ const serializedServerVitestArgs = [
   "--no-file-parallelism",
   "--maxWorkers=1",
 ];
+// Files overlapped per general-server shard. A two-core hosted runner sets 1
+// so each file keeps the CPU it has in the unsharded serial lane.
+const generalServerShardWorkers = (() => {
+  const raw = process.env.PAPERCLIP_GENERAL_SERVER_SHARD_WORKERS?.trim();
+  if (!raw) return 3;
+  if (!/^[1-9][0-9]*$/.test(raw)) fail("PAPERCLIP_GENERAL_SERVER_SHARD_WORKERS must be a positive integer.");
+  return Number(raw);
+})();
 const sourceOnlyVitestArgs = ["--exclude", "**/dist/**"];
 
 function walk(dir) {
@@ -563,11 +571,11 @@ async function runGeneralGroup(routeTests, groupName, shardIndex = null, shardCo
           "--project",
           "@paperclipai/server",
           // Files have separate fork processes and isolated homes/configs.
-          // Keep each file's cases serial; overlap three independent files.
+          // Keep each file's cases serial; overlap independent files.
           // An explicit shared test database cannot be isolated this way.
           ...(hasSharedTestDatabase
             ? serializedServerVitestArgs
-            : ["--pool=forks", "--isolate", "--fileParallelism", "--maxWorkers=3"]),
+            : ["--pool=forks", "--isolate", "--fileParallelism", `--maxWorkers=${generalServerShardWorkers}`]),
           ...shardFiles,
         ],
         `${groupName} shard ${shardIndex + 1}/${shardCount}`,

@@ -12,6 +12,17 @@ export function testPostgresAdminUrl(): string | undefined {
   return value;
 }
 
+// Suite cleanup truncates with CASCADE and drops with IF EXISTS, and postgres.js
+// prints every resulting NOTICE (hundreds per truncate). That output was most
+// of a CI test log and slowed the runs. Warnings and errors still reach clients.
+const QUIET_TEST_DATABASE_SQL = (name: string) => `ALTER DATABASE "${name}" SET client_min_messages = warning`;
+
+export async function quietTestDatabaseNotices(adminUrl: string, databaseName: string): Promise<void> {
+  const sql = postgres(adminUrl, { max: 1, connect_timeout: 5, onnotice() {} });
+  try { await sql.unsafe(QUIET_TEST_DATABASE_SQL(databaseName)); }
+  finally { await sql.end({ timeout: 1 }); }
+}
+
 export async function checkTestPostgresAdmin(url: string): Promise<void> {
   const sql = postgres(url, { max: 1, connect_timeout: 5, onnotice() {} });
   try { await sql`SELECT 1`; }
@@ -41,6 +52,7 @@ export async function startTestPostgresDatabase(adminUrl: string): Promise<{
   })();
   try {
     await admin.unsafe(`CREATE DATABASE "${name}"${template ? ` TEMPLATE "${template}"` : ""}`);
+    await admin.unsafe(QUIET_TEST_DATABASE_SQL(name));
     await applyPendingMigrations(connectionString);
     return { connectionString, cleanup };
   } catch (error) {

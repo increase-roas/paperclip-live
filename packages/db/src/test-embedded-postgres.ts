@@ -15,7 +15,7 @@ import {
 import { prepareEmbeddedPostgresNativeRuntime } from "./embedded-postgres-native.js";
 import { loadWithoutEmbeddedPostgresExitHooks } from "./embedded-postgres-lifecycle.js";
 import { ownTestPostgres, TestPostgresShutdownError, type TestPostgresInstance } from "./test-postgres-owner.js";
-import { checkTestPostgresAdmin, startTestPostgresDatabase, testPostgresAdminUrl } from "./test-postgres-admin.js";
+import { checkTestPostgresAdmin, quietTestDatabaseNotices, startTestPostgresDatabase, testPostgresAdminUrl } from "./test-postgres-admin.js";
 
 // Time budget (ms) for a vitest test in the embedded-Postgres cost class: a
 // test that starts an embedded Postgres cluster and runs migrations. Measured
@@ -696,6 +696,7 @@ export async function startEmbeddedPostgresTestDatabase(
     // Both calls are no-ops on a template copy and keep the returned database
     // identical to the fresh path even if the template were ever stale.
     await ensurePostgresDatabase(adminConnectionStringFor(port), "paperclip");
+    await quietTestDatabaseNotices(adminConnectionStringFor(port), "paperclip");
     const connectionString = databaseConnectionStringFor(port);
     await applyPendingMigrations(connectionString);
 
