@@ -7,6 +7,11 @@ name: IR CI
 
 on:
   workflow_call:
+    inputs:
+      full_suite:
+        description: Run the test suites on a pull request (set by the full-ci label).
+        type: boolean
+        default: false
   push:
     branches: [master]
   workflow_dispatch:
@@ -34,6 +39,9 @@ jobs:
     timeout-minutes: 5
     outputs:
       code: ${{ steps.filter.outputs.code }}
+      # Pull requests get build + typecheck only. The test suites run on
+      # master pushes, manual runs, and PRs with the full-ci label.
+      full: ${{ github.event_name != 'pull_request' || inputs.full_suite == true }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -64,7 +72,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # Passing runs take about 30 minutes (p90 32.5, max 37.7 in Nov 2026).
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/ir-setup
@@ -79,11 +88,12 @@ jobs:
     # invalid and every run failed before a job could start.
     name: test (${{ matrix.mode }}${{ matrix.mode == 'serialized' && format(' {0}/{1}', matrix.shard_number, matrix.shard_count) || '' }})
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.full == 'true'
     runs-on: ubuntu-latest
-    # Six serialized shards plus one general job; 120 minutes was the single-job
-    # ceiling before sharding.
-    timeout-minutes: 90
+    # Passing serialized shards take 10 to 13 minutes. The general job hit the
+    # old 90 minute limit 76 of 92 times in Nov 2026 and never passed, so a
+    # hang now costs 25 minutes, not 90.
+    timeout-minutes: ${{ matrix.mode == 'general' && 25 || 20 }}
     strategy:
       fail-fast: false
       matrix:
@@ -144,7 +154,12 @@ jobs:
           [ "${{ needs.ir-scripts.result }}" = "success" ]
           if [ "${{ needs.changes.outputs.code }}" = "true" ]; then
             [ "${{ needs.build.result }}" = "success" ]
-            [ "${{ needs.test.result }}" = "success" ]
+            if [ "${{ needs.changes.outputs.full }}" = "true" ]; then
+              [ "${{ needs.test.result }}" = "success" ]
+            else
+              echo "pull request without full-ci label: test suites run after merge"
+              [ "${{ needs.test.result }}" = "skipped" ]
+            fi
           else
             echo "docs-only change: build and test were skipped"
             [ "${{ needs.build.result }}" = "skipped" ]
