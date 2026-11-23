@@ -46,6 +46,45 @@ export interface DashboardAiCostDriver {
   sharePercent: number;
 }
 
+/**
+ * Spec v2 number 1: AI spend divided by client output (reports, audits and
+ * creative sets). `costPerOutputUnitCents` stays null until a real output
+ * count exists; `notConnected` says which source is missing.
+ */
+export interface DashboardAiCostOutputUnit {
+  spendMonthToDateCents: number;
+  outputUnitsMonth: number | null;
+  costPerOutputUnitCents: number | null;
+  target: string;
+  cite: string;
+  notConnected: DashboardNotConnectedTile | null;
+}
+
+export interface DashboardAiCostWorkflowSeat {
+  agentId: string;
+  name: string;
+  /** Active scheduled routines owned by this seat. Real Paperclip data. */
+  automatedTasks: number;
+  /** The seat's full task list; null when Paperclip has no task inventory. */
+  listedTasks: number | null;
+  automatedPercent: number | null;
+}
+
+/**
+ * Spec v2 number 7: automated tasks ÷ the tasks a seat is listed as doing.
+ * The numerator is real (active routines); the denominator needs a seat task
+ * inventory before a share can be shown.
+ */
+export interface DashboardAiCostWorkflowCoverage {
+  seats: DashboardAiCostWorkflowSeat[];
+  totalAutomated: number;
+  listedTasksTotal: number | null;
+  automatedPercent: number | null;
+  target: string;
+  cite: string;
+  notConnected: DashboardNotConnectedTile | null;
+}
+
 export interface DashboardAiCostBoard {
   companyId: string;
   generatedAt: string;
@@ -65,6 +104,8 @@ export interface DashboardAiCostBoard {
   completedTasksMonth: number;
   costPerCompletedTaskCents: number | null;
   topCostDrivers: DashboardAiCostDriver[];
+  outputUnit: DashboardAiCostOutputUnit;
+  workflowCoverage: DashboardAiCostWorkflowCoverage;
   notConnected: DashboardNotConnectedTile[];
 }
 
@@ -230,9 +271,43 @@ export interface DashboardFulfillmentTask {
   ageHours: number;
 }
 
+/**
+ * One of Hormozi's four retention numbers from spec v2. `value` is null when
+ * no real source exists; `notConnected` then names the missing source.
+ */
+export interface DashboardFulfillmentRetentionNumber {
+  value: number | null;
+  unit: "percent" | "days";
+  target: string;
+  cite: string;
+  notConnected: DashboardNotConnectedTile | null;
+}
+
+export interface DashboardFulfillmentRetentionWindow {
+  hours: 24 | 48 | 72;
+  valuePercent: number | null;
+}
+
+/** Spec v2 number 3: cancellations inside 24, 48 and 72 hours ÷ onboarded. */
+export interface DashboardFulfillmentEarlyBackout {
+  windows: DashboardFulfillmentRetentionWindow[];
+  target: string;
+  cite: string;
+  notConnected: DashboardNotConnectedTile | null;
+}
+
+export interface DashboardFulfillmentRetention {
+  churnMonthly: DashboardFulfillmentRetentionNumber;
+  saleToOnboarding: DashboardFulfillmentRetentionNumber;
+  earlyBackout: DashboardFulfillmentEarlyBackout;
+  reviewByDay30: DashboardFulfillmentRetentionNumber;
+}
+
 export interface DashboardFulfillmentBoard {
   companyId: string;
   generatedAt: string;
+  /** Hormozi's four retention questions, read first. */
+  retention: DashboardFulfillmentRetention;
   clients: DashboardFulfillmentClient[];
   openClientTasks: {
     total: number;

@@ -64,7 +64,7 @@ export function AiCostBoard({ companyId: companyIdProp }: { companyId?: string }
         <div className="space-y-8">
           <BoardHeader
             title="AI cost"
-            description="Spend per agent seat against its monthly cap, cost per completed task and the providers driving the bill. Every number comes from Paperclip's cost events and agent budgets."
+            description="Spend per agent seat against its monthly cap, cost per completed task and the providers driving the bill. The six spend tiles are v1 source, not Hormozi; output unit and workflow coverage are the v2 additions."
             generatedAt={board.generatedAt}
           />
 
@@ -114,6 +114,66 @@ export function AiCostBoard({ companyId: companyIdProp }: { companyId?: string }
               testId="ai-cost-over-cap"
             />
           </div>
+
+          <BoardSection
+            title="Hormozi numbers (spec v2)"
+            description="v2 §8 cites 9q5oj [11:05] for cost per unit of client output and 9q5oj [04:42] for tasks per seat that could be a workflow. Both tiles say Not connected until their source exists."
+          >
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <BoardTile
+                label="Cost per unit of client output"
+                notConnected={board.outputUnit.notConnected ?? undefined}
+                value={formatCentsOrDash(board.outputUnit.costPerOutputUnitCents)}
+                detail={`${formatCentsOrDash(board.outputUnit.spendMonthToDateCents)} spend ÷ ${
+                  board.outputUnit.outputUnitsMonth ?? "—"
+                } outputs · target ${board.outputUnit.target} · ${board.outputUnit.cite}`}
+                testId="ai-cost-output-unit"
+              />
+              <BoardTile
+                label="Tasks per seat that could be a workflow"
+                notConnected={board.workflowCoverage.notConnected ?? undefined}
+                value={board.workflowCoverage.automatedPercent === null
+                  ? "—"
+                  : formatPercentOrDash(board.workflowCoverage.automatedPercent)}
+                detail={`${board.workflowCoverage.totalAutomated} automated · ${
+                  board.workflowCoverage.listedTasksTotal ?? "—"
+                } listed · target ${board.workflowCoverage.target} · ${board.workflowCoverage.cite}`}
+                testId="ai-cost-workflow"
+              />
+            </div>
+          </BoardSection>
+
+          <BoardSection
+            title="Automated routines per seat"
+            description="The real numerator for the workflow tile: active routines owned by each seat. Listed tasks stays Not recorded until a per-seat task inventory exists."
+          >
+            <Card className="gap-0 overflow-x-auto p-0">
+              <table className="w-full min-w-max text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                    <th className="px-4 py-3 font-medium">Seat</th>
+                    <th className="px-4 py-3 text-right font-medium">Automated routines</th>
+                    <th className="px-4 py-3 text-right font-medium">Listed tasks</th>
+                    <th className="px-4 py-3 text-right font-medium">Automated share</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {board.workflowCoverage.seats.map((seat) => (
+                    <tr key={seat.agentId} className="border-b border-border/60 last:border-0">
+                      <td className="px-4 py-3 font-medium">{seat.name}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{seat.automatedTasks}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {seat.listedTasks ?? <Badge variant="outline">Not recorded</Badge>}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {seat.automatedPercent === null ? "—" : formatPercentOrDash(seat.automatedPercent)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+          </BoardSection>
 
           <BoardSection
             title="Seats"

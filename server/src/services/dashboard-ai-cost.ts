@@ -1,7 +1,13 @@
 import { and, eq, gte, lte, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
-import { agents, companies, costEvents, issues } from "@paperclipai/db";
-import type { DashboardAiCostBoard, DashboardAiCostDriver, DashboardAiCostSeat } from "@paperclipai/shared";
+import { agents, companies, costEvents, issues, routines } from "@paperclipai/db";
+import type {
+  DashboardAiCostBoard,
+  DashboardAiCostDriver,
+  DashboardAiCostSeat,
+  DashboardAiCostWorkflowSeat,
+  DashboardNotConnectedTile,
+} from "@paperclipai/shared";
 import { notFound } from "../errors.js";
 import { getUtcMonthStart } from "./dashboard.js";
 import { executionIssueCondition } from "./issue-visibility.js";
@@ -179,6 +185,50 @@ export function dashboardAiCostService(db: Db) {
           .orderBy(agents.name),
       );
 
+      // The v2 workflow number needs two counts. The automated count is real:
+      // active routines owned by the seat. Paperclip has no record of the full
+      // task list a seat performs, so the denominator stays null.
+      const routineRows = await retryIdempotentDatabaseOperation(() =>
+        db
+          .select({
+            agentId: routines.assigneeAgentId,
+            automated: sql<number>`count(*)::int`,
+          })
+          .from(routines)
+          .where(and(eq(routines.companyId, companyId), eq(routines.status, "active")))
+          .groupBy(routines.assigneeAgentId),
+      );
+      const automatedByAgent = new Map<string, number>();
+      for (const row of routineRows) {
+        if (row.agentId) automatedByAgent.set(row.agentId, Number(row.automated));
+      }
+
+      const workflowSeats: DashboardAiCostWorkflowSeat[] = agentRows.map((agent) => ({
+        agentId: agent.id,
+        name: agent.name,
+        automatedTasks: automatedByAgent.get(agent.id) ?? 0,
+        listedTasks: null,
+        automatedPercent: null,
+      }));
+      const totalAutomated = workflowSeats.reduce((sum, seat) => sum + seat.automatedTasks, 0);
+
+      const outputUnitNotConnected: DashboardNotConnectedTile = {
+        tile: "client-output",
+        source: "Client output count (reports, audits, creative sets)",
+        reason:
+          "Paperclip stores artifacts and documents per task, but it has no field that marks one as a client-facing report, audit or creative set. Counting every work product would answer a different question than the spec asks.",
+        needed:
+          "A deliverable type on work products (report / audit / creative set), or a read-only connection to the production tracker that records them.",
+      };
+
+      const workflowNotConnected: DashboardNotConnectedTile = {
+        tile: "seat-task-inventory",
+        source: "Seat task inventory (4-6 hand-and-eye tasks per seat)",
+        reason:
+          "Paperclip records which tasks run as active routines, so the automated count is real. It has no record of the full list of tasks each seat performs, so the denominator would be a guess.",
+        needed: "Record each seat's 4-6 tasks and mark each one automated or manual.",
+      };
+
       const seats: DashboardAiCostSeat[] = agentRows.map((agent) => {
         const spend = spendByAgent.get(agent.id) ?? { todayCents: 0, sevenDayCents: 0, monthCents: 0 };
         const completedTasksMonth = completedByAgent.get(agent.id) ?? 0;
@@ -232,7 +282,24 @@ export function dashboardAiCostService(db: Db) {
         completedTasksMonth: companyCompletedTasks,
         costPerCompletedTaskCents: costPerCompletedTaskCents(companyAttributableCents, companyCompletedTasks),
         topCostDrivers,
-        notConnected: [],
+        outputUnit: {
+          spendMonthToDateCents: companyMonthCents,
+          outputUnitsMonth: null,
+          costPerOutputUnitCents: null,
+          target: "Must fall as volume rises",
+          cite: "9q5oj [11:05]",
+          notConnected: outputUnitNotConnected,
+        },
+        workflowCoverage: {
+          seats: workflowSeats,
+          totalAutomated,
+          listedTasksTotal: null,
+          automatedPercent: null,
+          target: "Every task should be a workflow, not a headcount",
+          cite: "9q5oj [04:42]",
+          notConnected: workflowNotConnected,
+        },
+        notConnected: [outputUnitNotConnected, workflowNotConnected],
       };
     },
   };

@@ -69,7 +69,7 @@ export function AutomationHealthBoard({ companyId: companyIdProp }: { companyId?
           <div className="space-y-8">
             <BoardHeader
               title="Automation health"
-              description="Whether the company is running without a human: agent status, failures, routines, blocked work, approval queue and the server itself."
+              description="Whether the company is running without a human: agent status, failures, routines, blocked work, approval queue and the server itself. Source: v1 spec, not Hormozi — Hormozi has no content on routine success rates, approvals or merge queues."
               generatedAt={board.generatedAt}
             />
 

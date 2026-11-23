@@ -36,9 +36,53 @@ export function FulfillmentBoard({ companyId: companyIdProp }: { companyId?: str
         <div className="space-y-8">
           <BoardHeader
             title="Fulfillment"
-            description="Open client work, onboarding and support requests from Paperclip tasks. A client is a Paperclip project; anything without a project is counted as unassigned."
+            description="Hormozi's retention questions first (spec v2), then the v1 operating detail: open client work, onboarding and support requests from Paperclip tasks. A client is a Paperclip project; anything without a project is counted as unassigned."
             generatedAt={board.generatedAt}
           />
+
+          <BoardSection
+            title="Retention (Hormozi)"
+            description="Churn, sale-to-onboarding time, early backout and reviews by day 30. A tile with no real source says which source is missing instead of showing a guess."
+          >
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <BoardTile
+                label="Churn, monthly"
+                notConnected={board.retention.churnMonthly.notConnected ?? undefined}
+                value={board.retention.churnMonthly.value ?? "—"}
+                detail={`Target ${board.retention.churnMonthly.target} · ${board.retention.churnMonthly.cite}`}
+                testId="fulfillment-churn"
+              />
+              <BoardTile
+                label="Sale to onboarding"
+                notConnected={board.retention.saleToOnboarding.notConnected ?? undefined}
+                value={board.retention.saleToOnboarding.value ?? "—"}
+                detail={`Days · target ${board.retention.saleToOnboarding.target} · ${board.retention.saleToOnboarding.cite}`}
+                testId="fulfillment-sale-onboarding"
+              />
+              <BoardTile
+                label="Early backout (24/48/72h)"
+                notConnected={board.retention.earlyBackout.notConnected ?? undefined}
+                value={
+                  board.retention.earlyBackout.windows
+                    .map((window) => `${window.hours}h ${window.valuePercent === null ? "—" : `${window.valuePercent}%`}`)
+                    .join(" · ")
+                }
+                detail={`Target ${board.retention.earlyBackout.target} · ${board.retention.earlyBackout.cite}`}
+                testId="fulfillment-early-backout"
+              />
+              <BoardTile
+                label="Review by day 30"
+                notConnected={board.retention.reviewByDay30.notConnected ?? undefined}
+                value={board.retention.reviewByDay30.value ?? "—"}
+                detail={`Target ${board.retention.reviewByDay30.target} · ${board.retention.reviewByDay30.cite}`}
+                testId="fulfillment-review-30"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              These four are Hormozi's retention numbers. The open-task, onboarding and support detail below is
+              v1 source, not Hormozi.
+            </p>
+          </BoardSection>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <BoardTile

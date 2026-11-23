@@ -63,7 +63,7 @@ export function ToolsConnectorsBoard({ companyId: companyIdProp }: { companyId?:
         <div className="space-y-8">
           <BoardHeader
             title="Tools and connectors"
-            description="Every plugin, tool connection, GitHub app and agent adapter Paperclip knows about, with its health, last use and known expiry."
+            description="Every plugin, tool connection, GitHub app and agent adapter Paperclip knows about, with its health, last use and known expiry. Source: v1 spec, not Hormozi — Hormozi has no content on connector health."
             generatedAt={board.generatedAt}
           />
 

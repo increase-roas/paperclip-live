@@ -82,6 +82,36 @@ const aiCostFixture: DashboardAiCostBoard = {
   topCostDrivers: [
     { provider: "anthropic", model: "claude-test", spendMonthToDateCents: 1_000, sharePercent: 90.91 },
   ],
+  outputUnit: {
+    spendMonthToDateCents: 1_100,
+    outputUnitsMonth: null,
+    costPerOutputUnitCents: null,
+    target: "Must fall as volume rises",
+    cite: "9q5oj [11:05]",
+    notConnected: {
+      tile: "client-output",
+      source: "Client output count (reports, audits, creative sets)",
+      reason: "Paperclip has no field that marks a work product as a client report, audit or creative set.",
+      needed: "A deliverable type on work products.",
+    },
+  },
+  workflowCoverage: {
+    seats: [
+      { agentId: "a1", name: "Atlas", automatedTasks: 1, listedTasks: null, automatedPercent: null },
+      { agentId: "a2", name: "Risky", automatedTasks: 0, listedTasks: null, automatedPercent: null },
+    ],
+    totalAutomated: 1,
+    listedTasksTotal: null,
+    automatedPercent: null,
+    target: "Every task should be a workflow, not a headcount",
+    cite: "9q5oj [04:42]",
+    notConnected: {
+      tile: "seat-task-inventory",
+      source: "Seat task inventory (4–6 hand-and-eye tasks per seat)",
+      reason: "Paperclip records routines, but not the full list of tasks each seat performs.",
+      needed: "A per-seat task inventory.",
+    },
+  },
   notConnected: [],
 };
 
@@ -258,6 +288,59 @@ const fulfillmentFixture: DashboardFulfillmentBoard = {
       needed: "A read-only GHL conversations connection.",
     },
   ],
+  retention: {
+    churnMonthly: {
+      value: null,
+      unit: "percent",
+      target: "< 3% per month",
+      cite: "U_s0ek [00:15:51]",
+      notConnected: {
+        tile: "churn-monthly",
+        source: "GHL subscription state + Authorize.net",
+        reason: "No GHL or Authorize.net connection is available.",
+        needed: "A read-only GHL subscription and Authorize.net connection.",
+      },
+    },
+    saleToOnboarding: {
+      value: null,
+      unit: "days",
+      target: "Short; first live date minus close date",
+      cite: "KhFlD [00:19:32]",
+      notConnected: {
+        tile: "sale-to-onboarding",
+        source: "GHL close date + Paperclip first live date",
+        reason: "Paperclip has no close date or first-live date, and GHL is not connected.",
+        needed: "A close date from GHL and a first-live date on the client project.",
+      },
+    },
+    earlyBackout: {
+      windows: [
+        { hours: 24, valuePercent: null },
+        { hours: 48, valuePercent: null },
+        { hours: 72, valuePercent: null },
+      ],
+      target: "Falling across 24 / 48 / 72 h",
+      cite: "KhFlD [00:19:36]",
+      notConnected: {
+        tile: "early-backout",
+        source: "GHL subscription state",
+        reason: "Paperclip has no subscription or cancellation state.",
+        needed: "A read-only GHL cancellation feed.",
+      },
+    },
+    reviewByDay30: {
+      value: null,
+      unit: "percent",
+      target: "Rising",
+      cite: "KhFlD [00:19:40]",
+      notConnected: {
+        tile: "review-by-day-30",
+        source: "GHL + Google Business Profile reviews",
+        reason: "Paperclip has no review records.",
+        needed: "Read-only review data from GHL or Google Business Profile.",
+      },
+    },
+  },
 };
 
 describe("lane 3 dashboard boards", () => {
@@ -307,6 +390,20 @@ describe("lane 3 dashboard boards", () => {
     expect(container.textContent).toContain("anthropic");
   });
 
+  it("AI cost adds the two v2 numbers and states the missing output count", async () => {
+    await render(<AiCostBoard />);
+    await vi.waitFor(() => expect(container.textContent).toContain("Atlas"));
+    expect(container.querySelector('[data-testid="ai-cost-output-unit"]')?.textContent).toContain(
+      "Not connected: Client output count",
+    );
+    expect(container.querySelector('[data-testid="ai-cost-workflow"]')?.textContent).toContain(
+      "Not connected: Seat task inventory",
+    );
+    expect(container.textContent).toContain("Automated routines per seat");
+    expect(container.textContent).toContain("9q5oj");
+    expect(container.textContent).toContain("v1 source, not Hormozi");
+  });
+
   it("Automation health shows seat errors, routine rate, blocked work and approvals", async () => {
     await render(<AutomationHealthBoard />);
     await vi.waitFor(() => expect(container.textContent).toContain("provider quota"));
@@ -318,6 +415,7 @@ describe("lane 3 dashboard boards", () => {
     expect(container.querySelector('[data-testid="automation-backup"]')?.textContent).toContain(
       "Not connected: Database backup",
     );
+    expect(container.textContent).toContain("v1 spec, not Hormozi");
   });
 
   it("Tools shows health, last successful use and an explicit expiry-unknown state", async () => {
@@ -328,6 +426,7 @@ describe("lane 3 dashboard boards", () => {
     expect(container.textContent).toContain("Expiry unknown");
     expect(container.querySelector('[data-testid="tools-expiring"]')?.textContent).toContain("1");
     expect(container.querySelector('[data-testid="tools-expiry-unknown"]')?.textContent).toContain("1");
+    expect(container.textContent).toContain("v1 spec, not Hormozi");
   });
 
   it("Fulfillment groups by client and states the missing sources", async () => {
@@ -338,5 +437,24 @@ describe("lane 3 dashboard boards", () => {
     expect(container.textContent).toContain("Not connected: Client onboarding due dates");
     expect(container.textContent).toContain("Not connected: GHL conversations");
     expect(container.textContent).toContain("Support");
+  });
+
+  it("Fulfillment puts Hormozi's four retention numbers first and never guesses a value", async () => {
+    await render(<FulfillmentBoard />);
+    await vi.waitFor(() => expect(container.textContent).toContain("Acme"));
+    expect(container.querySelector('[data-testid="fulfillment-churn"]')?.textContent).toContain(
+      "Not connected: GHL subscription state + Authorize.net",
+    );
+    expect(container.querySelector('[data-testid="fulfillment-sale-onboarding"]')?.textContent).toContain(
+      "Not connected: GHL close date + Paperclip first live date",
+    );
+    expect(container.querySelector('[data-testid="fulfillment-early-backout"]')?.textContent).toContain(
+      "Not connected: GHL subscription state",
+    );
+    expect(container.querySelector('[data-testid="fulfillment-review-30"]')?.textContent).toContain(
+      "Not connected: GHL + Google Business Profile reviews",
+    );
+    expect(container.textContent).toContain("Hormozi");
+    expect(container.textContent).toContain("v1 source, not Hormozi");
   });
 });

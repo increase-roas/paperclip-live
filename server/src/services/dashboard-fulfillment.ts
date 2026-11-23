@@ -4,6 +4,7 @@ import { issueLabels, issues, labels, projects } from "@paperclipai/db";
 import type {
   DashboardFulfillmentBoard,
   DashboardFulfillmentClient,
+  DashboardFulfillmentRetention,
   DashboardFulfillmentTask,
   DashboardNotConnectedTile,
 } from "@paperclipai/shared";
@@ -18,6 +19,73 @@ const SUPPORT_LABEL = /support|customer.?service|client.?request|^cs$/i;
 
 function taskAgeHours(createdAt: Date, now: Date): number {
   return Math.max(0, Number(((now.getTime() - createdAt.getTime()) / HOUR_MS).toFixed(2)));
+}
+
+/**
+ * Hormozi's four retention questions from spec v2 §6. Each one needs client
+ * subscription, cancellation or review data. Paperclip's own tables do not
+ * carry any of it and GHL / Authorize.net are not connected, so every value
+ * stays null and the tile names the missing source. Never replace these with
+ * a proxy such as project counts.
+ */
+function retentionWithoutSources(): DashboardFulfillmentRetention {
+  return {
+    churnMonthly: {
+      value: null,
+      unit: "percent",
+      target: "< 3% per month",
+      cite: "U_s0ek [00:15:51]",
+      notConnected: {
+        tile: "churn-monthly",
+        source: "GHL subscription state + Authorize.net",
+        reason:
+          "Paperclip has no client subscription state, and neither GHL nor Authorize.net is connected, so it cannot see clients lost or clients at the start of the month.",
+        needed: "A read-only GHL subscription connection plus Authorize.net payments.",
+      },
+    },
+    saleToOnboarding: {
+      value: null,
+      unit: "days",
+      target: "Short; first live date minus close date",
+      cite: "KhFlD [00:19:32]",
+      notConnected: {
+        tile: "sale-to-onboarding",
+        source: "GHL close date + Paperclip first live date",
+        reason:
+          "Paperclip projects have neither a close date nor a first-live date, and GHL is not connected, so there is no pair of dates to subtract.",
+        needed: "A close date from GHL and a first-live date recorded on the client project.",
+      },
+    },
+    earlyBackout: {
+      windows: [
+        { hours: 24, valuePercent: null },
+        { hours: 48, valuePercent: null },
+        { hours: 72, valuePercent: null },
+      ],
+      target: "Falling across 24 / 48 / 72 h",
+      cite: "KhFlD [00:19:36]",
+      notConnected: {
+        tile: "early-backout",
+        source: "GHL subscription state",
+        reason:
+          "Paperclip has no subscription or cancellation state, and GHL is not connected, so no client can be placed in a 24, 48 or 72 hour cancellation window.",
+        needed: "A read-only GHL subscription and cancellation feed.",
+      },
+    },
+    reviewByDay30: {
+      value: null,
+      unit: "percent",
+      target: "Rising",
+      cite: "KhFlD [00:19:40]",
+      notConnected: {
+        tile: "review-by-day-30",
+        source: "GHL + Google Business Profile reviews",
+        reason:
+          "Paperclip records no client reviews, and neither GHL nor Google Business Profile is connected, so there are no reviews to divide by onboarded clients.",
+        needed: "Read-only review data from GHL contacts or Google Business Profile.",
+      },
+    },
+  };
 }
 
 export function dashboardFulfillmentService(db: Db) {
@@ -166,6 +234,7 @@ export function dashboardFulfillmentService(db: Db) {
       return {
         companyId,
         generatedAt: now.toISOString(),
+        retention: retentionWithoutSources(),
         clients: clients.slice(0, ITEM_LIMIT),
         openClientTasks: {
           total: openIssueRows.length - unassigned,

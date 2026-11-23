@@ -329,6 +329,30 @@ describePostgres("lane 3 dashboard board routes", () => {
     });
   });
 
+  it("adds the v2 output-unit and workflow numbers without inventing a denominator", async () => {
+    await seed();
+    const response = await request(app).get(`/api/companies/${companyId}/dashboards/ai-cost`).expect(200);
+
+    expect(response.body.outputUnit.spendMonthToDateCents).toBe(1100);
+    expect(response.body.outputUnit.outputUnitsMonth).toBeNull();
+    expect(response.body.outputUnit.costPerOutputUnitCents).toBeNull();
+    expect(response.body.outputUnit.target).toContain("fall as volume rises");
+    expect(response.body.outputUnit.notConnected.source).toContain("Client output count");
+
+    expect(response.body.workflowCoverage.totalAutomated).toBe(1);
+    expect(response.body.workflowCoverage.listedTasksTotal).toBeNull();
+    expect(response.body.workflowCoverage.automatedPercent).toBeNull();
+    expect(response.body.workflowCoverage.notConnected.source).toContain("task inventory");
+
+    const atlas = response.body.workflowCoverage.seats.find((seat: { name: string }) => seat.name === "Atlas");
+    expect(atlas.automatedTasks).toBe(1);
+    expect(atlas.listedTasks).toBeNull();
+    expect(atlas.automatedPercent).toBeNull();
+
+    const bolt = response.body.workflowCoverage.seats.find((seat: { name: string }) => seat.name === "Bolt");
+    expect(bolt.automatedTasks).toBe(0);
+  });
+
   it("returns automation health from seats, runs, routines, blocked tasks and approvals", async () => {
     await seed();
     const response = await request(app)
@@ -413,6 +437,33 @@ describePostgres("lane 3 dashboard board routes", () => {
     expect(response.body.support.matchedLabels).toContain("Support");
     expect(response.body.support.items[0].ageHours).toBeGreaterThanOrEqual(49);
     expect(response.body.notConnected.some((tile: { tile: string }) => tile.tile === "ghl-conversations")).toBe(true);
+  });
+
+  it("puts Hormozi's four retention numbers first and states the missing source instead of guessing", async () => {
+    await seed();
+    const response = await request(app)
+      .get(`/api/companies/${companyId}/dashboards/fulfillment`)
+      .expect(200);
+
+    expect(response.body.retention.churnMonthly.value).toBeNull();
+    expect(response.body.retention.churnMonthly.unit).toBe("percent");
+    expect(response.body.retention.churnMonthly.target).toContain("< 3%");
+    expect(response.body.retention.churnMonthly.cite).toContain("U_s0ek");
+    expect(response.body.retention.churnMonthly.notConnected.source).toContain("GHL");
+
+    expect(response.body.retention.saleToOnboarding.value).toBeNull();
+    expect(response.body.retention.saleToOnboarding.unit).toBe("days");
+    expect(response.body.retention.saleToOnboarding.notConnected.source).toContain("close date");
+
+    expect(response.body.retention.earlyBackout.windows.map((window: { hours: number }) => window.hours))
+      .toEqual([24, 48, 72]);
+    expect(response.body.retention.earlyBackout.windows.every(
+      (window: { valuePercent: number | null }) => window.valuePercent === null,
+    )).toBe(true);
+    expect(response.body.retention.earlyBackout.notConnected.source).toContain("GHL");
+
+    expect(response.body.retention.reviewByDay30.value).toBeNull();
+    expect(response.body.retention.reviewByDay30.notConnected.source).toContain("Google Business Profile");
   });
 
   it("keeps two clients with the same name separate", async () => {
