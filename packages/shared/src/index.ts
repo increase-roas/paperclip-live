@@ -2909,3 +2909,4 @@ export {
 
 export * from "./observability/index.js";
 export * from "./analytics.js";
+export * from "./dashboards.js";
