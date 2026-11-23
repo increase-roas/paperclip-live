@@ -37,12 +37,12 @@ function readFailure(error: unknown): string {
 }
 
 /**
- * CEO board (DASHBOARD-SPEC.md §3 and §12).
+ * CEO board (DASHBOARD-SPEC-v2-hormozi.md §3, read in the §1 order).
  *
  * Live tiles read only what Paperclip itself records: run cost, approvals,
  * tasks. The money tiles name the source they need (GHL payments /
  * Authorize.net, GHL appointments, Meta spend, WAVV) and show no value, because
- * no read-only source for them exists in this repo yet. See spec §11.
+ * no read-only source for them exists in this repo yet. See spec v2 §11.
  */
 export function CeoBoard({ companyId, period }: DashboardBoardProps) {
   // `now` is captured once per period so the query keys stay stable; the tile
@@ -173,7 +173,7 @@ export function CeoBoard({ companyId, period }: DashboardBoardProps) {
         <SectionHeading
           id="ceo-money"
           title="Money"
-          description="Ranked by cash impact (spec §12). Each tile needs a read-only source before it can show a number."
+          description="Read in the spec v2 §1 order. Each tile needs a read-only source before it can show a number."
         />
         <div className={TILE_GRID}>
           <NotConnected
@@ -181,16 +181,16 @@ export function CeoBoard({ companyId, period }: DashboardBoardProps) {
             label="Cash collected, last 30 days"
             source="GHL payments / Authorize.net"
             periodLabel="Last 30 days"
-            needs="Read-only GHL payments and Authorize.net settlement access. Increase ROAS does not use Stripe (Alex, 2026-11-23)."
+            needs="Read-only GHL payments and Authorize.net settlement access."
             target="Below COGS + CAC for the same 30 days"
           />
           <NotConnected
-            testId="ceo-tile-gross-margin"
-            label="Gross margin, agency blended"
-            source="GHL payments / Authorize.net + payroll and contractor ledger"
-            periodLabel={range.label}
-            needs="Revenue per client plus direct delivery cost: setters, media buyer, CSM, editors, contractors."
-            target="50% on target; below 40% red"
+            testId="ceo-tile-30-day-cash-multiple"
+            label="30-day cash multiple"
+            source="GHL payments + Authorize.net + Meta spend"
+            periodLabel="Last 30 days"
+            needs="30-day cash collected ÷ (CAC + COGS). Cash comes from GHL payments and Authorize.net; CAC includes Meta spend."
+            target="At least 2.0 — $2 of cash inside 30 days for every $1 spent to acquire and deliver"
           />
           <NotConnected
             testId="ceo-tile-ltgp-cac"
@@ -198,7 +198,23 @@ export function CeoBoard({ companyId, period }: DashboardBoardProps) {
             source="Client revenue history + ad and sales cost"
             periodLabel="Portfolio, all time"
             needs="Lifetime gross profit per client joined to the cost of acquiring that client."
-            target="9:1 target; 6:1 floor"
+            target="12:1 target with people at lead gen, sales and delivery — 3:1 all automated, 6:1 one manual, 9:1 two manual, 12:1 all three manual"
+          />
+          <NotConnected
+            testId="ceo-tile-gross-margin"
+            label="Gross margin, agency blended"
+            source="GHL payments / Authorize.net + payroll and contractor ledger"
+            periodLabel={range.label}
+            needs="Revenue per client plus direct delivery cost: setters, media buyer, CSM, editors, contractors."
+            target="At least 50% (Hormozi: at 50% gross margin there is no room for any other cost)"
+          />
+          <NotConnected
+            testId="ceo-tile-churn"
+            label="Client churn / net revenue retention"
+            source="GHL subscription state + Authorize.net"
+            periodLabel="Monthly and trailing 12 months"
+            needs="Clients lost and revenue retained, including expansion."
+            target="Under 3% per month and at least 80% per year"
           />
           <NotConnected
             testId="ceo-tile-cac-payback"
@@ -231,14 +247,6 @@ export function CeoBoard({ companyId, period }: DashboardBoardProps) {
             periodLabel={range.label}
             needs="Lead created timestamp joined to the first outbound call attempt."
             target="Under 60 seconds; over 5 minutes red"
-          />
-          <NotConnected
-            testId="ceo-tile-churn"
-            label="Client churn / net revenue retention"
-            source="GHL / Authorize.net subscription state"
-            periodLabel="Trailing 12 months"
-            needs="Clients lost and revenue retained, including expansion."
-            target="Retainer churn 18%/yr or less; over 25%/yr red"
           />
         </div>
       </section>

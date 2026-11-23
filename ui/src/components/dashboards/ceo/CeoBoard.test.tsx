@@ -120,21 +120,63 @@ describe("CeoBoard", () => {
   it("shows every money tile as Not connected with the source it needs", async () => {
     const container = await render(<CeoBoard companyId="company-1" period="30d" />);
 
-    // Eight money tiles plus the zero-lead alarm light.
+    // Nine money tiles plus the zero-lead alarm light.
     const notConnected = container.querySelectorAll('[data-connection-state="not-connected"]');
-    expect(notConnected).toHaveLength(9);
+    expect(notConnected).toHaveLength(10);
 
     const text = container.textContent ?? "";
     expect(text).toContain("Not connected: GHL payments / Authorize.net");
+    expect(text).toContain("Not connected: GHL payments + Authorize.net + Meta spend");
     expect(text).toContain("Not connected: GHL appointments");
     expect(text).toContain("Not connected: Meta spend + GHL appointments");
     expect(text).toContain("Not connected: GHL leads + WAVV calls");
-    expect(text).toContain("Not connected: GHL / Authorize.net subscription state");
+    expect(text).toContain("Not connected: GHL subscription state + Authorize.net");
     expect(text).toContain("Not connected: Meta spend + GHL leads");
 
     // No money tile invents a value.
     expect(container.querySelector('[data-testid="ceo-tile-cash-collected"]')?.textContent)
       .not.toMatch(/\$\d/);
+  });
+
+  it("matches spec v2: Hormozi targets, the 30-day cash multiple and no Stripe or revenue per FTE", async () => {
+    const container = await render(<CeoBoard companyId="company-1" period="30d" />);
+    const text = container.textContent ?? "";
+
+    // LTGP:CAC is 12:1 for a business with people at every step, and the
+    // ladder keeps all four rungs.
+    const ltgp = container.querySelector('[data-testid="ceo-tile-ltgp-cac"]');
+    expect(ltgp?.textContent).toContain("12:1 target");
+    expect(ltgp?.textContent).toContain("3:1 all automated");
+    expect(ltgp?.textContent).toContain("6:1 one manual");
+    expect(ltgp?.textContent).toContain("9:1 two manual");
+    expect(ltgp?.textContent).toContain("12:1 all three manual");
+    expect(ltgp?.textContent).not.toContain("9:1 target");
+
+    // New: 30-day cash collected ÷ (CAC + COGS), target at least 2.0, naming
+    // every source it needs.
+    const cashMultiple = container.querySelector('[data-testid="ceo-tile-30-day-cash-multiple"]');
+    expect(cashMultiple).not.toBeNull();
+    expect(cashMultiple?.getAttribute("data-connection-state")).toBe("not-connected");
+    expect(cashMultiple?.textContent).toContain("30-day cash multiple");
+    expect(cashMultiple?.textContent).toContain("GHL payments + Authorize.net + Meta spend");
+    expect(cashMultiple?.textContent).toContain("2.0");
+    expect(cashMultiple?.textContent).toContain("CAC + COGS");
+
+    // Churn is Hormozi's line, not the retainer survey.
+    const churn = container.querySelector('[data-testid="ceo-tile-churn"]');
+    expect(churn?.textContent).toContain("3% per month");
+    expect(churn?.textContent).toContain("80% per year");
+    expect(churn?.textContent).not.toContain("18%/yr");
+    expect(churn?.textContent).not.toContain("survey");
+
+    // Gross margin keeps the 50% target and cites Hormozi, not an agency survey.
+    const margin = container.querySelector('[data-testid="ceo-tile-gross-margin"]');
+    expect(margin?.textContent).toContain("50%");
+    expect(margin?.textContent).toContain("Hormozi");
+
+    // Lane 2 owns revenue per FTE; Increase ROAS does not use Stripe.
+    expect(text).not.toMatch(/revenue per fte/i);
+    expect(text).not.toMatch(/stripe/i);
   });
 
   it("asks for the selected period and only the month range for the cap", async () => {

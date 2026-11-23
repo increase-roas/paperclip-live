@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { cn } from "@/lib/utils";
 import { BoardPlaceholder } from "./BoardPlaceholder";
 import { PeriodPicker } from "./PeriodPicker";
+import { ReadingOrderStrip } from "./ReadingOrderStrip";
 import { DEFAULT_DASHBOARD_PERIOD, parseDashboardPeriod, type DashboardPeriod } from "./period";
 import {
   DASHBOARD_BOARD_ORDER,
@@ -151,10 +152,12 @@ export function DashboardShell() {
         <h1 className="text-2xl font-semibold tracking-normal text-foreground">{boardMeta.title}</h1>
         {boardId === DEFAULT_DASHBOARD_BOARD_ID ? (
           <p className="mt-1 text-sm text-muted-foreground">
-            One screen, reviewed weekly. Every number carries its red line and the time it was read.
+            Read the eight questions below in order. Every number carries its red line and the time it was read.
           </p>
         ) : null}
       </div>
+
+      <ReadingOrderStrip />
 
       {BoardComponent && board ? (
         <BoardComponent companyId={selectedCompanyId} period={period} />

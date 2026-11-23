@@ -113,6 +113,29 @@ describe("DashboardShell", () => {
     expect(container.querySelector('[data-testid="ceo-board-stub"]')).not.toBeNull();
   });
 
+  it("puts the eight-question reading order strip above the open board", async () => {
+    const container = await renderShell();
+    const strip = container.querySelector('[data-testid="dashboard-reading-order"]');
+    const board = container.querySelector('[data-testid="ceo-board-stub"]');
+
+    expect(strip).not.toBeNull();
+    expect(board).not.toBeNull();
+    if (strip && board) {
+      // The strip comes first in the document, so the reader meets it before
+      // any board.
+      expect(strip.compareDocumentPosition(board) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+
+    const steps = Array.from(strip?.querySelectorAll("[data-reading-order-step]") ?? []);
+    expect(steps).toHaveLength(8);
+    expect(steps[0].textContent).toContain("Are we going out of business?");
+    expect(steps[0].textContent).toContain("Cash collected, trailing 30 days");
+    expect(steps[7].textContent).toContain("Is the spend buying customers or just leads?");
+    expect(steps[7].textContent).toContain("CAC");
+    // No money source is connected, so the first grey question is the stop.
+    expect(steps[0].getAttribute("data-attention")).toBe("true");
+  });
+
   it("gives each unbuilt board its own URL and says Being built", async () => {
     routerState.params = { boardId: "sales" };
     const container = await renderShell();
