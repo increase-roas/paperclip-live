@@ -35,7 +35,7 @@ export function botsService(db: Db) {
     lastActivityAt: string | null;
   }
 
-  function toSummary(agent: AgentRow, totals: BotTotals | undefined): CompanyBotSummary {
+  function toSummary(agent: AgentRow, totals?: BotTotals): CompanyBotSummary {
     const bot = readBotMetadata(agent.metadata);
     return {
       id: agent.id,
