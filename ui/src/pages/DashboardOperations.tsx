@@ -73,7 +73,7 @@ export function derivePausedAgentBanner(agents: Agent[] | undefined): PausedAgen
   return null;
 }
 
-export function Dashboard() {
+export function DashboardOperations() {
   const designSandbox = useDesignSandbox();
   const { selectedCompanyId, companies } = useCompany();
   const { openOnboarding } = useDialogActions();
@@ -162,7 +162,7 @@ export function Dashboard() {
   }, [shouldOpenOnboarding, selectedCompanyId, onboardingInitialStep, openOnboarding]);
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Dashboard" }]);
+    setBreadcrumbs([{ label: "Dashboard", href: "/dashboard" }, { label: "Operations" }]);
   }, [setBreadcrumbs]);
 
   const dashboardQueryKey = queryKeys.dashboard(selectedCompanyId!);
@@ -344,6 +344,16 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-normal text-foreground">Paperclip operations</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Agent runs, budget incidents, activity and tasks — the operational detail behind the board
+          dashboards.{" "}
+          <Link to="/dashboard" className="underline underline-offset-2 hover:text-foreground">
+            Back to dashboards
+          </Link>
+        </p>
+      </div>
       {pausedBanner?.kind === "imported" ? (
         <InlineBanner
           tone="warning"

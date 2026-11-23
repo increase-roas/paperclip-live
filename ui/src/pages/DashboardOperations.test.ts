@@ -1,6 +1,6 @@
 import type { Agent } from "@paperclipai/shared";
 import { describe, expect, it } from "vitest";
-import { derivePausedAgentBanner } from "./Dashboard";
+import { derivePausedAgentBanner } from "./DashboardOperations";
 
 function agent(overrides: Partial<Agent>): Agent {
   return {
