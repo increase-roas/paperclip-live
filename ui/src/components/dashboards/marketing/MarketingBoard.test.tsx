@@ -29,11 +29,38 @@ const board: DashboardBoard = {
   ],
   tiles: [
     {
+      id: "cac-per-client",
+      label: "CAC per client",
+      definition: "All-in cost to win one customer: (media + sales + software) ÷ new customers.",
+      owner: "Media buyer",
+      target: "Judge against LTGP, never against CPL",
+      sourceIds: ["meta_ads", "ghl"],
+      value: { kind: "not_connected" },
+    },
+    {
+      id: "creative-budget-split",
+      label: "Creative budget split",
+      definition: "Share of ad budget: proven core ad, adjacent variations and new ideas.",
+      owner: "Media buyer",
+      target: "70 / 20 / 10 (core / adjacent / new)",
+      sourceIds: ["meta_ads"],
+      value: { kind: "not_connected" },
+    },
+    {
       id: "ad-spend",
       label: "Ad spend",
       definition: "Spend in the period, per client.",
       owner: "Media buyer",
-      target: "0.95–1.05 of planned pacing green",
+      target: "v1 source, not Hormozi — 0.95–1.05 of planned pacing green",
+      sourceIds: ["meta_ads"],
+      value: { kind: "not_connected" },
+    },
+    {
+      id: "ctr",
+      label: "CTR",
+      definition: "Link clicks ÷ impressions.",
+      owner: "Media buyer",
+      target: "1% → 4% is a 4× front-end gain; judge against the client's own baseline",
       sourceIds: ["meta_ads"],
       value: { kind: "not_connected" },
     },
@@ -42,7 +69,7 @@ const board: DashboardBoard = {
       label: "Cost per lead",
       definition: "Spend ÷ new leads.",
       owner: "Media buyer",
-      target: "Red at 2× the client's 90-day median",
+      target: "Reference only, never a target",
       sourceIds: ["meta_ads", "ghl"],
       value: { kind: "not_connected" },
     },
@@ -51,7 +78,7 @@ const board: DashboardBoard = {
       label: "Spend with zero leads",
       definition: "Client-days in the last 7 with spend over $100 and no new lead.",
       owner: "Media buyer",
-      target: "Zero client-days",
+      target: "v1 source, not Hormozi — zero client-days",
       sourceIds: ["meta_ads", "ghl"],
       value: { kind: "not_connected" },
     },
@@ -60,13 +87,16 @@ const board: DashboardBoard = {
     {
       id: "marketing-by-client",
       title: "Marketing per client",
-      description: "One row per client, keyed by client id.",
+      description: "One row per client, keyed by client id. ROAS is the drill-down under CAC.",
       scope: "client",
       sourceIds: ["meta_ads", "ghl"],
       columns: [
         { key: "client", label: "Client" },
         { key: "spend", label: "Spend" },
         { key: "leads", label: "Leads" },
+        { key: "newCustomers", label: "New customers" },
+        { key: "cac", label: "CAC" },
+        { key: "roas", label: "ROAS (drill-down)" },
         { key: "costPerLead", label: "Cost per lead" },
         { key: "costPerHeldAppointment", label: "Cost per held appointment" },
       ],
@@ -82,14 +112,23 @@ describe("MarketingBoardView", () => {
     expect(html).toContain("Not connected: Meta Marketing API");
   });
 
-  it("shows spend, leads, cost per lead, cost per held appointment and the zero-lead alarm", () => {
+  it("puts CAC first, makes CPL a reference and shows the creative split and CTR", () => {
     const html = renderToStaticMarkup(<MarketingBoardView data={board} />);
-    expect(html).toContain("Ad spend");
-    expect(html).toContain("Cost per lead");
-    expect(html).toContain("Spend with zero leads");
-    expect(html).toContain("Zero client-days");
-    expect(html).toContain("Marketing per client");
-    expect(html).toContain("Cost per held appointment");
+    expect(html).toContain("CAC per client");
+    expect(html).toContain("Judge against LTGP, never against CPL");
+    expect(html).toContain("70 / 20 / 10 (core / adjacent / new)");
+    expect(html).toContain("Link clicks ÷ impressions");
+    expect(html).toContain("4× front-end gain");
+    expect(html).toContain("Reference only, never a target");
+    expect(html).toContain("ROAS (drill-down)");
+    expect(html.indexOf("CAC per client")).toBeLessThan(html.indexOf("Cost per lead"));
+  });
+
+  it("drops the $42.95 industry benchmark and the learning-limited tile", () => {
+    const html = renderToStaticMarkup(<MarketingBoardView data={board} />);
+    expect(html).not.toContain("42.95");
+    expect(html).not.toContain("Learning-limited");
+    expect(html).toContain("CPL is a reference");
   });
 
   it("renders no numeric value and no zero in place of a missing number", () => {

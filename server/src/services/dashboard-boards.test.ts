@@ -58,34 +58,97 @@ describe("dashboardBoardService", () => {
     }
   });
 
-  it("covers the sales numbers the spec names", async () => {
+  it("orders sales around Hormozi's five numbers, with show rate first", async () => {
     const payload = await board("sales");
     const ids = payload.tiles.map((tile) => tile.id);
-    expect(ids).toEqual(expect.arrayContaining([
-      "speed-to-lead",
-      "set-rate",
+    const five = [
       "show-rate",
+      "offer-rate",
       "close-rate",
-      "dials",
-      "talk-time",
-      "appointments-per-setter-day",
-    ]));
+      "cash-collected-up-front",
+      "units-sold",
+    ];
+    const positions = five.map((id) => ids.indexOf(id));
+    expect(positions.every((position) => position >= 0)).toBe(true);
+    expect(positions).toEqual([...positions].sort((left, right) => left - right));
+    expect(ids[0]).toBe("show-rate");
+    expect(ids[1]).toBe("speed-to-lead");
     const tables = payload.tables.map((table) => table.id);
     expect(tables).toEqual(expect.arrayContaining(["sales-by-business", "setter-scoreboard"]));
     expect(payload.tables.find((table) => table.id === "sales-by-business")?.scope).toBe("client");
   });
 
-  it("covers marketing spend, leads, cost per lead, cost per held appointment and the zero-lead alarm", async () => {
+  it("gives the five sales numbers their v2 targets", async () => {
+    const payload = await board("sales");
+    const byId = new Map(payload.tiles.map((tile) => [tile.id, tile]));
+    expect(byId.get("show-rate")?.target).toContain("70%");
+    expect(byId.get("close-rate")?.target).toContain("40%");
+    expect(byId.get("offer-rate")?.target).toContain("Track it");
+    expect(byId.get("cash-collected-up-front")?.target).toContain("buying yeses");
+    expect(byId.get("units-sold")?.target).toContain("result");
+    const speed = byId.get("speed-to-lead");
+    expect(speed?.target).toContain("60");
+    expect(speed?.target).toContain("80% of closes");
+    expect(JSON.stringify(payload)).not.toContain("HBR");
+  });
+
+  it("keeps every other v1 sales tile and labels it as v1", async () => {
+    const payload = await board("sales");
+    const byId = new Map(payload.tiles.map((tile) => [tile.id, tile]));
+    for (const id of [
+      "set-rate",
+      "lead-to-customer",
+      "appointments-per-setter-day",
+      "dials",
+      "conversations-over-60s",
+      "talk-time",
+    ]) {
+      expect(byId.get(id)?.target).toContain("v1 source");
+    }
+  });
+
+  it("puts CAC first and keeps CPL as a reference number", async () => {
     const payload = await board("marketing");
     const ids = payload.tiles.map((tile) => tile.id);
-    expect(ids).toEqual(expect.arrayContaining([
-      "ad-spend",
-      "new-leads",
-      "cost-per-lead",
-      "cost-per-held-appointment",
-      "spend-with-zero-leads",
-    ]));
+    expect(ids[0]).toBe("cac-per-client");
+    const byId = new Map(payload.tiles.map((tile) => [tile.id, tile]));
+    expect(byId.get("cac-per-client")?.target).toContain("LTGP");
+    expect(byId.get("cost-per-lead")?.target).toBe("Reference only, never a target");
+    expect(JSON.stringify(payload)).not.toContain("42.95");
     expect(payload.tables[0]?.scope).toBe("client");
+  });
+
+  it("adds the 70/20/10 creative split and replaces click-to-lead with CTR", async () => {
+    const payload = await board("marketing");
+    const ids = payload.tiles.map((tile) => tile.id);
+    expect(ids).toContain("creative-budget-split");
+    expect(ids).not.toContain("click-to-lead");
+    expect(ids).not.toContain("learning-limited-ad-sets");
+    const byId = new Map(payload.tiles.map((tile) => [tile.id, tile]));
+    expect(byId.get("creative-budget-split")?.target).toContain("70 / 20 / 10");
+    expect(byId.get("ctr")?.definition).toContain("Link clicks ÷ impressions");
+    expect(byId.get("ctr")?.target).toContain("4×");
+  });
+
+  it("demotes ROAS to a drill-down under CAC, not a headline tile", async () => {
+    const payload = await board("marketing");
+    expect(payload.tiles.some((tile) => tile.id.includes("roas"))).toBe(false);
+    const table = payload.tables.find((item) => item.id === "marketing-by-client");
+    expect(table?.columns.map((column) => column.key)).toEqual(expect.arrayContaining(["cac", "roas"]));
+  });
+
+  it("starts human employees with one number per seat and the metrics a seat can name", async () => {
+    const payload = await board("human-employees");
+    const ids = payload.tiles.map((tile) => tile.id);
+    expect(ids[0]).toBe("one-number-per-seat");
+    expect(ids[1]).toBe("metrics-a-seat-can-name");
+    const revenue = payload.tiles.find((tile) => tile.id === "revenue-per-fte");
+    expect(revenue?.target).toContain("Direction only");
+  });
+
+  it("removes the Leila-sourced human-employee numbers", async () => {
+    const payload = await board("human-employees");
+    expect(JSON.stringify(payload)).not.toMatch(/leila|day-90|day 90|underperformer/i);
   });
 
   it("gives the human-employees roster every field Alex asked for", async () => {

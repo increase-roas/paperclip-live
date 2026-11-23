@@ -33,20 +33,57 @@ function board(overrides: Partial<DashboardBoard> = {}): DashboardBoard {
     sources: [ghl, wavv],
     tiles: [
       {
-        id: "speed-to-lead",
-        label: "Speed to lead",
-        definition: "Median seconds from a new lead to the first outbound call attempt.",
-        owner: "Sales manager",
-        target: "< 60 seconds green; > 5 minutes red",
-        sourceIds: ["ghl", "wavv"],
-        value: { kind: "not_connected" },
-      },
-      {
         id: "show-rate",
         label: "Show rate",
         definition: "Appointments held ÷ appointments booked.",
         owner: "Setters",
-        target: "70–80% healthy; < 60% red",
+        target: "≥ 70% (Hormozi); < 60% red",
+        sourceIds: ["ghl"],
+        value: { kind: "not_connected" },
+      },
+      {
+        id: "speed-to-lead",
+        label: "Speed to lead",
+        definition: "Median seconds from a new lead to the first outbound call attempt.",
+        owner: "Sales manager",
+        target:
+          "< 60 s (Hormozi's 60-second rule); > 5 min costs you 80% of closes",
+        sourceIds: ["ghl", "wavv"],
+        value: { kind: "not_connected" },
+      },
+      {
+        id: "offer-rate",
+        label: "Offer rate",
+        definition: "Offers made ÷ appointments held.",
+        owner: "Closers",
+        target: "Track it; a low offer rate means the lead flow is wrong, not the rep",
+        sourceIds: ["ghl"],
+        value: { kind: "not_connected" },
+      },
+      {
+        id: "close-rate",
+        label: "Close rate",
+        definition: "Jobs sold ÷ offers made, and ÷ appointments held.",
+        owner: "Closers",
+        target: "40% (Hormozi); < 30% is a sales-motion problem",
+        sourceIds: ["ghl"],
+        value: { kind: "not_connected" },
+      },
+      {
+        id: "cash-collected-up-front",
+        label: "Cash collected up front",
+        definition: "Cash at close ÷ contract value, via GHL payments + Authorize.net.",
+        owner: "Sales manager",
+        target: "Rising; a high close rate with low cash up front means you are buying yeses",
+        sourceIds: ["ghl"],
+        value: { kind: "not_connected" },
+      },
+      {
+        id: "units-sold",
+        label: "Units sold",
+        definition: "Booked × show × offer × close.",
+        owner: "Sales manager",
+        target: "The output; the only result here, not a lever",
         sourceIds: ["ghl"],
         value: { kind: "not_connected" },
       },
@@ -76,12 +113,38 @@ describe("SalesBoardView", () => {
 
     expect(html).toContain("Speed to lead");
     expect(html).toContain("Show rate");
+    expect(html).toContain("Offer rate");
+    expect(html).toContain("Cash collected up front");
+    expect(html).toContain("Units sold");
     expect(html).toContain("Owner: Sales manager");
-    expect(html).toContain("Red line: &lt; 60 seconds green");
+    expect(html).toContain("60-second rule");
+    expect(html).toContain("80% of closes");
     expect(html).toContain("Not connected: GoHighLevel (GHL), WAVV");
     expect(html).toContain("Not connected: GoHighLevel (GHL)");
     expect(html).toContain("Needed:");
     expect(html).toContain("A WAVV API key");
+  });
+
+  it("reads Hormozi's five numbers in his order, with show rate first", () => {
+    const html = renderToStaticMarkup(<SalesBoardView data={board()} />);
+    const order = [
+      "Show rate",
+      "Speed to lead",
+      "Offer rate",
+      "Close rate",
+      "Cash collected up front",
+      "Units sold",
+    ].map((label) => html.indexOf(`>${label}<`));
+    expect(order.every((position) => position >= 0)).toBe(true);
+    expect(order).toEqual([...order].sort((left, right) => left - right));
+  });
+
+  it("cites Hormozi on speed to lead, never the HBR study", () => {
+    const html = renderToStaticMarkup(<SalesBoardView data={board()} />);
+    expect(html).toContain("Hormozi");
+    expect(html).toContain("five numbers");
+    expect(html).toContain("after 5 minutes");
+    expect(html).not.toContain("HBR");
   });
 
   it("never renders a value while a source is missing", () => {

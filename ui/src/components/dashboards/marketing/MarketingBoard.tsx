@@ -5,7 +5,7 @@ import { DashboardBoardShell } from "../lane2-shared/DashboardBoardShell";
 import { Tile } from "../lane2-shared/Tile";
 
 const SUBTITLE =
-  "Spend, leads and the cost of both, per client. The zero-lead alarm is the one that costs money today.";
+  "Cost to win a customer, judged against LTGP. CPL is a reference, never a target; the zero-lead alarm is the one that costs money today.";
 
 /** Pure view. Renders only the payload it is given. */
 export function MarketingBoardView({ data }: { data: DashboardBoard }) {

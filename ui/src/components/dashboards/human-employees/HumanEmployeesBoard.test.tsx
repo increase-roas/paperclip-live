@@ -23,11 +23,30 @@ const board: DashboardBoard = {
   ],
   tiles: [
     {
+      id: "one-number-per-seat",
+      label: "One number per seat",
+      definition:
+        "Each seat's single self-chosen number that predicts their result.",
+      owner: "Alex",
+      target: "Every seat has one, and the person can defend it",
+      sourceIds: ["team_capital"],
+      value: { kind: "not_connected" },
+    },
+    {
+      id: "metrics-a-seat-can-name",
+      label: "Metrics a seat can name",
+      definition: "How many numbers that person can describe their own job with.",
+      owner: "Alex",
+      target: "More is better; one or two means they cannot drive the outcome",
+      sourceIds: ["team_capital"],
+      value: { kind: "not_connected" },
+    },
+    {
       id: "revenue-per-fte",
       label: "Revenue per FTE",
-      definition: "Trailing-12-month revenue ÷ full-time equivalents.",
+      definition: "Revenue ÷ full-time equivalents.",
       owner: "Alex",
-      target: "$150–200K; red below $120K",
+      target: "Direction only, not a target",
       sourceIds: ["team_capital"],
       value: { kind: "not_connected" },
     },
@@ -36,7 +55,7 @@ const board: DashboardBoard = {
       label: "Seats without a judged-on number",
       definition: "Active seats whose performance criterion is empty or reads NOT SET.",
       owner: "Alex",
-      target: "Zero",
+      target: "v1 source, not Hormozi — zero",
       sourceIds: ["team_capital"],
       value: { kind: "not_connected" },
     },
@@ -94,6 +113,25 @@ describe("HumanEmployeesBoardView", () => {
     const html = renderToStaticMarkup(<HumanEmployeesBoardView data={board} />);
     expect(html).not.toContain("dashboard-tile-value-");
     expect(html).toContain("Revenue per FTE");
+  });
+
+  it("starts with one number per seat and the metrics a seat can name", () => {
+    const html = renderToStaticMarkup(<HumanEmployeesBoardView data={board} />);
+    const first = html.indexOf("One number per seat");
+    const second = html.indexOf("Metrics a seat can name");
+    expect(first).toBeGreaterThanOrEqual(0);
+    expect(second).toBeGreaterThan(first);
+    expect(html).toContain("self-chosen number");
+  });
+
+  it("treats revenue per FTE as direction only, not a target", () => {
+    const html = renderToStaticMarkup(<HumanEmployeesBoardView data={board} />);
+    expect(html).toContain("Direction only, not a target");
+  });
+
+  it("carries no Leila-sourced numbers, which the corpus cannot verify", () => {
+    const html = renderToStaticMarkup(<HumanEmployeesBoardView data={board} />);
+    expect(html).not.toMatch(/day-90|day 90|underperformer|Leila/i);
   });
 
   it("does not pretend an empty roster means zero employees", () => {

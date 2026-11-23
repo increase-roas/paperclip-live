@@ -88,36 +88,64 @@ function table(input: Omit<DashboardTable, "rows">): DashboardTable {
 
 const SALES_TILES: DashboardTile[] = [
   tile({
+    id: "show-rate",
+    label: "Show rate",
+    definition: "Appointments held ÷ appointments booked.",
+    owner: "Setters",
+    target: "≥ 70% (Hormozi benchmark); < 60% red",
+    sourceIds: ["ghl"],
+  }),
+  tile({
     id: "speed-to-lead",
     label: "Speed to lead",
     definition:
       "Median seconds from a new lead (GHL) to the first outbound call attempt (WAVV).",
     owner: "Sales manager",
-    target: "< 60 seconds green; > 5 minutes red",
+    target:
+      "< 60 s (Hormozi's 60-second rule); > 5 min costs you 80% of closes",
     sourceIds: ["ghl", "wavv"],
+  }),
+  tile({
+    id: "offer-rate",
+    label: "Offer rate",
+    definition: "Offers made ÷ appointments held.",
+    owner: "Closers",
+    target:
+      "Track it; no fixed target. A low offer rate means the lead flow is wrong, not the rep",
+    sourceIds: ["ghl"],
+  }),
+  tile({
+    id: "close-rate",
+    label: "Close rate",
+    definition: "Jobs sold ÷ offers made, and ÷ appointments held — track both.",
+    owner: "Closers",
+    target: "40% (Hormozi); < 30% is a sales-motion problem",
+    sourceIds: ["ghl"],
+  }),
+  tile({
+    id: "cash-collected-up-front",
+    label: "Cash collected up front",
+    definition:
+      "Cash at close ÷ contract value. Cash means money received via GHL payments + Authorize.net.",
+    owner: "Sales manager",
+    target:
+      "Rising; a high close rate with low cash up front means you are buying yeses",
+    sourceIds: ["ghl"],
+  }),
+  tile({
+    id: "units-sold",
+    label: "Units sold",
+    definition: "Booked × show × offer × close; the output of the four above.",
+    owner: "Sales manager",
+    target: "The output; the only result here, not a lever",
+    sourceIds: ["ghl"],
   }),
   tile({
     id: "set-rate",
     label: "Set rate",
     definition: "Appointments booked ÷ new leads.",
     owner: "Setters",
-    target: "20–30% good, 35–40% elite; < 10% red",
-    sourceIds: ["ghl"],
-  }),
-  tile({
-    id: "show-rate",
-    label: "Show rate",
-    definition: "Appointments held ÷ appointments booked.",
-    owner: "Setters",
-    target: "70–80% healthy; < 60% red",
-    sourceIds: ["ghl"],
-  }),
-  tile({
-    id: "close-rate",
-    label: "Close rate (held → sold)",
-    definition: "Jobs sold ÷ appointments held.",
-    owner: "Closers",
-    target: "35% target; < 30% is a sales-motion problem",
+    target: "v1 source, not Hormozi — 20–30% good, 35–40% elite; < 10% red",
     sourceIds: ["ghl"],
   }),
   tile({
@@ -125,7 +153,8 @@ const SALES_TILES: DashboardTile[] = [
     label: "Lead → customer",
     definition: "Customers ÷ raw leads.",
     owner: "Sales manager",
-    target: "About 10% for Meta leads into an in-person service business",
+    target:
+      "v1 source, not Hormozi — about 10% for Meta leads into an in-person service business",
     sourceIds: ["ghl"],
   }),
   tile({
@@ -133,7 +162,8 @@ const SALES_TILES: DashboardTile[] = [
     label: "Appointments per setter per day",
     definition: "Held appointments ÷ setter-days.",
     owner: "Sales manager",
-    target: "Top-quartile per seat; no industry average",
+    target:
+      "v1 source, not Hormozi — set from the top quartile per seat, not an industry average",
     sourceIds: ["ghl", "wavv"],
   }),
   tile({
@@ -141,7 +171,8 @@ const SALES_TILES: DashboardTile[] = [
     label: "Dials",
     definition: "Outbound call attempts in the period.",
     owner: "Setters",
-    target: "Red when conversations per day fall 20% week over week",
+    target:
+      "v1 source, not Hormozi — red when conversations per day fall 20% week over week",
     sourceIds: ["wavv"],
   }),
   tile({
@@ -149,7 +180,8 @@ const SALES_TILES: DashboardTile[] = [
     label: "Conversations over 60 s",
     definition: "Connected calls longer than 60 seconds.",
     owner: "Setters",
-    target: "Red when conversations per day fall 20% week over week",
+    target:
+      "v1 source, not Hormozi — red when conversations per day fall 20% week over week",
     sourceIds: ["wavv"],
   }),
   tile({
@@ -157,7 +189,7 @@ const SALES_TILES: DashboardTile[] = [
     label: "Talk time",
     definition: "Total connected talk time per setter.",
     owner: "Setters",
-    target: "Trend, not an absolute",
+    target: "v1 source, not Hormozi — trend, not an absolute",
     sourceIds: ["wavv"],
   }),
 ];
@@ -199,11 +231,29 @@ const SALES_TABLES: DashboardTable[] = [
 
 const MARKETING_TILES: DashboardTile[] = [
   tile({
+    id: "cac-per-client",
+    label: "CAC per client",
+    definition:
+      "All-in cost to win one customer: (media + sales + software) ÷ new customers.",
+    owner: "Media buyer",
+    target: "Judge against LTGP, never against CPL",
+    sourceIds: ["meta_ads", "ghl"],
+  }),
+  tile({
+    id: "creative-budget-split",
+    label: "Creative budget split",
+    definition:
+      "Share of ad budget split between the proven core ad, adjacent variations and new ideas.",
+    owner: "Media buyer",
+    target: "70 / 20 / 10 (core / adjacent / new)",
+    sourceIds: ["meta_ads"],
+  }),
+  tile({
     id: "ad-spend",
     label: "Ad spend",
     definition: "Spend in the period, per client.",
     owner: "Media buyer",
-    target: "0.95–1.05 of planned pacing green; > 1.15 red",
+    target: "v1 source, not Hormozi — 0.95–1.05 of planned pacing green; > 1.15 red",
     sourceIds: ["meta_ads"],
   }),
   tile({
@@ -211,24 +261,34 @@ const MARKETING_TILES: DashboardTile[] = [
     label: "New leads",
     definition: "Leads created in the period.",
     owner: "Media buyer",
-    target: "Measured against the client's own 7- and 14-day baseline",
-    sourceIds: ["ghl"],
-  }),
-  tile({
-    id: "cost-per-lead",
-    label: "Cost per lead",
-    definition: "Spend ÷ new leads.",
-    owner: "Media buyer",
     target:
-      "$42.95 is the US home-improvement Meta average, a reference only; red at 2× the client's 90-day median",
-    sourceIds: ["meta_ads", "ghl"],
+      "v1 source, not Hormozi — measured against the client's own 7- and 14-day baseline",
+    sourceIds: ["ghl"],
   }),
   tile({
     id: "cost-per-held-appointment",
     label: "Cost per held appointment",
     definition: "Spend ÷ appointments held.",
     owner: "Media buyer",
-    target: "Under (job value × close rate × margin) ÷ 3",
+    target:
+      "v1 source, not Hormozi — under (job value × close rate × margin) ÷ 3",
+    sourceIds: ["meta_ads", "ghl"],
+  }),
+  tile({
+    id: "ctr",
+    label: "CTR",
+    definition: "Link clicks ÷ impressions.",
+    owner: "Media buyer",
+    target:
+      "1% → 4% is a 4× front-end gain; judge against the client's own baseline",
+    sourceIds: ["meta_ads"],
+  }),
+  tile({
+    id: "cost-per-lead",
+    label: "Cost per lead",
+    definition: "Spend ÷ new leads.",
+    owner: "Media buyer",
+    target: "Reference only, never a target",
     sourceIds: ["meta_ads", "ghl"],
   }),
   tile({
@@ -237,15 +297,7 @@ const MARKETING_TILES: DashboardTile[] = [
     definition:
       "Client-days in the last 7 with spend over $100 and no new lead. This is an alarm, not a scorecard row.",
     owner: "Media buyer",
-    target: "Zero client-days",
-    sourceIds: ["meta_ads", "ghl"],
-  }),
-  tile({
-    id: "click-to-lead",
-    label: "Click → lead",
-    definition: "Leads ÷ link clicks.",
-    owner: "Media buyer",
-    target: "5.32% home-improvement average; < 3% means a landing-page or form problem",
+    target: "v1 source, not Hormozi — zero client-days",
     sourceIds: ["meta_ads", "ghl"],
   }),
   tile({
@@ -253,7 +305,7 @@ const MARKETING_TILES: DashboardTile[] = [
     label: "Spend pacing",
     definition: "Spend to date ÷ (daily budget × days elapsed).",
     owner: "Media buyer",
-    target: "0.95–1.05 green; > 1.15 red",
+    target: "v1 source, not Hormozi — 0.95–1.05 green; > 1.15 red",
     sourceIds: ["meta_ads"],
   }),
 ];
@@ -263,13 +315,16 @@ const MARKETING_TABLES: DashboardTable[] = [
     id: "marketing-by-client",
     title: "Marketing per client",
     description:
-      "One row per client, keyed by client id. Spend and leads share the same window for every row.",
+      "One row per client, keyed by client id. ROAS is the drill-down under CAC, never a headline tile.",
     scope: "client",
     sourceIds: ["meta_ads", "ghl"],
     columns: [
       { key: "client", label: "Client" },
       { key: "spend", label: "Spend" },
       { key: "leads", label: "Leads" },
+      { key: "newCustomers", label: "New customers" },
+      { key: "cac", label: "CAC" },
+      { key: "roas", label: "ROAS (drill-down)" },
       { key: "costPerLead", label: "Cost per lead" },
       { key: "appointmentsHeld", label: "Appointments held" },
       { key: "costPerHeldAppointment", label: "Cost per held appointment" },
@@ -280,19 +335,37 @@ const MARKETING_TABLES: DashboardTable[] = [
 
 const HUMAN_EMPLOYEE_TILES: DashboardTile[] = [
   tile({
-    id: "active-team-members",
-    label: "Active team members",
-    definition: "People with status active in the roster.",
+    id: "one-number-per-seat",
+    label: "One number per seat",
+    definition:
+      "Each seat's single self-chosen number that predicts their result.",
     owner: "Alex",
-    target: "Every active seat has a rate and one judged-on number",
+    target: "Every seat has one, and the person can defend it",
+    sourceIds: ["team_capital"],
+  }),
+  tile({
+    id: "metrics-a-seat-can-name",
+    label: "Metrics a seat can name",
+    definition: "How many numbers that person can describe their own job with.",
+    owner: "Alex",
+    target: "More is better; one or two means they cannot drive the outcome",
     sourceIds: ["team_capital"],
   }),
   tile({
     id: "revenue-per-fte",
     label: "Revenue per FTE",
-    definition: "Trailing-12-month revenue ÷ full-time equivalents.",
+    definition: "Revenue ÷ full-time equivalents.",
     owner: "Alex",
-    target: "$150–200K; red below $120K",
+    target: "Direction only, not a target",
+    sourceIds: ["team_capital"],
+  }),
+  tile({
+    id: "active-team-members",
+    label: "Active team members",
+    definition: "People with status active in the roster.",
+    owner: "Alex",
+    target:
+      "v1 source, not Hormozi — every active seat has a rate and one judged-on number",
     sourceIds: ["team_capital"],
   }),
   tile({
@@ -300,7 +373,8 @@ const HUMAN_EMPLOYEE_TILES: DashboardTile[] = [
     label: "Utilization",
     definition: "Billable or delivery hours ÷ available hours, per delivery role.",
     owner: "Fulfillment lead",
-    target: "65–75%; red above 85% (burnout) or below 60%",
+    target:
+      "v1 source, not Hormozi — 65–75%; red above 85% (burnout) or below 60%",
     sourceIds: ["team_capital"],
   }),
   tile({
@@ -308,7 +382,7 @@ const HUMAN_EMPLOYEE_TILES: DashboardTile[] = [
     label: "Regrettable attrition",
     definition: "A-players lost ÷ A-players, trailing 12 months.",
     owner: "Alex",
-    target: "Zero; any loss needs a written cause",
+    target: "v1 source, not Hormozi — zero; any loss needs a written cause",
     sourceIds: ["team_capital"],
   }),
   tile({
@@ -317,7 +391,7 @@ const HUMAN_EMPLOYEE_TILES: DashboardTile[] = [
     definition:
       "Active seats whose performance criterion is empty or reads NOT SET.",
     owner: "Alex",
-    target: "Zero",
+    target: "v1 source, not Hormozi — zero",
     sourceIds: ["team_capital"],
   }),
 ];
