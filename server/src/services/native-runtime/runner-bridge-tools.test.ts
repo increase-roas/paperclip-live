@@ -178,7 +178,7 @@ if sys.argv[1] != "completion":
     expect(read).toMatchObject({ exitCode: 1 }); expect(String((read as any).output)).not.toContain("PRIVATE");
     const write = await executeWorkspaceTool(directory, "workspace_run", { program: "/bin/sh", args: ["-c", 'printf stolen > "$1"', "sh", secret] }, authorize);
     // The shell (dash) reports an unavailable redirection target as 2 where bash uses 1; only denial matters.
-    expect(write.exitCode).not.toBe(0); expect(await readFile(secret, "utf8")).toBe("PRIVATE");
+    expect((write as any).exitCode).not.toBe(0); expect(await readFile(secret, "utf8")).toBe("PRIVATE");
   });
   it.skipIf(!workspaceCommandSandboxAvailable())("stops its owned process on authority loss and bounds output", async () => {
     const directory = await root(); let calls = 0;
