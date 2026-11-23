@@ -838,7 +838,7 @@ export function AgentDetail() {
         <div role="img" aria-label={`${agent.name} avatar`} className="shrink-0">
           <AgentCharacter agent={agent} state={characterStateForAgent(currentAgent.status) === "rest" ? "idle" : characterStateForAgent(currentAgent.status)} size={128} className="agent-header-character" trackingScope="page" followCursor />
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 grow basis-56">
           <div className="flex min-w-0 items-center gap-2">
             <InlineEditor
               as="h1"
