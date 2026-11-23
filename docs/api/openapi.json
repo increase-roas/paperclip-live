@@ -60497,13 +60497,10 @@
           },
           {
             "BoardApiKeyAuth": []
-          },
-          {
-            "AgentBearerAuth": []
           }
         ],
         "x-paperclip-authorization": {
-          "actor": "board_or_agent"
+          "actor": "board"
         }
       }
     },
@@ -60652,13 +60649,10 @@
           },
           {
             "BoardApiKeyAuth": []
-          },
-          {
-            "AgentBearerAuth": []
           }
         ],
         "x-paperclip-authorization": {
-          "actor": "board_or_agent"
+          "actor": "board"
         }
       }
     },
@@ -60769,13 +60763,10 @@
           },
           {
             "BoardApiKeyAuth": []
-          },
-          {
-            "AgentBearerAuth": []
           }
         ],
         "x-paperclip-authorization": {
-          "actor": "board_or_agent"
+          "actor": "board"
         }
       }
     },
@@ -104770,13 +104761,10 @@
           },
           {
             "BoardApiKeyAuth": []
-          },
-          {
-            "AgentBearerAuth": []
           }
         ],
         "x-paperclip-authorization": {
-          "actor": "board_or_agent"
+          "actor": "board"
         }
       }
     },
