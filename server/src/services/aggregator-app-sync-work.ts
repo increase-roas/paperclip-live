@@ -12,11 +12,14 @@ import type { createDeliveryWorkCoordinator } from "./delivery-work-coordinator.
 export function registerAggregatorAppSyncWork(
   coordinator: ReturnType<typeof createDeliveryWorkCoordinator>,
   service: {
-    sweep(staleAfterMs?: number): Promise<{ failedConnectionIds?: string[]; refreshed?: number; skipped?: number } | void>;
+    sweep(staleAfterMs?: number): Promise<{ failedConnectionIds?: string[]; refreshed?: number; skipped?: number; hasTrackedSyncs?: boolean } | void>;
   },
   canRun: () => boolean,
   intervalMs: number = AGGREGATOR_APP_SYNC_SWEEP_MS,
 ) {
+  // An instance with no Composio sync stays quiet: no timer until a new sync
+  // lease notifies this queue.
+  let idle = false;
   return coordinator.register(DELIVERY_QUEUES.aggregatorAppSync, {
     retryMs: intervalMs,
     pausePassiveMaintenance: true,
@@ -24,6 +27,7 @@ export function registerAggregatorAppSyncWork(
       signal.throwIfAborted();
       if (!canRun()) return;
       const result = await service.sweep(AGGREGATOR_APP_SYNC_TTL_MS);
+      idle = result?.hasTrackedSyncs === false;
       const failed = result?.failedConnectionIds ?? [];
       if (failed.length > 0) {
         // The affected rows are marked failed, so the app shows "Last check
@@ -36,8 +40,8 @@ export function registerAggregatorAppSyncWork(
       }
     },
     hasPending: async () => false,
-    // A pure timer: the next pass is always one interval out, and a failing
-    // gateway is left to the explicit Refresh path.
-    nextRunAt: () => Date.now() + intervalMs,
+    // While syncs exist, the next pass is always one interval out, and a
+    // failing gateway is left to the explicit Refresh path.
+    nextRunAt: () => idle ? null : Date.now() + intervalMs,
   });
 }

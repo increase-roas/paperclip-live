@@ -14,6 +14,7 @@ import type { Db } from "@paperclipai/db";
 import { companySecrets, toolAccessAuditEvents, toolCatalogEntries, toolConnectionAppSnapshots, toolConnectionAppSyncs, toolConnections } from "@paperclipai/db";
 import { conflict, forbidden, HttpError, notFound, unprocessable } from "../../../errors.js";
 import { logActivity } from "../../activity-log.js";
+import { DELIVERY_QUEUES, notifyDeliveryWork } from "../../delivery-work-notifications.js";
 import { initializeMcpHttpSession, getMcpHttpSession, readMcpHttpResponse, mcpHttpRequestHeaders } from "../../mcp-http.js";
 import { secretService } from "../../secrets.js";
 import { writeConnectionCredential } from "../../connection-credentials.js";
@@ -179,16 +180,20 @@ export function createAggregatorAccounts(db: Db, { options, secrets, audit, cred
     const toolkits = [...new Set([...existing.filter(app => app.accounts.length > 0).map(app => app.toolkit), ...catalog])];
     const leaseId = randomUUID();
     const startedAt = new Date();
-    const [lease] = await db.insert(toolConnectionAppSyncs).values({ companyId: connection.companyId, connectionId,
-      userId: aggregatorUserId(actor), credentialKey, leaseId, status: "syncing", total: toolkits.length, updatedAt: startedAt,
-    }).onConflictDoUpdate({ target: [toolConnectionAppSyncs.companyId, toolConnectionAppSyncs.connectionId, toolConnectionAppSyncs.userId, toolConnectionAppSyncs.credentialKey],
-      set: { leaseId, status: "syncing", checked: 0, total: toolkits.length, failed: 0, updatedAt: startedAt },
-      setWhere: and(
-        or(ne(toolConnectionAppSyncs.status, "syncing"), lt(toolConnectionAppSyncs.updatedAt, new Date(Date.now() - composioSyncLeaseMs))),
-        force ? sql`true` : or(ne(toolConnectionAppSyncs.status, "ready"), isNull(toolConnectionAppSyncs.lastCompletedAt),
-          lt(toolConnectionAppSyncs.lastCompletedAt, new Date(Date.now() - composioSyncTtlMs))),
-      ),
-    }).returning();
+    // The scheduled sweep sleeps while no Composio sync exists; a new lease wakes it.
+    const [lease] = await db.transaction(async tx => {
+      await notifyDeliveryWork(tx, DELIVERY_QUEUES.aggregatorAppSync);
+      return tx.insert(toolConnectionAppSyncs).values({ companyId: connection.companyId, connectionId,
+        userId: aggregatorUserId(actor), credentialKey, leaseId, status: "syncing", total: toolkits.length, updatedAt: startedAt,
+      }).onConflictDoUpdate({ target: [toolConnectionAppSyncs.companyId, toolConnectionAppSyncs.connectionId, toolConnectionAppSyncs.userId, toolConnectionAppSyncs.credentialKey],
+        set: { leaseId, status: "syncing", checked: 0, total: toolkits.length, failed: 0, updatedAt: startedAt },
+        setWhere: and(
+          or(ne(toolConnectionAppSyncs.status, "syncing"), lt(toolConnectionAppSyncs.updatedAt, new Date(Date.now() - composioSyncLeaseMs))),
+          force ? sql`true` : or(ne(toolConnectionAppSyncs.status, "ready"), isNull(toolConnectionAppSyncs.lastCompletedAt),
+            lt(toolConnectionAppSyncs.lastCompletedAt, new Date(Date.now() - composioSyncTtlMs))),
+        ),
+      }).returning();
+    });
     if (lease) {
       const updateLease = async (values: Partial<typeof toolConnectionAppSyncs.$inferInsert>) => {
         const updated = await db.update(toolConnectionAppSyncs).set({ ...values, updatedAt: new Date() })
@@ -268,6 +273,23 @@ export function createAggregatorAccounts(db: Db, { options, secrets, audit, cred
       .limit(limit);
   }
 
+  /** Whether any active Composio gateway has a sync the sweep may later refresh. */
+  async function hasTrackedComposioSyncs() {
+    const [row] = await db.select({ id: toolConnectionAppSyncs.id }).from(toolConnectionAppSyncs)
+      .innerJoin(toolConnections, and(
+        eq(toolConnections.id, toolConnectionAppSyncs.connectionId),
+        eq(toolConnections.companyId, toolConnectionAppSyncs.companyId),
+      ))
+      .where(and(
+        inArray(toolConnectionAppSyncs.status, ["ready", "syncing"]),
+        eq(toolConnections.enabled, true),
+        eq(toolConnections.status, "active"),
+        sql`${toolConnections.config}->>'sourceTemplateKey' = 'composio'`,
+      ))
+      .limit(1);
+    return Boolean(row);
+  }
+
   async function sweepComposioAppSyncs(input: {
     staleAfterMs?: number;
     limit?: number;
@@ -320,7 +342,8 @@ export function createAggregatorAccounts(db: Db, { options, secrets, audit, cred
         }
       }
     }
-    return { checked, refreshed, skipped, batches, failedConnectionIds };
+    const hasTrackedSyncs = batches > 0 || await hasTrackedComposioSyncs();
+    return { checked, refreshed, skipped, batches, failedConnectionIds, hasTrackedSyncs };
   }
 
   async function retireRotatedRow(id: string) {

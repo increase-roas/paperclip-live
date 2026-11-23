@@ -28,6 +28,19 @@ describe("scheduled aggregator app refresh", () => {
     expect(task.nextRunAt()).toBeGreaterThan(Date.now() + AGGREGATOR_APP_SYNC_SWEEP_MS - 5_000);
   });
 
+  it("stays quiet without a Composio sync and resumes the interval once one exists", async () => {
+    const fake = coordinator();
+    let hasTrackedSyncs = false;
+    const sweep = vi.fn(async () => ({ checked: 0, refreshed: 0, failedConnectionIds: [], hasTrackedSyncs }));
+    registerAggregatorAppSyncWork(fake, { sweep }, () => true);
+    const [{ task }] = fake.registrations;
+    await task.run(new AbortController().signal);
+    expect(task.nextRunAt()).toBeNull();
+    hasTrackedSyncs = true;
+    await task.run(new AbortController().signal);
+    expect(task.nextRunAt()).toBeGreaterThan(Date.now() + AGGREGATOR_APP_SYNC_SWEEP_MS - 5_000);
+  });
+
   it("names a gateway whose refresh could not start instead of staying silent", async () => {
     const fake = coordinator();
     const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined as never);
