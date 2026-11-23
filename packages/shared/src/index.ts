@@ -1641,6 +1641,24 @@ export type {
   QuotaWindow,
   ProviderQuotaResult,
 } from "./types/index.js";
+export type {
+  DashboardNotConnectedTile,
+  DashboardAiCostSeat,
+  DashboardAiCostDriver,
+  DashboardAiCostBoard,
+  DashboardAutomationSeat,
+  DashboardAutomationRoutine,
+  DashboardAutomationBlockedTask,
+  DashboardAutomationApproval,
+  DashboardAutomationServer,
+  DashboardAutomationHealthBoard,
+  DashboardConnectorKind,
+  DashboardConnectorRow,
+  DashboardToolsConnectorsBoard,
+  DashboardFulfillmentClient,
+  DashboardFulfillmentTask,
+  DashboardFulfillmentBoard,
+} from "./types/dashboard-boards.js";
 export { WORKSPACE_READINESS_STATES, WORKSPACE_SOURCE_VERIFICATION_REASONS,
   type WorkspaceSourceVerificationFailure, type WorkspaceSourceInspection } from "./types/index.js";
 export {
