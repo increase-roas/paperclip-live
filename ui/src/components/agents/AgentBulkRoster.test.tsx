@@ -139,6 +139,21 @@ describe("pending agent roster display", () => {
     expect(container.textContent).not.toContain("Edit connection & model");
   });
 
+  it("names the Chat column without an absolutely positioned label inside the roster scroller", () => {
+    // The roster is wider than a phone viewport and scrolls inside
+    // `overflow-x-auto`. An absolutely positioned `sr-only` label in the table
+    // resolves against the viewport, escapes that clip, and widens the page.
+    const agent = { id: "agent-one", companyId: "company", name: "Atlas", adapterType: "codex_local", adapterConfig: {}, runtimeConfig: {}, status: "idle" } as unknown as Agent;
+    flushSync(() => root.render(<QueryClientProvider client={client}>
+      <AgentBulkRoster companyId="company" agents={[agent]} visibleAgents={[agent]}
+        renderAgent={item => <span>{item.name}</span>}
+        renderChat={item => <a href={`/chats/${item.id}`}>Chat</a>} />
+    </QueryClientProvider>));
+    const chatHeader = container.querySelector<HTMLTableCellElement>('th[aria-label="Chat"]');
+    expect(chatHeader).not.toBeNull();
+    expect(chatHeader!.childElementCount).toBe(0);
+  });
+
   it("preserves ordinary process display without a saved setup choice", () => {
     const row = render({ setupAdapterPending: true });
     expect([...row.querySelectorAll("td")].slice(3).map(cell => cell.textContent)).toEqual([
