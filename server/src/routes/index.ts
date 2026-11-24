@@ -29,6 +29,7 @@ export { agentReadinessRoutes } from "./agent-readiness.js";
 export { costRoutes } from "./costs.js";
 export { activityRoutes } from "./activity.js";
 export { dashboardRoutes } from "./dashboard.js";
+export { dashboardBoardRoutes } from "./dashboard-boards.js";
 export { attentionRoutes } from "./attention.js";
 export { decisionRoutes } from "./decisions.js";
 export { decisionQueueRoutes } from "./decision-queues.js";

@@ -60398,6 +60398,266 @@
         }
       }
     },
+    "/api/companies/{companyId}/dashboards/ai-cost": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "summary": "Get the AI cost board",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "companyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "BoardSessionAuth": []
+          },
+          {
+            "BoardApiKeyAuth": []
+          },
+          {
+            "AgentBearerAuth": []
+          }
+        ],
+        "x-paperclip-authorization": {
+          "actor": "board_or_agent"
+        }
+      }
+    },
+    "/api/companies/{companyId}/dashboards/automation-health": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "summary": "Get the automation health board",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "companyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "BoardSessionAuth": []
+          },
+          {
+            "BoardApiKeyAuth": []
+          },
+          {
+            "AgentBearerAuth": []
+          }
+        ],
+        "x-paperclip-authorization": {
+          "actor": "board_or_agent"
+        }
+      }
+    },
+    "/api/companies/{companyId}/dashboards/tools-connectors": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "summary": "Get the tools and connectors board",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "companyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "BoardSessionAuth": []
+          },
+          {
+            "BoardApiKeyAuth": []
+          },
+          {
+            "AgentBearerAuth": []
+          }
+        ],
+        "x-paperclip-authorization": {
+          "actor": "board_or_agent"
+        }
+      }
+    },
+    "/api/companies/{companyId}/dashboards/fulfillment": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "summary": "Get the fulfillment board",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "companyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "BoardSessionAuth": []
+          },
+          {
+            "BoardApiKeyAuth": []
+          },
+          {
+            "AgentBearerAuth": []
+          }
+        ],
+        "x-paperclip-authorization": {
+          "actor": "board_or_agent"
+        }
+      }
+    },
     "/api/companies/{companyId}/bots": {
       "get": {
         "tags": [

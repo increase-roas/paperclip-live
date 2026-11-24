@@ -149,6 +149,7 @@ import { agentCommentaryRoutes } from "./routes/agent-commentary.js";
 import { agentChatMessageRoutes } from "./routes/agent-chat-messages.js";
 import { activityRoutes } from "./routes/activity.js";
 import { dashboardRoutes } from "./routes/dashboard.js";
+import { dashboardBoardRoutes } from "./routes/dashboard-boards.js";
 import { dashboardLane2BoardRoutes } from "./routes/dashboard-lane2-boards.js";
 import { attentionRoutes } from "./routes/attention.js";
 import { decisionTrainingRoutes } from "./routes/decision-training.js";
@@ -857,6 +858,7 @@ export async function createApp(
   api.use(botsRoutes(db));
   api.use(activityRoutes(db));
   api.use(dashboardRoutes(db));
+  api.use(dashboardBoardRoutes(db, { databaseBackupHealth: opts.databaseBackupHealth }));
   api.use(dashboardLane2BoardRoutes());
   api.use(attentionRoutes(db));
   api.use(decisionTrainingRoutes(db));

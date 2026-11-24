@@ -40,19 +40,15 @@ describe("dashboard registry", () => {
     expect(dashboardBoardMeta(DEFAULT_DASHBOARD_BOARD_ID)?.title).toBe("CEO");
   });
 
-  it("registers the CEO and lane 2 boards and leaves lane 3 to its lane", () => {
-    expect(registeredDashboard("ceo")).toBeDefined();
+  it("registers all eight INC boards across lanes 1, 2, and 3", () => {
+    for (const board of DASHBOARD_BOARD_ORDER) {
+      expect(registeredDashboard(board.id)).toBeDefined();
+    }
     for (const id of DASHBOARD_BOARD_IDS) {
       expect(registeredDashboard(id)).toBeDefined();
     }
-    expect(registeredDashboard("fulfillment")).toBeUndefined();
     expect(registeredDashboard("nope")).toBeUndefined();
-    expect(unregisteredBoardIds()).toEqual([
-      "fulfillment",
-      "ai-cost",
-      "automation-health",
-      "tools-connectors",
-    ]);
+    expect(unregisteredBoardIds()).toEqual([]);
   });
 
   it("only registers boards that exist in the tab order", () => {

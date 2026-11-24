@@ -6266,6 +6266,38 @@ registerCurrentRoute({
 
 registerCurrentRoute({
   method: "get",
+  path: "/api/companies/{companyId}/dashboards/ai-cost",
+  tags: ["dashboard"],
+  summary: "Get the AI cost board",
+  responses: { 200: r.ok(), 401: r.unauthorized, 403: r.forbidden },
+});
+
+registerCurrentRoute({
+  method: "get",
+  path: "/api/companies/{companyId}/dashboards/automation-health",
+  tags: ["dashboard"],
+  summary: "Get the automation health board",
+  responses: { 200: r.ok(), 401: r.unauthorized, 403: r.forbidden },
+});
+
+registerCurrentRoute({
+  method: "get",
+  path: "/api/companies/{companyId}/dashboards/tools-connectors",
+  tags: ["dashboard"],
+  summary: "Get the tools and connectors board",
+  responses: { 200: r.ok(), 401: r.unauthorized, 403: r.forbidden },
+});
+
+registerCurrentRoute({
+  method: "get",
+  path: "/api/companies/{companyId}/dashboards/fulfillment",
+  tags: ["dashboard"],
+  summary: "Get the fulfillment board",
+  responses: { 200: r.ok(), 401: r.unauthorized, 403: r.forbidden },
+});
+
+registerCurrentRoute({
+  method: "get",
   path: "/api/companies/{companyId}/bots",
   tags: ["agents"],
   summary: "List the company's bots and agents suggested as bots",

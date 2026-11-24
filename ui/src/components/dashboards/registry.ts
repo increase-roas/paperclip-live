@@ -3,6 +3,10 @@ import type { DashboardPeriod } from "./period";
 import { CeoBoard } from "./ceo/CeoBoard";
 import { SalesBoard } from "./sales/SalesBoard";
 import { MarketingBoard } from "./marketing/MarketingBoard";
+import { FulfillmentBoard } from "./fulfillment/FulfillmentBoard";
+import { AiCostBoard } from "./ai-cost/AiCostBoard";
+import { AutomationHealthBoard } from "./automation-health/AutomationHealthBoard";
+import { ToolsConnectorsBoard } from "./tools-connectors/ToolsConnectorsBoard";
 import { HumanEmployeesBoard } from "./human-employees/HumanEmployeesBoard";
 
 /** Everything a board component receives. Company id is always explicit. */
@@ -12,9 +16,8 @@ export interface DashboardBoardProps {
 }
 
 /**
- * One board. Lanes 2 and 3 register their board here with a single line in
- * `dashboards`; the tab bar renders whatever is registered and shows
- * "Being built" for the rest.
+ * One board. All eight INC boards register here in `dashboards`;
+ * the tab bar renders them in DASHBOARD_BOARD_ORDER.
  */
 export interface DashboardBoard {
   /** URL segment: /INC/dashboard/<id> */
@@ -25,8 +28,6 @@ export interface DashboardBoard {
 
 /**
  * The eight boards and their tab order (mission: Lane 1 owns the shell).
- * A board id appears here before it has a component, so the tab exists from
- * day one and fills in when its lane registers.
  */
 export const DASHBOARD_BOARD_ORDER = [
   { id: "ceo", title: "CEO" },
@@ -44,15 +45,21 @@ export type DashboardBoardId = (typeof DASHBOARD_BOARD_ORDER)[number]["id"];
 export const DEFAULT_DASHBOARD_BOARD_ID: DashboardBoardId = "ceo";
 
 /**
- * Registered boards, in no particular order (the tab bar uses
- * DASHBOARD_BOARD_ORDER). Add one line per board — do not reorder.
+ * Registered boards (the tab bar uses DASHBOARD_BOARD_ORDER).
  */
 export const dashboards: DashboardBoard[] = [
   { id: "ceo", title: "CEO", component: CeoBoard },
   { id: "sales", title: "Sales", component: SalesBoard },
   { id: "marketing", title: "Marketing", component: MarketingBoard },
+  { id: "fulfillment", title: "Fulfillment", component: FulfillmentBoard },
+  { id: "ai-cost", title: "AI cost", component: AiCostBoard },
+  { id: "automation-health", title: "Automation health", component: AutomationHealthBoard },
+  { id: "tools-connectors", title: "Tools/connectors", component: ToolsConnectorsBoard },
   { id: "human-employees", title: "Human employees", component: HumanEmployeesBoard },
 ];
+
+export const dashboardRegistry = dashboards;
+export default dashboards;
 
 export function dashboardBoardMeta(id: string): { id: DashboardBoardId; title: string } | null {
   return DASHBOARD_BOARD_ORDER.find((board) => board.id === id) ?? null;
