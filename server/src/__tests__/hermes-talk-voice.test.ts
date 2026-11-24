@@ -48,7 +48,8 @@ describe("hermesTalkVoiceRoutes", () => {
   it("proxies board user calls with x-hermes-session-token and never leaks the token", async () => {
     const mockFetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
       expect(String(url)).toBe("https://brain.example:9119/api/plugins/hermes-talk/session");
-      expect((init?.headers as Record<string, string>)["x-hermes-session-token"]).toBe("super-secret-token");
+      const headers = (init?.headers ?? {}) as Record<string, string>;
+      expect(headers["x-hermes-session-token"]).toBe("super-secret-token");
       return new Response(JSON.stringify({ ok: true, clientSecret: "ek_test", offerUrl: "https://api.openai.com/v1/realtime/calls" }), {
         status: 200,
         headers: { "content-type": "application/json" },
