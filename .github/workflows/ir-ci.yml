@@ -7,6 +7,11 @@ name: IR CI
 
 on:
   workflow_call:
+    inputs:
+      full_suite:
+        description: Run the test suites on a pull request (set by the full-ci label).
+        type: boolean
+        default: false
   push:
     branches: [master]
   workflow_dispatch:
@@ -34,6 +39,9 @@ jobs:
     timeout-minutes: 5
     outputs:
       code: ${{ steps.filter.outputs.code }}
+      # Pull requests get build + typecheck only. The test suites run on
+      # master pushes, manual runs, and PRs with the full-ci label.
+      full: ${{ github.event_name != 'pull_request' || inputs.full_suite == true }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -64,7 +72,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # Passing runs take about 30 minutes (p90 32.5, max 37.7 in Nov 2026).
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/ir-setup
@@ -79,9 +88,13 @@ jobs:
     # invalid and every run failed before a job could start.
     name: test (${{ matrix.label }})
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.full == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # Passing serialized shards take 10 to 13 minutes. The old single general
+    # job hit the 90 minute limit 76 of 92 times in Nov 2026 and never passed,
+    # so a hang now costs 20 to 25 minutes, not 90. A leg can set its own
+    # `timeout` in the matrix (the native-runner leg compiles Rust first).
+    timeout-minutes: ${{ matrix.timeout || (matrix.mode == 'general' && 25 || 20) }}
     env:
       # Two-core hosted runner: run each general-server shard's files serially,
       # as the unsharded general lane did.
@@ -111,7 +124,7 @@ jobs:
           - { mode: general, label: general server 8/10, group: general-server-without-chat-or-native-runner, shard_index: 7, shard_count: 10 }
           - { mode: general, label: general server 9/10, group: general-server-without-chat-or-native-runner, shard_index: 8, shard_count: 10 }
           - { mode: general, label: general server 10/10, group: general-server-without-chat-or-native-runner, shard_index: 9, shard_count: 10 }
-          - { mode: general, label: general native runner, group: general-server-native-runner, prebuild_runner: true }
+          - { mode: general, label: general native runner, group: general-server-native-runner, prebuild_runner: true, timeout: 60 }
           - { mode: general, label: general chat 1/3, group: general-chat, shard_index: 0, shard_count: 3, serial_chat: true }
           - { mode: general, label: general chat 2/3, group: general-chat, shard_index: 1, shard_count: 3, serial_chat: true }
           - { mode: general, label: general chat 3/3, group: general-chat, shard_index: 2, shard_count: 3, serial_chat: true }
@@ -179,7 +192,12 @@ jobs:
           [ "${{ needs.ir-scripts.result }}" = "success" ]
           if [ "${{ needs.changes.outputs.code }}" = "true" ]; then
             [ "${{ needs.build.result }}" = "success" ]
-            [ "${{ needs.test.result }}" = "success" ]
+            if [ "${{ needs.changes.outputs.full }}" = "true" ]; then
+              [ "${{ needs.test.result }}" = "success" ]
+            else
+              echo "pull request without full-ci label: test suites run after merge"
+              [ "${{ needs.test.result }}" = "skipped" ]
+            fi
           else
             echo "docs-only change: build and test were skipped"
             [ "${{ needs.build.result }}" = "skipped" ]
