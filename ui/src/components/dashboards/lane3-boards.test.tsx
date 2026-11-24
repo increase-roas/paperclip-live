@@ -372,12 +372,14 @@ describe("lane 3 dashboard boards", () => {
   }
 
   it("registers all four boards under stable ids", () => {
-    expect(dashboards.map((entry) => entry.id)).toEqual([
-      "ai-cost",
-      "automation-health",
-      "tools-connectors",
-      "fulfillment",
-    ]);
+    expect(dashboards.map((entry) => entry.id)).toEqual(
+      expect.arrayContaining([
+        "ai-cost",
+        "automation-health",
+        "tools-connectors",
+        "fulfillment",
+      ]),
+    );
   });
 
   it("AI cost shows spend against cap and highlights seats over 80%", async () => {

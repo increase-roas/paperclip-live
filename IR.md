@@ -13,7 +13,7 @@ Private copy of [paperclipai/paperclip](https://github.com/paperclipai/paperclip
 | Path | Purpose |
 |---|---|
 | `IR.md` | This file |
-| `.github/workflows/ir-ci.yml` | CI on GitHub-hosted runners: install, `pnpm build`, `pnpm typecheck`, `pnpm test:run:general`, `pnpm test:run:serialized` |
+| `.github/workflows/ir-ci.yml` | CI on GitHub-hosted runners: install, `pnpm build`, `pnpm typecheck`, `pnpm test:run:general`, `pnpm test:run:serialized`. PRs run build + typecheck only; the test suites run on `master` pushes and on PRs with the `full-ci` label |
 | `.github/workflows/ir-image.yml` | Builds and publishes `ghcr.io/increase-roas/paperclip` (private) on every push to `master` |
 | `.github/workflows/ir-upstream-sync.yml` + `scripts/ir/upstream-sync.sh` | Daily: one PR per new upstream release; clashes listed in the PR |
 | `.github/workflows/ir-guard.yml` | Switches off upstream's workflows in repo settings (they need Paperclip's own runners and secrets) |
@@ -25,6 +25,8 @@ Removed from upstream: `.github/dependabot.yml` (dependency updates arrive throu
 ## Rules
 
 - Change upstream files only when a feature needs it, and keep changes small: every change is a possible clash in future upstream-sync PRs.
-- Every PR needs **IR CI passed** green before merging.
+- Every PR needs **IR CI passed** green before merging. Add the `full-ci` label to run the test suites on a PR before merge.
+- Never bulk re-run failed CI runs. After a billing block, fix the cause, then re-run one PR at a time.
+- Keep open agent PRs to a small number at a time, or batch work into one PR. Every PR push starts CI.
 - Merging to `master` publishes a new image. It does **not** change the server. Switching the server follows `SWAP.md` in [increase-roas/paperclip-server](https://github.com/increase-roas/paperclip-server), only with Alex's yes.
 - No keys in this repo. Repo secret `IR_SYNC_TOKEN` (fine-grained, this repo only) is used by upstream sync.
