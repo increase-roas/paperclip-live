@@ -8,7 +8,7 @@ People inspect company health, recent activity, run history, and routine activit
 
 Feature ID: `activity`.
 
-Implementation: [dashboard](../../ui/src/pages/Dashboard.tsx), [live dashboard](../../ui/src/pages/DashboardLive.tsx), [audit hub](../../ui/src/pages/audit/AuditHub.tsx).
+Implementation: [dashboard shell](../../ui/src/components/dashboards/DashboardShell.tsx), [board operations view](../../ui/src/pages/DashboardOperations.tsx), [live dashboard](../../ui/src/pages/DashboardLive.tsx), [audit hub](../../ui/src/pages/audit/AuditHub.tsx).
 
 Agent access: [companion](../agent-access-map/activity.md).
 
@@ -25,7 +25,7 @@ Agent access: [companion](../agent-access-map/activity.md).
 
 ### `dashboard`
 
-Open `/dashboard` or `/dashboard/live`.
+Open `/dashboard` (the CEO board), a board route such as `/dashboard/sales`, `/dashboard/operations`, or `/dashboard/live`.
 
 ### `activity-audit`
 
@@ -37,7 +37,7 @@ Preconditions: follow the [baseline](./README.md#before-driving-a-journey). Prep
 
 ### `dashboard`
 
-Automated: [dashboard service](../../server/src/__tests__/dashboard-service.test.ts) covers server aggregation; [dashboard helpers](../../ui/src/pages/Dashboard.test.ts) is narrower UI helper coverage.
+Automated: [dashboard service](../../server/src/__tests__/dashboard-service.test.ts) covers server aggregation; [dashboard helpers](../../ui/src/pages/DashboardOperations.test.ts) is narrower UI helper coverage; [dashboard boards](../../ui/src/components/dashboards/registry.test.ts) and the CEO board tests cover the board shell and its live/not-connected states.
 
 Manual: Compare the dashboard with the known fixture tasks and runs. Start and finish a small task, refresh/reload, and verify the summary changes and links reach the right records. Exercise empty data and a failed fetch.
 
