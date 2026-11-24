@@ -237,6 +237,13 @@ describe("diagnostic environment secret selection", () => {
     expect(collectHostEnvironmentTokenSecrets(null)).toEqual([]);
   });
 
+  it("keeps GitHub Actions run labels public", () => {
+    const env = { GITHUB_JOB: "test", GITHUB_WORKFLOW: "IR PR", GITHUB_EVENT_NAME: "pull_request",
+      RUNNER_OS: "Linux", RUNNER_ARCH: "X64" };
+    expect(collectDiagnosticEnvironmentSecrets(env, [], { hostProcess: true })).toEqual([]);
+    expect(collectHostEnvironmentTokenSecrets(env)).toEqual([]);
+  });
+
   it("keeps unknown opaque values private without declarations", () => {
     expect(collectDiagnosticEnvironmentSecrets({ CUSTOM_BINDING: "opaque-host-secret" })).toEqual(["opaque-host-secret"]);
   });

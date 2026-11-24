@@ -1513,6 +1513,7 @@ function wakeFailureClass(
   return null;
 }
 
+const WAKE_DETAIL_STATUSES = new Set(["skipped", "deferred_issue_execution"]);
 function projectIssueWakeRequest(
   row: {
     agentId: string;
@@ -1541,7 +1542,9 @@ function projectIssueWakeRequest(
     claimedAt: dateToIso(row.claimedAt),
     finishedAt: dateToIso(row.finishedAt),
     failureClass: wakeFailureClass(status, row.error),
-    detail: row.error ? row.error.slice(0, 500) : null,
+    // Only a server-written skip or wait reason is shown; other wake errors can hold raw exception text.
+    detail: row.error && WAKE_DETAIL_STATUSES.has(status) && ISSUE_WAKE_DIAGNOSTIC_KNOWN_REASONS.has(row.reason ?? "")
+      ? row.error.slice(0, 500) : null,
   };
 }
 

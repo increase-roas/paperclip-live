@@ -86,10 +86,11 @@ if (!support.supported) console.warn(`Managed-account database tests unavailable
     expect(calls.some(call => call.params?.name === "COMPOSIO_MANAGE_CONNECTIONS")).toBe(true);
     // A fresh row is not checked again on the next tick.
     calls.length = 0;
-    expect(await access.sweepAggregatorAppSyncs()).toMatchObject({ checked: 0, refreshed: 0 });
+    expect(await access.sweepAggregatorAppSyncs()).toMatchObject({ checked: 0, refreshed: 0, hasTrackedSyncs: true });
     // A failed check stays for the explicit Refresh path instead of retrying on a timer.
     await db.update(toolConnectionAppSyncs).set({ status: "error", lastCompletedAt: stale, updatedAt: stale }).where(eq(toolConnectionAppSyncs.connectionId, connection.id));
-    expect(await access.sweepAggregatorAppSyncs()).toMatchObject({ checked: 0 });
+    // With no healthy or running Composio sync left, the scheduled sweep can sleep.
+    expect(await access.sweepAggregatorAppSyncs()).toMatchObject({ checked: 0, hasTrackedSyncs: false });
     expect(calls).toHaveLength(0);
   });
 

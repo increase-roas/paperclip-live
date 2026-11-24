@@ -348,6 +348,22 @@ describeWithPostgres("startEmbeddedPostgresTestDatabase template path", () => {
     }
   });
 
+  it("drops NOTICE chatter but still delivers warnings to test clients", { timeout: EMBEDDED_POSTGRES_TEST_TIMEOUT_MS }, async () => {
+    const database = await startEmbeddedPostgresTestDatabase("paperclip-quiet-notices-");
+    const notices: string[] = [];
+    const sql = postgres(database.connectionString, { max: 1, onnotice: (notice) => { notices.push(String(notice.severity)); } });
+    try {
+      expect((await sql`show client_min_messages`)[0]?.client_min_messages).toBe("warning");
+      await sql`drop table if exists paperclip_quiet_notice_probe`;
+      expect(notices).toEqual([]);
+      await sql`do $$ begin raise warning 'paperclip quiet notice probe'; end $$`;
+      expect(notices).toEqual(["WARNING"]);
+    } finally {
+      await sql.end();
+      await database.cleanup();
+    }
+  });
+
   it("refreshes the template's timestamp on every reuse so idle time drives pruning", { timeout: EMBEDDED_POSTGRES_TEST_TIMEOUT_MS }, async () => {
     delete process.env.PAPERCLIP_TEST_POSTGRES_TEMPLATE;
     // Make sure a template exists before ageing it: the support probe does

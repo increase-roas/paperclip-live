@@ -6070,6 +6070,10 @@ describeEmbeddedPostgres("heartbeat orphaned process recovery", () => {
 
     const heartbeat = heartbeatService(db);
     await heartbeat.resumeQueuedRuns();
+    // The adapter path settles after the same work the untyped setup-failure
+    // cases above await; a bare 3s status poll races it under CI load.
+    await waitForRunToSettle(heartbeat, runId, 15_000);
+    await heartbeat.waitForRunExecutionDrain(runId);
 
     const failedRun = await waitForValue(async () => {
       const row = await db

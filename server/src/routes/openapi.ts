@@ -9,6 +9,7 @@ import {
 } from "./experimental-api-paths.js";
 import { Router } from "express";
 import { subscriptionPriceSchema, mergeSubscriptionsSchema } from "@paperclipai/shared";
+import { agentReadinessFixSchema, runAgentReadinessReportSchema, upsertAgentReadinessAttestationSchema } from "@paperclipai/shared";
 import { z } from "zod";
 import {
   gitHubRepositoryPageQuerySchema,
@@ -1439,6 +1440,10 @@ const BOARD_ONLY_OPERATIONS = new Set([
   "GET /api/companies/{companyId}/attention/tasks",
   "POST /api/issues/{id}/interactions/{interactionId}/dismiss",
   "POST /api/issues/{id}/retry",
+  "POST /api/issues/{id}/recovery-actions/clear-hold",
+  "POST /api/companies/{companyId}/agent-readiness/reports",
+  "POST /api/companies/{companyId}/agent-readiness/fixes",
+  "POST /api/companies/{companyId}/agent-readiness/attestations",
   "GET /api/companies/{companyId}/prompt-injection-prevention",
   "PUT /api/companies/{companyId}/prompt-injection-prevention",
   "GET /api/companies/{companyId}/prompt-injection-prevention/models",
@@ -6233,6 +6238,57 @@ registry.registerPath({
   summary: "Get dashboard data",
   request: { params: z.object({ companyId: z.string() }) },
   responses: { 200: r.ok(), 401: r.unauthorized },
+});
+
+registerCurrentRoute({
+  method: "get",
+  path: "/api/companies/{companyId}/bots",
+  tags: ["agents"],
+  summary: "List the company's bots and agents suggested as bots",
+  responses: { 200: r.ok(), 401: r.unauthorized, 403: r.forbidden },
+});
+
+registerCurrentRoute({
+  method: "get",
+  path: "/api/companies/{companyId}/bots/{botId}",
+  tags: ["agents"],
+  summary: "Get one bot with its gateway key id, policy, routines and activity",
+  responses: { 200: r.ok(), 401: r.unauthorized, 403: r.forbidden, 404: r.notFound },
+});
+
+registerCurrentRoute({
+  method: "get",
+  path: "/api/companies/{companyId}/agent-readiness",
+  tags: ["agents"],
+  summary: "Get the latest agent readiness report, building one when none exists",
+  responses: { 200: r.ok(), 401: r.unauthorized, 403: r.forbidden },
+});
+
+registerCurrentRoute({
+  method: "post",
+  path: "/api/companies/{companyId}/agent-readiness/reports",
+  tags: ["agents"],
+  summary: "Run a new agent readiness report (board only)",
+  body: runAgentReadinessReportSchema,
+  responses: { 201: r.ok(), 400: r.badRequest, 401: r.unauthorized, 403: r.forbidden },
+});
+
+registerCurrentRoute({
+  method: "post",
+  path: "/api/companies/{companyId}/agent-readiness/fixes",
+  tags: ["agents"],
+  summary: "Apply a confirmed agent readiness fix (board only)",
+  body: agentReadinessFixSchema,
+  responses: { 200: r.ok(), 400: r.badRequest, 401: r.unauthorized, 403: r.forbidden, 404: r.notFound, 409: r.conflict },
+});
+
+registerCurrentRoute({
+  method: "post",
+  path: "/api/companies/{companyId}/agent-readiness/attestations",
+  tags: ["agents"],
+  summary: "Attest a manual agent readiness check with a note (board user only)",
+  body: upsertAgentReadinessAttestationSchema,
+  responses: { 200: r.ok(), 400: r.badRequest, 401: r.unauthorized, 403: r.forbidden },
 });
 
 registry.registerPath({
@@ -11111,6 +11167,18 @@ registerCurrentRoute({
   tags: ["issues"],
   summary: "Resolve an issue recovery action",
   body: resolveIssueRecoveryActionSchema,
+});
+
+registerCurrentRoute({
+  method: "post",
+  path: "/api/issues/{id}/recovery-actions/clear-hold",
+  tags: ["issues"],
+  summary: "Clear an execution hold whose run is proven never to have started, then resume the task",
+  body: z.object({
+    actionId: z.string().uuid().optional(),
+    note: z.string().trim().max(2000).optional(),
+  }).strict(),
+  responses: { 200: r.ok(), 400: r.badRequest, 401: r.unauthorized, 403: r.forbidden, 404: r.notFound, 409: r.conflict },
 });
 
 registerCurrentRoute({
