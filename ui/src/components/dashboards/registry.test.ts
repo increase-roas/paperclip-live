@@ -1,25 +1,69 @@
-// @vitest-environment node
-
 import { describe, expect, it } from "vitest";
 import { DASHBOARD_BOARD_IDS } from "@paperclipai/shared";
-import { dashboards } from "./registry";
+import {
+  DASHBOARD_BOARD_ORDER,
+  DEFAULT_DASHBOARD_BOARD_ID,
+  dashboardBoardMeta,
+  dashboards,
+  registeredDashboard,
+  unregisteredBoardIds,
+} from "./registry";
 
-describe("dashboardBoards registry", () => {
-  it("registers exactly the three lane 2 boards", () => {
-    expect(dashboards.map((entry) => entry.id)).toEqual([
+describe("dashboard registry", () => {
+  it("keeps the eight boards in the mission's order", () => {
+    expect(DASHBOARD_BOARD_ORDER.map((board) => board.id)).toEqual([
+      "ceo",
       "sales",
       "marketing",
+      "fulfillment",
+      "ai-cost",
+      "automation-health",
+      "tools-connectors",
       "human-employees",
     ]);
-    expect(new Set(dashboards.map((entry) => entry.id))).toEqual(
-      new Set(DASHBOARD_BOARD_IDS),
-    );
+    expect(DASHBOARD_BOARD_ORDER.map((board) => board.title)).toEqual([
+      "CEO",
+      "Sales",
+      "Marketing",
+      "Fulfillment",
+      "AI cost",
+      "Automation health",
+      "Tools/connectors",
+      "Human employees",
+    ]);
   });
 
-  it("gives every board a title and a renderable component", () => {
-    for (const entry of dashboards) {
-      expect(entry.title.length).toBeGreaterThan(0);
-      expect(typeof entry.component).toBe("function");
+  it("uses unique ids and defaults to the CEO board", () => {
+    const ids = DASHBOARD_BOARD_ORDER.map((board) => board.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(DEFAULT_DASHBOARD_BOARD_ID).toBe("ceo");
+    expect(dashboardBoardMeta(DEFAULT_DASHBOARD_BOARD_ID)?.title).toBe("CEO");
+  });
+
+  it("registers the CEO and lane 2 boards and leaves lane 3 to its lane", () => {
+    expect(registeredDashboard("ceo")).toBeDefined();
+    for (const id of DASHBOARD_BOARD_IDS) {
+      expect(registeredDashboard(id)).toBeDefined();
     }
+    expect(registeredDashboard("fulfillment")).toBeUndefined();
+    expect(registeredDashboard("nope")).toBeUndefined();
+    expect(unregisteredBoardIds()).toEqual([
+      "fulfillment",
+      "ai-cost",
+      "automation-health",
+      "tools-connectors",
+    ]);
+  });
+
+  it("only registers boards that exist in the tab order", () => {
+    for (const board of dashboards) {
+      expect(dashboardBoardMeta(board.id)).not.toBeNull();
+      expect(board.title).toBe(dashboardBoardMeta(board.id)?.title);
+      expect(board.component).toBeTypeOf("function");
+    }
+  });
+
+  it("returns null meta for an unknown url segment", () => {
+    expect(dashboardBoardMeta("not-a-board")).toBeNull();
   });
 });

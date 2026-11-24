@@ -6,7 +6,7 @@ import { Layout } from "@/components/Layout";
 import { IssueDetail } from "@/pages/IssueDetail";
 import { Issues } from "@/pages/Issues";
 import { Search } from "@/pages/Search";
-import { Dashboard } from "@/pages/Dashboard";
+import { DashboardOperations } from "@/pages/DashboardOperations";
 import { Inbox } from "@/pages/Inbox";
 import { UserProfile } from "@/pages/UserProfile";
 import { StatusCardDetailDrawer } from "@/pages/StatusCards/StatusCardDetailDrawer";
@@ -74,7 +74,7 @@ function MonitoringPage({ path }: { path: string }) {
     <Route path="issues" element={<Issues />} />
     <Route path="issues/:issueId" element={<IssueDetail />} />
     <Route path="search" element={<Search />} />
-    <Route path="dashboard" element={<Dashboard />} />
+    <Route path="dashboard" element={<DashboardOperations />} />
     <Route path="inbox" element={<Inbox tab="recent" />} />
     <Route path="users/:userSlug" element={<UserProfile />} />
   </Route></Routes></PluginLauncherProvider>;

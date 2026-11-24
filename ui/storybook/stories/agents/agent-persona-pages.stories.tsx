@@ -9,7 +9,7 @@ import { Layout } from "@/components/Layout";
 import { Agents } from "@/pages/Agents";
 import { AgentDetail } from "@/pages/AgentDetail";
 import { IssueDetail } from "@/pages/IssueDetail";
-import { Dashboard } from "@/pages/Dashboard";
+import { DashboardOperations } from "@/pages/DashboardOperations";
 import { NewAgent } from "@/pages/NewAgent";
 import { AgentBasicsDialog } from "@/components/new-agent/AgentBasicsDialog";
 import { queryKeys } from "@/lib/queryKeys";
@@ -103,7 +103,7 @@ function PersonaPage({ path, meet = false }: { path: string; meet?: boolean }) {
         <Route path="agents/new" element={<NewAgent />} />
         <Route path="agents/:agentId/:tab?" element={<AgentDetail />} />
         <Route path="issues/:issueId" element={<IssueDetail />} />
-        <Route path="dashboard" element={<Dashboard />} />
+        <Route path="dashboard" element={<DashboardOperations />} />
       </Route>
     </Routes>
     {meet && <AgentBasicsDialog open={dialogOpen} onClose={() => setDialogOpen(false)} onContinue={basics => { setDialogOpen(false); navigate(`/PAP/agents/new?name=${encodeURIComponent(basics.name)}&adapterType=${basics.adapterType}`); }} />}

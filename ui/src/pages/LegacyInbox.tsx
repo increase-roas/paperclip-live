@@ -10,7 +10,7 @@ import { useQueryView } from "../components/QueryView";
 import { accessApi } from "../api/access";
 import { authApi } from "../api/auth";
 import { ApiError } from "../api/client";
-import { dashboardApi } from "../api/dashboard";
+import { useDashboardSummary } from "@/hooks/useDashboardSummary";
 import { executionWorkspacesApi } from "../api/execution-workspaces";
 import { issuesApi } from "../api/issues";
 import { agentsApi } from "../api/agents";
@@ -824,21 +824,8 @@ export function Inbox() {
   } = joinRequestsQuery;
   const joinRequestsView = useQueryView(joinRequestsQuery);
 
-  const dashboardQueryKey = queryKeys.dashboard(selectedCompanyId!);
-  const sharedDashboard = useSharedPollingQuery({
-    companyId: selectedCompanyId,
-    resourceKey: "dashboard",
-    queryKey: dashboardQueryKey,
-    enabled: !!selectedCompanyId,
-  });
-  const dashboardQuery = useQuery({
-    queryKey: dashboardQueryKey,
-    queryFn: () => dashboardApi.summary(selectedCompanyId!),
-    enabled: !!selectedCompanyId,
-  });
-  const { data: dashboard, isLoading: isDashboardLoading, dataUpdatedAt: dashboardUpdatedAt } = dashboardQuery;
-  const dashboardView = useQueryView(dashboardQuery);
-  usePublishSharedQueryData(sharedDashboard, dashboard, dashboardUpdatedAt);
+  const { query: dashboardQuery, view: dashboardView } = useDashboardSummary(selectedCompanyId);
+  const { data: dashboard, isLoading: isDashboardLoading } = dashboardQuery;
 
   const inboxIssuesQueryKey = [...queryKeys.issues.list(selectedCompanyId!), "compact", "with-routine-executions", "live-descendant-summary", INBOX_ISSUE_LIST_LIMIT] as const;
   const sharedInboxIssues = useSharedPollingQuery<Issue[]>({

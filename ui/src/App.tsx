@@ -71,7 +71,8 @@ const CrossIssueCollaborationUxLab = lazy(() => import("./pages/CrossIssueCollab
 const Agents = lazy(() => import("./pages/Agents").then((module) => ({ default: module.Agents })));
 const Cases = lazy(() => import("./pages/Cases").then((module) => ({ default: module.Cases })));
 const CaseDetail = lazy(() => import("./pages/CaseDetail").then((module) => ({ default: module.CaseDetail })));
-const Dashboard = lazy(() => import("./pages/Dashboard").then((module) => ({ default: module.Dashboard })));
+const DashboardShell = lazy(() => import("./components/dashboards/DashboardShell").then((module) => ({ default: module.DashboardShell })));
+const DashboardOperations = lazy(() => import("./pages/DashboardOperations").then((module) => ({ default: module.DashboardOperations })));
 const DashboardLive = lazy(() => import("./pages/DashboardLive").then((module) => ({ default: module.DashboardLive })));
 const Timeline = lazy(() => import("./pages/Timeline").then((module) => ({ default: module.Timeline })));
 const Companies = lazy(() => import("./pages/Companies").then((module) => ({ default: module.Companies })));
@@ -154,8 +155,10 @@ function boardRoutes(streamlinedUiEnabled: boolean, combinedInboxTasksEnabled: b
   return (
     <>
       <Route index element={<Navigate to="dashboard" replace />} />
-      <Route path="dashboard" element={<Dashboard />} />
+      <Route path="dashboard" element={<Navigate to="/dashboard/ceo" replace />} />
       <Route path="dashboard/live" element={<DashboardLive />} />
+      <Route path="dashboard/operations" element={<DashboardOperations />} />
+      <Route path="dashboard/:boardId" element={<DashboardShell />} />
       <Route
         path="timeline"
         element={streamlinedUiEnabled ? <AuditCompatibilityRedirect to="/activity/timeline" /> : <Timeline />}
