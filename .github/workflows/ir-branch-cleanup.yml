@@ -1,0 +1,87 @@
+# Weekly branch hygiene: prune stale backup/* branches and already-merged
+# branches with no open PR so remote branches never pile up.
+# Never touches master, main, or any branch with an open pull request.
+name: IR branch cleanup
+
+on:
+  schedule:
+    - cron: "0 4 * * 0"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "List stale branches without deleting them"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: ir-branch-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Prune stale merged and backup branches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          DRY_RUN: ${{ inputs.dry_run || false }}
+        run: |
+          python3 - << "PY"
+          import datetime as dt, json, os, subprocess, urllib.parse
+
+          repo = os.environ["REPO"]
+          dry_run = os.environ.get("DRY_RUN", "false").lower() == "true"
+          cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=14)
+
+          def gh_json(*args):
+              return json.loads(subprocess.check_output(["gh", *args], text=True))
+
+          def gh_lines(*args):
+              out = subprocess.check_output(["gh", *args], text=True)
+              return [x.strip() for x in out.splitlines() if x.strip()]
+
+          branches = gh_lines("api", "--paginate", f"repos/{repo}/branches", "--jq", ".[].name")
+          prs = gh_json("pr", "list", "-R", repo, "--state", "open", "--limit", "500", "--json", "headRefName")
+          open_heads = {p["headRefName"] for p in prs}
+          protected = {"master", "main"} | open_heads
+
+          deleted = 0
+          checked = 0
+          for br in branches:
+              if br in protected:
+                  continue
+              checked += 1
+              is_backup = br.startswith("backup/")
+              # Check commit age and merge status against master
+              cmp_data = gh_json("api", f"repos/{repo}/compare/master...{urllib.parse.quote(br, safe=\"\")}")
+              ahead = int(cmp_data.get("ahead_by", 1))
+              status = cmp_data.get("status", "")
+              commit_date_s = ((cmp_data.get("base_commit") or {}).get("commit") or {}).get("committer", {}).get("date")
+              br_meta = gh_json("api", f"repos/{repo}/branches/{urllib.parse.quote(br, safe=\"\")}")
+              tip_date_s = (((br_meta.get("commit") or {}).get("commit") or {}).get("committer") or {}).get("date", "")
+              old_enough = False
+              if tip_date_s:
+                  tip_dt = dt.datetime.fromisoformat(tip_date_s.replace("Z", "+00:00"))
+                  old_enough = tip_dt < cutoff
+
+              should_delete = (ahead == 0 or status == "identical") or (is_backup and old_enough)
+              if not should_delete:
+                  continue
+              if dry_run:
+                  print(f"[dry-run] would delete {br} (ahead={ahead}, backup={is_backup})")
+                  continue
+              ref = urllib.parse.quote(f"heads/{br}", safe="/")
+              r = subprocess.run(["gh", "api", "-X", "DELETE", f"repos/{repo}/git/refs/{ref}"], capture_output=True, text=True)
+              if r.returncode == 0:
+                  deleted += 1
+                  print(f"deleted {br}")
+              else:
+                  print(f"warn: could not delete {br}: {r.stderr.strip()[:120]}")
+          print(f"Checked {checked} non-open branches; deleted {deleted}.")
+          PY
