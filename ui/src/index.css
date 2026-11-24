@@ -690,12 +690,12 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --primary-sidebar-background: var(--muted);
+  --sidebar: #000000;
+  --primary-sidebar-background: #000000;
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.32 0 0);
+  --sidebar-accent: #1a1a1a;
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
@@ -5104,9 +5104,9 @@ html:has(.design-proposal-theme) .design-navigation-group-label {
   --background: #191919;
   --foreground: #ecece8;
   --card: #222222;
-  --sidebar: #202020;
-  --sidebar-accent: #343432;
-  --sidebar-accent-foreground: #f1f1ed;
+  --sidebar: #000000; --primary-sidebar-background: #000000; --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-accent: #1a1a1a; --side-panel-streamlined-tab-active-bg: #343432;
+  --sidebar-accent-foreground: #f5f5f5;
   --border: #3a3a38;
   --muted: #2a2a28;
   --muted-foreground: #a5a5a0;
@@ -5129,6 +5129,7 @@ html:not(.dark) .coordinator-sidebar {
   --design-sidebar-item-highlight: var(--sidebar-accent);
   --design-sidebar-item-active-foreground: var(--sidebar-accent-foreground);
 }
+html.dark .coordinator-sidebar { --design-sidebar-surface: var(--primary-sidebar-background); --design-sidebar-border: var(--sidebar-border); --design-sidebar-item-foreground: oklch(0.85 0 0); --design-sidebar-item-highlight: var(--sidebar-accent); --design-sidebar-item-active-foreground: var(--sidebar-accent-foreground); }
 .coordinator-workspace [data-conversation-text] { font-size: var(--coordinator-body-size); line-height: var(--coordinator-body-leading); }
 .coordinator-workspace [data-conversation-text="progress"] { font-size: var(--text-sm); line-height: var(--text-sm--line-height); }
 .coordinator-workspace [data-conversation-text] .paperclip-markdown { font-size: inherit; line-height: inherit; }
