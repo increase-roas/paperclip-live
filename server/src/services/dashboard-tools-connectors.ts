@@ -50,9 +50,9 @@ function classify(row: DashboardConnectorRow): "healthy" | "attention" | "unchec
 
 export function dashboardToolsConnectorsService(db: Db) {
   return {
-    async board(companyId: string, now = new Date(), boardOptions: { includeInstancePlugins?: boolean } = {}): Promise<DashboardToolsConnectorsBoard> {
-      const includeInstancePlugins = boardOptions.includeInstancePlugins ?? true;
-      const pluginRows = includeInstancePlugins
+    async board(companyId: string, now = new Date(), boardOptions: { boardViewer?: boolean } = {}): Promise<DashboardToolsConnectorsBoard> {
+      const boardViewer = boardOptions.boardViewer ?? true;
+      const pluginRows = boardViewer
         ? await retryIdempotentDatabaseOperation(() =>
             db
               .select({
@@ -158,12 +158,14 @@ export function dashboardToolsConnectorsService(db: Db) {
           id: `connection:${connection.id}`,
           name: connection.name,
           kind: "tool_connection",
-          detail: [connection.applicationName ?? connection.applicationType, connection.transport, connection.authKind]
-            .filter(Boolean)
-            .join(" · "),
+          detail: boardViewer
+            ? [connection.applicationName ?? connection.applicationType, connection.transport, connection.authKind]
+                .filter(Boolean)
+                .join(" · ")
+            : (connection.applicationName ?? connection.applicationType ?? "tool connection"),
           status: connection.status,
           health: connection.healthStatus,
-          healthMessage: connection.healthMessage,
+          healthMessage: boardViewer ? connection.healthMessage : null,
           lastCheckAt: (connection.healthCheckedAt ?? connection.lastHealthAt)?.toISOString() ?? null,
           lastSuccessfulUseAt: lastUseByConnection.get(connection.id)?.toISOString() ?? null,
           expiresAt: expiry?.toISOString() ?? null,

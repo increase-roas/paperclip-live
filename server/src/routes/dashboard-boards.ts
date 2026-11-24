@@ -39,7 +39,7 @@ export function dashboardBoardRoutes(
   router.get("/companies/:companyId/dashboards/tools-connectors", async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
-    res.json(await tools.board(companyId, undefined, { includeInstancePlugins: hasBoardOrgAccess(req) }));
+    res.json(await tools.board(companyId, undefined, { boardViewer: hasBoardOrgAccess(req) }));
   });
 
   router.get("/companies/:companyId/dashboards/fulfillment", async (req, res) => {

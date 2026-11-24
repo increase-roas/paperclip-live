@@ -533,5 +533,8 @@ describePostgres("lane 3 dashboard board routes", () => {
     const toolsRes = await request(sameCompanyAgentApp).get(`/api/companies/${companyId}/dashboards/tools-connectors`);
     expect(toolsRes.status).toBe(200);
     expect(toolsRes.body.items.filter((item: { kind: string }) => item.kind === "plugin")).toEqual([]);
+    for (const conn of toolsRes.body.items.filter((item: { kind: string }) => item.kind === "tool_connection")) {
+      expect(conn.healthMessage).toBeNull();
+    }
   });
 });
