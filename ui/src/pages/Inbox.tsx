@@ -843,6 +843,17 @@ export function Inbox(props: InboxSurfaceProps = {}) {
   return streamlinedUiEnabled || coordinator ? <StreamlinedInbox {...props} /> : <LegacyInbox />;
 }
 
+const ALERT_DISMISS_BTN_CLASS =
+  "inline-flex h-(--sz-44px) w-(--sz-44px) shrink-0 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-accent hover:text-foreground max-sm:opacity-100 sm:opacity-0 sm:group-hover/alert:opacity-100 sm:focus-visible:opacity-100";
+
+function InboxAlertDismissButton({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <button type="button" onClick={onDismiss} className={ALERT_DISMISS_BTN_CLASS} aria-label="Dismiss">
+      <X className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
 function StreamlinedInbox({
   tab: tabOverride,
   toolbarContext,
@@ -3497,14 +3508,7 @@ function StreamlinedInbox({
                       {dashboard!.agents.error === 1 ? "agent has" : "agents have"} errors
                     </span>
                   </Link>
-                  <button
-                    type="button"
-                    onClick={() => dismissAlert("alert:agent-errors")}
-                    className="inline-flex h-(--sz-44px) w-(--sz-44px) shrink-0 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-accent hover:text-foreground max-sm:opacity-100 sm:opacity-0 sm:group-hover/alert:opacity-100 sm:focus-visible:opacity-100"
-                    aria-label="Dismiss"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
+                  <InboxAlertDismissButton onDismiss={() => dismissAlert("alert:agent-errors")} />
                 </div>
               )}
               {showBudgetAlert && (
@@ -3520,14 +3524,7 @@ function StreamlinedInbox({
                       utilization this month
                     </span>
                   </Link>
-                  <button
-                    type="button"
-                    onClick={() => dismissAlert("alert:budget")}
-                    className="inline-flex h-(--sz-44px) w-(--sz-44px) shrink-0 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-accent hover:text-foreground max-sm:opacity-100 sm:opacity-0 sm:group-hover/alert:opacity-100 sm:focus-visible:opacity-100"
-                    aria-label="Dismiss"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
+                  <InboxAlertDismissButton onDismiss={() => dismissAlert("alert:budget")} />
                 </div>
               )}
             </div>
