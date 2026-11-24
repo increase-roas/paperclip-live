@@ -15,6 +15,7 @@ import {
 } from "@paperclipai/shared/validators/tool-access";
 import { assertBoard, assertBoardOrAgent, assertCompanyAccess, getActorInfo } from "./authz.js";
 import { ToolGatewayHttpError, type ToolGatewayService } from "../services/tool-gateway.js";
+import { logger } from "../middleware/logger.js";
 import { forbidden, HttpError } from "../errors.js";
 import { accessService } from "../services/index.js";
 import { listConnectionLifecycleEvents } from "../services/tool-connection-activity.js";
@@ -345,8 +346,13 @@ function sendGatewayError(res: import("express").Response, err: unknown) {
     res.status(err.status).json({ error: err.message, ...details });
     return;
   }
-  const message = err instanceof Error ? err.message : String(err);
-  res.status(500).json({ error: message });
+  // An unexpected failure can carry SQL text, filesystem paths or a provider
+  // URL with credentials. Keep the detail in the server log and answer with a
+  // stable message the caller can act on.
+  logger.error({ err }, "tool gateway request failed unexpectedly");
+  res.status(500).json({
+    error: "The tool gateway could not complete the request. Try again, then check the server log.",
+  });
 }
 
 export function toolGatewayRoutes(db: Db, toolGateway: ToolGatewayService) {
