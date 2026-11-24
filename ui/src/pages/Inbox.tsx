@@ -846,11 +846,27 @@ export function Inbox(props: InboxSurfaceProps = {}) {
 const ALERT_DISMISS_BTN_CLASS =
   "inline-flex h-(--sz-44px) w-(--sz-44px) shrink-0 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-accent hover:text-foreground max-sm:opacity-100 sm:opacity-0 sm:group-hover/alert:opacity-100 sm:focus-visible:opacity-100";
 
-function InboxAlertDismissButton({ onDismiss }: { onDismiss: () => void }) {
+function InboxAlertRow({
+  to,
+  iconClassName,
+  onDismiss,
+  children,
+}: {
+  to: string;
+  iconClassName: string;
+  onDismiss: () => void;
+  children: ReactNode;
+}) {
   return (
-    <button type="button" onClick={onDismiss} className={ALERT_DISMISS_BTN_CLASS} aria-label="Dismiss">
-      <X className="h-3.5 w-3.5" />
-    </button>
+    <div className="group/alert relative flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/50">
+      <Link to={to} className="flex flex-1 cursor-pointer items-center gap-3 no-underline text-inherit">
+        <AlertTriangle className={`h-4 w-4 shrink-0 ${iconClassName}`} />
+        <span className="text-sm">{children}</span>
+      </Link>
+      <button type="button" onClick={onDismiss} className={ALERT_DISMISS_BTN_CLASS} aria-label="Dismiss">
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
   );
 }
 
@@ -3497,35 +3513,24 @@ function StreamlinedInbox({
             </h3>
             <div className="divide-y divide-border border border-border">
               {showAggregateAgentError && (
-                <div className="group/alert relative flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/50">
-                  <Link
-                    to="/agents"
-                    className="flex flex-1 cursor-pointer items-center gap-3 no-underline text-inherit"
-                  >
-                    <AlertTriangle className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
-                    <span className="text-sm">
-                      <span className="font-medium">{dashboard!.agents.error}</span>{" "}
-                      {dashboard!.agents.error === 1 ? "agent has" : "agents have"} errors
-                    </span>
-                  </Link>
-                  <InboxAlertDismissButton onDismiss={() => dismissAlert("alert:agent-errors")} />
-                </div>
+                <InboxAlertRow
+                  to="/agents"
+                  iconClassName="text-red-600 dark:text-red-400"
+                  onDismiss={() => dismissAlert("alert:agent-errors")}
+                >
+                  <span className="font-medium">{dashboard!.agents.error}</span>{" "}
+                  {dashboard!.agents.error === 1 ? "agent has" : "agents have"} errors
+                </InboxAlertRow>
               )}
               {showBudgetAlert && (
-                <div className="group/alert relative flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/50">
-                  <Link
-                    to="/costs"
-                    className="flex flex-1 cursor-pointer items-center gap-3 no-underline text-inherit"
-                  >
-                    <AlertTriangle className="h-4 w-4 shrink-0 text-yellow-400" />
-                    <span className="text-sm">
-                      Budget at{" "}
-                      <span className="font-medium">{dashboard!.costs.monthUtilizationPercent}%</span>{" "}
-                      utilization this month
-                    </span>
-                  </Link>
-                  <InboxAlertDismissButton onDismiss={() => dismissAlert("alert:budget")} />
-                </div>
+                <InboxAlertRow
+                  to="/costs"
+                  iconClassName="text-yellow-400"
+                  onDismiss={() => dismissAlert("alert:budget")}
+                >
+                  Budget at <span className="font-medium">{dashboard!.costs.monthUtilizationPercent}%</span>{" "}
+                  utilization this month
+                </InboxAlertRow>
               )}
             </div>
           </div>
