@@ -51,6 +51,18 @@ vi.mock("./ceo/CeoBoard", () => ({
   CeoBoard: () => <div data-testid="ceo-board-stub" />,
 }));
 
+vi.mock("./sales/SalesBoard", () => ({
+  SalesBoard: () => <div data-testid="sales-board-stub" />,
+}));
+
+vi.mock("./marketing/MarketingBoard", () => ({
+  MarketingBoard: () => <div data-testid="marketing-board-stub" />,
+}));
+
+vi.mock("./human-employees/HumanEmployeesBoard", () => ({
+  HumanEmployeesBoard: () => <div data-testid="human-employees-board-stub" />,
+}));
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -137,14 +149,22 @@ describe("DashboardShell", () => {
   });
 
   it("gives each unbuilt board its own URL and says Being built", async () => {
+    routerState.params = { boardId: "fulfillment" };
+    const container = await renderShell();
+
+    expect(container.querySelector('[data-testid="dashboard-tab-fulfillment"]')?.getAttribute("aria-current")).toBe("page");
+    const placeholder = container.querySelector('[data-testid="dashboard-board-being-built"]');
+    expect(placeholder?.textContent).toContain("Being built");
+    expect(placeholder?.textContent).toContain("The Fulfillment board is being built.");
+    expect(container.querySelector('[data-testid="ceo-board-stub"]')).toBeNull();
+  });
+
+  it("renders registered lane 2 boards inside the shell", async () => {
     routerState.params = { boardId: "sales" };
     const container = await renderShell();
 
     expect(container.querySelector('[data-testid="dashboard-tab-sales"]')?.getAttribute("aria-current")).toBe("page");
-    const placeholder = container.querySelector('[data-testid="dashboard-board-being-built"]');
-    expect(placeholder?.textContent).toContain("Being built");
-    expect(placeholder?.textContent).toContain("The Sales board is being built.");
-    expect(container.querySelector('[data-testid="ceo-board-stub"]')).toBeNull();
+    expect(container.querySelector('[data-testid="sales-board-stub"]')).not.toBeNull();
   });
 
   it("sends an unknown board segment back to the CEO board", async () => {

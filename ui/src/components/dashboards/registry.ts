@@ -1,6 +1,9 @@
 import type { ComponentType } from "react";
 import type { DashboardPeriod } from "./period";
 import { CeoBoard } from "./ceo/CeoBoard";
+import { SalesBoard } from "./sales/SalesBoard";
+import { MarketingBoard } from "./marketing/MarketingBoard";
+import { HumanEmployeesBoard } from "./human-employees/HumanEmployeesBoard";
 
 /** Everything a board component receives. Company id is always explicit. */
 export interface DashboardBoardProps {
@@ -46,6 +49,9 @@ export const DEFAULT_DASHBOARD_BOARD_ID: DashboardBoardId = "ceo";
  */
 export const dashboards: DashboardBoard[] = [
   { id: "ceo", title: "CEO", component: CeoBoard },
+  { id: "sales", title: "Sales", component: SalesBoard },
+  { id: "marketing", title: "Marketing", component: MarketingBoard },
+  { id: "human-employees", title: "Human employees", component: HumanEmployeesBoard },
 ];
 
 export function dashboardBoardMeta(id: string): { id: DashboardBoardId; title: string } | null {

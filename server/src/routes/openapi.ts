@@ -6242,6 +6242,30 @@ registry.registerPath({
 
 registerCurrentRoute({
   method: "get",
+  path: "/api/companies/{companyId}/dashboards/sales",
+  tags: ["dashboard"],
+  summary: "Get the sales board",
+  responses: { 200: r.ok(), 401: r.unauthorized, 403: r.forbidden },
+});
+
+registerCurrentRoute({
+  method: "get",
+  path: "/api/companies/{companyId}/dashboards/marketing",
+  tags: ["dashboard"],
+  summary: "Get the marketing board",
+  responses: { 200: r.ok(), 401: r.unauthorized, 403: r.forbidden },
+});
+
+registerCurrentRoute({
+  method: "get",
+  path: "/api/companies/{companyId}/dashboards/human-employees",
+  tags: ["dashboard"],
+  summary: "Get the human employees board",
+  responses: { 200: r.ok(), 401: r.unauthorized, 403: r.forbidden },
+});
+
+registerCurrentRoute({
+  method: "get",
   path: "/api/companies/{companyId}/bots",
   tags: ["agents"],
   summary: "List the company's bots and agents suggested as bots",

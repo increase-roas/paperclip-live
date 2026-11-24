@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DASHBOARD_BOARD_IDS } from "@paperclipai/shared";
 import {
   DASHBOARD_BOARD_ORDER,
   DEFAULT_DASHBOARD_BOARD_ID,
@@ -39,18 +40,18 @@ describe("dashboard registry", () => {
     expect(dashboardBoardMeta(DEFAULT_DASHBOARD_BOARD_ID)?.title).toBe("CEO");
   });
 
-  it("registers the CEO board and leaves the rest to their lanes", () => {
+  it("registers the CEO and lane 2 boards and leaves lane 3 to its lane", () => {
     expect(registeredDashboard("ceo")).toBeDefined();
-    expect(registeredDashboard("sales")).toBeUndefined();
+    for (const id of DASHBOARD_BOARD_IDS) {
+      expect(registeredDashboard(id)).toBeDefined();
+    }
+    expect(registeredDashboard("fulfillment")).toBeUndefined();
     expect(registeredDashboard("nope")).toBeUndefined();
     expect(unregisteredBoardIds()).toEqual([
-      "sales",
-      "marketing",
       "fulfillment",
       "ai-cost",
       "automation-health",
       "tools-connectors",
-      "human-employees",
     ]);
   });
 
