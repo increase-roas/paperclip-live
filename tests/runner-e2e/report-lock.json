@@ -2,5 +2,5 @@
   "inputSha256": "a7f6b8b20513614ec3e44b00ea4a9c6ce4dfc6cd153ccb3ac58423c5ead8606f",
   "outputSha256": "a7f6b8b20513614ec3e44b00ea4a9c6ce4dfc6cd153ccb3ac58423c5ead8606f",
   "patchSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-  "basis": "Admitted by the trusted master lockfile refresh after a verified Dependabot lockfile merged. No correction is needed."
+  "basis": "Refreshed against committed master pnpm-lock.yaml after commit 92a1cc07e4 via prepare-report-lock.mjs. No patch correction is needed."
 }

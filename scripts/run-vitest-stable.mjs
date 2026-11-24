@@ -542,7 +542,7 @@ async function runGeneralGroup(routeTests, groupName, shardIndex = null, shardCo
       ["--project", "@paperclipai/server",
         // Each file owns its database, home, and processes. Keep cases serial,
         // but overlap long real lease windows in four isolated fork workers.
-        ...(hasSharedTestDatabase ? serializedServerVitestArgs
+        ...(hasSharedTestDatabase || generalServerShardWorkers === 1 ? serializedServerVitestArgs
           : ["--pool=forks", "--isolate", "--fileParallelism", "--maxWorkers=4"]),
         ...nativeRunnerSuites],
       "native runner vertical-slice suite",
