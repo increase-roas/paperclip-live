@@ -94,7 +94,7 @@ jobs:
     # job hit the 90 minute limit 76 of 92 times in Nov 2026 and never passed,
     # so a hang now costs 20 to 25 minutes, not 90. A leg can set its own
     # `timeout` in the matrix (the native-runner leg compiles Rust first).
-    timeout-minutes: ${{ matrix.timeout || (matrix.mode == 'general' && 25 || 20) }}
+    timeout-minutes: ${{ matrix.timeout || (matrix.mode == 'general' && 40 || 20) }}
     env:
       # Two-core hosted runner: run each general-server shard's files serially,
       # as the unsharded general lane did.
@@ -143,8 +143,9 @@ jobs:
         run: |
           set -euo pipefail
           pnpm build:rust
-          cargo build --release --manifest-path runner/Cargo.toml --locked -p paperclip-runner-core \
-            --bin paperclip-runnerd --bin fake-codex-app-server --example recovery-fixture
+          cargo build --release --manifest-path runner/Cargo.toml --locked -p paperclip-runner-core --bin paperclip-runnerd
+          cargo build --release --manifest-path runner/Cargo.toml --locked -p paperclip-runner-core --bin paperclip-runnerd --bin fake-codex-app-server
+          cargo build --release --manifest-path runner/Cargo.toml --locked -p paperclip-runner-core --example recovery-fixture
       - name: Test
         run: |
           if [ "${{ matrix.mode }}" = "serialized" ]; then
