@@ -35,6 +35,24 @@ describe("hermesTalkVoiceRoutes", () => {
     expect(res.status).toBe(403);
   });
 
+  it("rejects non-admin board members with 403", async () => {
+    const app = makeApp(
+      {
+        type: "board",
+        userId: "u2",
+        source: "session",
+        isInstanceAdmin: false,
+        companyIds: ["c1"],
+      } as Express.Request["actor"],
+      {
+        upstreamUrl: "https://brain.example:9119",
+        sessionToken: "secret-tok",
+      },
+    );
+    const res = await request(app).post("/api/voice/hermes-talk/session").send({});
+    expect(res.status).toBe(403);
+  });
+
   it("returns 503 cleanly when upstream env vars are unset", async () => {
     const app = makeApp(
       { type: "board", userId: "u1", source: "local_implicit" } as Express.Request["actor"],
@@ -65,5 +83,23 @@ describe("hermesTalkVoiceRoutes", () => {
     expect(res.body.ok).toBe(true);
     expect(res.body.clientSecret).toBe("ek_test");
     expect(JSON.stringify(res.body)).not.toContain("super-secret-token");
+  });
+
+  it("maps upstream 401/403 authentication errors to 502 so the UI does not treat them as session expiry", async () => {
+    const mockFetch = vi.fn(async () => {
+      return new Response(JSON.stringify({ ok: false, error: "unauthorized" }), {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      });
+    });
+
+    const app = makeApp(
+      { type: "board", userId: "u1", source: "session", isInstanceAdmin: true, companyIds: ["c1"] } as Express.Request["actor"],
+      { upstreamUrl: "https://brain.example:9119", sessionToken: "wrong-token", fetchImpl: mockFetch as unknown as typeof fetch },
+    );
+    const res = await request(app).get("/api/voice/hermes-talk/status");
+    expect(res.status).toBe(502);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.error).toContain("Hermes Talk voice bridge authentication is misconfigured.");
   });
 });

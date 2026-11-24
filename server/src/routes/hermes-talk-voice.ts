@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { assertBoardOrgAccess } from "./authz.js";
+import { assertInstanceAdmin } from "./authz.js";
 
 export interface HermesTalkVoiceRouteOptions {
   upstreamUrl?: string;
@@ -27,7 +27,7 @@ async function forwardToHermesTalk(
   method: "GET" | "POST",
   timeoutMs: number,
 ) {
-  assertBoardOrgAccess(req);
+  assertInstanceAdmin(req);
   const { upstreamUrl, sessionToken, fetchImpl } = readConfig(opts);
   if (!upstreamUrl || !sessionToken) {
     res.status(503).json({
@@ -52,11 +52,19 @@ async function forwardToHermesTalk(
     }
 
     const upstream = await fetchImpl(`${upstreamUrl}/api/plugins/hermes-talk${upstreamPath}`, init);
+    if (upstream.status === 401 || upstream.status === 403) {
+      res.status(502).json({
+        ok: false,
+        error: "Hermes Talk voice bridge authentication is misconfigured.",
+      });
+      return;
+    }
+
     const text = await upstream.text();
-    const contentType = upstream.headers.get("content-type") || "application/json; charset=utf-8";
     res.status(upstream.status);
     res.setHeader("cache-control", "no-store");
-    res.setHeader("content-type", contentType);
+    res.setHeader("x-content-type-options", "nosniff");
+    res.setHeader("content-type", "application/json; charset=utf-8");
     res.send(text);
   } catch (err) {
     const aborted = err instanceof Error && err.name === "AbortError";
