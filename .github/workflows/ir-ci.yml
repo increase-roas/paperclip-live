@@ -92,7 +92,7 @@ jobs:
     runs-on: ubuntu-latest
     # Passing serialized shards take 10 to 13 minutes. The old single general
     # job hit the 90 minute limit 76 of 92 times in Nov 2026 and never passed,
-    # so a hang now costs 20 to 25 minutes, not 90. A leg can set its own
+    # so a hang now costs 20 to 40 minutes, not 90. A leg can set its own
     # `timeout` in the matrix (the native-runner leg compiles Rust first).
     timeout-minutes: ${{ matrix.timeout || (matrix.mode == 'general' && 40 || 20) }}
     env:
@@ -142,8 +142,8 @@ jobs:
         working-directory: packages/paperclip-runner
         run: |
           set -euo pipefail
+          node scripts/build-verified-provider-entrypoints.mjs
           pnpm build:rust
-          cargo build --release --manifest-path runner/Cargo.toml --locked -p paperclip-runner-core --bin paperclip-runnerd
           cargo build --release --manifest-path runner/Cargo.toml --locked -p paperclip-runner-core --bin paperclip-runnerd --bin fake-codex-app-server
           cargo build --release --manifest-path runner/Cargo.toml --locked -p paperclip-runner-core --example recovery-fixture
       - name: Test
