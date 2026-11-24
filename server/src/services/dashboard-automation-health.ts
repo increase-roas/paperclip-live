@@ -88,7 +88,8 @@ export function dashboardAutomationHealthService(
   options: { databaseBackupHealth?: InspectDatabaseBackupHealthOptions } = {},
 ) {
   return {
-    async board(companyId: string, now = new Date()): Promise<DashboardAutomationHealthBoard> {
+    async board(companyId: string, now = new Date(), boardOptions: { includeRawErrors?: boolean } = {}): Promise<DashboardAutomationHealthBoard> {
+      const includeRawErrors = boardOptions.includeRawErrors ?? true;
       const twentyFourHoursAgo = new Date(now.getTime() - DAY_MS);
       const sevenDaysAgo = new Date(now.getTime() - 7 * DAY_MS);
 
@@ -157,13 +158,13 @@ export function dashboardAutomationHealthService(
           agentId: agent.id,
           name: agent.name,
           status: agent.status,
-          errorReason: agent.errorReason,
+          errorReason: includeRawErrors ? agent.errorReason : null,
           heartbeatEnabled: policy.enabled,
           heartbeatIntervalSec: policy.intervalSec,
           lastHeartbeatAt: agent.lastHeartbeatAt?.toISOString() ?? null,
           lastRunAt: lastRun?.createdAt.toISOString() ?? null,
           lastRunStatus: lastRun?.status ?? null,
-          lastRunError: lastRun?.error ?? null,
+          lastRunError: includeRawErrors ? (lastRun?.error ?? null) : null,
           failedRuns24h: counts.failed,
           timedOutRuns24h: counts.timedOut,
         };
@@ -238,7 +239,7 @@ export function dashboardAutomationHealthService(
           assigneeName: routine.assigneeName,
           lastRunAt: lastRun?.createdAt.toISOString() ?? null,
           lastRunStatus: lastRun?.status ?? null,
-          lastRunResult: lastRun?.failureReason ?? lastRun?.status ?? null,
+          lastRunResult: includeRawErrors ? (lastRun?.failureReason ?? lastRun?.status ?? null) : (lastRun?.status ?? null),
           runs7d: counts.total,
           completed7d: counts.completed,
           failed7d: counts.failed,

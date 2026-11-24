@@ -50,21 +50,24 @@ function classify(row: DashboardConnectorRow): "healthy" | "attention" | "unchec
 
 export function dashboardToolsConnectorsService(db: Db) {
   return {
-    async board(companyId: string, now = new Date()): Promise<DashboardToolsConnectorsBoard> {
-      const pluginRows = await retryIdempotentDatabaseOperation(() =>
-        db
-          .select({
-            id: plugins.id,
-            name: plugins.packageName,
-            pluginKey: plugins.pluginKey,
-            version: plugins.version,
-            status: plugins.status,
-            lastError: plugins.lastError,
-            updatedAt: plugins.updatedAt,
-          })
-          .from(plugins)
-          .orderBy(plugins.pluginKey),
-      );
+    async board(companyId: string, now = new Date(), boardOptions: { includeInstancePlugins?: boolean } = {}): Promise<DashboardToolsConnectorsBoard> {
+      const includeInstancePlugins = boardOptions.includeInstancePlugins ?? true;
+      const pluginRows = includeInstancePlugins
+        ? await retryIdempotentDatabaseOperation(() =>
+            db
+              .select({
+                id: plugins.id,
+                name: plugins.packageName,
+                pluginKey: plugins.pluginKey,
+                version: plugins.version,
+                status: plugins.status,
+                lastError: plugins.lastError,
+                updatedAt: plugins.updatedAt,
+              })
+              .from(plugins)
+              .orderBy(plugins.pluginKey),
+          )
+        : [];
 
       const connectionRows = await retryIdempotentDatabaseOperation(() =>
         db

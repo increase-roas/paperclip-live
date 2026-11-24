@@ -34,11 +34,14 @@ let dashboardBoardRoutes: typeof import("../routes/dashboard-boards.js").dashboa
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
-async function createApp(db: Db) {
+async function createApp(
+  db: Db,
+  actor: Express.Request["actor"] = { type: "board", userId: "user-1", source: "local_implicit" } as Express.Request["actor"],
+) {
   const app = express();
   app.use(express.json());
   app.use((req, _res, next) => {
-    req.actor = { type: "board", userId: "user-1", source: "local_implicit" } as Express.Request["actor"];
+    req.actor = actor;
     next();
   });
   app.use("/api", dashboardBoardRoutes(db));
@@ -491,5 +494,44 @@ describePostgres("lane 3 dashboard board routes", () => {
       .toEqual([first.id, second.id].sort());
     expect(response.body.clients.map((client: { openTasks: number }) => client.openTasks).sort())
       .toEqual([1, 2]);
+  });
+
+  it("rejects cross-company agent keys with 403 on all four lane 3 endpoints", async () => {
+    await seed();
+    const otherCompanyAgentApp = await createApp(db, {
+      type: "agent",
+      agentId: randomUUID(),
+      companyId: randomUUID(),
+      source: "agent_key",
+    } as Express.Request["actor"]);
+
+    for (const board of ["ai-cost", "automation-health", "tools-connectors", "fulfillment"]) {
+      const res = await request(otherCompanyAgentApp).get(`/api/companies/${companyId}/dashboards/${board}`);
+      expect(res.status).toBe(403);
+    }
+  });
+
+  it("redacts raw run errors and hides instance-wide plugins from same-company agent keys", async () => {
+    await seed();
+    const sameCompanyAgentApp = await createApp(db, {
+      type: "agent",
+      agentId: randomUUID(),
+      companyId,
+      source: "agent_key",
+    } as Express.Request["actor"]);
+
+    const healthRes = await request(sameCompanyAgentApp).get(`/api/companies/${companyId}/dashboards/automation-health`);
+    expect(healthRes.status).toBe(200);
+    for (const seat of healthRes.body.seats) {
+      expect(seat.errorReason).toBeNull();
+      expect(seat.lastRunError).toBeNull();
+    }
+    for (const routine of healthRes.body.routines.items) {
+      expect(routine.lastRunResult === null || ["completed", "failed", "running", "queued"].includes(routine.lastRunResult)).toBe(true);
+    }
+
+    const toolsRes = await request(sameCompanyAgentApp).get(`/api/companies/${companyId}/dashboards/tools-connectors`);
+    expect(toolsRes.status).toBe(200);
+    expect(toolsRes.body.items.filter((item: { kind: string }) => item.kind === "plugin")).toEqual([]);
   });
 });

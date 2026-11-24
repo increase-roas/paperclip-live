@@ -5,7 +5,7 @@ import { dashboardAutomationHealthService } from "../services/dashboard-automati
 import { dashboardToolsConnectorsService } from "../services/dashboard-tools-connectors.js";
 import { dashboardFulfillmentService } from "../services/dashboard-fulfillment.js";
 import type { InspectDatabaseBackupHealthOptions } from "../services/database-backup-health.js";
-import { assertCompanyAccess } from "./authz.js";
+import { assertCompanyAccess, hasBoardOrgAccess } from "./authz.js";
 
 /**
  * Lane 3 operating boards. Each endpoint is a read-only aggregate over
@@ -33,13 +33,13 @@ export function dashboardBoardRoutes(
   router.get("/companies/:companyId/dashboards/automation-health", async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
-    res.json(await automationHealth.board(companyId));
+    res.json(await automationHealth.board(companyId, undefined, { includeRawErrors: hasBoardOrgAccess(req) }));
   });
 
   router.get("/companies/:companyId/dashboards/tools-connectors", async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
-    res.json(await tools.board(companyId));
+    res.json(await tools.board(companyId, undefined, { includeInstancePlugins: hasBoardOrgAccess(req) }));
   });
 
   router.get("/companies/:companyId/dashboards/fulfillment", async (req, res) => {
