@@ -9,6 +9,7 @@ import { registerGitHubReviewProjectionWork } from "./services/chat-channels/git
 import { finishServiceShutdown } from "./shutdown.js";
 import { promptInjectionPreventionRoutes } from "./routes/prompt-injection-prevention.js";
 import { voiceSessionRoutes, voiceWebhookRoutes } from "./routes/voice-sessions.js";
+import { hermesTalkVoiceRoutes } from "./routes/hermes-talk-voice.js";
 import { eq } from "drizzle-orm";
 import { chatEndpoints } from "@paperclipai/db";
 import { fastResponseRoutes } from "./routes/fast-responses.js";
@@ -837,6 +838,7 @@ export async function createApp(
   api.use(onboardingSeedRoutes(db));
   api.use(boardChatRoutes(db, { deploymentMode: opts.deploymentMode }));
   api.use(voiceSessionRoutes(db, chatChannels.voice));
+  api.use(hermesTalkVoiceRoutes());
   api.use(approvalRoutes(db, { pluginWorkerManager: workerManager }));
   api.use(secretRoutes(db));
   api.use(managedAgentProfileRoutes(db));
