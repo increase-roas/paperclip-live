@@ -102,4 +102,25 @@ describe("hermesTalkVoiceRoutes", () => {
     expect(res.body.ok).toBe(false);
     expect(res.body.error).toContain("Hermes Talk voice bridge authentication is misconfigured.");
   });
+
+  it("forwards POST /api/voice/hermes-talk/journal for instance admin", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true, written: 1 }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    const app = makeApp(
+      { type: "board", userId: "u1", source: "session", isInstanceAdmin: true, companyIds: ["c1"] } as Express.Request["actor"],
+      { upstreamUrl: "https://brain.example:9119", sessionToken: "secret-tok", fetchImpl: fetchMock as unknown as typeof fetch },
+    );
+    const body = { call_id: "call_0123456789abcdef0123456789abcdef", events: [{ kind: "user", seq: 1, text: "hello" }] };
+    const res = await request(app).post("/api/voice/hermes-talk/journal").send(body);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true, written: 1 });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://brain.example:9119/api/plugins/hermes-talk/journal",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
 });

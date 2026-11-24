@@ -98,5 +98,9 @@ export function hermesTalkVoiceRoutes(opts?: HermesTalkVoiceRouteOptions) {
     await forwardToHermesTalk(req, res, opts, "/runs", "GET", DEFAULT_TIMEOUT_MS);
   });
 
+  router.post("/voice/hermes-talk/journal", async (req, res) => {
+    await forwardToHermesTalk(req, res, opts, "/journal", "POST", DEFAULT_TIMEOUT_MS);
+  });
+
   return router;
 }
