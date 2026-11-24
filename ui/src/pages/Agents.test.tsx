@@ -916,7 +916,7 @@ describe("Agents", () => {
     expect(document.querySelector('[aria-label="Bulk actions"]')?.textContent).toContain("1 selected");
     expect(document.querySelector('[aria-label="Bulk actions"]')?.textContent).toContain("Edit connection & model");
     expect(mockRouterState.navigate).not.toHaveBeenCalled();
-    expect(Array.from(container.querySelectorAll("th")).map(cell => cell.textContent)).toEqual(["", "Agent", "Chat", "Status", "Harness", "Connection", "Default model"]);
+    expect(Array.from(container.querySelectorAll("th")).map(cell => cell.getAttribute("aria-label") ?? cell.textContent)).toEqual(["", "Agent", "Chat", "Status", "Harness", "Connection", "Default model"]);
   });
 
   it.each([
