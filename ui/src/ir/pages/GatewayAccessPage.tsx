@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
+  CheckCircle2,
   ExternalLink,
   RefreshCw,
   ShieldCheck,
@@ -26,9 +27,22 @@ import {
 import { AgentPolicySheet } from "./gateway/AgentPolicySheet";
 import { DashboardMcpTokensTab } from "./gateway/DashboardMcpTokensTab";
 import { GatewayAccessMatrix } from "./gateway/GatewayAccessMatrix";
+import { GatewayConnectedApps } from "./gateway/GatewayConnectedApps";
 import { GatewayRolesTab } from "./gateway/GatewayRolesTab";
 import { GatewayScopesCatalog } from "./gateway/GatewayScopesCatalog";
-import { buildNormalizedScopesCatalog, GATEWAY_OAUTH_START_URL } from "./gateway/gatewayHelpers";
+import {
+  buildNormalizedScopesCatalog,
+  classifyProviderConnection,
+  GATEWAY_OAUTH_START_URL,
+} from "./gateway/gatewayHelpers";
+
+type GatewayTabId = "apps" | "matrix" | "scopes" | "mcp" | "roles";
+
+const CONNECTED_PROVIDER_LABELS: Record<string, string> = {
+  quickbooks: "QuickBooks Online",
+  gmail: "Gmail",
+  zoom: "Zoom",
+};
 
 export function GatewayAccessPage() {
   const { selectedCompany } = useCompany();
@@ -46,9 +60,33 @@ export function GatewayAccessPage() {
   const [providers, setProviders] = useState<GatewayProviderSummary[]>([]);
   const [scopesCatalog, setScopesCatalog] = useState<GatewayScopesCatalogResponse | null>(null);
 
-  const [activeTab, setActiveTab] = useState<"matrix" | "scopes" | "mcp" | "roles">("matrix");
+  const [activeTab, setActiveTab] = useState<GatewayTabId>(() => {
+    if (typeof window !== "undefined") {
+      const tab = new URLSearchParams(window.location.search).get("tab");
+      if (tab === "apps" || tab === "matrix" || tab === "scopes" || tab === "mcp" || tab === "roles") {
+        return tab;
+      }
+    }
+    return "apps";
+  });
+  const [connectedBanner, setConnectedBanner] = useState<string | null>(null);
   const [selectedAgentName, setSelectedAgentName] = useState<string | null>(null);
   const [roleToApply, setRoleToApply] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    const connected = url.searchParams.get("connected");
+    if (connected) {
+      if (Object.hasOwn(CONNECTED_PROVIDER_LABELS, connected)) {
+        const label = CONNECTED_PROVIDER_LABELS[connected];
+        setConnectedBanner(`${label} is now connected and live on your OAuth Gateway.`);
+        setActiveTab("apps");
+      }
+      url.searchParams.delete("connected");
+      window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    }
+  }, []);
 
   useEffect(() => {
     setBreadcrumbs([
@@ -160,6 +198,17 @@ export function GatewayAccessPage() {
   const agencyScopeCount = statusData?.agency?.scopeCount;
   const pendingReauthCount = normalizedScopes.pendingReauthScopes.length;
 
+  const appCounts = useMemo(() => {
+    let live = statusData?.agency?.authorized ? 1 : 0;
+    let needsConnect = statusData?.agency?.authorized ? 0 : 1;
+    for (const p of providers) {
+      const c = classifyProviderConnection(p);
+      if (c.status === "live") live += 1;
+      else if (c.status === "needs_connect") needsConnect += 1;
+    }
+    return { live, needsConnect, total: providers.length + 1 };
+  }, [providers, statusData?.agency?.authorized]);
+
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-5">
       {/* Header Strip — zero external /admin escape hatches */}
@@ -199,7 +248,7 @@ export function GatewayAccessPage() {
             )}
           </div>
           <p className="text-sm text-muted-foreground">
-            Manage per-agent HighLevel and provider permissions, OAuth scopes, Dashboard MCP tokens, and role presets.
+            Manage connected apps, 1-click OAuth connections, per-agent permissions, scopes, Dashboard MCP tokens, and role presets.
           </p>
         </div>
 
@@ -229,6 +278,26 @@ export function GatewayAccessPage() {
         </div>
       </header>
 
+      {connectedBanner && (
+        <div
+          role="status"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-xs text-emerald-300"
+        >
+          <span className="inline-flex items-center gap-2">
+            <CheckCircle2 className="size-4 shrink-0" />
+            {connectedBanner}
+          </span>
+          <Button
+            type="button"
+            size="xs"
+            variant="ghost"
+            onClick={() => setConnectedBanner(null)}
+          >
+            Dismiss
+          </Button>
+        </div>
+      )}
+
       {loading ? (
         <div className="space-y-4">
           <Skeleton className="h-10 w-96" />
@@ -256,9 +325,23 @@ export function GatewayAccessPage() {
       ) : (
         <Tabs
           value={activeTab}
-          onValueChange={(v) => setActiveTab(v as "matrix" | "scopes" | "mcp" | "roles")}
+          onValueChange={(v) => setActiveTab(v as GatewayTabId)}
         >
           <TabsList className="mb-4 rounded-md">
+            <TabsTrigger value="apps" className="rounded-sm px-3 text-xs">
+              Connected Apps
+              <Badge
+                variant="outline"
+                className={cn(
+                  "ml-1.5 px-1.5 py-0 font-mono text-xs font-normal",
+                  appCounts.needsConnect > 0
+                    ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
+                    : "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
+                )}
+              >
+                {appCounts.live}/{appCounts.total}
+              </Badge>
+            </TabsTrigger>
             <TabsTrigger value="matrix" className="rounded-sm px-3 text-xs">
               Access Matrix
             </TabsTrigger>
@@ -280,6 +363,16 @@ export function GatewayAccessPage() {
               Roles & Presets
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="apps">
+            <GatewayConnectedApps
+              providers={providers}
+              status={statusData}
+              pendingReauthCount={pendingReauthCount}
+              reauthUrl={normalizedScopes.reauthUrl || GATEWAY_OAUTH_START_URL}
+              onRefresh={() => void loadAll(true)}
+            />
+          </TabsContent>
 
           <TabsContent value="matrix">
             <GatewayAccessMatrix

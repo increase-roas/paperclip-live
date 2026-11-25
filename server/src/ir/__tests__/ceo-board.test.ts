@@ -215,6 +215,95 @@ describe("ceoBoardService & readingOrder", () => {
     expect(readingOrder.statuses.cac).toBe("unknown");
   });
 
+  it("populates agency CEO money tiles from QuickBooks via Gateway without mixing client revenue", () => {
+    const emptyOwnerBundle: PortfolioSnapshotBundle = {
+      observedAt: "2026-11-25T17:00:00.000Z",
+      capital: null,
+      snapshots: null,
+      neonAccounts: null,
+      neonPipeline: null,
+      clients: [
+        {
+          slug: "paradise-spas",
+          displayName: "Paradise Spas",
+          observedAt: "2026-11-25T17:00:00.000Z",
+          newLeads: 50,
+          booked: 20,
+          showed: 15,
+          pitched: 12,
+          wonDeals: 4,
+          showRate: 75,
+          closeRate: 33.3,
+          pipelineRevenueUsd: 250000,
+          cashCollectedUsd: 250000,
+          speedToLeadSeconds: 30,
+          spend: 4000,
+          impressions: 20000,
+          clicks: 500,
+          cpl: 80,
+          cac: 1000,
+          roas: 62.5,
+          costPerHeldAppointment: 266.67,
+          zeroLeadDays: 0,
+        },
+      ],
+    };
+
+    const { ceo, readingOrder } = buildCeoAndReadingOrder(companyId, "30d", emptyOwnerBundle, pinnedNow, {
+      period: "30d",
+      startDate: "2026-10-26",
+      endDate: "2026-11-25",
+      observedAt: "2026-11-25T18:00:00.000Z",
+      source: "quickbooks_gateway",
+      cashCollectedUsd: 60000,
+      accrualRevenueUsd: 60000,
+      cogsUsd: 15000,
+      grossProfitUsd: 45000,
+      grossMarginPercent: 75,
+      operatingExpensesUsd: 8000,
+      totalExpensesUsd: 23000,
+      netProfitUsd: 37000,
+      advertisingSpendUsd: 5000,
+      activeCustomerCount: 5,
+    });
+
+    const tiles = new Map(ceo.moneyTiles.map((t) => [t.id, t]));
+    // Strictly agency QBO $60,000 (never mixes Paradise Spas' $250,000 client cash)
+    expect(tiles.get("cash-collected")?.value).toMatchObject({ kind: "live", value: 60000, unit: "usd" });
+    expect(tiles.get("cash-collected")?.source).toBe("QuickBooks Online (Gateway)");
+    expect(tiles.get("gross-margin")?.value).toMatchObject({ kind: "live", value: 75, unit: "percent" });
+    // 60000 / (15000 COGS + 5000 agency ad spend) = 3.0x
+    expect(tiles.get("30-day-cash-multiple")?.value).toMatchObject({ kind: "live", value: 3, unit: "ratio" });
+    // All-time LTGP:CAC & cohort CAC payback fail closed without verified owner cohort metrics
+    expect(tiles.get("ltgp-cac")?.value).toEqual({ kind: "not_connected" });
+    expect(tiles.get("cac-payback")?.value).toEqual({ kind: "not_connected" });
+    expect(tiles.get("churn")?.value).toEqual({ kind: "not_connected" });
+    expect(readingOrder.statuses.cash).toBe("ok");
+    expect(readingOrder.statuses["gross-margin"]).toBe("ok");
+
+    // When QBO has COGS but no ad spend line, 30-day cash multiple uses totalExpensesUsd (never fake $0 CAC)
+    const noAdRes = buildCeoAndReadingOrder(companyId, "30d", emptyOwnerBundle, pinnedNow, {
+      period: "30d",
+      startDate: "2026-10-26",
+      endDate: "2026-11-25",
+      observedAt: "2026-11-25T18:00:00.000Z",
+      source: "quickbooks_gateway",
+      cashCollectedUsd: 60000,
+      accrualRevenueUsd: 60000,
+      cogsUsd: 15000,
+      grossProfitUsd: 45000,
+      grossMarginPercent: 75,
+      operatingExpensesUsd: 15000,
+      totalExpensesUsd: 30000,
+      netProfitUsd: 30000,
+      advertisingSpendUsd: null,
+      activeCustomerCount: 5,
+    });
+    const noAdTiles = new Map(noAdRes.ceo.moneyTiles.map((t) => [t.id, t]));
+    // 60000 / 30000 totalExpenses = 2.0x (not 60000 / 15000 = 4.0x!)
+    expect(noAdTiles.get("30-day-cash-multiple")?.value).toMatchObject({ kind: "live", value: 2, unit: "ratio" });
+  });
+
   it("shows not_connected CEO money tiles when capital returned a mismatched 30d window for a 7d request", () => {
     const bundle: PortfolioSnapshotBundle = {
       observedAt: null,
