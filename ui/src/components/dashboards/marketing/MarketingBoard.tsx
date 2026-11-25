@@ -1,4 +1,5 @@
 import type { DashboardBoard } from "@paperclipai/shared";
+import type { DashboardPeriod } from "../period";
 import { BoardFrame } from "../lane2-shared/BoardFrame";
 import { BoardSections } from "../lane2-shared/BoardSections";
 import { DashboardBoardShell } from "../lane2-shared/DashboardBoardShell";
@@ -15,9 +16,12 @@ export function MarketingBoardView({ data }: { data: DashboardBoard }) {
   );
 }
 
-export function MarketingBoard({ companyId }: { companyId?: string } = {}) {
+export function MarketingBoard({
+  companyId,
+  period,
+}: { companyId?: string; period?: DashboardPeriod } = {}) {
   return (
-    <DashboardBoardShell board="marketing" title="Marketing" companyId={companyId}>
+    <DashboardBoardShell board="marketing" title="Marketing" companyId={companyId} period={period}>
       {(data) => <MarketingBoardView data={data} />}
     </DashboardBoardShell>
   );

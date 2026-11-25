@@ -35,7 +35,7 @@ import { Button } from "@/components/ui/button";
 import { InlineBanner } from "../components/InlineBanner";
 import type { Agent, Issue } from "@paperclipai/shared";
 import { PluginSlotOutlet } from "@/plugins/slots";
-import { SmokeLabDashboardCard } from "../components/SmokeLabDashboardCard";
+import { DashboardTabBar } from "../components/dashboards/DashboardShell";
 import { taskStatusIconProps } from "@/lib/task-status-presentation";
 
 const DASHBOARD_ACTIVITY_LIMIT = 10;
@@ -271,13 +271,14 @@ export function DashboardOperations() {
 
   return (
     <div className="space-y-6">
+      <DashboardTabBar activeBoardId={null} />
       <div>
         <h1 className="text-2xl font-semibold tracking-normal text-foreground">Paperclip operations</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Agent runs, budget incidents, activity and tasks — the operational detail behind the board
           dashboards.{" "}
-          <Link to="/dashboard" className="underline underline-offset-2 hover:text-foreground">
-            Back to dashboards
+          <Link to="/dashboard/automation-health" className="underline underline-offset-2 hover:text-foreground">
+            Open Automation health
           </Link>
         </p>
       </div>
@@ -411,8 +412,6 @@ export function DashboardOperations() {
               }
             />
           </div>
-
-          <SmokeLabDashboardCard companyId={selectedCompanyId!} />
 
           <div className={cn("grid grid-cols-2 gap-4", SHOW_TASK_PRIORITY_UI ? "lg:grid-cols-4" : "lg:grid-cols-3")}>
             <ChartCard title="Run Activity" subtitle="Last 14 days">

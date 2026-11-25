@@ -22,6 +22,7 @@ const companyState = vi.hoisted(() => ({
 const mockOpenOnboarding = vi.hoisted(() => vi.fn());
 const mockSetBreadcrumbs = vi.hoisted(() => vi.fn());
 const mockAgentsApi = vi.hoisted(() => ({ list: vi.fn() }));
+const mockDashboardBoardsApi = vi.hoisted(() => ({ readingOrder: vi.fn() }));
 
 vi.mock("@/lib/router", () => ({
   Link: ({ to, children, ...props }: { to: string; children: ReactNode } & Record<string, unknown>) => (
@@ -46,6 +47,7 @@ vi.mock("@/context/BreadcrumbContext", () => ({
 }));
 
 vi.mock("@/api/agents", () => ({ agentsApi: mockAgentsApi }));
+vi.mock("@/api/dashboardBoards", () => ({ dashboardBoardsApi: mockDashboardBoardsApi }));
 
 vi.mock("./ceo/CeoBoard", () => ({
   CeoBoard: () => <div data-testid="ceo-board-stub" />,
@@ -109,6 +111,7 @@ beforeEach(() => {
   routerState.pathname = "/INC/dashboard/ceo";
   resetOnboardingOffers();
   mockAgentsApi.list.mockResolvedValue([{ id: "agent-1", companyId: "company-1", status: "idle", pauseReason: null }]);
+  mockDashboardBoardsApi.readingOrder.mockResolvedValue({});
 });
 
 afterEach(async () => {
@@ -132,16 +135,22 @@ describe("DashboardShell", () => {
       "Fulfillment",
       "AI cost",
       "Automation health",
-      "Tools/connectors",
+      "Tools & connectors",
       "Human employees",
     ]);
 
     expect(container.querySelector('[data-testid="dashboard-tab-ceo"]')?.getAttribute("aria-current")).toBe("page");
     expect(tabs.map((tab) => tab.getAttribute("href"))).toContain("/dashboard/sales");
     expect(container.querySelector('[data-testid="ceo-board-stub"]')).not.toBeNull();
+    // Redundant "Paperclip operations" link removed from the tab bar header.
+    expect(container.textContent).not.toContain("Paperclip operations");
   });
 
-  it("puts the eight-question reading order strip above the open board", async () => {
+  it("puts the eight-question reading order strip above the CEO board with live statuses and metrics", async () => {
+    mockDashboardBoardsApi.readingOrder.mockResolvedValue({
+      statuses: { cash: "ok", "cash-multiple": "red" },
+      metrics: { cash: "$48,500", "cash-multiple": "1.4×" },
+    });
     const container = await renderShell();
     const strip = container.querySelector('[data-testid="dashboard-reading-order"]');
     const board = container.querySelector('[data-testid="ceo-board-stub"]');
@@ -149,19 +158,33 @@ describe("DashboardShell", () => {
     expect(strip).not.toBeNull();
     expect(board).not.toBeNull();
     if (strip && board) {
-      // The strip comes first in the document, so the reader meets it before
-      // any board.
       expect(strip.compareDocumentPosition(board) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     }
 
     const steps = Array.from(strip?.querySelectorAll("[data-reading-order-step]") ?? []);
     expect(steps).toHaveLength(8);
-    expect(steps[0].textContent).toContain("Are we going out of business?");
-    expect(steps[0].textContent).toContain("Cash collected, trailing 30 days");
-    expect(steps[7].textContent).toContain("Is the spend buying customers or just leads?");
-    expect(steps[7].textContent).toContain("CAC");
-    // No money source is connected, so the first grey question is the stop.
-    expect(steps[0].getAttribute("data-attention")).toBe("true");
+    expect(steps[0].getAttribute("data-state")).toBe("ok");
+    expect(steps[0].textContent).toContain("$48,500");
+    expect(steps[1].getAttribute("data-state")).toBe("red");
+    expect(steps[1].getAttribute("data-attention")).toBe("true");
+    expect(steps[1].textContent).toContain("1.4×");
+    expect(mockDashboardBoardsApi.readingOrder).toHaveBeenCalledWith("company-1", "30d");
+  });
+
+  it("hides the reading order strip on the other seven dashboard tabs", async () => {
+    for (const boardId of [
+      "sales",
+      "marketing",
+      "fulfillment",
+      "ai-cost",
+      "automation-health",
+      "tools-connectors",
+      "human-employees",
+    ]) {
+      routerState.params = { boardId };
+      const container = await renderShell();
+      expect(container.querySelector('[data-testid="dashboard-reading-order"]')).toBeNull();
+    }
   });
 
   it("renders registered lane 3 boards inside the shell", async () => {

@@ -18,7 +18,17 @@ const apiMocks = vi.hoisted(() => ({
   fulfillment: vi.fn(),
 }));
 
+const dashboardApiMocks = vi.hoisted(() => ({
+  summary: vi.fn(),
+}));
+
+vi.mock("@/lib/router", () => ({
+  Link: ({ to, children, ...props }: { to: string; children: ReactNode } & Record<string, unknown>) => (
+    <a href={to} {...props}>{children}</a>
+  ),
+}));
 vi.mock("@/api/dashboardBoards", () => ({ dashboardBoardsApi: apiMocks }));
+vi.mock("@/api/dashboard", () => ({ dashboardApi: dashboardApiMocks }));
 vi.mock("@/context/CompanyContext", () => ({
   useCompany: () => ({ selectedCompanyId: "company-1" }),
 }));
@@ -357,6 +367,17 @@ describe("lane 3 dashboard boards", () => {
     apiMocks.automationHealth.mockResolvedValue(automationFixture);
     apiMocks.toolsConnectors.mockResolvedValue(toolsFixture);
     apiMocks.fulfillment.mockResolvedValue(fulfillmentFixture);
+    dashboardApiMocks.summary.mockResolvedValue({
+      companyId: "company-1",
+      agents: { active: 1, running: 0, paused: 0, error: 1 },
+      tasks: { open: 1, inProgress: 0, blocked: 1, done: 0 },
+      costs: { monthSpendCents: 1100, monthBudgetCents: 20000, monthUtilizationPercent: 5.5 },
+      pendingApprovals: 1,
+      budgets: { activeIncidents: 0, pendingApprovals: 0, pausedAgents: 0, pausedProjects: 0 },
+      runActivity: [
+        { date: "2026-11-23", succeeded: 4, failed: 1, recovered: 0, other: 0, total: 5, failedByErrorCode: {} },
+      ],
+    });
   });
 
   afterEach(async () => {
@@ -406,23 +427,97 @@ describe("lane 3 dashboard boards", () => {
     expect(container.textContent).toContain("v1 source, not Hormozi");
   });
 
-  it("Automation health shows seat errors, routine rate, blocked work and approvals", async () => {
+  it("AI cost hides terminated $0 seats behind a toggle by default", async () => {
+    apiMocks.aiCost.mockResolvedValue({
+      ...aiCostFixture,
+      seats: [
+        ...aiCostFixture.seats,
+        {
+          agentId: "a-term",
+          name: "Legacy Retired Seat",
+          status: "terminated",
+          budgetMonthlyCents: 0,
+          spendTodayCents: 0,
+          spend7dCents: 0,
+          spendMonthToDateCents: 0,
+          utilizationPercent: null,
+          overEightyPercent: false,
+          completedTasksMonth: 0,
+          costPerCompletedTaskCents: null,
+        },
+      ],
+    });
+    await render(<AiCostBoard />);
+    await vi.waitFor(() => expect(container.textContent).toContain("Atlas"));
+    expect(container.textContent).not.toContain("Legacy Retired Seat");
+
+    const toggle = container.querySelector<HTMLButtonElement>('[data-testid="ai-cost-toggle-terminated"]');
+    expect(toggle?.textContent).toContain("Show terminated seats (1)");
+    await act(async () => {
+      toggle?.click();
+    });
+    expect(container.textContent).toContain("Legacy Retired Seat");
+  });
+
+  it("Automation health shows seat errors, 14-day charts, routine rate, blocked work, and filters terminated seats", async () => {
+    apiMocks.automationHealth.mockResolvedValue({
+      ...automationFixture,
+      seats: [
+        ...automationFixture.seats,
+        {
+          agentId: "a-term",
+          name: "Old Terminated Bot",
+          status: "terminated",
+          errorReason: null,
+          heartbeatEnabled: false,
+          heartbeatIntervalSec: 0,
+          lastHeartbeatAt: null,
+          lastRunAt: null,
+          lastRunStatus: null,
+          lastRunError: null,
+          failedRuns24h: 0,
+          timedOutRuns24h: 0,
+        },
+      ],
+      seatSummary: { total: 2, running: 0, idle: 0, error: 1, paused: 0 },
+    });
+
     await render(<AutomationHealthBoard />);
     await vi.waitFor(() => expect(container.textContent).toContain("provider quota"));
+    expect(container.querySelector('[data-testid="automation-seats"]')?.textContent).toContain("0 / 1");
     expect(container.querySelector('[data-testid="automation-failures"]')?.textContent).toContain("3");
     expect(container.querySelector('[data-testid="automation-routines"]')?.textContent).toContain("50.0%");
     expect(container.textContent).toContain("gateway timeout");
     expect(container.textContent).toContain("L3-2");
-    expect(container.textContent).toContain("budget_increase");
+    expect(container.textContent).toContain("Any task blocked over 24 hours escalates to Javar.");
     expect(container.querySelector('[data-testid="automation-backup"]')?.textContent).toContain(
       "Not connected: Database backup",
     );
+    // Duplicate Approvals tile & table removed; replaced by a clean link to /decisions.
+    expect(container.querySelector('[data-testid="automation-approvals"]')).toBeNull();
+    expect(container.textContent).not.toContain("budget_increase");
+    expect(
+      container.querySelector('[data-testid="automation-approvals-link"]')?.getAttribute("href"),
+    ).toBe("/decisions");
+    // 14-day run charts are folded into Automation health.
+    expect(container.querySelector('[data-testid="automation-run-charts"]')).not.toBeNull();
+    // Terminated seat hidden by default, revealed via toggle.
+    expect(container.textContent).not.toContain("Old Terminated Bot");
+    const toggle = container.querySelector<HTMLButtonElement>('[data-testid="automation-toggle-terminated"]');
+    expect(toggle?.textContent).toContain("Show terminated (1)");
+    await act(async () => {
+      toggle?.click();
+    });
+    expect(container.textContent).toContain("Old Terminated Bot");
     expect(container.textContent).toContain("v1 spec, not Hormozi");
   });
 
-  it("Tools shows health, last successful use and an explicit expiry-unknown state", async () => {
+  it("Tools shows health, destructive expiry warning banner, last successful use and an explicit expiry-unknown state", async () => {
     await render(<ToolsConnectorsBoard />);
     await vi.waitFor(() => expect(container.textContent).toContain("Meta Ads MCP"));
+    expect(container.querySelector('[data-testid="tools-expiry-warning"]')?.textContent).toContain(
+      "Meta Ads MCP",
+    );
     expect(container.querySelector('[data-testid="tools-attention"]')?.textContent).toContain("1");
     expect(container.textContent).toContain("token expires soon");
     expect(container.textContent).toContain("Expiry unknown");

@@ -124,7 +124,7 @@ export function FulfillmentBoard({ companyId: companyIdProp }: { companyId?: str
             {board.clients.length === 0 ? (
               <BoardEmpty message="No open tasks are attached to a project." />
             ) : (
-              <Card className="gap-0 overflow-x-auto p-0">
+              <Card elevation="low" className="gap-0 overflow-x-auto p-0">
                 <table className="w-full min-w-max text-sm">
                   <thead>
                     <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -165,7 +165,7 @@ export function FulfillmentBoard({ companyId: companyIdProp }: { companyId?: str
               {board.onboarding.items.length === 0 ? (
                 <BoardEmpty message="No open onboarding tasks found." />
               ) : (
-                <Card className="gap-0 p-0">
+                <Card elevation="low" className="gap-0 p-0">
                   <ul className="divide-y divide-border">
                     {board.onboarding.items.map((task) => (
                       <li key={task.id} className="flex items-start justify-between gap-3 px-4 py-3">
@@ -197,7 +197,7 @@ export function FulfillmentBoard({ companyId: companyIdProp }: { companyId?: str
               ) : board.support.items.length === 0 ? (
                 <BoardEmpty message="No open support requests." />
               ) : (
-                <Card className="gap-0 p-0">
+                <Card elevation="low" className="gap-0 p-0">
                   <ul className="divide-y divide-border">
                     {board.support.items.map((task) => (
                       <li key={task.id} className="flex items-start justify-between gap-3 px-4 py-3">

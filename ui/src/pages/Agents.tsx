@@ -1,7 +1,6 @@
 import { OrgChartNotices } from "@/components/OrgChartNotices";
 import { PrimaryAgentIndicator } from "@/components/primary-agent/PrimaryAgentPresentation";
 import { AgentBulkRoster } from "@/components/agents/AgentBulkRoster";
-import { AgentAvatar } from "@/components/AgentAvatar";
 import { AgentChatPin, useAgentChatPins } from "@/components/AgentChatPin";
 import { useAgentChatEnabled } from "../hooks/useAgentChatEnabled";
 import { useState, useEffect, useMemo, lazy, Suspense } from "react";
@@ -32,12 +31,93 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tooltip as TooltipPrimitive } from "radix-ui";
 import { AlertTriangle, Bot, MessagesSquare } from "lucide-react";
-import { AGENT_ROLE_LABELS, type Agent, type Environment, type EnvironmentCapabilities } from "@paperclipai/shared";
+import {
+  AGENT_ROLE_LABELS,
+  legacyAgentAppearance,
+  resolveAgentAppearance,
+  type Agent,
+  type AgentAvatarSize,
+  type Environment,
+  type EnvironmentCapabilities,
+} from "@paperclipai/shared";
+import { agentAvatarUrl } from "@/lib/agent-avatar-url";
+import { deriveInitials } from "@/components/Identity";
+import { useAvatarInitials } from "@/components/ui/avatar-initials";
 import { usePublishSharedQueryData, useSharedPollingQuery } from "../hooks/useSharedPolling";
 
 import { agentDisplayAdapterType, getAdapterLabel } from "../adapters/adapter-display-registry";
 
 const roleLabels = AGENT_ROLE_LABELS as Record<string, string>;
+
+export function formatAgentSubtitle(role: string, title?: string | null): string {
+  const roleLabel = (roleLabels[role] ?? role).trim();
+  const cleanTitle = title?.trim() ?? "";
+  if (!cleanTitle) return roleLabel;
+  if (cleanTitle.toLowerCase() === roleLabel.toLowerCase()) return roleLabel;
+  return `${roleLabel} - ${cleanTitle}`;
+}
+
+function RosterAgentAvatar({
+  agent,
+  size,
+}: {
+  agent: { id?: string; name?: string; appearance?: Agent["appearance"] };
+  size: AgentAvatarSize;
+}) {
+  const identity = resolveAgentAppearance(agent.appearance, agent.id);
+  const fallbackIdentity = legacyAgentAppearance(agent.id ?? agent.name ?? "agent");
+  const primarySrc = agentAvatarUrl(identity, size, 1, "rest", false);
+  const fallbackSrc = identity.customAvatarAssetId
+    ? agentAvatarUrl(fallbackIdentity, size, 1, "rest", false)
+    : null;
+  const [stage, setStage] = useState<"primary" | "fallback" | "initials">("primary");
+  const initials = useAvatarInitials(deriveInitials(agent.name ?? "Agent"));
+
+  useEffect(() => {
+    setStage("primary");
+  }, [primarySrc]);
+
+  const activeSrc = stage === "primary" ? primarySrc : stage === "fallback" ? fallbackSrc : null;
+  const activeIdentity = stage === "primary" ? identity : fallbackIdentity;
+  const sizeClass = size === 24 ? "size-6" : "size-8";
+
+  return (
+    <span
+      data-slot="agent-avatar"
+      className={cn(
+        "relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted/60 align-middle ring-1 ring-border/60",
+        sizeClass,
+      )}
+      aria-hidden
+    >
+      {stage === "initials" || !activeSrc ? (
+        <span className="text-xs font-medium text-foreground">{initials}</span>
+      ) : (
+        <img
+          src={activeSrc}
+          srcSet={
+            activeIdentity.customAvatarAssetId
+              ? undefined
+              : `${agentAvatarUrl(activeIdentity, size, 2, "rest", false)} 2x`
+          }
+          alt=""
+          width={size}
+          height={size}
+          decoding="async"
+          loading="eager"
+          className="size-full object-contain"
+          onError={() => {
+            if (stage === "primary" && fallbackSrc && fallbackSrc !== primarySrc) {
+              setStage("fallback");
+            } else {
+              setStage("initials");
+            }
+          }}
+        />
+      )}
+    </span>
+  );
+}
 
 // Lazy-loaded so the roster page doesn't statically pull in the full
 // AgentConfigForm module graph (the modal reuses its adapter/model pickers).
@@ -398,14 +478,20 @@ export function Agents({ initialView = "list" }: { initialView?: AgentsView } = 
         titleClassName="agent-pin-text flex-1"
         titleTextClassName="truncate"
         subtitleClassName="truncate"
-        subtitle={`${roleLabels[agent.role] ?? agent.role}${agent.title ? ` - ${agent.title}` : ""}`}
+        subtitle={formatAgentSubtitle(agent.role, agent.title)}
         to={agentUrl(agent)}
         className="agent-roster-identity group py-3 group-hover/agent-pin:bg-accent/50 group-focus-within/agent-pin:bg-accent/50"
-        leading={hasInvalidOrgChain ? (
-          <AlertTriangle className="h-3.5 w-3.5 text-amber-500" aria-label="Invalid reporting chain" />
-        ) : (
-          <AgentAvatar agent={agent} size={32} />
-        )}
+        leading={
+          <span className="relative inline-flex items-center">
+            <RosterAgentAvatar agent={agent} size={32} />
+            {hasInvalidOrgChain ? (
+              <AlertTriangle
+                className="ml-1.5 h-3.5 w-3.5 shrink-0 text-(--status-task-icon-todo)"
+                aria-label="Invalid reporting chain"
+              />
+            ) : null}
+          </span>
+        }
         secondaryRowClassName={cn("pl-11", !builtInCluster && !showEnvironmentColumn && !agent.lastHeartbeatAt && "sm:hidden")}
         secondaryRow={(agent.status === "paused" || builtInCluster || showEnvironmentColumn || agent.lastHeartbeatAt) && (
           <div className="flex flex-wrap items-center gap-2">
@@ -552,11 +638,15 @@ function OrgTreeNode({
         to={agent ? agentUrl(agent) : `/agents/${node.id}`}
         className="group flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-accent/50 transition-colors w-full text-left no-underline text-inherit"
       >
-        {hasInvalidOrgChain ? (
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" aria-label="Invalid reporting chain" />
-        ) : (
-          <AgentAvatar agent={agent ?? node} size={24} />
-        )}
+        <span className="inline-flex shrink-0 items-center">
+          <RosterAgentAvatar agent={agent ?? node} size={24} />
+          {hasInvalidOrgChain ? (
+            <AlertTriangle
+              className="ml-1.5 h-3.5 w-3.5 shrink-0 text-(--status-task-icon-todo)"
+              aria-label="Invalid reporting chain"
+            />
+          ) : null}
+        </span>
         <div className="flex-1 min-w-0 flex flex-wrap items-center gap-2">
           {/* Name floor + `truncate` keeps the primary identifier readable; the
               cluster wraps to a second line under pressure instead of starving
@@ -564,8 +654,7 @@ function OrgTreeNode({
           <div className="min-w-(--sz-7rem) truncate">
             <span className="text-sm font-medium">{node.name}</span>
             <span className="text-xs text-muted-foreground ml-2">
-              {roleLabels[node.role] ?? node.role}
-              {agent?.title ? ` - ${agent.title}` : ""}
+              {formatAgentSubtitle(node.role, agent?.title)}
             </span>
           </div>
           {builtInState && showBuiltInLifecycle && (
