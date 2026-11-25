@@ -102,5 +102,31 @@ export function hermesTalkVoiceRoutes(opts?: HermesTalkVoiceRouteOptions) {
     await forwardToHermesTalk(req, res, opts, "/journal", "POST", DEFAULT_TIMEOUT_MS);
   });
 
+  router.get("/voice/hermes-talk/workflows", async (req, res) => {
+    await forwardToHermesTalk(req, res, opts, "/workflows", "GET", DEFAULT_TIMEOUT_MS);
+  });
+
+  router.get("/voice/hermes-talk/workflows/read", async (req, res) => {
+    const rawPath = typeof req.query.path === "string" ? req.query.path : "";
+    const qs = rawPath ? `?path=${encodeURIComponent(rawPath)}` : "";
+    await forwardToHermesTalk(req, res, opts, `/workflows/read${qs}`, "GET", DEFAULT_TIMEOUT_MS);
+  });
+
+  router.post("/voice/hermes-talk/workflows/save", async (req, res) => {
+    await forwardToHermesTalk(req, res, opts, "/workflows/save", "POST", TOOL_TIMEOUT_MS);
+  });
+
+  router.get("/sales-dashboard/admin-key", async (req, res) => {
+    assertInstanceAdmin(req);
+    const adminKey = (process.env.SALES_DASHBOARD_ADMIN_KEY ?? "").trim();
+    res.setHeader("cache-control", "no-store");
+    res.setHeader("x-content-type-options", "nosniff");
+    if (!adminKey) {
+      res.status(503).json({ ok: false, configured: false, error: "Sales dashboard admin key is not configured." });
+      return;
+    }
+    res.status(200).json({ ok: true, adminKey });
+  });
+
   return router;
 }
