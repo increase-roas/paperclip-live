@@ -24,6 +24,8 @@ import { KeyboardShortcutsCheatsheet } from "./KeyboardShortcutsCheatsheet";
 import { ToastViewport } from "./ToastViewport";
 import { AnnouncementWell } from "./AnnouncementWell";
 import { PluginAppShellOverlays } from "./PluginAppShellOverlays";
+import { JavarVoiceProvider } from "@/ir/voice/JavarVoiceContext";
+import { JavarVoiceDock } from "@/ir/voice/JavarVoiceDock";
 import { MobileBottomNav } from "./MobileBottomNav";
 import { WorktreeBanner } from "./WorktreeBanner";
 import { DevRestartBanner } from "./DevRestartBanner";
@@ -582,6 +584,7 @@ export function Layout({ sidebarSections }: { sidebarSections?: ReactNode }) {
   }, [location.key, location.pathname, location.state, navigationType]);
 
   return (
+    <JavarVoiceProvider>
     <CoordinatorPresentation.Provider value={coordinatorWorkspaceEnabled}>
     <CoordinatorChatReferencesProvider enabled={coordinatorWorkspaceEnabled}>
     <ChatSetupSidebarProvider>
@@ -773,9 +776,11 @@ export function Layout({ sidebarSections }: { sidebarSections?: ReactNode }) {
       <ToastViewport />
       {isMobile ? <AnnouncementWell health={health} placement="floating" /> : null}
       <PluginAppShellOverlays localTrusted={health?.deploymentMode === "local_trusted"} />
+      <JavarVoiceDock />
       </div>
     </ChatSetupSidebarProvider>
     </CoordinatorChatReferencesProvider>
     </CoordinatorPresentation.Provider>
+    </JavarVoiceProvider>
   );
 }

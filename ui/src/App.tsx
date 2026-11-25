@@ -137,6 +137,9 @@ const AssistantConnection = lazy(() => import("./pages/apps/AssistantConnection"
 const JoinRequestQueue = lazy(() => import("./pages/JoinRequestQueue").then((module) => ({ default: module.JoinRequestQueue })));
 
 const CompanyExport = lazy(() => import("./pages/CompanyExport").then((module) => ({ default: module.CompanyExport })));
+const ClientsPage = lazy(() => import("./ir/pages/ClientsPage").then((module) => ({ default: module.ClientsPage })));
+const WorkflowsPage = lazy(() => import("./ir/pages/WorkflowsPage").then((module) => ({ default: module.WorkflowsPage })));
+const GatewayAccessPage = lazy(() => import("./ir/pages/GatewayAccessPage").then((module) => ({ default: module.GatewayAccessPage })));
 
 const ProductionAgents = lazy(() => import("./pages/Agents.production").then((module) => ({ default: module.Agents })));
 const ProductionRoutines = lazy(() => import("./pages/Routines.production").then((module) => ({ default: module.Routines })));
@@ -165,8 +168,11 @@ function boardRoutes(streamlinedUiEnabled: boolean, combinedInboxTasksEnabled: b
       />
       <Route path="onboarding" element={<OnboardingRoutePage />} />
       <Route path="companies" element={<Companies />} />
+      <Route path="clients" element={<ClientsPage />} />
+      <Route path="workflows" element={<WorkflowsPage />} />
       <Route path="company/settings" element={<CompanySettings />} />
       <Route path="company/settings/connections" element={<CompanyConnections />} />
+      <Route path="company/settings/gateway" element={<GatewayAccessPage />} />
       <Route path="company/settings/environments" element={<Navigate to="/company/settings/instance/environments" replace />} />
       <Route path="company/settings/cloud-upstream" element={<Navigate to="/company/export" replace />} />
       <Route element={<HiddenSettingsPageGate pageKey="company.members" />}>
@@ -817,6 +823,9 @@ export function App() {
           <Route path="instance/settings" element={<LegacySettingsRedirect />} />
           <Route path="instance/settings/*" element={<LegacySettingsRedirect />} />
           <Route path="companies" element={<UnprefixedBoardRedirect />} />
+          <Route path="clients" element={<UnprefixedBoardRedirect />} />
+          <Route path="workflows" element={<UnprefixedBoardRedirect />} />
+          <Route path="company/settings/*" element={<UnprefixedBoardRedirect />} />
           <Route path="issues" element={<UnprefixedBoardRedirect />} />
           <Route path="tasks" element={<UnprefixedBoardRedirect />} />
           <Route path="issues/:issueId" element={<UnprefixedBoardRedirect />} />
