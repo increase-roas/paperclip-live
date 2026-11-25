@@ -1,5 +1,7 @@
-# Increase ROAS CI on GitHub-hosted runners. Runs Paperclip's own commands
-# from package.json / doc/DEVELOPING.md: install, build, typecheck, tests.
+# Increase ROAS CI. Runs Paperclip's own commands from package.json /
+# doc/DEVELOPING.md: install, build, typecheck, tests.
+# Pull requests run on GitHub-hosted ubuntu-latest so untrusted PR branch code
+# does not execute on brain-vps; post-merge master runs use the brain-vps runner.
 # (Upstream's pr.yml calls Paperclip's pr-trusted.yml, which needs Paperclip's
 # private runner fleet and secrets, so ir-guard keeps it switched off here.
 # ir-pr.yml is the fork's PR entry point and calls this workflow.)
@@ -35,7 +37,7 @@ env:
 jobs:
   changes:
     name: detect changed paths
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && '["self-hosted", "brain-vps"]' || '"ubuntu-latest"') }}
     timeout-minutes: 5
     outputs:
       code: ${{ steps.filter.outputs.code }}
@@ -71,7 +73,7 @@ jobs:
     name: build + typecheck
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && '["self-hosted", "brain-vps"]' || '"ubuntu-latest"') }}
     # Passing runs take about 30 minutes (p90 32.5, max 37.7 in Nov 2026).
     timeout-minutes: 45
     steps:
@@ -89,22 +91,22 @@ jobs:
     name: test (${{ matrix.label }})
     needs: changes
     if: needs.changes.outputs.code == 'true' && needs.changes.outputs.full == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && '["self-hosted", "brain-vps"]' || '"ubuntu-latest"') }}
     # Passing serialized shards take 10 to 13 minutes. The old single general
     # job hit the 90 minute limit 76 of 92 times in Nov 2026 and never passed,
     # so a hang now costs 20 to 40 minutes, not 90. A leg can set its own
     # `timeout` in the matrix (the native-runner leg compiles Rust first).
     timeout-minutes: ${{ matrix.timeout || (matrix.mode == 'general' && 40 || 20) }}
     env:
-      # Two-core hosted runner: run each general-server shard's files serially,
-      # as the unsharded general lane did.
+      # Keep the general-server shard worker count stable across hosts.
       PAPERCLIP_GENERAL_SERVER_SHARD_WORKERS: "1"
     strategy:
+      max-parallel: 1
       fail-fast: false
       matrix:
         include:
           # The serialized shard needs more than two hours on an eight-core host,
-          # so it runs as six parallel jobs here. Same flags as pr-trusted.yml.
+          # so it is split into six jobs here. Same flags as pr-trusted.yml.
           - { mode: serialized, label: serialized 1/6, shard_index: 0, shard_count: 6 }
           - { mode: serialized, label: serialized 2/6, shard_index: 1, shard_count: 6 }
           - { mode: serialized, label: serialized 3/6, shard_index: 2, shard_count: 6 }
@@ -161,15 +163,24 @@ jobs:
 
   ir-scripts:
     name: IR files
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && '["self-hosted", "brain-vps"]' || '"ubuntu-latest"') }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Shell and workflow lint
         run: |
+          tools_dir="$(mktemp -d "$RUNNER_TEMP/ir-lint.XXXXXX")"
+          trap 'rm -rf "$tools_dir"' EXIT
+          if ! command -v shellcheck >/dev/null; then
+            archive="$tools_dir/shellcheck.tar.xz"
+            curl -fsSL https://github.com/koalaman/shellcheck/releases/download/v0.10.0/shellcheck-v0.10.0.linux.x86_64.tar.xz -o "$archive"
+            printf '%s  %s\n' '6c881ab0698e4e6ea235245f22832860544f17ba386442fe7e9d629f8cbedf87' "$archive" | sha256sum -c -
+            tar -xJf "$archive" -C "$tools_dir" --strip-components=1 shellcheck-v0.10.0/shellcheck
+            export PATH="$tools_dir:$PATH"
+          fi
           shellcheck scripts/ir/*.sh docker/increase-roas/*.sh
-          pip install --quiet yamllint
-          yamllint -d '{extends: relaxed, rules: {line-length: disable}}' .github/workflows/ir-*.yml .github/actions/ir-setup/action.yml
+          python3 -m pip install --quiet --target "$tools_dir" yamllint
+          PYTHONPATH="$tools_dir" python3 -m yamllint -d '{extends: relaxed, rules: {line-length: disable}}' .github/workflows/ir-*.yml .github/actions/ir-setup/action.yml
       - name: Upstream sync dry run
         env:
           GH_TOKEN: ${{ github.token }}
@@ -183,7 +194,7 @@ jobs:
     name: IR CI passed
     if: always()
     needs: [changes, build, test, ir-scripts]
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && '["self-hosted", "brain-vps"]' || '"ubuntu-latest"') }}
     steps:
       - name: Aggregate the required jobs
         shell: bash

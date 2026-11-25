@@ -32,9 +32,11 @@ import { bindConnectivity, createAppQueryClient } from "./lib/query-client";
 import { captureBrowserException } from "./lib/sentry";
 import { startPersistedQueryCache } from "./lib/persisted-query-cache";
 import { hasPendingWrites, subscribePendingWrites } from "./lib/reload-safety";
+import { installErrorReporter } from "./ir/lib/errorReporter";
 import "@mdxeditor/editor/style.css";
 import "./index.css";
 
+installErrorReporter();
 initPluginBridge(React, ReactDOM);
 
 // React 19.2 emits an unbounded stream of performance.measure() entries for its
