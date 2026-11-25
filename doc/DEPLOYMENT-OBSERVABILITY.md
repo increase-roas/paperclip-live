@@ -23,7 +23,7 @@ on `/api/metrics` with the pre-deploy window.
 | Signal | Where |
 | --- | --- |
 | Asset availability | `GET /` and `GET /assets/*` through the server |
-| Browser errors | Sentry (`SENTRY_DSN` / `VITE_SENTRY_DSN`), PII suppressed |
+| Browser errors | Sentry (`SENTRY_DSN_FRONTEND` or `SENTRY_DSN` from the session), PII suppressed |
 | Route and visibility hints | `X-Paperclip-Route` and `X-Paperclip-Tab-Visible` request headers |
 | Request tracing | `traceparent` and `x-request-id` on same-origin API calls |
 
@@ -112,6 +112,29 @@ Every tracker sends `sendDefaultPii: false` and redacts context. The structured
 logger always receives the stack, tags, opaque user id and breadcrumbs, so an
 operator can trace a failure without Sentry. The UI adds explicit breadcrumbs
 and the opaque user id only; automatic breadcrumbs and page URLs stay off.
+
+### Increase ROAS error log
+
+The server writes sanitized HTTP 5xx failures and browser crashes to
+`logs/ir-errors.jsonl` below the instance data root. It rolls at 10 MiB and
+retains three older files. Keep this directory on the instance's persistent
+volume. Run one server writer per log directory.
+
+Board instance admins can search retained records with `GET /api/ir/errors`.
+Use `q`, `source` (`server` or `client`), `severity` (`error` or `fatal`),
+`since` (ISO timestamp), and `limit` (100 by default, up to 500). The
+`sentryEnabled` flag reports whether the legacy `SENTRY_DSN` variable is set.
+It does not check SDK installation or delivery. Server Sentry requires the
+exact optional `@sentry/node` version listed in the server manifest.
+
+The UI posts reports to `POST /api/ir/errors/client` with its same-origin
+board session. The endpoint accepts up to 16 KiB per report and 30 submissions
+per minute for each IP and session.
+
+To relay a sanitized incident summary, set `IR_ERROR_INCIDENT_WEBHOOK_URL`
+and optionally `IR_ERROR_INCIDENT_WEBHOOK_TOKEN`. The relay sends at most one
+summary per fingerprint in five minutes and times out after three seconds.
+Storage and search work without a webhook or Sentry.
 
 ## Component health export
 

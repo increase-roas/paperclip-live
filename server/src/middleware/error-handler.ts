@@ -6,6 +6,8 @@ import { HttpError } from "../errors.js";
 import { trackErrorHandlerCrash } from "@paperclipai/shared/telemetry";
 import { getTelemetryClient } from "../telemetry.js";
 import { captureException } from "../sentry.js";
+import { parseBuildCommit } from "../build-commit.js";
+import { recordServerError } from "../ir/error-log.js";
 import { COMPANY_IMPORT_API_PATH } from "../routes/company-import-paths.js";
 import { logger } from "./logger.js";
 import {
@@ -95,7 +97,20 @@ function sanitizeSecretSensitiveResponse(
 }
 
 /** Report a server-side crash to every error sink. */
-function reportCrash(error: Error, req: Request, reportToSentry = true): void {
+function reportCrash(error: Error, req: Request, statusCode: number, reportToSentry = true): void {
+  try {
+    recordServerError({
+      severity: "error",
+      message: error.message,
+      stack: error.stack,
+      route: req.originalUrl.split("?", 1)[0],
+      method: req.method,
+      statusCode,
+      release: parseBuildCommit(process.env.PAPERCLIP_BUILD_COMMIT) ?? undefined,
+    });
+  } catch {
+    // Error reporting must allow the original response to proceed.
+  }
   const tc = getTelemetryClient();
   if (tc) trackErrorHandlerCrash(tc, { errorCode: error.name });
   if (reportToSentry) {
@@ -214,7 +229,7 @@ export function errorHandler(
             },
         reportableError,
       );
-      reportCrash(reportableError, req, !isExpectedMcpConnectionFailure(err));
+      reportCrash(reportableError, req, err.status, !isExpectedMcpConnectionFailure(err));
     }
     const secretSensitiveServerError =
       err.status >= 500 &&
@@ -354,7 +369,7 @@ export function errorHandler(
     reportableError,
   );
 
-  reportCrash(reportableError, req);
+  reportCrash(reportableError, req, 500);
 
   res.status(500).json({
     error: "Internal server error",

@@ -5,10 +5,9 @@
 # private runner group and depends on their secrets, so it cannot run on this
 # fork; ir-guard.yml keeps it switched off on purpose.
 #
-# This workflow is the fork's PR entry point. It calls ir-ci.yml on
-# GitHub-hosted runners, so the PR path has no dependency on upstream runners
-# or secrets. Pull requests get build + typecheck only. The test suites run
-# after merge to master, or on a PR when someone adds the full-ci label.
+# This workflow is the fork's PR entry point for repository-owned branches.
+# It calls ir-ci.yml on brain-vps. Pull requests get build + typecheck.
+# Tests run after merge to master or when a PR receives the full-ci label.
 # The repository setting Settings -> Actions ->
 # General must also be enabled; a workflow cannot run while Actions is disabled.
 name: IR PR
@@ -25,7 +24,9 @@ jobs:
   ci:
     name: IR CI
     # Other labels do not start a new run.
-    if: github.event.action != 'labeled' || github.event.label.name == 'full-ci'
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (github.event.action != 'labeled' || github.event.label.name == 'full-ci')
     # A new push supersedes the previous run for the same pull request. This
     # sits on the job, so a skipped run for another label cancels nothing.
     concurrency:
