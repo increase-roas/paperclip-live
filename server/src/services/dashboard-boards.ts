@@ -6,6 +6,7 @@ import type {
   DashboardTable,
   DashboardTile,
   DashboardTileValue,
+  DashboardUnit,
 } from "@paperclipai/shared";
 import {
   teamCapitalAdapter,
@@ -494,7 +495,7 @@ async function readSalesSnapshot(fetchImpl: typeof fetch = fetch): Promise<Sales
   }
 }
 
-function liveVal(value: number | null | undefined, unit: DashboardTileValue extends { kind: "live"; unit: infer U } ? U : never, observedAt: string): DashboardTileValue {
+function liveVal(value: number | null | undefined, unit: DashboardUnit, observedAt: string): DashboardTileValue {
   if (typeof value !== "number" || !Number.isFinite(value)) return notConnected();
   return { kind: "live", value, unit, observedAt };
 }
