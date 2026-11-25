@@ -116,6 +116,43 @@ export function hermesTalkVoiceRoutes(opts?: HermesTalkVoiceRouteOptions) {
     await forwardToHermesTalk(req, res, opts, "/workflows/save", "POST", TOOL_TIMEOUT_MS);
   });
 
+  const SALES_DASH_BASE = (process.env.SALES_DASHBOARD_BASE_URL ?? "https://dashboard.increaseai.tech").trim().replace(/\/+$/, "");
+
+  async function forwardToSalesDash(req: Request, res: Response, sdPath: string, method: "GET" | "POST") {
+    assertInstanceAdmin(req);
+    const adminKey = (process.env.SALES_DASHBOARD_ADMIN_KEY ?? "").trim();
+    if (!adminKey) {
+      res.status(503).json({ ok: false, error: "Sales dashboard admin key is not configured." });
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+    try {
+      const headers: Record<string, string> = { Authorization: `Bearer ${adminKey}`, accept: "application/json" };
+      const init: RequestInit = { method, headers, signal: controller.signal };
+      if (method === "POST") {
+        headers["content-type"] = "application/json";
+        init.body = JSON.stringify(req.body && typeof req.body === "object" ? req.body : {});
+      }
+      const upstream = await (opts?.fetchImpl ?? fetch)(`${SALES_DASH_BASE}${sdPath}`, init);
+      const text = await upstream.text();
+      res.status(upstream.status);
+      res.setHeader("cache-control", "no-store");
+      res.setHeader("x-content-type-options", "nosniff");
+      res.setHeader("content-type", "application/json; charset=utf-8");
+      res.send(text);
+    } catch (err) {
+      const aborted = err instanceof Error && err.name === "AbortError";
+      res.status(aborted ? 504 : 502).json({ ok: false, error: aborted ? "Sales dashboard timed out." : "Could not reach Sales dashboard." });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  router.get("/sales-dashboard/tenants", async (req, res) => { await forwardToSalesDash(req, res, "/api/pilot/admin/tenants", "GET"); });
+  router.get("/sales-dashboard/capital", async (req, res) => { await forwardToSalesDash(req, res, "/api/pilot/admin/capital?view=30d", "GET"); });
+  router.post("/sales-dashboard/sync", async (req, res) => { await forwardToSalesDash(req, res, "/api/pilot/admin/sync", "POST"); });
+
   router.get("/sales-dashboard/admin-key", async (req, res) => {
     assertInstanceAdmin(req);
     const adminKey = (process.env.SALES_DASHBOARD_ADMIN_KEY ?? "").trim();
