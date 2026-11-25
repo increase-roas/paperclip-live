@@ -1,14 +1,15 @@
+import { normalizePastedMarkdown } from "./markdownPaste";
+
 /**
  * Normalize pasted markdown by removing common leading whitespace (dedent)
  * and normalizing line endings. This fixes formatting issues when pasting
  * content from terminals/consoles that add uniform indentation.
  */
 export function normalizeMarkdown(text: string): string {
-  // Normalize line endings
-  let result = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const normalized = normalizePastedMarkdown(text);
 
-  const lines = result.split("\n");
-  if (lines.length <= 1) return result;
+  const lines = normalized.split("\n");
+  if (lines.length <= 1) return normalized;
 
   // Find minimum indentation across non-empty lines
   let minIndent = Infinity;
@@ -20,7 +21,7 @@ export function normalizeMarkdown(text: string): string {
       const leadingWhitespace = match[1];
       const currentStyle = leadingWhitespace.includes("\t") ? "tabs" : "spaces";
       if (indentStyle && indentStyle !== currentStyle) {
-        return result;
+        return normalized;
       }
       indentStyle = currentStyle;
       minIndent = Math.min(minIndent, leadingWhitespace.length);
@@ -30,15 +31,10 @@ export function normalizeMarkdown(text: string): string {
     }
   }
 
-  // Strip common indent and trim whitespace-only lines
-  if (minIndent > 0 && minIndent < Infinity) {
-    result = lines
-      .map((line) => {
-        if (line.trim() === "") return "";
-        return line.slice(minIndent);
-      })
-      .join("\n");
-  }
+  if (minIndent === 0 || minIndent === Infinity) return normalized;
 
-  return result;
+  // Strip common indent and trim whitespace-only lines
+  return lines
+    .map((line) => line.trim() === "" ? "" : line.slice(minIndent))
+    .join("\n");
 }
