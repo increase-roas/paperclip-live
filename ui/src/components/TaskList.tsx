@@ -2,13 +2,13 @@ import { Fragment, useId, useState, type ReactNode } from "react";
 import type { Issue } from "@paperclipai/shared";
 import { ChevronDown, ChevronRight, GitBranch } from "lucide-react";
 import { buildIssueTree } from "../lib/issue-tree";
-import { issueFilterLabel } from "../lib/issue-filters";
 import { paperclipHumanAvatarUrl } from "../lib/issue-chat-human-author";
 import { defaultTaskListColumns, defaultTaskListSort, isTaskListColumnSort, taskListOrderToIssueSort, type TaskListColumnId, type TaskListSort, type TaskListOrder } from "../lib/task-list";
 import { sortIssues } from "../lib/issue-sort";
 import { timeAgo } from "../lib/timeAgo";
 import { IssueRow, type IssueRowDensity } from "./IssueRow";
 import { IssueGroupHeader } from "./IssueGroupHeader";
+import { StatusIcon } from "./StatusIcon";
 import { TaskListColumnHeader, TaskListColumnSettings, TaskListViewport } from "./TaskListColumns";
 import { TaskRowGroup } from "./TaskRowGroup";
 import { Badge } from "./ui/badge";
@@ -30,6 +30,38 @@ export type TaskListItem = {
 };
 
 export type TaskListGrouping = "none" | "status" | "project";
+
+export type TaskStatusGroupKey = "in_progress" | "in_review" | "todo" | "completed";
+
+export const TASK_STATUS_GROUPS: ReadonlyArray<{
+  key: TaskStatusGroupKey;
+  label: string;
+  iconStatus: string;
+  defaultCollapsed?: boolean;
+}> = [
+  { key: "in_progress", label: "In Progress", iconStatus: "in_progress" },
+  { key: "in_review", label: "In Review", iconStatus: "in_review" },
+  { key: "todo", label: "Todo", iconStatus: "todo" },
+  { key: "completed", label: "Completed", iconStatus: "done", defaultCollapsed: true },
+];
+
+export function resolveTaskStatusGroup(status: string): TaskStatusGroupKey {
+  switch (status) {
+    case "in_progress":
+    case "monitoring":
+    case "blocked":
+      return "in_progress";
+    case "in_review":
+      return "in_review";
+    case "done":
+    case "cancelled":
+      return "completed";
+    case "todo":
+    case "backlog":
+    default:
+      return "todo";
+  }
+}
 
 /** Keep matching subtasks in their hierarchy without pulling in unrelated siblings. */
 export function includeTaskListAncestors(items: readonly TaskListItem[], matches: readonly TaskListItem[]): TaskListItem[] {
@@ -71,6 +103,17 @@ export function TaskList({ items, allItems = items, initialColumns = defaultTask
     onSortChange?.(next);
   };
   const [localCollapsed, setLocalCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<string>>(
+    () => new Set(TASK_STATUS_GROUPS.filter(group => group.defaultCollapsed).map(group => group.key)),
+  );
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups(current => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
   const collapsed = collapsedIds ?? localCollapsed;
   const setCollapsed = onCollapsedIdsChange ?? setLocalCollapsed;
   const byId = new Map(allItems.map(item => [item.issue.id, item]));
@@ -81,12 +124,40 @@ export function TaskList({ items, allItems = items, initialColumns = defaultTask
     return { createdBy: item.createdBy, assignee: item.assignee, parentTask: parent ? `${parent.identifier} ${parent.title}` : null };
   });
   const { roots, childMap } = buildIssueTree(ordered);
+  type RenderedGroup = { key: string; label: string; iconStatus?: string; collapsible?: boolean; roots: Issue[] };
+  const groupedSections: RenderedGroup[] = (() => {
+    if (groupBy === "status") {
+      const buckets = new Map<TaskStatusGroupKey, Issue[]>(TASK_STATUS_GROUPS.map(group => [group.key, []]));
+      for (const root of roots) {
+        const key = resolveTaskStatusGroup(root.status);
+        buckets.get(key)!.push(root);
+      }
+      return TASK_STATUS_GROUPS.flatMap(group => {
+        const groupRoots = buckets.get(group.key) ?? [];
+        return groupRoots.length > 0
+          ? [{ key: group.key, label: group.label, iconStatus: group.iconStatus, collapsible: true, roots: groupRoots }]
+          : [];
+      });
+    }
+    if (groupBy === "project") {
+      const byProject = new Map<string, Issue[]>();
+      for (const root of roots) {
+        const label = root.project?.name ?? "No project";
+        byProject.set(label, [...(byProject.get(label) ?? []), root]);
+      }
+      return [...byProject].map(([label, groupRoots]) => ({ key: label, label, roots: groupRoots }));
+    }
+    return [{ key: "", label: "", roots }];
+  })();
   const rowIds: string[] = [];
   const collectRows = (issue: Issue) => {
     rowIds.push(issue.id);
     if (!collapsed.has(issue.id)) for (const child of childMap.get(issue.id) ?? []) collectRows(child);
   };
-  roots.forEach(collectRows);
+  for (const section of groupedSections) {
+    if (section.collapsible && collapsedGroups.has(section.key)) continue;
+    section.roots.forEach(collectRows);
+  }
   const { limit, hasMore, sentinel, loadMore } = useTaskRowBudget(rowIds, JSON.stringify([collectionKey ?? localKey, sort ?? defaultTaskListSort, groupBy]));
   const renderedIds = new Set(rowIds.slice(0, limit));
   const updateColumns = (next: readonly TaskListColumnId[]) => {
@@ -137,23 +208,47 @@ export function TaskList({ items, allItems = items, initialColumns = defaultTask
       </Fragment>
     );
   };
-  const groups = new Map<string, Issue[]>();
-  for (const root of roots) {
-    const label = groupBy === "status" ? issueFilterLabel(root.status) : groupBy === "project" ? root.project?.name ?? "No project" : "";
-    groups.set(label, [...(groups.get(label) ?? []), root]);
-  }
   return (
     <TaskListViewport visibleColumns={columns} columnOrder={columnOrder} controls={<TaskListColumnSettings visibleColumns={columns} onVisibleColumnsChange={updateColumns} onColumnOrderChange={setColumnOrder} onResetDefaults={() => setSort(undefined)} />}>
       <TaskListColumnHeader sort={sort && isTaskListColumnSort(sort) ? sort : undefined} onSortChange={setSort} onColumnOrderChange={setColumnOrder} />
       {items.length === 0 ? emptyState : (
         <div aria-label={`${density} task list`}>
-          {[...groups].map(([label, groupRoots]) => groupRoots.some(issue => renderedIds.has(issue.id)) ? (
-            <Fragment key={label}>
-              {label ? <IssueGroupHeader label={label} className="task-list-group-heading" trailing={<span className="text-xs text-muted-foreground">{groupRoots.length}</span>} /> : null}
-              {groupRoots.filter(issue => renderedIds.has(issue.id)).map(issue => <TaskRowGroup key={issue.id} role="rowgroup" aria-label={`${issue.title} task group`}
-                data-density={density} className={childMap.get(issue.id)?.length ? undefined : "task-row-deferred"}>{renderBranch(issue, 0)}</TaskRowGroup>)}
-            </Fragment>
-          ) : null)}
+          {groupedSections.map(section => {
+            const isCollapsed = Boolean(section.collapsible && collapsedGroups.has(section.key));
+            const visibleRoots = isCollapsed ? [] : section.roots.filter(issue => renderedIds.has(issue.id));
+            if (!isCollapsed && !section.collapsible && visibleRoots.length === 0) return null;
+            return (
+              <section key={section.key} data-status-group={section.collapsible ? section.key : undefined} className={section.collapsible ? "mt-3 first:mt-0" : undefined}>
+                {section.label ? (
+                  <IssueGroupHeader
+                    label={section.label}
+                    icon={section.iconStatus ? <StatusIcon status={section.iconStatus} size="md" /> : undefined}
+                    collapsible={section.collapsible}
+                    collapsed={isCollapsed}
+                    onToggle={section.collapsible ? () => toggleGroup(section.key) : undefined}
+                    labelClassName={section.collapsible ? "truncate text-sm font-semibold text-foreground" : undefined}
+                    className="task-list-group-heading"
+                    trailing={
+                      <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-xs font-medium text-muted-foreground">
+                        {section.roots.length}
+                      </span>
+                    }
+                  />
+                ) : null}
+                {!isCollapsed && visibleRoots.map(issue => (
+                  <TaskRowGroup
+                    key={issue.id}
+                    role="rowgroup"
+                    aria-label={`${issue.title} task group`}
+                    data-density={density}
+                    className={childMap.get(issue.id)?.length ? undefined : "task-row-deferred"}
+                  >
+                    {renderBranch(issue, 0)}
+                  </TaskRowGroup>
+                ))}
+              </section>
+            );
+          })}
         </div>
       )}
       {hasMore ? <div ref={sentinel} className="flex items-center gap-3 py-2 text-sm text-muted-foreground">

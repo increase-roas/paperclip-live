@@ -290,6 +290,7 @@ export function CoordinatorTasks({ viewControl }: { viewControl?: ReactNode } = 
     {pending ? <p role="status" className="text-sm text-muted-foreground">Loading tasks…</p> : !error && <>
       <div hidden={collection.layout !== "list"} className="design-task-list-panel">{collection.matchingItems.length ? <TaskList key={companyId}
         items={(needsAttention ? collection.matchingItems : collection.visibleItems).map(enrichItem)} allItems={collection.companyItems.map(enrichItem)}
+        groupBy="status"
         preferenceLocation={userId ? { companyId, collectionKey: `coordinator-tasks:${userId}` } : undefined}
         collectionKey={JSON.stringify([companyId, userId, needsAttention, deferredQuery, participantAgentId, workspaceIds, collection.view, collection.filters])}
         sort={sort} onSortChange={setSort}

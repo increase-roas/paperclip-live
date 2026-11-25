@@ -1,15 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
+  Boxes,
   Cpu,
   Download,
   FlaskConical,
+  History,
   KeyRound,
   Link2,
   MonitorCog,
+  Package,
   Puzzle,
   Shield,
   SlidersHorizontal,
+  Unplug,
   Upload,
   UserRoundPen,
   Users,
@@ -199,6 +203,11 @@ export function CompanySettingsSidebar() {
               icon={Cpu}
             />
           )}
+          <div role="separator" className="my-2 border-t border-border/70" />
+          <SidebarNavItem to="/apps" label="Connectors" icon={Unplug} />
+          <SidebarNavItem to="/skills" label="Skills" icon={Boxes} />
+          <SidebarNavItem to="/artifacts" label="Artifacts" icon={Package} />
+          <SidebarNavItem to="/activity" label="Audit" icon={History} />
         </div>
       </nav>
     </ContextualSidebarFrame>

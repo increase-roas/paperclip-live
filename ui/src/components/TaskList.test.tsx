@@ -144,4 +144,49 @@ describe("TaskList progressive rendering", () => {
     await render(tasks(300).map(item => ({ issue: { ...item.issue, id: `other-${item.issue.id}` } })), "different-filter");
     expect(rows()).toHaveLength(100);
   });
+
+  it("groups tasks into collapsible In Progress, In Review, Todo, and Completed (collapsed by default) sections", async () => {
+    const items: TaskListItem[] = [
+      { issue: createIssue({ id: "done-1", title: "Finished task", status: "done", updatedAt: new Date(5000) }) },
+      { issue: createIssue({ id: "cancelled-1", title: "Cancelled task", status: "cancelled", updatedAt: new Date(4000) }) },
+      { issue: createIssue({ id: "todo-1", title: "Todo task", status: "todo", updatedAt: new Date(3000) }) },
+      { issue: createIssue({ id: "backlog-1", title: "Backlog task", status: "backlog", updatedAt: new Date(2500) }) },
+      { issue: createIssue({ id: "review-1", title: "Review task", status: "in_review", updatedAt: new Date(2000) }) },
+      { issue: createIssue({ id: "prog-1", title: "Active task", status: "in_progress", updatedAt: new Date(1000) }) },
+    ];
+    await act(async () => root.render(<TooltipProvider><TaskList items={items} groupBy="status" /></TooltipProvider>));
+
+    const sections = [...host.querySelectorAll<HTMLElement>("section[data-status-group]")];
+    expect(sections.map(s => s.dataset.statusGroup)).toEqual(["in_progress", "in_review", "todo", "completed"]);
+
+    const groupButtons = sections.map(s => s.querySelector<HTMLButtonElement>("button[aria-expanded]")!);
+    expect(groupButtons.map(b => b.getAttribute("aria-expanded"))).toEqual(["true", "true", "true", "false"]);
+    expect([...rows()].map(r => r.getAttribute("data-issue-row-details"))).toEqual([
+      "prog-1",
+      "review-1",
+      "todo-1",
+      "backlog-1",
+    ]);
+
+    await act(async () => groupButtons[3].click());
+    expect(groupButtons[3].getAttribute("aria-expanded")).toBe("true");
+    expect([...rows()].map(r => r.getAttribute("data-issue-row-details"))).toEqual([
+      "prog-1",
+      "review-1",
+      "todo-1",
+      "backlog-1",
+      "done-1",
+      "cancelled-1",
+    ]);
+
+    await act(async () => groupButtons[0].click());
+    expect(groupButtons[0].getAttribute("aria-expanded")).toBe("false");
+    expect([...rows()].map(r => r.getAttribute("data-issue-row-details"))).toEqual([
+      "review-1",
+      "todo-1",
+      "backlog-1",
+      "done-1",
+      "cancelled-1",
+    ]);
+  });
 });

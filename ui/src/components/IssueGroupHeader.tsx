@@ -4,20 +4,24 @@ import { cn } from "../lib/utils";
 
 type IssueGroupHeaderProps = {
   label: string;
+  icon?: ReactNode;
   collapsible?: boolean;
   collapsed?: boolean;
   onToggle?: () => void;
   trailing?: ReactNode;
   className?: string;
+  labelClassName?: string;
 };
 
 export function IssueGroupHeader({
   label,
+  icon,
   collapsible = false,
   collapsed = false,
   onToggle,
   trailing,
   className,
+  labelClassName = "truncate text-sm font-semibold uppercase tracking-wide",
 }: IssueGroupHeaderProps) {
   return (
     <div className={cn("flex items-center py-1.5 pl-1 pr-3", className)}>
@@ -35,13 +39,15 @@ export function IssueGroupHeader({
               className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform", !collapsed && "rotate-90")}
             />
           </span>
-          <span className="truncate text-sm font-semibold uppercase tracking-wide">
+          {icon ? <span className="inline-flex shrink-0 items-center">{icon}</span> : null}
+          <span className={labelClassName}>
             {label}
           </span>
         </button>
       ) : (
         <div className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate text-sm font-semibold uppercase tracking-wide">
+          {icon ? <span className="inline-flex shrink-0 items-center">{icon}</span> : null}
+          <span className={labelClassName}>
             {label}
           </span>
         </div>
