@@ -100,6 +100,7 @@ const apiPrefixes: Record<string, string> = {
   "teams-catalog.ts": "/api",
   "tool-access.ts": "/api",
   "voice-sessions.ts": "/api",
+  "hermes-talk-voice.ts": "/api",
   "tool-gateway.ts": "/api",
   "user-profiles.ts": "/api",
   "workspace-preferences.ts": "/api",

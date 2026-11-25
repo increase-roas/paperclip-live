@@ -92,6 +92,7 @@ import { appendHeartbeatRunEvent } from "../services/heartbeat-run-events.js";
 import { companySkillService } from "../services/company-skills.js";
 import { companyObservability } from "@paperclipai/db";
 import * as runIdentityModule from "../services/run-identity.js";
+import * as servicesIndexModule from "../services/index.js";
 import { chatGitHubRegistrations, chatGitHubReviews, chatGitHubConfigurations, toolCatalogEntries } from "@paperclipai/db";
 import { AsyncLocalStorage } from "node:async_hooks";
 import * as cloudRuntimeIdentity from "../services/cloud-runtime-identity.js";
@@ -44267,11 +44268,14 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
     });
     onTestFinished(unsubscribeReceipt);
     const providerAcknowledgement = Promise.resolve(callbacks.onAction(actionEvent()));
+    // Nothing is held here, so this bounds real database reconciliation time.
+    // Use Slack's 3-second interactivity acknowledgement deadline; a tighter
+    // wall-clock bound fails on loaded CI runners without a product defect.
     await expect(
       Promise.race([
         providerAcknowledgement.then(() => "acknowledged" as const),
         new Promise<"timed_out">((resolve) =>
-          setTimeout(() => resolve("timed_out"), 250),
+          setTimeout(() => resolve("timed_out"), 3_000),
         ),
       ]),
     ).resolves.toBe("acknowledged");
@@ -66290,7 +66294,14 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
       const app = express();
       app.use(express.json());
       app.use((req, _res, next) => { req.actor = boardActor(companyId); next(); });
-      app.use("/api", issueRoutes(db, createStorageService().storage, { chatRunRetries: f.service }));
+      // Disable the route's post-response resumeTaskRetry nudge so dispatch
+      // happens only through the explicit maintenance pass below. Otherwise the
+      // nudge races the post-acceptance source edit and can queue the retry first.
+      const realHeartbeatService = servicesIndexModule.heartbeatService;
+      const routeHeartbeat = vi.spyOn(servicesIndexModule, "heartbeatService").mockImplementation((...args) =>
+        ({ ...realHeartbeatService(...args), resumeTaskRetry: async () => {} }));
+      try { app.use("/api", issueRoutes(db, createStorageService().storage, { chatRunRetries: f.service })); }
+      finally { routeHeartbeat.mockRestore(); }
       app.use(errorHandler);
       const denySource = async (apply: () => Promise<unknown>, restore: () => Promise<unknown>, stale = false) => {
         try {

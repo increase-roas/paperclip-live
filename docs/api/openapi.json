@@ -7092,6 +7092,661 @@
         }
       }
     },
+    "/api/voice/hermes-talk/status": {
+      "get": {
+        "tags": [
+          "voice-sessions"
+        ],
+        "summary": "Read Hermes Talk voice bridge status",
+        "description": "Instance admins only. Proxies the configured Hermes Talk voice server with a server-held session token; the token is never returned. Returns 503 when the bridge is not configured.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Hermes Talk upstream unreachable or misconfigured"
+          },
+          "503": {
+            "description": "Hermes Talk voice bridge not configured"
+          },
+          "504": {
+            "description": "Hermes Talk upstream timed out"
+          }
+        },
+        "security": [
+          {
+            "BoardSessionAuth": []
+          },
+          {
+            "BoardApiKeyAuth": []
+          },
+          {
+            "AgentBearerAuth": []
+          }
+        ],
+        "x-paperclip-authorization": {
+          "actor": "board_or_agent"
+        }
+      }
+    },
+    "/api/voice/hermes-talk/session": {
+      "post": {
+        "tags": [
+          "voice-sessions"
+        ],
+        "summary": "Start a Hermes Talk voice session",
+        "description": "Instance admins only. Proxies the configured Hermes Talk voice server with a server-held session token; the token is never returned. Returns 503 when the bridge is not configured.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Hermes Talk upstream unreachable or misconfigured"
+          },
+          "503": {
+            "description": "Hermes Talk voice bridge not configured"
+          },
+          "504": {
+            "description": "Hermes Talk upstream timed out"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "BoardSessionAuth": []
+          },
+          {
+            "BoardApiKeyAuth": []
+          },
+          {
+            "AgentBearerAuth": []
+          }
+        ],
+        "x-paperclip-authorization": {
+          "actor": "board_or_agent"
+        }
+      }
+    },
+    "/api/voice/hermes-talk/tool": {
+      "post": {
+        "tags": [
+          "voice-sessions"
+        ],
+        "summary": "Run a Hermes Talk voice tool call",
+        "description": "Instance admins only. Proxies the configured Hermes Talk voice server with a server-held session token; the token is never returned. Returns 503 when the bridge is not configured.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Hermes Talk upstream unreachable or misconfigured"
+          },
+          "503": {
+            "description": "Hermes Talk voice bridge not configured"
+          },
+          "504": {
+            "description": "Hermes Talk upstream timed out"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "BoardSessionAuth": []
+          },
+          {
+            "BoardApiKeyAuth": []
+          },
+          {
+            "AgentBearerAuth": []
+          }
+        ],
+        "x-paperclip-authorization": {
+          "actor": "board_or_agent"
+        }
+      }
+    },
+    "/api/voice/hermes-talk/runs": {
+      "get": {
+        "tags": [
+          "voice-sessions"
+        ],
+        "summary": "List recent Hermes Talk voice runs",
+        "description": "Instance admins only. Proxies the configured Hermes Talk voice server with a server-held session token; the token is never returned. Returns 503 when the bridge is not configured.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Hermes Talk upstream unreachable or misconfigured"
+          },
+          "503": {
+            "description": "Hermes Talk voice bridge not configured"
+          },
+          "504": {
+            "description": "Hermes Talk upstream timed out"
+          }
+        },
+        "security": [
+          {
+            "BoardSessionAuth": []
+          },
+          {
+            "BoardApiKeyAuth": []
+          },
+          {
+            "AgentBearerAuth": []
+          }
+        ],
+        "x-paperclip-authorization": {
+          "actor": "board_or_agent"
+        }
+      }
+    },
+    "/api/voice/hermes-talk/journal": {
+      "post": {
+        "tags": [
+          "voice-sessions"
+        ],
+        "summary": "Record a spoken call transcript",
+        "description": "Instance admins only. Proxies the configured Hermes Talk voice server with a server-held session token; the token is never returned. Returns 503 when the bridge is not configured.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Hermes Talk upstream unreachable or misconfigured"
+          },
+          "503": {
+            "description": "Hermes Talk voice bridge not configured"
+          },
+          "504": {
+            "description": "Hermes Talk upstream timed out"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "BoardSessionAuth": []
+          },
+          {
+            "BoardApiKeyAuth": []
+          },
+          {
+            "AgentBearerAuth": []
+          }
+        ],
+        "x-paperclip-authorization": {
+          "actor": "board_or_agent"
+        }
+      }
+    },
+    "/api/voice/hermes-talk/workflows": {
+      "get": {
+        "tags": [
+          "voice-sessions"
+        ],
+        "summary": "List Hermes Talk workflows",
+        "description": "Instance admins only. Proxies the configured Hermes Talk voice server with a server-held session token; the token is never returned. Returns 503 when the bridge is not configured.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Hermes Talk upstream unreachable or misconfigured"
+          },
+          "503": {
+            "description": "Hermes Talk voice bridge not configured"
+          },
+          "504": {
+            "description": "Hermes Talk upstream timed out"
+          }
+        },
+        "security": [
+          {
+            "BoardSessionAuth": []
+          },
+          {
+            "BoardApiKeyAuth": []
+          },
+          {
+            "AgentBearerAuth": []
+          }
+        ],
+        "x-paperclip-authorization": {
+          "actor": "board_or_agent"
+        }
+      }
+    },
+    "/api/voice/hermes-talk/workflows/read": {
+      "get": {
+        "tags": [
+          "voice-sessions"
+        ],
+        "summary": "Read one Hermes Talk workflow",
+        "description": "Instance admins only. Proxies the configured Hermes Talk voice server with a server-held session token; the token is never returned. Returns 503 when the bridge is not configured.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Hermes Talk upstream unreachable or misconfigured"
+          },
+          "503": {
+            "description": "Hermes Talk voice bridge not configured"
+          },
+          "504": {
+            "description": "Hermes Talk upstream timed out"
+          }
+        },
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            }
+          }
+        ],
+        "security": [
+          {
+            "BoardSessionAuth": []
+          },
+          {
+            "BoardApiKeyAuth": []
+          },
+          {
+            "AgentBearerAuth": []
+          }
+        ],
+        "x-paperclip-authorization": {
+          "actor": "board_or_agent"
+        }
+      }
+    },
+    "/api/voice/hermes-talk/workflows/save": {
+      "post": {
+        "tags": [
+          "voice-sessions"
+        ],
+        "summary": "Save a Hermes Talk workflow",
+        "description": "Instance admins only. Proxies the configured Hermes Talk voice server with a server-held session token; the token is never returned. Returns 503 when the bridge is not configured.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Hermes Talk upstream unreachable or misconfigured"
+          },
+          "503": {
+            "description": "Hermes Talk voice bridge not configured"
+          },
+          "504": {
+            "description": "Hermes Talk upstream timed out"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "BoardSessionAuth": []
+          },
+          {
+            "BoardApiKeyAuth": []
+          },
+          {
+            "AgentBearerAuth": []
+          }
+        ],
+        "x-paperclip-authorization": {
+          "actor": "board_or_agent"
+        }
+      }
+    },
     "/api/companies/{companyId}/email/connections/{connectionId}/check-address": {
       "post": {
         "x-paperclip-transport": "rest",

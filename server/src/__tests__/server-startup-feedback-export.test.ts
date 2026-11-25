@@ -268,6 +268,9 @@ const {
       on: vi.fn((event: string, listener: () => void) => { addListener(event, listener, false); return fakeServer; }),
       once: vi.fn((event: string, listener: () => void) => { addListener(event, listener, true); return fakeServer; }),
       off: vi.fn((event: string, listener: () => void) => { lifecycleListeners.get(event)?.delete(listener); return fakeServer; }),
+      maxListeners: 10,
+      getMaxListeners: vi.fn(() => fakeServer.maxListeners),
+      setMaxListeners: vi.fn((count: number) => { fakeServer.maxListeners = count; return fakeServer; }),
       resetBoundState() { fakeServer.listening = false; boundAddress = null; },
       resetFixture() { fakeServer.resetBoundState(); lifecycleListeners.clear(); },
       listen: vi.fn((port: number, host: string, callback?: () => void) => {
