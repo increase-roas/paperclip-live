@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { assertInstanceAdmin } from "../routes/authz.js";
 import { forwardUpstreamJson } from "./upstream-json-forward.js";
+import { resetQuickBooksCache } from "./quickbooks-client.js";
 
 export interface GatewayProxyOptions {
   baseUrl?: string;
@@ -14,6 +15,8 @@ const DEFAULT_TIMEOUT_MS = 20_000;
 
 const AGENT_PARAM_RE = /^[a-z][a-z0-9_-]{1,31}$/;
 const INTEGRATION_PARAM_RE = /^[a-z][a-z0-9_-]{1,40}$/;
+const OAUTH_PROVIDER_PARAM_RE = /^(?:quickbooks|gmail|zoom)$/;
+const OAUTH_ACCOUNT_PARAM_RE = /^[A-Za-z0-9_.@:+-]{1,200}$/;
 const SCOPE_ID_PARAM_RE = /^[A-Za-z0-9_.:/-]{1,120}$/;
 const SAFE_QUERY_KEY_RE = /^[A-Za-z0-9_.-]{1,40}$/;
 const OWNER_KEY_HEADER_RE = /^[\x21-\x7e]{1,512}$/;
@@ -254,6 +257,52 @@ export function gatewayProxyRoutes(opts?: GatewayProxyOptions) {
       req,
       res,
       `/api/admin/scopes/${encodeURIComponent(integration)}/${encodeURIComponent(scopeId)}`,
+      "DELETE",
+    );
+  });
+
+  router.post("/gateway/admin/oauth/:provider/launch", async (req, res) => {
+    assertInstanceAdmin(req);
+    const provider = validateParam(
+      req.params.provider,
+      OAUTH_PROVIDER_PARAM_RE,
+      "provider",
+      res,
+    );
+    if (!provider) return;
+    if (provider === "quickbooks") resetQuickBooksCache();
+    await forward(
+      req,
+      res,
+      `/api/admin/oauth/${encodeURIComponent(provider)}/launch`,
+      "POST",
+    );
+  });
+
+  router.delete("/gateway/admin/oauth/:provider/:accountId", async (req, res) => {
+    assertInstanceAdmin(req);
+    const provider = validateParam(
+      req.params.provider,
+      OAUTH_PROVIDER_PARAM_RE,
+      "provider",
+      res,
+    );
+    if (!provider) return;
+    if (provider === "quickbooks") resetQuickBooksCache();
+    const rawAccount = typeof req.params.accountId === "string" ? req.params.accountId : "";
+    if (
+      !OAUTH_ACCOUNT_PARAM_RE.test(rawAccount) ||
+      rawAccount === "." ||
+      rawAccount === ".." ||
+      rawAccount.includes("..")
+    ) {
+      res.status(400).json({ ok: false, error: "Invalid accountId parameter." });
+      return;
+    }
+    await forward(
+      req,
+      res,
+      `/api/admin/oauth/${encodeURIComponent(provider)}/${encodeURIComponent(rawAccount)}`,
       "DELETE",
     );
   });

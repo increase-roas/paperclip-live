@@ -133,7 +133,7 @@ describe("CeoBoard", () => {
     expect(text).toContain("Money (6 core CEO metrics)");
     expect(text).toContain("QuickBooks Online");
     expect(text).toContain("Authorize.net");
-    expect(text).toContain("Paperclip Secrets");
+    expect(text).toContain("Settings → Gateway Access");
 
     // Sales & Marketing metrics are removed from CEO.
     expect(text).not.toContain("Cost per held appointment");

@@ -284,16 +284,31 @@ export interface GatewayBotSummary {
   presetPolicy?: GatewayPolicy;
 }
 
+export interface GatewayProviderAccount {
+  id: string;
+  label: string;
+  realmId?: string;
+  connectedAt?: string | null;
+}
+
 export interface GatewayProviderSummary {
   id: string;
   label: string;
   category: string;
   capability?: string;
   configured: boolean;
+  connected?: boolean;
+  authType?: "oauth" | "api_key" | "service_account";
+  connectUrl?: string | null;
+  accountLabel?: string | null;
+  multiAccount?: boolean;
+  accounts?: GatewayProviderAccount[];
   enabled: boolean;
   disabled?: boolean;
   enableFlag?: string;
   methods?: string[];
+  oauthScopes?: string[];
+  effectiveModes?: { canRead: boolean; canWrite: boolean };
   actions?: string[];
   actionCapabilities?: Record<string, "read" | "write" | "both">;
   allowedActions?: string[];
@@ -585,6 +600,16 @@ export const irOpsApi = {
     deleteScope: (integration: string, scopeId: string) =>
       irFetch<{ ok?: boolean }>(
         `/api/gateway/admin/scopes/${encodeURIComponent(integration)}/${encodeURIComponent(scopeId)}`,
+        { method: "DELETE" },
+      ),
+    launchOAuthConnect: (provider: string, body: { returnTo?: string; loginHint?: string } = {}) =>
+      irFetch<{ ok?: boolean; provider?: string; launchUrl: string; expiresInSeconds?: number }>(
+        `/api/gateway/admin/oauth/${encodeURIComponent(provider)}/launch`,
+        { method: "POST", body: JSON.stringify(body) },
+      ),
+    disconnectOAuthAccount: (provider: string, accountId: string) =>
+      irFetch<{ ok?: boolean; provider?: string; accountId?: string }>(
+        `/api/gateway/admin/oauth/${encodeURIComponent(provider)}/${encodeURIComponent(accountId)}`,
         { method: "DELETE" },
       ),
   },

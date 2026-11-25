@@ -10,6 +10,15 @@ export {
   type WavvSummary,
 } from "./wavv-client.js";
 export {
+  parseQuickBooksProfitAndLoss,
+  quickBooksPeriodRange,
+  readAgencyQuickBooksFinancials,
+  resetQuickBooksCache,
+  type AgencyQuickBooksFinancials,
+  type QuickBooksClientOptions,
+  type QuickBooksDataSource,
+} from "./quickbooks-client.js";
+export {
   fetchNeonAdsAccounts,
   fetchNeonAdsPipeline,
   fetchSalesCapital,

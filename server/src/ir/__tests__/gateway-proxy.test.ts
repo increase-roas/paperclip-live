@@ -54,6 +54,8 @@ describe("gatewayProxyRoutes", () => {
     expect((await request(nonAdminApp).get("/api/gateway/admin/agents")).status).toBe(403);
     expect((await request(nonAdminApp).post("/api/gateway/admin/agents/atlas/new-key").send({})).status).toBe(403);
     expect((await request(nonAdminApp).delete("/api/gateway/admin/scopes/ghl/loc_1")).status).toBe(403);
+    expect((await request(nonAdminApp).post("/api/gateway/admin/oauth/quickbooks/launch").send({})).status).toBe(403);
+    expect((await request(nonAdminApp).delete("/api/gateway/admin/oauth/gmail/alex%40increaseroas.com")).status).toBe(403);
     expect(fetchMock).not.toHaveBeenCalled();
 
     const anonApp = makeApp({ type: "none", source: "none" } as Express.Request["actor"], {
@@ -171,6 +173,9 @@ describe("gatewayProxyRoutes", () => {
       expect(await sendRawDelete("/api/gateway/admin/scopes/ghl/%2e")).toBe(400);
       expect(await sendRawDelete("/api/gateway/admin/scopes/ghl/%2e%2e")).toBe(400);
       expect(await sendRawDelete("/api/gateway/admin/scopes/ghl/..")).toBe(400);
+      expect(await sendRawDelete("/api/gateway/admin/oauth/gmail/%2e")).toBe(400);
+      expect(await sendRawDelete("/api/gateway/admin/oauth/gmail/%2e%2e")).toBe(400);
+      expect(await sendRawDelete("/api/gateway/admin/oauth/gmail/..")).toBe(400);
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
@@ -223,6 +228,19 @@ describe("gatewayProxyRoutes", () => {
     await request(app).get("/api/gateway/admin/scopes").expect(200);
     await request(app).post("/api/gateway/admin/scopes/ghl").send({ id: "loc_1" }).expect(200);
     await request(app).delete("/api/gateway/admin/scopes/ghl/loc_1%2Fsub").expect(200);
+    await request(app)
+      .post("/api/gateway/admin/oauth/quickbooks/launch")
+      .send({ returnTo: "https://app.increaseai.tech/company/settings/gateway" })
+      .expect(200);
+    await request(app)
+      .delete("/api/gateway/admin/oauth/gmail/alex%40increaseroas.com")
+      .expect(200);
+
+    // Reject unsupported OAuth provider or traversal accountId
+    await request(app).post("/api/gateway/admin/oauth/unknown/launch").send({}).expect(400);
+    await request(app).delete("/api/gateway/admin/oauth/unknown/a@b.com").expect(400);
+    await request(app).delete("/api/gateway/admin/oauth/gmail/a..b").expect(400);
+    await request(app).delete("/api/gateway/admin/oauth/gmail/a%2Fb").expect(400);
 
     expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual([
       "GET https://gw.example/health",
@@ -242,6 +260,8 @@ describe("gatewayProxyRoutes", () => {
       "GET https://gw.example/api/admin/scopes",
       "POST https://gw.example/api/admin/scopes/ghl",
       "DELETE https://gw.example/api/admin/scopes/ghl/loc_1%2Fsub",
+      "POST https://gw.example/api/admin/oauth/quickbooks/launch",
+      "DELETE https://gw.example/api/admin/oauth/gmail/alex%40increaseroas.com",
     ]);
   });
 });

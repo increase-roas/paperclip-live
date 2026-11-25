@@ -20,6 +20,10 @@ import {
 } from "../ir/sales-dashboard-client.js";
 import { readWavvSummary, type WavvSummary } from "../ir/wavv-client.js";
 import {
+  readAgencyQuickBooksFinancials,
+  type AgencyQuickBooksFinancials,
+} from "../ir/quickbooks-client.js";
+import {
   teamCapitalAdapter,
   teamRosterRows,
   type TeamRosterAdapter,
@@ -704,34 +708,52 @@ function marketingByClientRows(clients: MergedClientMetrics[]): DashboardTableRo
     }));
 }
 
+function resolveHumanEmployeesTile(
+  tileId: string,
+  roster: NonNullable<Awaited<ReturnType<TeamRosterAdapter["read"]>>>,
+  capital: CapitalApiPayload | null,
+  qbo: AgencyQuickBooksFinancials | null,
+): DashboardTileValue | null {
+  const active = roster.members.filter((m) => m.status.toLowerCase() === "active");
+  const missing = active.filter((m) => isMissingJudgedOn(m.judgedOn)).length;
+  if (tileId === "active-team-members") {
+    return liveVal(active.length, "count", roster.observedAt);
+  }
+  if (tileId === "seats-without-judged-on-number") {
+    return liveVal(missing, "count", roster.observedAt);
+  }
+  if (tileId === "one-number-per-seat") {
+    return liveVal(active.length - missing, "count", roster.observedAt);
+  }
+  if (tileId === "revenue-per-fte") {
+    const qboRevenue = qbo?.accrualRevenueUsd ?? qbo?.cashCollectedUsd ?? null;
+    const salesUsd =
+      qboRevenue !== null && qboRevenue > 0 ? qboRevenue : extractRevenueUsd(capital);
+    const observedAt =
+      qboRevenue !== null && qboRevenue > 0 && qbo
+        ? qbo.observedAt
+        : capital?.generatedAt ?? roster.observedAt;
+    if (salesUsd !== null && active.length > 0) {
+      return liveVal(round2(salesUsd / active.length), "usd", observedAt);
+    }
+    return notConnected();
+  }
+  return null;
+}
+
 function resolveTileValue(
   tileId: string,
   agg: AggregatedPortfolio | null,
   wavv: WavvSummary | null,
   roster: Awaited<ReturnType<TeamRosterAdapter["read"]>>,
   capital: CapitalApiPayload | null,
+  qbo: AgencyQuickBooksFinancials | null = null,
 ): DashboardTileValue {
   const hasSalesDashKey = Boolean((process.env.SALES_DASHBOARD_ADMIN_KEY ?? "").trim());
 
-  if (roster && (hasSalesDashKey || capital)) {
-    const active = roster.members.filter((m) => m.status.toLowerCase() === "active");
-    const missing = active.filter((m) => isMissingJudgedOn(m.judgedOn)).length;
-    if (tileId === "active-team-members") {
-      return liveVal(active.length, "count", roster.observedAt);
-    }
-    if (tileId === "seats-without-judged-on-number") {
-      return liveVal(missing, "count", roster.observedAt);
-    }
-    if (tileId === "one-number-per-seat") {
-      return liveVal(active.length - missing, "count", roster.observedAt);
-    }
-    if (tileId === "revenue-per-fte") {
-      const salesUsd = extractRevenueUsd(capital);
-      if (salesUsd !== null && active.length > 0 && capital) {
-        return liveVal(round2(salesUsd / active.length), "usd", capital.generatedAt);
-      }
-      return notConnected();
-    }
+  if (roster && (hasSalesDashKey || capital || qbo)) {
+    const teamTile = resolveHumanEmployeesTile(tileId, roster, capital, qbo);
+    if (teamTile) return teamTile;
   }
 
   // WAVV dialer tiles: NEVER invent Dials: 0 when WAVV is not connected
@@ -815,6 +837,7 @@ export function dashboardBoardService(
     teamRoster?: TeamRosterAdapter;
     fetchImpl?: typeof fetch;
     wavvReader?: (period: DashboardPeriod) => Promise<WavvSummary | null>;
+    quickbooksReader?: (period: DashboardPeriod) => Promise<AgencyQuickBooksFinancials | null>;
   } = {},
 ) {
   const teamRoster = adapters.teamRoster ?? teamCapitalAdapter(adapters.fetchImpl);
@@ -830,7 +853,7 @@ export function dashboardBoardService(
       if (!definition) throw new Error(`Unknown dashboard board: ${board}`);
       const allowInstanceData = boardOptions.boardViewer ?? true;
 
-      const [roster, capital, bundle, wavv] = allowInstanceData
+      const [roster, capital, bundle, wavv, qbo] = allowInstanceData
         ? await Promise.all([
             board === "human-employees" ? teamRoster.read(companyId) : Promise.resolve(null),
             board === "human-employees"
@@ -844,8 +867,13 @@ export function dashboardBoardService(
                   ? adapters.wavvReader(period)
                   : readWavvSummary(period, { fetchImpl: adapters.fetchImpl, now }))
               : Promise.resolve(null),
+            board === "human-employees"
+              ? (adapters.quickbooksReader
+                  ? adapters.quickbooksReader(period)
+                  : readAgencyQuickBooksFinancials(period, { fetchImpl: adapters.fetchImpl, now }))
+              : Promise.resolve(null),
           ])
-        : [null, null, null, null];
+        : [null, null, null, null, null];
 
       const agg = bundle ? aggregatePortfolio(bundle) : null;
 
@@ -949,7 +977,7 @@ export function dashboardBoardService(
         tiles: definition.tiles.map((item) => ({
           ...item,
           sourceIds: [...item.sourceIds],
-          value: resolveTileValue(item.id, agg, wavv, roster, capital),
+          value: resolveTileValue(item.id, agg, wavv, roster, capital, qbo),
         })),
         tables: definition.tables.map((item) => ({
           ...item,

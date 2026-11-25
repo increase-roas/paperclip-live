@@ -38,30 +38,30 @@ function buildDefaultMoneyTiles(periodLabel: string): CeoMoneyTile[] {
     {
       id: "cash-collected",
       label: "Cash collected, last 30 days",
-      source: "Agency QuickBooks Online (QBO) / Authorize.net",
+      source: "Agency QuickBooks Online (Settings → Gateway Access)",
       periodLabel: "Last 30 days",
       needs:
-        "Add a read-only agency QuickBooks Online OAuth token or Authorize.net API Login ID & Transaction Key in Paperclip Secrets. Kept strictly separate from client CRM/ad revenue.",
+        "Click Connect on QuickBooks Online in Settings → Gateway Access to pull read-only agency P&L and payments. Kept strictly separate from client CRM/ad revenue.",
       target: "Must cover agency COGS + CAC for the same 30 days",
       value: { kind: "not_connected" },
     },
     {
       id: "30-day-cash-multiple",
       label: "30-day cash multiple",
-      source: "Agency billing (QBO / Authorize.net) + agency CAC & COGS",
+      source: "Agency QuickBooks Online + agency CAC & COGS",
       periodLabel: "Last 30 days",
       needs:
-        "Agency 30-day cash collected ÷ (agency CAC + delivery COGS). Connect read-only agency QBO/Authorize.net billing access and agency ad/payroll spend — never mixed with client P&L.",
+        "Agency 30-day cash collected ÷ (agency CAC + delivery COGS). Click Connect on QuickBooks Online in Settings → Gateway Access — never mixed with client P&L.",
       target: "At least 2.0 — $2 of cash inside 30 days for every $1 spent to acquire and deliver",
       value: { kind: "not_connected" },
     },
     {
       id: "ltgp-cac",
       label: "LTGP : CAC, portfolio",
-      source: "Agency client billing ledger (QBO / Authorize.net) + acquisition cost",
+      source: "Agency QuickBooks Online + acquisition cost",
       periodLabel: "Portfolio, all time",
       needs:
-        "Connect read-only agency QBO/Authorize.net retainer history joined to agency acquisition cost in Paperclip Secrets.",
+        "Click Connect on QuickBooks Online in Settings → Gateway Access joined to agency acquisition cost.",
       target:
         "12:1 target with people at lead gen, sales and delivery — 3:1 all automated, 6:1 one manual, 9:1 two manual, 12:1 all three manual",
       value: { kind: "not_connected" },
@@ -69,10 +69,10 @@ function buildDefaultMoneyTiles(periodLabel: string): CeoMoneyTile[] {
     {
       id: "gross-margin",
       label: "Gross margin, agency blended",
-      source: "Agency billing (QBO / Authorize.net) + payroll & contractor ledger",
+      source: "Agency QuickBooks Online + payroll & contractor ledger",
       periodLabel,
       needs:
-        "Agency collected revenue minus direct delivery cost (setters, media buyer, CSM, editors, contractors). Needs read-only QBO/Authorize.net billing credentials plus Team & capital labor costs.",
+        "Agency collected revenue minus direct delivery COGS. Click Connect on QuickBooks Online in Settings → Gateway Access plus Team & capital labor costs.",
       target: "At least 50% (Hormozi: at 50% gross margin there is no room for any other cost)",
       value: { kind: "not_connected" },
     },
@@ -90,10 +90,10 @@ function buildDefaultMoneyTiles(periodLabel: string): CeoMoneyTile[] {
     {
       id: "cac-payback",
       label: "CAC payback",
-      source: "Agency billing dates (QBO / Authorize.net) + acquisition cost",
+      source: "Agency QuickBooks billing dates + acquisition cost",
       periodLabel: "Per client cohort, all time",
       needs:
-        "Connect read-only agency invoice dates from QBO/Authorize.net joined to agency acquisition spend to measure days until gross profit covers CAC.",
+        "Click Connect on QuickBooks Online in Settings → Gateway Access joined to agency acquisition spend to measure days until gross profit covers CAC.",
       target: "30 days or less; over 60 days red",
       value: { kind: "not_connected" },
     },

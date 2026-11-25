@@ -14,6 +14,127 @@ import type {
 export const GATEWAY_OAUTH_START_URL =
   "https://increase-roas-oauth-gateway.increase-roas.workers.dev/oauth/start";
 
+export const PAPERCLIP_GATEWAY_RETURN_URL =
+  "https://app.increaseai.tech/company/settings/gateway";
+
+export type ProviderConnectionStatus = "live" | "needs_connect" | "not_configured";
+
+export interface ProviderConnectionClassification {
+  status: ProviderConnectionStatus;
+  badgeLabel: "Connected (LIVE)" | "Needs Connect" | "Not Configured";
+  authType: "oauth" | "api_key" | "service_account";
+  authLabel: "OAuth 2.0" | "API Key" | "Service Account";
+  canConnect: boolean;
+  connectUrl: string | null;
+  scopeCount: number;
+  actionCount: number;
+}
+
+const KNOWN_OAUTH_PROVIDER_IDS = new Set([
+  "quickbooks",
+  "gmail",
+  "zoom",
+  "google_ads_data_manager",
+]);
+const KNOWN_SERVICE_ACCOUNT_PROVIDER_IDS = new Set([
+  "google_drive",
+  "google_drive_upload",
+  "google_sheets",
+  "google_ads",
+  "ga4",
+  "ga4_data",
+  "gtm",
+]);
+
+export function resolveProviderAuthType(
+  provider: Pick<GatewayProviderSummary, "id" | "authType">,
+): "oauth" | "api_key" | "service_account" {
+  if (
+    provider.authType === "oauth" ||
+    provider.authType === "api_key" ||
+    provider.authType === "service_account"
+  ) {
+    return provider.authType;
+  }
+  if (KNOWN_OAUTH_PROVIDER_IDS.has(provider.id)) return "oauth";
+  if (KNOWN_SERVICE_ACCOUNT_PROVIDER_IDS.has(provider.id)) return "service_account";
+  return "api_key";
+}
+
+export function formatAuthTypeLabel(
+  authType: "oauth" | "api_key" | "service_account",
+): "OAuth 2.0" | "API Key" | "Service Account" {
+  if (authType === "oauth") return "OAuth 2.0";
+  if (authType === "service_account") return "Service Account";
+  return "API Key";
+}
+
+export function buildGatewayConnectUrl(
+  rawConnectUrl: string | null | undefined,
+  returnTo: string = PAPERCLIP_GATEWAY_RETURN_URL,
+): string | null {
+  if (!rawConnectUrl || !rawConnectUrl.trim()) return null;
+  try {
+    const url = new URL(rawConnectUrl.trim());
+    if (url.protocol !== "https:") return null;
+    if (returnTo && returnTo.startsWith("https://")) {
+      url.searchParams.set("return_to", returnTo);
+    }
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+export function classifyProviderConnection(
+  provider: GatewayProviderSummary,
+): ProviderConnectionClassification {
+  const authType = resolveProviderAuthType(provider);
+  const authLabel = formatAuthTypeLabel(authType);
+  const isLive =
+    provider.connected !== undefined
+      ? Boolean(provider.connected)
+      : Boolean(provider.enabled && provider.configured);
+  const connectUrl = buildGatewayConnectUrl(provider.connectUrl);
+  const scopeCount = Array.isArray(provider.oauthScopes) ? provider.oauthScopes.length : 0;
+  const actionCount = Array.isArray(provider.actions) ? provider.actions.length : 0;
+
+  if (isLive) {
+    return {
+      status: "live",
+      badgeLabel: "Connected (LIVE)",
+      authType,
+      authLabel,
+      canConnect: Boolean(authType === "oauth" && provider.configured && connectUrl),
+      connectUrl,
+      scopeCount,
+      actionCount,
+    };
+  }
+  if (authType === "oauth" && provider.enabled && provider.configured && connectUrl) {
+    return {
+      status: "needs_connect",
+      badgeLabel: "Needs Connect",
+      authType,
+      authLabel,
+      canConnect: true,
+      connectUrl,
+      scopeCount,
+      actionCount,
+    };
+  }
+  return {
+    status: "not_configured",
+    badgeLabel: "Not Configured",
+    authType,
+    authLabel,
+    canConnect: false,
+    connectUrl,
+    scopeCount,
+    actionCount,
+  };
+}
+
 export const ROLE_POLICY_DEFINITIONS: Record<
   string,
   {

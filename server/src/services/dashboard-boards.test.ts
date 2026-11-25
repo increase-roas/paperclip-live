@@ -644,4 +644,42 @@ describe("dashboardBoardService", () => {
       else process.env.SALES_DASHBOARD_ADMIN_KEY = prevKey;
     }
   });
+
+  it("populates agency Revenue per FTE from QuickBooks via Gateway", async () => {
+    const fakeRoster = {
+      sourceId: "team_capital" as const,
+      read: async () => ({
+        observedAt: "2026-11-25T18:00:00.000Z",
+        members: [
+          { id: "m1", name: "Alex", role: "CEO", status: "active", judgedOn: "Cash", rateType: "salary", rate: "$0", hours: 40, duties: "Strategy" },
+          { id: "m2", name: "Maya", role: "CSM", status: "active", judgedOn: "Churn", rateType: "salary", rate: "$0", hours: 40, duties: "Retention" },
+          { id: "m3", name: "Sam", role: "Setter", status: "active", judgedOn: "Show rate", rateType: "hourly", rate: "$25", hours: 40, duties: "Outbound" },
+        ],
+      }),
+    };
+    const svc = dashboardBoardService(pinnedNow, {
+      teamRoster: fakeRoster,
+      quickbooksReader: async () => ({
+        period: "30d",
+        startDate: "2026-10-26",
+        endDate: "2026-11-25",
+        observedAt: "2026-11-25T18:00:00.000Z",
+        source: "quickbooks_gateway",
+        cashCollectedUsd: 60000,
+        accrualRevenueUsd: 75000,
+        cogsUsd: 15000,
+        grossProfitUsd: 60000,
+        grossMarginPercent: 80,
+        operatingExpensesUsd: 10000,
+        totalExpensesUsd: 25000,
+        netProfitUsd: 50000,
+        advertisingSpendUsd: 5000,
+        activeCustomerCount: 5,
+      }),
+    });
+    const humans = await svc.board("human-employees", companyId, "30d");
+    const byId = new Map(humans.tiles.map((t) => [t.id, t.value]));
+    // $75,000 agency accrual revenue / 3 active FTEs = $25,000 per FTE
+    expect(byId.get("revenue-per-fte")).toMatchObject({ kind: "live", value: 25000, unit: "usd" });
+  });
 });

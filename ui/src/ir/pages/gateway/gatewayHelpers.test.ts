@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { GatewayPolicy, GatewayProviderSummary } from "../../api/irOps";
 import {
+  buildGatewayConnectUrl,
   buildNormalizedScopesCatalog,
+  classifyProviderConnection,
   describeGhlPolicy,
   describeProviderGrant,
   detectPresetDrift,
@@ -145,5 +147,56 @@ describe("gatewayHelpers", () => {
       "gateway_routes",
     ]);
     expect(normalized.integrations[0]?.totalCount).toBe(196);
+  });
+
+  it("classifies Connected (LIVE), Needs Connect, and Not Configured providers cleanly", () => {
+    const qboNeedsConnect = classifyProviderConnection({
+      id: "quickbooks",
+      label: "QuickBooks Online",
+      category: "accounting",
+      configured: true,
+      connected: false,
+      authType: "oauth",
+      connectUrl: "https://increase-roas-oauth-gateway.increase-roas.workers.dev/oauth/quickbooks/start",
+      enabled: true,
+      oauthScopes: ["com.intuit.quickbooks.accounting"],
+      actions: ["reports", "query", "payments", "invoices", "accounts"],
+    });
+    expect(qboNeedsConnect.status).toBe("needs_connect");
+    expect(qboNeedsConnect.badgeLabel).toBe("Needs Connect");
+    expect(qboNeedsConnect.authLabel).toBe("OAuth 2.0");
+    expect(qboNeedsConnect.canConnect).toBe(true);
+    expect(qboNeedsConnect.connectUrl).toContain("return_to=https%3A%2F%2Fapp.increaseai.tech%2Fcompany%2Fsettings%2Fgateway");
+
+    const tsLive = classifyProviderConnection({
+      id: "tailscale",
+      label: "Tailscale",
+      category: "infra",
+      configured: true,
+      connected: true,
+      authType: "api_key",
+      connectUrl: null,
+      enabled: true,
+      actions: ["devices", "keys"],
+    });
+    expect(tsLive.status).toBe("live");
+    expect(tsLive.badgeLabel).toBe("Connected (LIVE)");
+    expect(tsLive.authLabel).toBe("API Key");
+    expect(tsLive.canConnect).toBe(false);
+
+    const ffUnconfigured = classifyProviderConnection({
+      id: "fireflies",
+      label: "Fireflies",
+      category: "meetings",
+      configured: false,
+      connected: false,
+      authType: "api_key",
+      connectUrl: null,
+      enabled: true,
+    });
+    expect(ffUnconfigured.status).toBe("not_configured");
+    expect(ffUnconfigured.badgeLabel).toBe("Not Configured");
+
+    expect(buildGatewayConnectUrl("javascript:alert(1)")).toBeNull();
   });
 });
