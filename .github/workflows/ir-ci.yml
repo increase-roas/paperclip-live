@@ -1,5 +1,7 @@
-# Increase ROAS CI on the brain-vps runner. Runs Paperclip's own commands
-# from package.json / doc/DEVELOPING.md: install, build, typecheck, tests.
+# Increase ROAS CI. Runs Paperclip's own commands from package.json /
+# doc/DEVELOPING.md: install, build, typecheck, tests.
+# Pull requests run on GitHub-hosted ubuntu-latest so untrusted PR branch code
+# does not execute on brain-vps; post-merge master runs use the brain-vps runner.
 # (Upstream's pr.yml calls Paperclip's pr-trusted.yml, which needs Paperclip's
 # private runner fleet and secrets, so ir-guard keeps it switched off here.
 # ir-pr.yml is the fork's PR entry point and calls this workflow.)
@@ -35,7 +37,7 @@ env:
 jobs:
   changes:
     name: detect changed paths
-    runs-on: [self-hosted, brain-vps]
+    runs-on: ${{ fromJSON(github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && '["self-hosted", "brain-vps"]' || '"ubuntu-latest"') }}
     timeout-minutes: 5
     outputs:
       code: ${{ steps.filter.outputs.code }}
@@ -71,7 +73,7 @@ jobs:
     name: build + typecheck
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: [self-hosted, brain-vps]
+    runs-on: ${{ fromJSON(github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && '["self-hosted", "brain-vps"]' || '"ubuntu-latest"') }}
     # Passing runs take about 30 minutes (p90 32.5, max 37.7 in Nov 2026).
     timeout-minutes: 45
     steps:
@@ -89,7 +91,7 @@ jobs:
     name: test (${{ matrix.label }})
     needs: changes
     if: needs.changes.outputs.code == 'true' && needs.changes.outputs.full == 'true'
-    runs-on: [self-hosted, brain-vps]
+    runs-on: ${{ fromJSON(github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && '["self-hosted", "brain-vps"]' || '"ubuntu-latest"') }}
     # Passing serialized shards take 10 to 13 minutes. The old single general
     # job hit the 90 minute limit 76 of 92 times in Nov 2026 and never passed,
     # so a hang now costs 20 to 40 minutes, not 90. A leg can set its own
@@ -161,7 +163,7 @@ jobs:
 
   ir-scripts:
     name: IR files
-    runs-on: [self-hosted, brain-vps]
+    runs-on: ${{ fromJSON(github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && '["self-hosted", "brain-vps"]' || '"ubuntu-latest"') }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -192,7 +194,7 @@ jobs:
     name: IR CI passed
     if: always()
     needs: [changes, build, test, ir-scripts]
-    runs-on: [self-hosted, brain-vps]
+    runs-on: ${{ fromJSON(github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && '["self-hosted", "brain-vps"]' || '"ubuntu-latest"') }}
     steps:
       - name: Aggregate the required jobs
         shell: bash

@@ -34,7 +34,14 @@ runs:
         echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
     - name: Rust toolchain from packages/paperclip-runner/rust-toolchain.toml
       shell: bash
-      run: cd packages/paperclip-runner && rustup show active-toolchain || rustup toolchain install
+      run: |
+        cd packages/paperclip-runner
+        rustup show active-toolchain || rustup toolchain install
+        toolchain="$(rustup show active-toolchain | awk '{print $1}')"
+        if [ -n "$toolchain" ]; then
+          rustup default "$toolchain"
+        fi
+        rustc --version && cargo --version
     - uses: Swatinem/rust-cache@v2
       with:
         workspaces: packages/paperclip-runner/runner
