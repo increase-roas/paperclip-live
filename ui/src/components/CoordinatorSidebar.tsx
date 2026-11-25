@@ -1,11 +1,14 @@
 import { useMemo, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
+  BookOpen,
+  Building2,
   CircleCheck,
   FolderOpen,
   Inbox,
   LayoutDashboard,
   Megaphone,
+  Mic,
   Package,
   Plus,
   Repeat,
@@ -23,6 +26,8 @@ import { useAgentChatNavigation } from "@/hooks/useAgentChatNavigation";
 import { useCompany } from "@/context/CompanyContext";
 import { useDialogActions } from "@/context/DialogContext";
 import { useSidebar } from "@/context/SidebarContext";
+import { useOptionalJavarVoice } from "@/ir/voice/JavarVoiceContext";
+import { useLocation } from "@/lib/router";
 import { queryKeys } from "@/lib/queryKeys";
 import { agentRouteRef, cn, projectRouteRef } from "@/lib/utils";
 import { PluginSlotOutlet } from "@/plugins/slots";
@@ -53,8 +58,8 @@ export type TeamNavigationItem = {
 /**
  * Maps existing company Projects onto the CEO-grade TEAMS sidebar section:
  * Marketing, Sales, Fulfillment, Operations first (backed by matching Projects
- * when present, falling back to /projects if not yet created), followed by any
- * additional active projects so nothing in the workspace is orphaned.
+ * when present, falling back to /projects?team=<key> so uncreated teams do not
+ * collide on active highlighting), followed by any additional active projects.
  */
 export function buildTeamNavigationItems(projects: readonly Project[]): TeamNavigationItem[] {
   const activeProjects = projects.filter(project => !project.archivedAt && project.status !== "cancelled");
@@ -77,7 +82,7 @@ export function buildTeamNavigationItems(projects: readonly Project[]): TeamNavi
     return {
       key: team.key,
       label: team.label,
-      to: "/projects",
+      to: `/projects?team=${team.key}`,
       icon: team.icon,
       projectId: null,
     };
@@ -102,22 +107,30 @@ export function resolveJavarDestination(agents: readonly Agent[]): string {
   return javar ? `/chats/${encodeURIComponent(agentRouteRef(javar))}` : "/chats";
 }
 
+function isFallbackTeamActive(pathname: string, search: string, teamKey: string): boolean {
+  const cleanPath = pathname.replace(/\/+$/, "").toLowerCase();
+  if (!cleanPath.endsWith("/projects") && cleanPath !== "/projects") return false;
+  return new URLSearchParams(search).get("team") === teamKey;
+}
+
 function JavarOrbIcon() {
   return (
     <span
       aria-hidden="true"
-      className="inline-block size-4 shrink-0 rounded-full bg-radial from-violet-300 via-purple-500 to-indigo-700 shadow-[0_0_8px_rgba(168,85,247,0.65)]"
+      className="ir-javar-orb inline-block size-4 shrink-0 rounded-full bg-radial from-violet-300 via-purple-500 to-indigo-700"
     />
   );
 }
 
 /** CEO-grade primary navigation:
- * Top (immediate attention): Javar, Inbox, Tasks, Dashboard (+ Sales dashboard plugin slots).
+ * Top (immediate attention): Javar (with inline voice mic), Inbox, Tasks, Dashboard (+ sidebar plugin slots).
  * Middle (TEAMS): Marketing, Sales, Fulfillment, Operations backed by existing Projects.
- * Bottom (COMPANY): Agents, Routines, Settings — zero individual agent names in the sidebar. */
+ * Bottom (COMPANY): Clients, Workflows, Agents, Routines, Settings. */
 export function CoordinatorSidebar({ children }: { children?: ReactNode }) {
   const { companyId, agents, chats } = useAgentChatNavigation();
   const { selectedCompany } = useCompany();
+  const location = useLocation();
+  const voice = useOptionalJavarVoice();
   const unreadChatCount = chats.data?.filter(chat => chat.isUnreadForMe).length ?? 0;
   const { collapsed, peeking } = useSidebar();
   const rail = collapsed && !peeking;
@@ -131,10 +144,16 @@ export function CoordinatorSidebar({ children }: { children?: ReactNode }) {
 
   const javarTo = useMemo(() => resolveJavarDestination(agents.data ?? []), [agents.data]);
   const teamItems = useMemo(() => buildTeamNavigationItems(projects ?? []), [projects]);
+  const companyPrefix = selectedCompany?.issuePrefix?.trim().toUpperCase() ?? null;
+  const clientsTo = companyPrefix ? `/${companyPrefix}/clients` : "/clients";
+  const workflowsTo = companyPrefix ? `/${companyPrefix}/workflows` : "/workflows";
   const pluginContext = useMemo(() => ({
     companyId: companyId ?? null,
     companyPrefix: selectedCompany?.issuePrefix ?? null,
   }), [companyId, selectedCompany?.issuePrefix]);
+
+  const voiceLive = Boolean(voice?.connected);
+  const voiceLabel = voiceLive ? "End voice call with Javar" : "Talk to Javar";
 
   return (
     <FlyoutAppearanceProvider>
@@ -160,14 +179,51 @@ export function CoordinatorSidebar({ children }: { children?: ReactNode }) {
 
           <nav className="design-sidebar-navigation" aria-label="Workspace navigation">
             <div className="design-sidebar-primary">
-              <SidebarNavItem
-                className="design-sidebar-item"
-                to={javarTo}
-                label="Javar"
-                iconNode={<JavarOrbIcon />}
-                badge={unreadChatCount}
-                badgeLabel="unread chats"
-              />
+              <div className="group/javar-voice relative">
+                <SidebarNavItem
+                  className={cn("design-sidebar-item", !rail && "pr-9")}
+                  to={javarTo}
+                  label="Javar"
+                  iconNode={<JavarOrbIcon />}
+                  badge={unreadChatCount}
+                  badgeLabel="unread chats"
+                />
+                {!rail && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={voiceLabel}
+                        aria-pressed={voiceLive}
+                        title={voiceLabel}
+                        onClick={() => voice?.toggleCall()}
+                        className={cn(
+                          "absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring",
+                          voiceLive
+                            ? "text-ring opacity-100"
+                            : "text-muted-foreground opacity-75 group-hover/javar-voice:opacity-100 group-focus-within/javar-voice:opacity-100",
+                        )}
+                      >
+                        <span className="relative flex items-center justify-center">
+                          <Mic className="size-3.5" aria-hidden="true" />
+                          {voiceLive && (
+                            <span
+                              aria-hidden="true"
+                              className="absolute -right-1 -top-1 flex size-2"
+                            >
+                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ring opacity-75" />
+                              <span className="relative inline-flex size-2 rounded-full bg-ring" />
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">
+                      {voiceLive ? "Live voice active — click to end" : "Talk to Javar"}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
               <SidebarNavItem
                 className="design-sidebar-item"
                 to="/decisions"
@@ -227,11 +283,28 @@ export function CoordinatorSidebar({ children }: { children?: ReactNode }) {
                   to={team.to}
                   label={team.label}
                   icon={team.icon}
+                  active={
+                    team.projectId === null
+                      ? isFallbackTeamActive(location.pathname, location.search, team.key)
+                      : undefined
+                  }
                 />
               ))}
             </SidebarSection>
 
             <SidebarSection label="Company">
+              <SidebarNavItem
+                className="design-sidebar-item"
+                to={clientsTo}
+                label="Clients"
+                icon={Building2}
+              />
+              <SidebarNavItem
+                className="design-sidebar-item"
+                to={workflowsTo}
+                label="Workflows"
+                icon={BookOpen}
+              />
               <SidebarNavItem
                 className="design-sidebar-item"
                 to="/agents/all"

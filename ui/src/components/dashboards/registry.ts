@@ -36,7 +36,7 @@ export const DASHBOARD_BOARD_ORDER = [
   { id: "fulfillment", title: "Fulfillment" },
   { id: "ai-cost", title: "AI cost" },
   { id: "automation-health", title: "Automation health" },
-  { id: "tools-connectors", title: "Tools/connectors" },
+  { id: "tools-connectors", title: "Tools & connectors" },
   { id: "human-employees", title: "Human employees" },
 ] as const;
 
@@ -54,7 +54,7 @@ export const dashboards: DashboardBoard[] = [
   { id: "fulfillment", title: "Fulfillment", component: FulfillmentBoard },
   { id: "ai-cost", title: "AI cost", component: AiCostBoard },
   { id: "automation-health", title: "Automation health", component: AutomationHealthBoard },
-  { id: "tools-connectors", title: "Tools/connectors", component: ToolsConnectorsBoard },
+  { id: "tools-connectors", title: "Tools & connectors", component: ToolsConnectorsBoard },
   { id: "human-employees", title: "Human employees", component: HumanEmployeesBoard },
 ];
 

@@ -139,4 +139,31 @@ describe("HumanEmployeesBoardView", () => {
     expect(html).not.toContain(">0<");
     expect(html).toContain("Not connected");
   });
+
+  it("renders Labor and Runway summary cards from data.meta and exposes Manage team & capital", () => {
+    const html = renderToStaticMarkup(
+      <HumanEmployeesBoardView
+        data={{
+          ...board,
+          meta: {
+            monthlyLaborUsd: 18500,
+            monthlyOverheadUsd: 4200,
+            monthlyBurnUsd: 22700,
+            runwayMonths: 8.4,
+            cashOnHandUsd: 190680,
+          },
+        }}
+      />,
+    );
+    expect(html).toContain("human-employees-labor-runway");
+    expect(html).toContain("Monthly labor");
+    expect(html).toContain("$18,500");
+    expect(html).toContain("Monthly overhead");
+    expect(html).toContain("$4,200");
+    expect(html).toContain("Monthly burn");
+    expect(html).toContain("$22,700");
+    expect(html).toContain("Runway");
+    expect(html).toContain("8.4 mo");
+    expect(html).toContain("Manage team &amp; capital");
+  });
 });

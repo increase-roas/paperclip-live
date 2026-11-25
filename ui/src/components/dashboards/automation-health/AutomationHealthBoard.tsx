@@ -1,12 +1,18 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Activity } from "lucide-react";
+import { Activity, ArrowRight } from "lucide-react";
 import type {
   DashboardAutomationHealthBoard,
   DashboardAutomationSeat,
 } from "@paperclipai/shared";
+import { dashboardApi } from "@/api/dashboard";
 import { dashboardBoardsApi } from "@/api/dashboardBoards";
+import { Link } from "@/lib/router";
+import { queryKeys } from "@/lib/queryKeys";
+import { ChartCard, RunActivityChart, SuccessRateChart } from "@/components/ActivityCharts";
 import { QueryView } from "@/components/QueryView";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useCompany } from "@/context/CompanyContext";
 import {
@@ -47,11 +53,26 @@ function HeartbeatCell({ seat }: { seat: DashboardAutomationSeat }) {
 export function AutomationHealthBoard({ companyId: companyIdProp }: { companyId?: string } = {}) {
   const { selectedCompanyId } = useCompany();
   const companyId = companyIdProp ?? selectedCompanyId;
+  const [showTerminated, setShowTerminated] = useState(false);
 
   const query = useQuery({
     queryKey: ["dashboard-boards", companyId, "automation-health"],
     queryFn: () => dashboardBoardsApi.automationHealth(companyId!),
     enabled: Boolean(companyId),
+  });
+
+  const summaryQuery = useQuery({
+    queryKey: queryKeys.dashboard(companyId ?? "none"),
+    queryFn: async () => {
+      try {
+        return await dashboardApi.summary(companyId!);
+      } catch {
+        return null;
+      }
+    },
+    enabled: Boolean(companyId),
+    retry: false,
+    staleTime: 60_000,
   });
 
   if (!companyId) {
@@ -61,22 +82,46 @@ export function AutomationHealthBoard({ companyId: companyIdProp }: { companyId?
   return (
     <QueryView query={query} action="load the automation health board">
       {(board: DashboardAutomationHealthBoard) => {
-        const failures24h = board.seats.reduce(
+        const activeSeats = board.seats.filter((seat) => seat.status !== "terminated");
+        const terminatedCount = board.seats.length - activeSeats.length;
+        const visibleSeats = showTerminated ? board.seats : activeSeats;
+        const activeSeatTotal = Math.max(
+          activeSeats.length,
+          board.seatSummary.total - terminatedCount,
+        );
+        const failures24h = activeSeats.reduce(
           (sum, seat) => sum + seat.failedRuns24h + seat.timedOutRuns24h,
           0,
         );
+        const runActivity = summaryQuery.data?.runActivity ?? null;
+
         return (
           <div className="space-y-8">
             <BoardHeader
               title="Automation health"
-              description="Whether the company is running without a human: agent status, failures, routines, blocked work, approval queue and the server itself. Source: v1 spec, not Hormozi — Hormozi has no content on routine success rates, approvals or merge queues."
+              description="Whether the company is running without a human: active agent status, 14-day run reliability, routines, blocked tasks and server health. Source: v1 spec, not Hormozi — Hormozi has no content on routine success rates or merge queues."
               generatedAt={board.generatedAt}
+              actions={
+                board.approvals.pendingCount > 0 ? (
+                  <Button variant="outline" size="sm" asChild>
+                    <Link
+                      to="/decisions"
+                      className="no-underline"
+                      data-testid="automation-approvals-link"
+                    >
+                      {board.approvals.pendingCount}{" "}
+                      {board.approvals.pendingCount === 1 ? "approval" : "approvals"} waiting
+                      <ArrowRight className="size-3.5" aria-hidden />
+                    </Link>
+                  </Button>
+                ) : null
+              }
             />
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
               <BoardTile
                 label="Seats running"
-                value={`${board.seatSummary.running} / ${board.seatSummary.total}`}
+                value={`${board.seatSummary.running} / ${activeSeatTotal}`}
                 detail={`${board.seatSummary.idle} idle · ${board.seatSummary.paused} paused`}
                 testId="automation-seats"
               />
@@ -112,17 +157,10 @@ export function AutomationHealthBoard({ companyId: companyIdProp }: { companyId?
                 testId="automation-blocked"
               />
               <BoardTile
-                label="Approvals waiting"
-                value={board.approvals.pendingCount}
-                detail={`Oldest waiting ${formatHoursOrDash(board.approvals.oldestAgeHours)}`}
-                tone={
-                  board.approvals.pendingCount > 0 && (board.approvals.oldestAgeHours ?? 0) > 24
-                    ? "danger"
-                    : board.approvals.pendingCount > 0
-                      ? "warning"
-                      : "good"
-                }
-                testId="automation-approvals"
+                label="Active routines"
+                value={board.routines.active}
+                detail={`${board.routines.total} ${board.routines.total === 1 ? "routine" : "routines"} configured`}
+                testId="automation-active-routines"
               />
               <BoardTile
                 label="Server"
@@ -154,19 +192,47 @@ export function AutomationHealthBoard({ companyId: companyIdProp }: { companyId?
                   })}
                 testId="automation-backup"
               />
-              <BoardTile
-                label="Active routines"
-                value={board.routines.active}
-                detail={`${board.routines.total} ${board.routines.total === 1 ? "routine" : "routines"} configured`}
-                testId="automation-active-routines"
-              />
             </div>
+
+            {runActivity ? (
+              <BoardSection
+                title="Run activity (14 days)"
+                description="Daily heartbeat run outcomes and success rate across the company."
+              >
+                <div
+                  className="grid grid-cols-1 gap-4 lg:grid-cols-2"
+                  data-testid="automation-run-charts"
+                >
+                  <ChartCard title="Run Activity" subtitle="Last 14 days">
+                    <RunActivityChart activity={runActivity} />
+                  </ChartCard>
+                  <ChartCard title="Success Rate" subtitle="Last 14 days">
+                    <SuccessRateChart activity={runActivity} />
+                  </ChartCard>
+                </div>
+              </BoardSection>
+            ) : null}
 
             <BoardSection
               title="Agent seats"
               description="Heartbeat is the scheduler switch in the seat's runtime config. Failure counts are heartbeat runs, not routine runs."
+              actions={
+                terminatedCount > 0 ? (
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="ghost"
+                    onClick={() => setShowTerminated((prev) => !prev)}
+                    data-testid="automation-toggle-terminated"
+                  >
+                    {showTerminated
+                      ? `Hide terminated (${terminatedCount})`
+                      : `Show terminated (${terminatedCount})`}
+                  </Button>
+                ) : null
+              }
             >
-              <Card className="gap-0 overflow-x-auto p-0">
+              <Card elevation="low" className="gap-0 overflow-x-auto p-0">
                 <table className="w-full min-w-max text-sm">
                   <thead>
                     <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -179,7 +245,7 @@ export function AutomationHealthBoard({ companyId: companyIdProp }: { companyId?
                     </tr>
                   </thead>
                   <tbody>
-                    {board.seats.map((seat) => (
+                    {visibleSeats.map((seat) => (
                       <tr key={seat.agentId} className="border-b border-border/60 last:border-0">
                         <td className="px-4 py-3 font-medium">{seat.name}</td>
                         <td className="px-4 py-3">
@@ -214,8 +280,10 @@ export function AutomationHealthBoard({ companyId: companyIdProp }: { companyId?
                     ))}
                   </tbody>
                 </table>
-                {board.seats.length === 0 ? (
-                  <div className="p-6 text-sm text-muted-foreground">No agent seats yet.</div>
+                {visibleSeats.length === 0 ? (
+                  <div className="p-6 text-sm text-muted-foreground">
+                    {terminatedCount > 0 ? "No active agent seats." : "No agent seats yet."}
+                  </div>
                 ) : null}
               </Card>
             </BoardSection>
@@ -224,7 +292,7 @@ export function AutomationHealthBoard({ companyId: companyIdProp }: { companyId?
               {board.routines.items.length === 0 ? (
                 <BoardEmpty message="No routines configured. Nothing is on a schedule yet." />
               ) : (
-                <Card className="gap-0 overflow-x-auto p-0">
+                <Card elevation="low" className="gap-0 overflow-x-auto p-0">
                   <table className="w-full min-w-max text-sm">
                     <thead>
                       <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -264,53 +332,30 @@ export function AutomationHealthBoard({ companyId: companyIdProp }: { companyId?
               )}
             </BoardSection>
 
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-              <BoardSection title="Blocked more than 24h" description="Any ticket over a day blocked escalates to the CEO seat.">
-                {board.blockedTasks.items.length === 0 ? (
-                  <BoardEmpty message="No task has been blocked longer than 24 hours." />
-                ) : (
-                  <Card className="gap-0 p-0">
-                    <ul className="divide-y divide-border">
-                      {board.blockedTasks.items.map((task) => (
-                        <li key={task.id} className="flex items-start justify-between gap-3 px-4 py-3">
-                          <div>
-                            <p className="text-sm font-medium">{task.identifier ?? task.title}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {task.projectName ?? "No project"} · blocked {formatHoursOrDash(task.ageHours)} ago
-                            </p>
-                          </div>
-                          <Badge variant="destructive">{formatHoursOrDash(task.ageHours)}</Badge>
-                        </li>
-                      ))}
-                    </ul>
-                  </Card>
-                )}
-              </BoardSection>
-
-              <BoardSection title="Approvals waiting" description="Oldest pending approval first; the queue is what stops agent work.">
-                {board.approvals.items.length === 0 ? (
-                  <BoardEmpty message="No approvals waiting." />
-                ) : (
-                  <Card className="gap-0 p-0">
-                    <ul className="divide-y divide-border">
-                      {board.approvals.items.map((approval) => (
-                        <li key={approval.id} className="flex items-start justify-between gap-3 px-4 py-3">
-                          <div>
-                            <p className="text-sm font-medium">{approval.type}</p>
-                            <p className="text-xs text-muted-foreground">
-                              Requested {formatDateTime(approval.createdAt)}
-                            </p>
-                          </div>
-                          <Badge variant={approval.ageHours > 24 ? "destructive" : "outline"}>
-                            {formatHoursOrDash(approval.ageHours)}
-                          </Badge>
-                        </li>
-                      ))}
-                    </ul>
-                  </Card>
-                )}
-              </BoardSection>
-            </div>
+            <BoardSection
+              title="Blocked more than 24h"
+              description="Any task blocked over 24 hours escalates to Javar."
+            >
+              {board.blockedTasks.items.length === 0 ? (
+                <BoardEmpty message="No task has been blocked longer than 24 hours." />
+              ) : (
+                <Card elevation="low" className="gap-0 p-0">
+                  <ul className="divide-y divide-border">
+                    {board.blockedTasks.items.map((task) => (
+                      <li key={task.id} className="flex items-start justify-between gap-3 px-4 py-3">
+                        <div>
+                          <p className="text-sm font-medium">{task.identifier ?? task.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {task.projectName ?? "No project"} · blocked {formatHoursOrDash(task.ageHours)} ago
+                          </p>
+                        </div>
+                        <Badge variant="destructive">{formatHoursOrDash(task.ageHours)}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              )}
+            </BoardSection>
 
             {board.server.backup && board.server.backup.warnings.length > 0 ? (
               <NotConnectedNote

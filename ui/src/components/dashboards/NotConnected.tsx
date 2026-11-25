@@ -1,5 +1,7 @@
 import { PlugZap } from "lucide-react";
+import { Link } from "@/lib/router";
 import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 export interface NotConnectedProps {
   label: string;
@@ -11,6 +13,8 @@ export interface NotConnectedProps {
   target?: string;
   /** The period the tile will report once it is wired. */
   periodLabel?: string;
+  /** Optional drill-down link to the owning board. */
+  href?: string;
   testId?: string;
 }
 
@@ -27,14 +31,18 @@ export function NotConnected({
   needs,
   target,
   periodLabel,
+  href,
   testId,
 }: NotConnectedProps) {
-  return (
+  const body = (
     <Card
       elevation="low"
       data-testid={testId}
       data-connection-state="not-connected"
-      className="h-full gap-3 border-dashed px-4 py-4 sm:px-5"
+      className={cn(
+        "h-full gap-3 border-dashed px-4 py-4 sm:px-5",
+        href && "transition-colors hover:border-foreground/30",
+      )}
     >
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-medium text-foreground">{label}</p>
@@ -60,5 +68,12 @@ export function NotConnected({
         No number is shown until this source is wired.
       </p>
     </Card>
+  );
+
+  if (!href) return body;
+  return (
+    <Link to={href} className="block h-full no-underline text-inherit">
+      {body}
+    </Link>
   );
 }

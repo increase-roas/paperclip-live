@@ -69,6 +69,7 @@ describe("CompanySettingsNav", () => {
     expect(getCompanySettingsTab("/company/settings")).toBe("general");
     expect(getCompanySettingsTab("/PAP/company/settings")).toBe("general");
     expect(getCompanySettingsTab("/PAP/company/settings/connections")).toBe("connections");
+    expect(getCompanySettingsTab("/PAP/company/settings/gateway")).toBe("gateway");
     expect(getCompanySettingsTab("/company/settings/environments")).toBe("instance-environments");
     expect(getCompanySettingsTab("/company/export")).toBe("export");
     expect(getCompanySettingsTab("/PAP/company/export")).toBe("export");
@@ -138,6 +139,7 @@ describe("CompanySettingsNav", () => {
           { value: "instance-profile", label: "Profile" },
           { value: "instance-environments", label: "Environments" },
           { value: "connections", label: "Connections" },
+          { value: "gateway", label: "Gateway Access" },
           { value: "instance-access", label: "Access" },
           { value: "instance-experimental", label: "Experimental" },
           { value: "instance-plugins", label: "Plugins" },
@@ -180,6 +182,7 @@ describe("CompanySettingsNav", () => {
       "instance-profile",
       "instance-environments",
       "connections",
+      "gateway",
       "instance-access",
       "instance-experimental",
       "instance-adapters",

@@ -1,0 +1,82 @@
+/* Increase ROAS native dark charcoal theme with subtle violet accent.
+ * Imported from ui/src/index.css so the app keeps one CSS token root and zero FOUC.
+ * Primary buttons intentionally retain Paperclip's native --primary / --primary-foreground
+ * contrast so every action button matches Tasks, Agents, and Settings. */
+
+html.dark {
+  --background: #0b0b0c;
+  --background-alt: #111114;
+  --foreground: #ededf0;
+  --card: #131316;
+  --card-foreground: #ededf0;
+  --popover: #131316;
+  --popover-foreground: #ededf0;
+  --secondary: #1a1a1e;
+  --secondary-foreground: #ededf0;
+  --muted: #17171a;
+  --muted-highlight: #1d1b26;
+  --muted-foreground: #9a9aa4;
+  --accent: #1d1b26;
+  --accent-foreground: #ededf0;
+  --destructive: #ff6b6b;
+  --destructive-foreground: #0b0714;
+  --border: #26262b;
+  --input: #26262b;
+  --ring: #7c5cff;
+  --sidebar: #0e0e10;
+  --primary-sidebar-background: #0e0e10;
+  --sidebar-foreground: #c9c9d1;
+  --sidebar-primary: #7c5cff;
+  --sidebar-primary-foreground: #ededf0;
+  --sidebar-accent: #1d1b26;
+  --sidebar-accent-foreground: #ededf0;
+  --sidebar-border: #26262b;
+  --sidebar-ring: #7c5cff;
+  --ir-accent: #7c5cff;
+  --ir-accent-soft: color-mix(in oklab, #7c5cff 16%, transparent);
+  --ir-accent-border: color-mix(in oklab, #7c5cff 38%, transparent);
+  --ir-orb-shadow: 0 0 8px color-mix(in oklab, #a855f7 60%, transparent);
+  color-scheme: dark;
+}
+
+html.dark .coordinator-workspace {
+  --background: #0b0b0c;
+  --background-alt: #111114;
+  --foreground: #ededf0;
+  --card: #131316;
+  --card-foreground: #ededf0;
+  --popover: #131316;
+  --popover-foreground: #ededf0;
+  --sidebar: #0e0e10;
+  --primary-sidebar-background: #0e0e10;
+  --sidebar-accent: #1d1b26;
+  --sidebar-accent-foreground: #ededf0;
+  --sidebar-border: #26262b;
+  --border: #26262b;
+  --input: #26262b;
+  --muted: #17171a;
+  --muted-highlight: #1d1b26;
+  --muted-foreground: #9a9aa4;
+  --accent: #1d1b26;
+  --accent-foreground: #ededf0;
+  --ring: #7c5cff;
+  --side-panel-streamlined-tab-active-bg: #1d1b26;
+}
+
+html.dark ::selection {
+  background: color-mix(in oklab, #7c5cff 34%, transparent);
+}
+
+.ir-javar-orb {
+  box-shadow: var(--ir-orb-shadow, 0 0 8px color-mix(in oklab, var(--ring) 55%, transparent));
+}
+
+/* Keep the Coordinator sidebar compact enough so all Company rows remain visible without clipping. */
+.coordinator-sidebar .design-sidebar-navigation {
+  gap: calc(var(--spacing) * 3);
+}
+
+.coordinator-sidebar.design-sidebar .design-sidebar-item {
+  min-height: calc(var(--spacing) * 7.5);
+  padding-block: calc(var(--spacing) * 1.25);
+}

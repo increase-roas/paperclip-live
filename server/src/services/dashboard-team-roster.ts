@@ -62,7 +62,11 @@ export function teamCapitalAdapter(fetchImpl: typeof fetch = fetch): TeamRosterA
       const timer = setTimeout(() => controller.abort(), 5_000);
       try {
         const res = await fetchImpl(`${base}/api/pilot/admin/team`, {
-          headers: { Authorization: `Bearer ${adminKey}`, Accept: "application/json" },
+          headers: {
+            Authorization: `Bearer ${adminKey}`,
+            Accept: "application/json",
+            "User-Agent": "paperclip-server/1.0",
+          },
           signal: controller.signal,
         });
         if (!res.ok) return null;

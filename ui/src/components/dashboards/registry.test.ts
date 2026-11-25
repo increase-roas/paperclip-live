@@ -28,7 +28,7 @@ describe("dashboard registry", () => {
       "Fulfillment",
       "AI cost",
       "Automation health",
-      "Tools/connectors",
+      "Tools & connectors",
       "Human employees",
     ]);
   });
