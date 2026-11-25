@@ -16,12 +16,12 @@ export function NotConnected({ sources }: NotConnectedProps) {
 
   return (
     <div className="space-y-1.5" data-testid="not-connected">
-      <p className="text-sm font-medium text-foreground">
+      <p className="text-sm text-foreground">
         Not connected: {sources.map((source) => source.name).join(", ")}
       </p>
       {sources.map((source) => (
         <p key={source.id} className="text-xs text-muted-foreground">
-          <span className="font-medium">Needed:</span> {source.needed}
+          <span className="font-medium text-foreground/80">Needed:</span> {source.needed}
         </p>
       ))}
     </div>

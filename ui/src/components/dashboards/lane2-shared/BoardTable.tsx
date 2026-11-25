@@ -1,10 +1,14 @@
 import type { DashboardSource, DashboardTable } from "@paperclipai/shared";
+import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { NotConnected } from "./NotConnected";
 
 interface BoardTableProps {
   table: DashboardTable;
   sources: DashboardSource[];
 }
+
+const WRAP_COLUMN_KEYS = new Set(["duties", "judgedOn", "responsibilities", "performanceCriteria"]);
 
 /**
  * A per-client or per-member table. With no source it still shows the columns
@@ -16,23 +20,24 @@ export function BoardTable({ table, sources }: BoardTableProps) {
     .filter((source): source is DashboardSource => Boolean(source));
 
   return (
-    <section
-      className="rounded-lg border bg-card"
+    <Card
+      elevation="low"
+      className="gap-0 overflow-hidden p-0"
       data-testid={`dashboard-table-${table.id}`}
     >
-      <div className="border-b p-4">
+      <div className="border-b border-border px-4 py-3.5 sm:px-5">
         <h2 className="text-sm font-semibold text-foreground">{table.title}</h2>
         <p className="mt-1 text-xs text-muted-foreground">{table.description}</p>
       </div>
-      <div className="overflow-x-auto p-4">
-        <table className="w-full text-left text-sm">
+      <div className="w-full overflow-x-auto">
+        <table className="w-full min-w-max text-left text-sm">
           <thead>
-            <tr className="border-b">
+            <tr className="border-b border-border">
               {table.columns.map((column) => (
                 <th
                   key={column.key}
                   scope="col"
-                  className="whitespace-nowrap py-2 pr-4 text-xs font-medium text-muted-foreground"
+                  className="whitespace-nowrap px-3 py-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground first:pl-4 last:pr-4 sm:first:pl-5 sm:last:pr-5"
                 >
                   {column.label}
                 </th>
@@ -42,24 +47,34 @@ export function BoardTable({ table, sources }: BoardTableProps) {
           <tbody>
             {table.rows.length === 0 ? (
               <tr>
-                <td colSpan={table.columns.length} className="pt-4">
+                <td colSpan={table.columns.length} className="px-4 py-4 sm:px-5">
                   <NotConnected sources={tableSources} />
                 </td>
               </tr>
             ) : (
               table.rows.map((row) => (
-                <tr key={row.id} className="border-b last:border-b-0">
-                  {table.columns.map((column) => (
-                    <td key={column.key} className="py-2 pr-4 tabular-nums">
-                      {row.cells[column.key] ?? "—"}
-                    </td>
-                  ))}
+                <tr key={row.id} className="border-b border-border/60 last:border-b-0">
+                  {table.columns.map((column) => {
+                    const value = row.cells[column.key];
+                    const allowWrap = WRAP_COLUMN_KEYS.has(column.key);
+                    return (
+                      <td
+                        key={column.key}
+                        className={cn(
+                          "px-3 py-2.5 tabular-nums first:pl-4 last:pr-4 sm:first:pl-5 sm:last:pr-5",
+                          allowWrap ? "max-w-xs whitespace-normal" : "whitespace-nowrap",
+                        )}
+                      >
+                        {value ?? "—"}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
-    </section>
+    </Card>
   );
 }

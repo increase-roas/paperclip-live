@@ -1,6 +1,8 @@
 import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { LayoutDashboard } from "lucide-react";
 import { Link, Navigate, useParams, useSearchParams } from "@/lib/router";
+import { dashboardBoardsApi } from "@/api/dashboardBoards";
 import { useCompany } from "@/context/CompanyContext";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
 import { useDialogActions } from "@/context/DialogContext";
@@ -18,13 +20,64 @@ import {
   registeredDashboard,
 } from "./registry";
 
+export interface DashboardTabBarProps {
+  activeBoardId?: string | null;
+  searchQuery?: string;
+  period?: DashboardPeriod;
+  onPeriodChange?: (period: DashboardPeriod) => void;
+}
+
+/**
+ * Shared compact tab bar for the eight operating dashboards (and `/dashboard/operations`).
+ * Wraps cleanly so all eight tabs and the period picker stay fully readable with
+ * zero clipped labels and no horizontal scrollbar on narrower desktop widths.
+ */
+export function DashboardTabBar({
+  activeBoardId,
+  searchQuery = "",
+  period,
+  onPeriodChange,
+}: DashboardTabBarProps) {
+  const hrefForBoard = (id: string) =>
+    `/dashboard/${id}${searchQuery ? `?${searchQuery}` : ""}`;
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
+      <nav aria-label="Dashboards" className="flex flex-wrap items-center gap-1">
+        {DASHBOARD_BOARD_ORDER.map((tab) => {
+          const active = tab.id === activeBoardId;
+          return (
+            <Link
+              key={tab.id}
+              to={hrefForBoard(tab.id)}
+              aria-current={active ? "page" : undefined}
+              data-testid={`dashboard-tab-${tab.id}`}
+              className={cn(
+                "whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium no-underline transition-colors sm:text-sm",
+                active
+                  ? "bg-secondary text-secondary-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+              )}
+            >
+              {tab.title}
+            </Link>
+          );
+        })}
+      </nav>
+      {period && onPeriodChange ? (
+        <div className="shrink-0">
+          <PeriodPicker value={period} onChange={onPeriodChange} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 /**
  * The INC dashboard shell: one route per board (`/INC/dashboard/ceo`), a tab
  * bar in the spec's order, and a shared period picker.
  *
  * A tab whose lane has not registered a component renders "Being built".
- * Anything genuinely useful from the old single dashboard page moved to
- * `/dashboard/operations`, linked from the header below.
  */
 export function DashboardShell() {
   const { selectedCompanyId, companies } = useCompany();
@@ -37,10 +90,25 @@ export function DashboardShell() {
   const boardId = boardIdParam ?? DEFAULT_DASHBOARD_BOARD_ID;
   const boardMeta = dashboardBoardMeta(boardId);
   const board = registeredDashboard(boardId);
+  const isCeoBoard = boardId === DEFAULT_DASHBOARD_BOARD_ID;
 
   // The shell is where a new company lands, so it carries the onboarding offer
   // that lived on the old single dashboard page.
   useAgentlessOnboardingOffer(selectedCompanyId);
+
+  const readingOrderQuery = useQuery({
+    queryKey: ["dashboard-boards", selectedCompanyId, "reading-order", period],
+    queryFn: async () => {
+      try {
+        return await dashboardBoardsApi.readingOrder(selectedCompanyId!, period);
+      } catch {
+        return {};
+      }
+    },
+    enabled: Boolean(selectedCompanyId) && isCeoBoard,
+    retry: false,
+    staleTime: 60_000,
+  });
 
   const boardTitle = boardMeta?.title ?? null;
   useEffect(() => {
@@ -56,11 +124,6 @@ export function DashboardShell() {
     if (next === DEFAULT_DASHBOARD_PERIOD) nextParams.delete("period");
     else nextParams.set("period", next);
     setSearchParams(nextParams);
-  };
-
-  const hrefForBoard = (id: string) => {
-    const query = searchParams.toString();
-    return `/dashboard/${id}${query ? `?${query}` : ""}`;
   };
 
   if (!selectedCompanyId) {
@@ -85,52 +148,35 @@ export function DashboardShell() {
   }
 
   const BoardComponent = board?.component;
+  const readingOrderStatuses =
+    readingOrderQuery.data?.statuses ?? readingOrderQuery.data?.readingOrder ?? {};
+  const readingOrderMetrics =
+    readingOrderQuery.data?.metrics ?? readingOrderQuery.data?.readingOrderMetrics;
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 border-b border-border pb-3 sm:flex-row sm:items-center sm:justify-between">
-        <nav aria-label="Dashboards" className="-mx-1 flex gap-1 overflow-x-auto px-1">
-          {DASHBOARD_BOARD_ORDER.map((tab) => {
-            const active = tab.id === boardId;
-            return (
-              <Link
-                key={tab.id}
-                to={hrefForBoard(tab.id)}
-                aria-current={active ? "page" : undefined}
-                data-testid={`dashboard-tab-${tab.id}`}
-                className={cn(
-                  "shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium no-underline transition-colors",
-                  active
-                    ? "bg-secondary text-secondary-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                )}
-              >
-                {tab.title}
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="flex items-center gap-3">
-          <Link
-            to="/dashboard/operations"
-            className="shrink-0 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-          >
-            Paperclip operations
-          </Link>
-          {board ? <PeriodPicker value={period} onChange={setPeriod} /> : null}
-        </div>
-      </div>
+      <DashboardTabBar
+        activeBoardId={boardId}
+        searchQuery={searchParams.toString()}
+        period={board ? period : undefined}
+        onPeriodChange={board ? setPeriod : undefined}
+      />
 
       <div>
         <h1 className="text-2xl font-semibold tracking-normal text-foreground">{boardMeta.title}</h1>
-        {boardId === DEFAULT_DASHBOARD_BOARD_ID ? (
+        {isCeoBoard ? (
           <p className="mt-1 text-sm text-muted-foreground">
             Read the eight questions below in order. Every number carries its red line and the time it was read.
           </p>
         ) : null}
       </div>
 
-      <ReadingOrderStrip />
+      {isCeoBoard ? (
+        <ReadingOrderStrip
+          statuses={readingOrderStatuses}
+          metrics={readingOrderMetrics}
+        />
+      ) : null}
 
       {BoardComponent && board ? (
         <BoardComponent companyId={selectedCompanyId} period={period} />

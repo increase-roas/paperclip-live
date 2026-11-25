@@ -3,9 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { costsApi } from "@/api/costs";
 import { approvalsApi } from "@/api/approvals";
 import { issuesApi } from "@/api/issues";
+import { dashboardBoardsApi, type CeoMoneyTile } from "@/api/dashboardBoards";
 import { describeError } from "@/api/errors";
 import { queryKeys } from "@/lib/queryKeys";
 import { formatCents, formatNumber } from "@/lib/utils";
+import { formatTileValue } from "../lane2-shared/formatTileValue";
 import { dashboardPeriodRange } from "../period";
 import { Tile } from "../Tile";
 import { NotConnected } from "../NotConnected";
@@ -19,7 +21,84 @@ import {
   oldestPendingAgeHours,
 } from "./ceo-metrics";
 
-const TILE_GRID = "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4";
+const LIVE_TILE_GRID = "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4";
+const MONEY_TILE_GRID = "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3";
+
+const CORE_CEO_MONEY_TILE_IDS = [
+  "cash-collected",
+  "30-day-cash-multiple",
+  "ltgp-cac",
+  "gross-margin",
+  "churn",
+  "cac-payback",
+] as const;
+
+function buildDefaultMoneyTiles(periodLabel: string): CeoMoneyTile[] {
+  return [
+    {
+      id: "cash-collected",
+      label: "Cash collected, last 30 days",
+      source: "Agency QuickBooks Online (QBO) / Authorize.net",
+      periodLabel: "Last 30 days",
+      needs:
+        "Add a read-only agency QuickBooks Online OAuth token or Authorize.net API Login ID & Transaction Key in Paperclip Secrets. Kept strictly separate from client CRM/ad revenue.",
+      target: "Must cover agency COGS + CAC for the same 30 days",
+      value: { kind: "not_connected" },
+    },
+    {
+      id: "30-day-cash-multiple",
+      label: "30-day cash multiple",
+      source: "Agency billing (QBO / Authorize.net) + agency CAC & COGS",
+      periodLabel: "Last 30 days",
+      needs:
+        "Agency 30-day cash collected ÷ (agency CAC + delivery COGS). Connect read-only agency QBO/Authorize.net billing access and agency ad/payroll spend — never mixed with client P&L.",
+      target: "At least 2.0 — $2 of cash inside 30 days for every $1 spent to acquire and deliver",
+      value: { kind: "not_connected" },
+    },
+    {
+      id: "ltgp-cac",
+      label: "LTGP : CAC, portfolio",
+      source: "Agency client billing ledger (QBO / Authorize.net) + acquisition cost",
+      periodLabel: "Portfolio, all time",
+      needs:
+        "Connect read-only agency QBO/Authorize.net retainer history joined to agency acquisition cost in Paperclip Secrets.",
+      target:
+        "12:1 target with people at lead gen, sales and delivery — 3:1 all automated, 6:1 one manual, 9:1 two manual, 12:1 all three manual",
+      value: { kind: "not_connected" },
+    },
+    {
+      id: "gross-margin",
+      label: "Gross margin, agency blended",
+      source: "Agency billing (QBO / Authorize.net) + payroll & contractor ledger",
+      periodLabel,
+      needs:
+        "Agency collected revenue minus direct delivery cost (setters, media buyer, CSM, editors, contractors). Needs read-only QBO/Authorize.net billing credentials plus Team & capital labor costs.",
+      target: "At least 50% (Hormozi: at 50% gross margin there is no room for any other cost)",
+      value: { kind: "not_connected" },
+    },
+    {
+      id: "churn",
+      label: "Client churn / NRR",
+      source: "Agency subscription state (QBO / Authorize.net)",
+      periodLabel: "Monthly and trailing 12 months",
+      needs:
+        "Connect read-only agency recurring billing (Authorize.net ARB or QBO recurring invoices) to track clients lost and net revenue retained.",
+      target: "Under 3% per month and at least 80% per year",
+      href: "/dashboard/fulfillment",
+      value: { kind: "not_connected" },
+    },
+    {
+      id: "cac-payback",
+      label: "CAC payback",
+      source: "Agency billing dates (QBO / Authorize.net) + acquisition cost",
+      periodLabel: "Per client cohort, all time",
+      needs:
+        "Connect read-only agency invoice dates from QBO/Authorize.net joined to agency acquisition spend to measure days until gross profit covers CAC.",
+      target: "30 days or less; over 60 days red",
+      value: { kind: "not_connected" },
+    },
+  ];
+}
 
 function SectionHeading({ id, title, description }: { id: string; title: string; description?: string }) {
   return (
@@ -39,25 +118,17 @@ function readFailure(error: unknown): string {
 /**
  * CEO board (DASHBOARD-SPEC-v2-hormozi.md §3, read in the §1 order).
  *
- * Live tiles read only what Paperclip itself records: run cost, approvals,
- * tasks. The money tiles name the source they need (GHL payments /
- * Authorize.net, GHL appointments, Meta spend, WAVV) and show no value, because
- * no read-only source for them exists in this repo yet. See spec v2 §11.
+ * Strictly CEO-level numbers: 4 live Paperclip control-plane tiles (each
+ * linking to its drill-down) and the 6 core agency money metrics. Sales and
+ * Marketing metrics live on their own tabs and in the ReadingOrderStrip above.
  */
 export function CeoBoard({ companyId, period }: DashboardBoardProps) {
-  // `now` is captured once per period so the query keys stay stable; the tile
-  // footer shows the actual read time.
   const range = useMemo(() => dashboardPeriodRange(period), [period]);
   const monthRange = useMemo(() => dashboardPeriodRange("month"), []);
 
-  const periodCosts = useQuery({
-    queryKey: queryKeys.costs(companyId, range.fromIso, range.toIso),
-    queryFn: () => costsApi.summary(companyId, range.fromIso, range.toIso),
-  });
   const monthCosts = useQuery({
     queryKey: queryKeys.costs(companyId, monthRange.fromIso, monthRange.toIso),
     queryFn: () => costsApi.summary(companyId, monthRange.fromIso, monthRange.toIso),
-    enabled: period !== "month",
   });
   const approvals = useQuery({
     queryKey: queryKeys.approvals.list(companyId, "pending"),
@@ -67,10 +138,23 @@ export function CeoBoard({ companyId, period }: DashboardBoardProps) {
     queryKey: queryKeys.issues.list(companyId),
     queryFn: () => issuesApi.list(companyId),
   });
+  const ceoBoardQuery = useQuery({
+    queryKey: ["dashboard-boards", companyId, "ceo", period],
+    queryFn: async () => {
+      try {
+        return await dashboardBoardsApi.ceo(companyId, period);
+      } catch {
+        return null;
+      }
+    },
+    retry: false,
+    staleTime: 60_000,
+  });
 
-  const costs = periodCosts.data;
-  const costsError = periodCosts.error ? readFailure(periodCosts.error) : null;
-  const costsReadAt = costs ? periodCosts.dataUpdatedAt : null;
+  const monthCostData = monthCosts.data;
+  const monthCostError = monthCosts.error ? readFailure(monthCosts.error) : null;
+  const monthCostReadAt = monthCostData ? monthCosts.dataUpdatedAt : null;
+  const cap = capGuardrail(monthCostData?.spendCents ?? 0, monthCostData?.budgetCents ?? 0);
 
   const pendingApprovals = approvals.data ?? [];
   const pendingCount = pendingApprovals.length;
@@ -80,20 +164,49 @@ export function CeoBoard({ companyId, period }: DashboardBoardProps) {
   const tasks = countTaskStates(issues.data ?? []);
   const issuesError = issues.error ? readFailure(issues.error) : null;
 
-  const monthCostData = period === "month" ? periodCosts.data : monthCosts.data;
-  const monthCostError = period === "month" ? costsError : monthCosts.error ? readFailure(monthCosts.error) : null;
-  const monthCostReadAt = monthCostData
-    ? (period === "month" ? periodCosts.dataUpdatedAt : monthCosts.dataUpdatedAt)
-    : null;
-  const cap = capGuardrail(monthCostData?.spendCents ?? 0, monthCostData?.budgetCents ?? 0);
+  const moneyTiles = useMemo(() => {
+    const defaults = buildDefaultMoneyTiles(range.label);
+    const liveById = new Map<string, CeoMoneyTile>();
+    for (const tile of ceoBoardQuery.data?.moneyTiles ?? []) {
+      liveById.set(tile.id, tile);
+    }
+    return CORE_CEO_MONEY_TILE_IDS.map((id) => {
+      const fallback = defaults.find((item) => item.id === id)!;
+      const incoming = liveById.get(id);
+      if (!incoming) return fallback;
+      return {
+        ...fallback,
+        ...incoming,
+        href: incoming.href ?? fallback.href,
+        periodLabel: incoming.periodLabel ?? fallback.periodLabel,
+        target: incoming.target ?? fallback.target,
+      };
+    });
+  }, [ceoBoardQuery.data?.moneyTiles, range.label]);
 
-  const costNote = costsError
-    ? `Could not read run costs: ${costsError}`
-    : !costs
-      ? "Reading run costs."
-      : !costs.pricingComplete
-        ? `${formatNumber(costs.unpricedEventCount)} unpriced, ${formatNumber(costs.pendingRunCount)} awaiting receipt. The total may be low.`
-        : "Sum of completed agent run receipts.";
+  const aiSpendCapValue = monthCostError ? (
+    "—"
+  ) : !monthCostData ? (
+    "…"
+  ) : cap.utilizationPercent === null ? (
+    <span>{formatCents(monthCostData.spendCents)}</span>
+  ) : (
+    <span className="inline-flex flex-wrap items-baseline gap-x-1.5">
+      <span>{formatCents(monthCostData.spendCents)}</span>
+      <span className="text-base font-normal text-muted-foreground">
+        / {formatCents(monthCostData.budgetCents)} (
+        {formatNumber(cap.utilizationPercent, { maximumFractionDigits: 1 })}%)
+      </span>
+    </span>
+  );
+
+  const aiSpendCapNote = monthCostError
+    ? `Could not read the monthly cap: ${monthCostError}`
+    : !monthCostData
+      ? "Reading the monthly cap."
+      : !monthCostData.pricingComplete
+        ? `${cap.note} ${formatNumber(monthCostData.unpricedEventCount)} unpriced, ${formatNumber(monthCostData.pendingRunCount)} awaiting receipt.`
+        : cap.note;
 
   return (
     <div className="space-y-6">
@@ -101,23 +214,25 @@ export function CeoBoard({ companyId, period }: DashboardBoardProps) {
         <SectionHeading
           id="ceo-scorecard-live"
           title="Live from Paperclip"
-          description="The only numbers this company's control plane can answer today."
+          description="Control-plane spend, approvals, and execution health. Click any card to inspect."
         />
-        <div className={TILE_GRID}>
+        <div className={LIVE_TILE_GRID}>
           <Tile
-            testId="ceo-tile-agent-run-cost"
-            label="AI spend on agent runs"
-            value={!costs ? (costsError ? "—" : "…") : formatCents(costs.spendCents)}
-            periodLabel={range.label}
-            redLine="None on the total; the monthly cap guardrail below is the line"
-            state="unknown"
-            source="Paperclip run costs"
-            readAt={costsReadAt}
-            note={costNote}
+            testId="ceo-tile-ai-spend-cap"
+            label="AI spend vs monthly cap"
+            href="/dashboard/ai-cost"
+            value={aiSpendCapValue}
+            periodLabel="Month to date"
+            redLine="Alert at 80% of cap; hard stop at 100%"
+            state={monthCostError || !monthCostData ? "unknown" : cap.state}
+            source="Paperclip budgets & run costs"
+            readAt={monthCostReadAt}
+            note={aiSpendCapNote}
           />
           <Tile
             testId="ceo-tile-approvals-waiting"
             label="Approvals waiting"
+            href="/decisions"
             value={approvalsError ? "—" : !approvals.data ? "…" : formatNumber(pendingCount)}
             periodLabel="Right now"
             redLine="Under 4 hours in business hours; red past 24 hours"
@@ -135,6 +250,7 @@ export function CeoBoard({ companyId, period }: DashboardBoardProps) {
           <Tile
             testId="ceo-tile-open-tasks"
             label="Open tasks"
+            href="/issues"
             value={issuesError ? "—" : !issues.data ? "…" : formatNumber(tasks.open)}
             periodLabel="Right now"
             redLine="No target yet; watch the weekly change"
@@ -152,6 +268,7 @@ export function CeoBoard({ companyId, period }: DashboardBoardProps) {
           <Tile
             testId="ceo-tile-blocked-tasks"
             label="Blocked tasks"
+            href="/issues?view=needs_attention"
             value={issuesError ? "—" : !issues.data ? "…" : formatNumber(tasks.blocked)}
             periodLabel="Right now"
             redLine="Zero; any blocked task escalates to Javar"
@@ -172,125 +289,38 @@ export function CeoBoard({ companyId, period }: DashboardBoardProps) {
       <section aria-labelledby="ceo-money">
         <SectionHeading
           id="ceo-money"
-          title="Money"
-          description="Read in the spec v2 §1 order. Each tile needs a read-only source before it can show a number."
+          title="Money (6 core CEO metrics)"
+          description="Agency-level P&L and retention in spec v2 §1 order. Client funnel metrics stay on Sales and Marketing and never mix into agency revenue."
         />
-        <div className={TILE_GRID}>
-          <NotConnected
-            testId="ceo-tile-cash-collected"
-            label="Cash collected, last 30 days"
-            source="GHL payments / Authorize.net"
-            periodLabel="Last 30 days"
-            needs="Read-only GHL payments and Authorize.net settlement access."
-            target="Below COGS + CAC for the same 30 days"
-          />
-          <NotConnected
-            testId="ceo-tile-30-day-cash-multiple"
-            label="30-day cash multiple"
-            source="GHL payments + Authorize.net + Meta spend"
-            periodLabel="Last 30 days"
-            needs="30-day cash collected ÷ (CAC + COGS). Cash comes from GHL payments and Authorize.net; CAC includes Meta spend."
-            target="At least 2.0 — $2 of cash inside 30 days for every $1 spent to acquire and deliver"
-          />
-          <NotConnected
-            testId="ceo-tile-ltgp-cac"
-            label="LTGP : CAC, portfolio"
-            source="Client revenue history + ad and sales cost"
-            periodLabel="Portfolio, all time"
-            needs="Lifetime gross profit per client joined to the cost of acquiring that client."
-            target="12:1 target with people at lead gen, sales and delivery — 3:1 all automated, 6:1 one manual, 9:1 two manual, 12:1 all three manual"
-          />
-          <NotConnected
-            testId="ceo-tile-gross-margin"
-            label="Gross margin, agency blended"
-            source="GHL payments / Authorize.net + payroll and contractor ledger"
-            periodLabel={range.label}
-            needs="Revenue per client plus direct delivery cost: setters, media buyer, CSM, editors, contractors."
-            target="At least 50% (Hormozi: at 50% gross margin there is no room for any other cost)"
-          />
-          <NotConnected
-            testId="ceo-tile-churn"
-            label="Client churn / net revenue retention"
-            source="GHL subscription state + Authorize.net"
-            periodLabel="Monthly and trailing 12 months"
-            needs="Clients lost and revenue retained, including expansion."
-            target="Under 3% per month and at least 80% per year"
-          />
-          <NotConnected
-            testId="ceo-tile-cac-payback"
-            label="CAC payback"
-            source="Billing dates + acquisition cost"
-            periodLabel="Per client cohort, all time"
-            needs="The date each client's collected gross profit covers what it cost to acquire them."
-            target="30 days or less; over 60 days red"
-          />
-          <NotConnected
-            testId="ceo-tile-cost-per-held-appointment"
-            label="Cost per held appointment"
-            source="Meta spend + GHL appointments"
-            periodLabel={range.label}
-            needs="Ad spend and setter cost joined to appointments actually held."
-            target="Under job value × close rate × margin ÷ 3"
-          />
-          <NotConnected
-            testId="ceo-tile-show-rate"
-            label="Show rate"
-            source="GHL appointments"
-            periodLabel={range.label}
-            needs="Appointment status per client: booked versus held."
-            target="70–80% healthy; below 60% red"
-          />
-          <NotConnected
-            testId="ceo-tile-speed-to-lead"
-            label="Speed to lead"
-            source="GHL leads + WAVV calls"
-            periodLabel={range.label}
-            needs="Lead created timestamp joined to the first outbound call attempt."
-            target="Under 60 seconds; over 5 minutes red"
-          />
-        </div>
-      </section>
-
-      <section aria-labelledby="ceo-guardrails">
-        <SectionHeading
-          id="ceo-guardrails"
-          title="Guardrails"
-          description="Alarm lights, not scorecard rows (spec §3). They stay visible whatever the period."
-        />
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <Tile
-            testId="ceo-guardrail-ai-cap"
-            label="AI spend vs monthly cap"
-            value={
-              monthCostError
-                ? "—"
-                : !monthCostData
-                  ? "…"
-                  : cap.utilizationPercent === null
-                    ? "No cap"
-                    : `${formatNumber(cap.utilizationPercent, { maximumFractionDigits: 1 })}%`
-            }
-            periodLabel="Month to date"
-            redLine="Alert at 80% of cap; hard stop at 100%"
-            state={monthCostError || !monthCostData ? "unknown" : cap.state}
-            source="Paperclip budgets"
-            readAt={monthCostReadAt}
-            note={
-              monthCostError
-                ? `Could not read the monthly cap: ${monthCostError}`
-                : monthCostData
-                  ? `${formatCents(monthCostData.spendCents)} of ${formatCents(monthCostData.budgetCents)}. ${cap.note}`
-                  : "Reading the monthly cap."
-            }
-          />
-          <NotConnected
-            testId="ceo-guardrail-zero-lead-spend"
-            label="Ad spend with zero leads"
-            source="Meta spend + GHL leads"
-            periodLabel="Last 7 days"
-            needs="Client-days with more than $100 spend and no new lead recorded. Meta is read through the Meta CLI or Paperclip's Composio connection, never a browser."
-            target="Any client-day with spend over $100 and zero leads"
-          />
+        <div className={MONEY_TILE_GRID}>
+          {moneyTiles.map((tile) =>
+            tile.value.kind === "live" ? (
+              <Tile
+                key={tile.id}
+                testId={`ceo-tile-${tile.id}`}
+                label={tile.label}
+                value={formatTileValue(tile.value)}
+                periodLabel={tile.periodLabel ?? range.label}
+                redLine={tile.redLine ?? tile.target}
+                state={tile.state ?? "unknown"}
+                source={tile.source}
+                readAt={tile.value.observedAt}
+                note={tile.note}
+                href={tile.href}
+              />
+            ) : (
+              <NotConnected
+                key={tile.id}
+                testId={`ceo-tile-${tile.id}`}
+                label={tile.label}
+                source={tile.source}
+                periodLabel={tile.periodLabel ?? range.label}
+                needs={tile.needs}
+                target={tile.redLine ?? tile.target}
+                href={tile.href}
+              />
+            ),
+          )}
         </div>
       </section>
     </div>

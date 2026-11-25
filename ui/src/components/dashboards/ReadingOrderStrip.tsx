@@ -1,5 +1,7 @@
+import { Link } from "@/lib/router";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import type { ReadingOrderMetric, ReadingOrderMetricMap } from "@/api/dashboardBoards";
 import {
   READING_ORDER_STEPS,
   firstAttentionStepId,
@@ -26,6 +28,23 @@ const STATE_DOT_CLASS: Record<TileState, string> = {
   unknown: "bg-muted-foreground",
 };
 
+function formatStepMetric(metric: string | ReadingOrderMetric | null | undefined): string | null {
+  if (metric === null || metric === undefined) return null;
+  if (typeof metric === "string") {
+    const trimmed = metric.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  const formatted = metric.formatted?.trim();
+  if (formatted) return formatted;
+  if (typeof metric.value === "number" && Number.isFinite(metric.value)) {
+    return String(metric.value);
+  }
+  if (typeof metric.value === "string" && metric.value.trim().length > 0) {
+    return metric.value.trim();
+  }
+  return null;
+}
+
 export interface ReadingOrderStripProps {
   /**
    * Live status per question. Steps without a status render grey, which is the
@@ -33,6 +52,8 @@ export interface ReadingOrderStripProps {
    * with every step grey: the first one is highlighted as the place to start.
    */
   statuses?: ReadingOrderStatusMap;
+  /** Optional formatted live metric per step, rendered when connected. */
+  metrics?: ReadingOrderMetricMap;
   testId?: string;
 }
 
@@ -44,6 +65,7 @@ export interface ReadingOrderStripProps {
  */
 export function ReadingOrderStrip({
   statuses = {},
+  metrics = {},
   testId = "dashboard-reading-order",
 }: ReadingOrderStripProps) {
   const attentionId = firstAttentionStepId(statuses);
@@ -65,6 +87,7 @@ export function ReadingOrderStrip({
         {READING_ORDER_STEPS.map((step, index) => {
           const state = stepStatus(statuses, step.id);
           const attention = step.id === attentionId;
+          const liveValue = formatStepMetric(metrics[step.id]);
           return (
             <li
               key={step.id}
@@ -74,36 +97,49 @@ export function ReadingOrderStrip({
               data-attention={attention ? "true" : undefined}
               aria-current={attention ? "step" : undefined}
               className={cn(
-                "rounded-md border px-3 py-2",
+                "rounded-md border transition-colors hover:border-foreground/30 hover:bg-accent/40",
                 attention ? "border-foreground/40 bg-muted/60" : "border-border",
                 attention && state === "red" && "border-(--status-task-blocked)",
               )}
             >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-(length:--text-micro) font-medium tabular-nums text-muted-foreground">
-                  {index + 1}
-                </span>
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1.5 text-(length:--text-micro) font-medium uppercase tracking-wide",
-                    STATE_TEXT_CLASS[state],
-                  )}
-                >
-                  <span aria-hidden className={cn("size-1.5 rounded-full", STATE_DOT_CLASS[state])} />
-                  {STATE_COPY[state]}
-                </span>
-              </div>
-              <p className="mt-1 text-sm font-medium text-foreground">{step.question}</p>
-              <p className="text-xs text-muted-foreground">
-                {step.number} · {step.board}
-              </p>
-              {attention ? (
-                <p className={cn("mt-1 text-(length:--text-micro) font-medium", STATE_TEXT_CLASS[state])}>
-                  {state === "unknown"
-                    ? "Start here: no source connected"
-                    : "Stop here: below its red line"}
+              <Link
+                to={step.href}
+                className="flex h-full flex-col rounded-md px-3 py-2 text-inherit no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-(length:--text-micro) font-medium tabular-nums text-muted-foreground">
+                    {index + 1}
+                  </span>
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1.5 text-(length:--text-micro) font-medium uppercase tracking-wide",
+                      STATE_TEXT_CLASS[state],
+                    )}
+                  >
+                    <span aria-hidden className={cn("size-1.5 rounded-full", STATE_DOT_CLASS[state])} />
+                    {STATE_COPY[state]}
+                  </span>
+                </div>
+                <p className="mt-1 text-sm font-medium text-foreground">{step.question}</p>
+                {liveValue ? (
+                  <p
+                    className="mt-1 text-base font-semibold tabular-nums tracking-tight text-foreground"
+                    data-reading-order-metric={step.id}
+                  >
+                    {liveValue}
+                  </p>
+                ) : null}
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {step.number} · {step.board}
                 </p>
-              ) : null}
+                {attention ? (
+                  <p className={cn("mt-auto pt-1 text-(length:--text-micro) font-medium", STATE_TEXT_CLASS[state])}>
+                    {state === "unknown"
+                      ? "Start here: no source connected"
+                      : "Stop here: below its red line"}
+                  </p>
+                ) : null}
+              </Link>
             </li>
           );
         })}

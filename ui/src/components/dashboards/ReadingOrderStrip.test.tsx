@@ -2,9 +2,15 @@
 
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ReadingOrderStrip } from "./ReadingOrderStrip";
 import { READING_ORDER_STEPS } from "./reading-order";
+
+vi.mock("@/lib/router", () => ({
+  Link: ({ to, children, ...props }: { to: string; children: ReactNode } & Record<string, unknown>) => (
+    <a href={to} {...props}>{children}</a>
+  ),
+}));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -91,5 +97,35 @@ describe("ReadingOrderStrip", () => {
     expect(
       container.querySelector('[data-reading-order-step][data-attention="true"]'),
     ).toBeNull();
+  });
+
+  it("links every step to its owning board and renders live metric values when connected", async () => {
+    const container = await render(
+      <ReadingOrderStrip
+        statuses={{ cash: "ok", "show-rate": "ok", cac: "red" }}
+        metrics={{
+          cash: "$42,000",
+          "show-rate": { formatted: "74.5%" },
+          cac: { value: "$1,250" },
+        }}
+      />,
+    );
+
+    const links = Array.from(container.querySelectorAll("[data-reading-order-step] a"));
+    expect(links).toHaveLength(8);
+    expect(links.map((a) => a.getAttribute("href"))).toEqual([
+      "/dashboard/ceo",
+      "/dashboard/ceo",
+      "/dashboard/ceo",
+      "/dashboard/ceo",
+      "/dashboard/fulfillment",
+      "/dashboard/sales",
+      "/dashboard/sales",
+      "/dashboard/marketing",
+    ]);
+
+    expect(container.querySelector('[data-reading-order-metric="cash"]')?.textContent).toBe("$42,000");
+    expect(container.querySelector('[data-reading-order-metric="show-rate"]')?.textContent).toBe("74.5%");
+    expect(container.querySelector('[data-reading-order-metric="cac"]')?.textContent).toBe("$1,250");
   });
 });
