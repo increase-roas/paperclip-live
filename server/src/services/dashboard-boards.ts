@@ -6,6 +6,7 @@ import type {
   DashboardTable,
   DashboardTile,
   DashboardTileValue,
+  DashboardUnit,
 } from "@paperclipai/shared";
 import {
   teamCapitalAdapter,
@@ -434,11 +435,131 @@ const BOARD_DEFINITIONS: Record<
  * generated-at timestamp; nothing else about a payload depends on the clock.
  * `adapters` lets a test supply a roster reader without a network.
  */
+interface SalesSnapshotPayload {
+  observedAt: string;
+  ghl?: {
+    newLeads?: number;
+    appointmentsBooked?: number;
+    showedAppointments?: number;
+    wonDeals?: number;
+    closeRate?: number | null;
+    showRate?: number | null;
+  };
+  meta?: {
+    spend?: number;
+    impressions?: number;
+    clicks?: number;
+  };
+  calls?: {
+    outboundCalls?: number;
+  };
+  cash?: {
+    cashCollectedUsd?: number;
+  };
+}
+
+async function readSalesSnapshot(fetchImpl: typeof fetch = fetch): Promise<SalesSnapshotPayload | null> {
+  if (!(process.env.SALES_DASHBOARD_ADMIN_KEY ?? "").trim()) return null;
+  const base = (process.env.SALES_DASHBOARD_BASE_URL ?? "https://dashboard.increaseai.tech").trim().replace(/\/+$/, "");
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5_000);
+  try {
+    const res = await fetchImpl(`${base}/api/pilot/dashboard?view=30d`, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as {
+      lastSuccessfulSyncAt?: string;
+      generatedAt?: string;
+      summary?: {
+        ghl?: { status?: string; data?: SalesSnapshotPayload["ghl"] };
+        meta?: { status?: string; data?: SalesSnapshotPayload["meta"] };
+        calls?: { status?: string; data?: SalesSnapshotPayload["calls"] };
+        cash?: { status?: string; data?: SalesSnapshotPayload["cash"] };
+      };
+    };
+    const s = body?.summary;
+    if (!s) return null;
+    return {
+      observedAt: body.lastSuccessfulSyncAt ?? body.generatedAt ?? new Date().toISOString(),
+      ghl: s.ghl?.status === "LIVE" ? s.ghl.data : undefined,
+      meta: s.meta?.status === "LIVE" ? s.meta.data : undefined,
+      calls: s.calls?.status === "LIVE" ? s.calls.data : undefined,
+      cash: s.cash?.status === "LIVE" ? s.cash.data : undefined,
+    };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function liveVal(value: number | null | undefined, unit: DashboardUnit, observedAt: string): DashboardTileValue {
+  if (typeof value !== "number" || !Number.isFinite(value)) return notConnected();
+  return { kind: "live", value, unit, observedAt };
+}
+
+function resolveTileValue(
+  tileId: string,
+  snap: SalesSnapshotPayload | null,
+  roster: Awaited<ReturnType<TeamRosterAdapter["read"]>>,
+): DashboardTileValue {
+  if (roster && (process.env.SALES_DASHBOARD_ADMIN_KEY ?? "").trim()) {
+    const active = roster.members.filter((m) => m.status.toLowerCase() === "active");
+    if (tileId === "active-team-members") return liveVal(active.length, "count", roster.observedAt);
+    if (tileId === "seats-without-judged-on-number") {
+      const missing = active.filter((m) => !m.judgedOn || m.judgedOn.trim().toUpperCase() === "NOT SET").length;
+      return liveVal(missing, "count", roster.observedAt);
+    }
+  }
+  if (!snap) return notConnected();
+  const ts = snap.observedAt;
+  const ghl = snap.ghl;
+  const meta = snap.meta;
+  switch (tileId) {
+    case "show-rate":
+      return liveVal(ghl?.showRate, "percent", ts);
+    case "close-rate":
+      return liveVal(ghl?.closeRate, "percent", ts);
+    case "units-sold":
+      return liveVal(ghl?.wonDeals, "count", ts);
+    case "set-rate":
+      return ghl?.newLeads && ghl.newLeads > 0 && typeof ghl.appointmentsBooked === "number"
+        ? liveVal(Math.round((ghl.appointmentsBooked / ghl.newLeads) * 1000) / 10, "percent", ts)
+        : notConnected();
+    case "lead-to-customer":
+      return ghl?.newLeads && ghl.newLeads > 0 && typeof ghl.wonDeals === "number"
+        ? liveVal(Math.round((ghl.wonDeals / ghl.newLeads) * 1000) / 10, "percent", ts)
+        : notConnected();
+    case "dials":
+      return liveVal(snap.calls?.outboundCalls, "count", ts);
+    case "ad-spend":
+      return liveVal(meta?.spend, "usd", ts);
+    case "new-leads":
+      return liveVal(ghl?.newLeads, "count", ts);
+    case "ctr":
+      return meta?.impressions && meta.impressions > 0 && typeof meta.clicks === "number"
+        ? liveVal(Math.round((meta.clicks / meta.impressions) * 10000) / 100, "percent", ts)
+        : notConnected();
+    case "cost-per-lead":
+      return ghl?.newLeads && ghl.newLeads > 0 && typeof meta?.spend === "number"
+        ? liveVal(Math.round((meta.spend / ghl.newLeads) * 100) / 100, "usd", ts)
+        : notConnected();
+    case "cost-per-held-appointment":
+      return ghl?.showedAppointments && ghl.showedAppointments > 0 && typeof meta?.spend === "number"
+        ? liveVal(Math.round((meta.spend / ghl.showedAppointments) * 100) / 100, "usd", ts)
+        : notConnected();
+    default:
+      return notConnected();
+  }
+}
+
 export function dashboardBoardService(
   now: () => Date = () => new Date(),
-  adapters: { teamRoster?: TeamRosterAdapter } = {},
+  adapters: { teamRoster?: TeamRosterAdapter; fetchImpl?: typeof fetch } = {},
 ) {
-  const teamRoster = adapters.teamRoster ?? teamCapitalAdapter();
+  const teamRoster = adapters.teamRoster ?? teamCapitalAdapter(adapters.fetchImpl);
 
   return {
     async board(board: DashboardBoardId, companyId: string): Promise<DashboardBoard> {
@@ -446,21 +567,35 @@ export function dashboardBoardService(
       if (!definition) throw new Error(`Unknown dashboard board: ${board}`);
 
       const roster = board === "human-employees" ? await teamRoster.read(companyId) : null;
+      const snap = board === "sales" || board === "marketing" ? await readSalesSnapshot(adapters.fetchImpl) : null;
 
       const sourceIds = new Set<DashboardSourceId>();
       for (const item of [...definition.tiles, ...definition.tables]) {
         for (const id of item.sourceIds) sourceIds.add(id);
       }
 
+      const sources = sourcesFor([...sourceIds]).map((src) => {
+        if (src.id === "team_capital" && roster) {
+          return { ...src, status: "connected" as const, detail: "Connected to live Team & capital roster.", lastSuccessfulSync: roster.observedAt };
+        }
+        if (src.id === "ghl" && snap?.ghl) {
+          return { ...src, status: "connected" as const, detail: "Connected to live Sales Dashboard GHL snapshot.", lastSuccessfulSync: snap.observedAt };
+        }
+        if (src.id === "meta_ads" && snap?.meta) {
+          return { ...src, status: "connected" as const, detail: "Connected to live Sales Dashboard Meta snapshot.", lastSuccessfulSync: snap.observedAt };
+        }
+        return src;
+      });
+
       return {
         board,
         companyId,
         generatedAt: now().toISOString(),
-        sources: sourcesFor([...sourceIds]),
+        sources,
         tiles: definition.tiles.map((item) => ({
           ...item,
           sourceIds: [...item.sourceIds],
-          value: notConnected(),
+          value: resolveTileValue(item.id, snap, roster),
         })),
         tables: definition.tables.map((item) => ({
           ...item,
