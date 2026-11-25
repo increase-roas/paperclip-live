@@ -54,10 +54,15 @@ import {
   type ProviderGrantValue,
 } from "../../api/irOps";
 import {
+  buildGatewayPolicyPatch,
+  cloneProviderGrants,
   detectPresetDrift,
+  formatLocationsEditorState,
   getAgentStatus,
   getProviderCapabilityProfile,
   normalizeProviderGrant,
+  parseDraftLocations,
+  resolvePresetLocations,
   ROLE_POLICY_DEFINITIONS,
 } from "./gatewayHelpers";
 import { GatewayAgentStatusBadge } from "./GatewayAgentStatusBadge";
@@ -118,17 +123,7 @@ function clonePolicy(policy: GatewayPolicy): GatewayPolicy {
     ...policy,
     locations: Array.isArray(policy.locations) ? [...policy.locations] : "*",
     outboundChannels: Array.isArray(policy.outboundChannels) ? [...policy.outboundChannels] : null,
-    providers: Object.fromEntries(
-      Object.entries(policy.providers ?? {}).map(([k, v]) => [
-        k,
-        typeof v === "string"
-          ? v
-          : {
-              ...v,
-              ...(Array.isArray(v.actions) ? { actions: [...v.actions] } : {}),
-            },
-      ]),
-    ),
+    providers: cloneProviderGrants(policy.providers),
     secrets: Array.isArray(policy.secrets) ? [...policy.secrets] : [],
     scopes: Array.isArray(policy.scopes) ? [...policy.scopes] : [],
   };
@@ -174,13 +169,9 @@ export function AgentPolicySheet({
     }
     setDraft(initial);
     setEnabledDraft(currentAgent.enabled);
-    if (initial.locations === "*") {
-      setLocationsMode("all");
-      setLocationsText("");
-    } else {
-      setLocationsMode("scoped");
-      setLocationsText(initial.locations.join(", "));
-    }
+    const locState = formatLocationsEditorState(initial.locations);
+    setLocationsMode(locState.mode);
+    setLocationsText(locState.text);
     setSelectedRoleTemplate(initialRoleToApply ?? currentAgent.policy.role ?? "");
     setIssuedKey(null);
     setError(null);
@@ -222,28 +213,45 @@ export function AgentPolicySheet({
     setError(null);
   };
 
+  const handleLocationsModeChange = (nextMode: "all" | "scoped") => {
+    setLocationsMode(nextMode);
+    const nextLocations = parseDraftLocations(nextMode, locationsText);
+    setDraft((prev) => (prev ? { ...prev, locations: nextLocations } : prev));
+  };
+
+  const handleLocationsTextChange = (nextText: string) => {
+    setLocationsText(nextText);
+    if (locationsMode === "scoped") {
+      const nextLocations = parseDraftLocations("scoped", nextText);
+      setDraft((prev) => (prev ? { ...prev, locations: nextLocations } : prev));
+    }
+  };
+
   const resetToPreset = () => {
     if (!drift.presetPolicy) return;
+    const preset = drift.presetPolicy;
+    const nextLocations = resolvePresetLocations(preset.locations, draft.locations);
+    const nextLocState = formatLocationsEditorState(nextLocations);
     setDraft((prev) => {
       if (!prev) return prev;
       return {
         ...prev,
-        mode: drift.presetPolicy?.mode ?? "read_only",
-        allowDelete: Boolean(drift.presetPolicy?.allowDelete),
-        allowOutbound: Boolean(drift.presetPolicy?.allowOutbound),
-        allowAgencyWrite: Boolean(drift.presetPolicy?.allowAgencyWrite),
-        allowBulk: Boolean(drift.presetPolicy?.allowBulk),
-        allowSpend: Boolean(drift.presetPolicy?.allowSpend),
-        allowBuild: Boolean(drift.presetPolicy?.allowBuild),
-        outboundChannels: drift.presetPolicy?.outboundChannels ?? null,
-        locations: drift.presetPolicy?.locations ?? "*",
-        providers: drift.presetPolicy?.providers
-          ? { ...drift.presetPolicy.providers }
-          : prev.providers,
+        mode: preset.mode ?? "read_only",
+        allowDelete: Boolean(preset.allowDelete),
+        allowOutbound: Boolean(preset.allowOutbound),
+        allowAgencyWrite: Boolean(preset.allowAgencyWrite),
+        allowBulk: Boolean(preset.allowBulk),
+        allowSpend: Boolean(preset.allowSpend),
+        allowBuild: Boolean(preset.allowBuild),
+        outboundChannels: Array.isArray(preset.outboundChannels)
+          ? [...preset.outboundChannels]
+          : null,
+        locations: nextLocations,
+        providers: preset.providers ? cloneProviderGrants(preset.providers) : prev.providers,
       };
     });
-    setLocationsMode("all");
-    setLocationsText("");
+    setLocationsMode(nextLocState.mode);
+    setLocationsText(nextLocState.text);
     setNotice("Reset draft to agent's checked-in preset. Click Save policy to commit.");
     setError(null);
   };
@@ -316,29 +324,7 @@ export function AgentPolicySheet({
     setError(null);
     setNotice(null);
     try {
-      const locations: "*" | string[] =
-        locationsMode === "all"
-          ? "*"
-          : locationsText
-              .split(/[\s,]+/)
-              .map((s) => s.trim())
-              .filter(Boolean);
-
-      const patch: Partial<GatewayPolicy> = {
-        mode: draft.mode,
-        allowDelete: draft.allowDelete,
-        allowOutbound: draft.allowOutbound,
-        allowAgencyWrite: draft.allowAgencyWrite,
-        allowBulk: draft.allowBulk,
-        allowSpend: draft.allowSpend,
-        allowBuild: draft.allowBuild,
-        outboundChannels: draft.outboundChannels ?? null,
-        locations,
-        providers: draft.providers,
-        ...(Array.isArray(draft.secrets) ? { secrets: draft.secrets } : {}),
-        ...(Array.isArray(draft.scopes) ? { scopes: draft.scopes } : {}),
-        ...(typeof draft.admin === "boolean" ? { admin: draft.admin } : {}),
-      };
+      const patch = buildGatewayPolicyPatch(draft, locationsMode, locationsText);
       await irOpsApi.gateway.updateAgentPolicy(agent.agent, patch);
       setNotice("Policy updated live — no key rotation required.");
       onSaved();
@@ -371,11 +357,14 @@ export function AgentPolicySheet({
     setNotice(null);
     setIssuedKey(null);
     try {
+      const policyPayload = buildGatewayPolicyPatch(draft, locationsMode, locationsText);
       const res = agent.hasKey
         ? await irOpsApi.gateway.rotateAgentKey(agent.agent)
         : await irOpsApi.gateway.createAgentKey(agent.agent, {
+            role: "custom",
             replace: true,
-            policy: draft,
+            locations: policyPayload.locations,
+            policy: policyPayload,
           });
       const token = res.key ?? res.token ?? res.apiKey;
       if (token) setIssuedKey(String(token));
@@ -549,7 +538,7 @@ export function AgentPolicySheet({
                   </Label>
                   <Select
                     value={locationsMode}
-                    onValueChange={(v) => setLocationsMode(v as "all" | "scoped")}
+                    onValueChange={(v) => handleLocationsModeChange(v as "all" | "scoped")}
                   >
                     <SelectTrigger id="policy-locations-mode" className="w-full">
                       <SelectValue />
@@ -571,7 +560,7 @@ export function AgentPolicySheet({
                     id="policy-locations-input"
                     className="font-mono text-xs"
                     value={locationsText}
-                    onChange={(e) => setLocationsText(e.target.value)}
+                    onChange={(e) => handleLocationsTextChange(e.target.value)}
                     placeholder="loc_abc123, loc_def456"
                   />
                 </div>

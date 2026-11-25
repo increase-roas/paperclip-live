@@ -106,6 +106,25 @@ ${approvalLines}
 `;
 }
 
+export function buildWorkflowPath(profile: string, name: string): string | null {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  if (!slug) return null;
+  return `${profile.trim()}/${slug}.md`;
+}
+
+export function findDuplicateWorkflow<T extends Pick<WorkflowItem, "path">>(
+  items: ReadonlyArray<T>,
+  candidatePath: string,
+): T | null {
+  const normalized = candidatePath.trim().toLowerCase();
+  if (!normalized) return null;
+  return items.find((item) => item.path.trim().toLowerCase() === normalized) ?? null;
+}
+
 function relativeFolderBadge(path: string, profile: string): string {
   const slashIdx = path.indexOf("/");
   if (slashIdx > 0) return path.slice(0, slashIdx);
@@ -233,6 +252,15 @@ export function WorkflowsPage() {
 
   const hasUnsavedChanges = selectedPath !== null && content !== savedContent;
 
+  const candidateCreatePath = useMemo(
+    () => buildWorkflowPath(newProfile, newName),
+    [newProfile, newName],
+  );
+  const duplicateCreateWorkflow = useMemo(
+    () => (candidateCreatePath ? findDuplicateWorkflow(items, candidateCreatePath) : null),
+    [items, candidateCreatePath],
+  );
+
   const handleSave = async () => {
     if (!selectedPath) return;
     setSaving(true);
@@ -256,13 +284,18 @@ export function WorkflowsPage() {
       setCreateError("Give the workflow a name first.");
       return;
     }
-    const slug =
-      newName
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "") || "workflow";
-    const relPath = `${newProfile}/${slug}.md`;
+    const relPath = buildWorkflowPath(newProfile, newName);
+    if (!relPath) {
+      setCreateError("Give the workflow a name with letters or numbers.");
+      return;
+    }
+    const existing = findDuplicateWorkflow(items, relPath);
+    if (existing) {
+      setCreateError(
+        `A playbook already exists at ${existing.path}. Choose a different name or edit the existing playbook.`,
+      );
+      return;
+    }
     const formatted = buildAgentWikiSopTemplate({
       name: newName,
       profile: newProfile,
@@ -275,7 +308,7 @@ export function WorkflowsPage() {
     setSaving(true);
     setCreateError(null);
     try {
-      await irOpsApi.workflows.save(relPath, formatted);
+      await irOpsApi.workflows.create(relPath, formatted);
       setCreateOpen(false);
       setNewName("");
       setNewTrigger("");
@@ -564,7 +597,10 @@ export function WorkflowsPage() {
                 <Input
                   id="wf-name"
                   value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
+                  onChange={(e) => {
+                    setNewName(e.target.value);
+                    setCreateError(null);
+                  }}
                   placeholder="e.g. Launch Meta Ads Campaign"
                   required
                 />
@@ -574,7 +610,13 @@ export function WorkflowsPage() {
                 <Label htmlFor="wf-profile" className="text-xs">
                   Owner profile
                 </Label>
-                <Select value={newProfile} onValueChange={setNewProfile}>
+                <Select
+                  value={newProfile}
+                  onValueChange={(value) => {
+                    setNewProfile(value);
+                    setCreateError(null);
+                  }}
+                >
                   <SelectTrigger id="wf-profile" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
@@ -588,6 +630,17 @@ export function WorkflowsPage() {
                 </Select>
               </div>
             </div>
+
+            {candidateCreatePath && (
+              <p className="font-mono text-xs text-muted-foreground">
+                File: playbooks/{candidateCreatePath}
+              </p>
+            )}
+            {duplicateCreateWorkflow && !createError && (
+              <p className="text-xs text-destructive" role="alert">
+                A playbook already exists at {duplicateCreateWorkflow.path}. Choose a different name or edit the existing playbook.
+              </p>
+            )}
 
             <div className="space-y-1.5">
               <Label htmlFor="wf-trigger" className="text-xs">

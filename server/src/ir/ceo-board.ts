@@ -54,15 +54,22 @@ function formatUsd(value: number): string {
   return `$${Math.round(value).toLocaleString("en-US")}`;
 }
 
-function pickPrimaryFinancials(bundle: PortfolioSnapshotBundle): CapitalMetricsPayload | null {
-  // Never mix client P&L into agency P&L: agency financials come strictly from the owner record.
-  const owner = bundle.capital?.owner;
+function pickPrimaryFinancials(
+  bundle: PortfolioSnapshotBundle,
+  period: DashboardPeriod,
+): CapitalMetricsPayload | null {
+  // Never mix client P&L into agency P&L, and never mix mismatched period financials.
+  const capital = bundle.capital;
+  const owner = capital?.owner;
   if (!owner) return null;
-  if (owner.marketing?.evidence?.financial) return owner.marketing;
-  if (owner.financialMonth?.evidence?.financial) return owner.financialMonth;
-  if ((owner.marketing?.cashCollectedUsd ?? 0) > 0) return owner.marketing;
-  if ((owner.financialMonth?.cashCollectedUsd ?? 0) > 0) return owner.financialMonth;
-  return owner.marketing ?? null;
+  if (capital.view && capital.view !== period) return null;
+  const marketingWindow = typeof owner.marketing?.window === "string" ? owner.marketing.window.trim() : "";
+  const marketingMatches = !marketingWindow || marketingWindow === period;
+  if (marketingMatches && owner.marketing?.evidence?.financial) return owner.marketing;
+  if (period === "month" && owner.financialMonth?.evidence?.financial) return owner.financialMonth;
+  if (marketingMatches && (owner.marketing?.cashCollectedUsd ?? 0) > 0) return owner.marketing;
+  if (period === "month" && (owner.financialMonth?.cashCollectedUsd ?? 0) > 0) return owner.financialMonth;
+  return marketingMatches ? (owner.marketing ?? null) : null;
 }
 
 export function buildCeoAndReadingOrder(
@@ -73,8 +80,12 @@ export function buildCeoAndReadingOrder(
 ): { ceo: DashboardCeoBoard; readingOrder: DashboardReadingOrderPayload } {
   const generatedAt = now.toISOString();
   const periodLabel = PERIOD_LABELS[period];
-  const observedAt = bundle.observedAt ?? bundle.capital?.generatedAt ?? null;
-  const fin = pickPrimaryFinancials(bundle);
+  const observedAt =
+    bundle.observedAt ??
+    (bundle.capital && (!bundle.capital.view || bundle.capital.view === period)
+      ? bundle.capital.generatedAt
+      : null);
+  const fin = pickPrimaryFinancials(bundle, period);
 
   // Aggregate portfolio totals across clients
   let totalAdSpend = 0;

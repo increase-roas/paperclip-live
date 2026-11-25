@@ -355,6 +355,90 @@ function stableProviderMap(
   return out;
 }
 
+function normalizeLocationsKey(locations: "*" | string[] | undefined): string {
+  if (locations === "*") return "*";
+  if (Array.isArray(locations)) {
+    return JSON.stringify([...new Set(locations.map((id) => id.trim()).filter(Boolean))].sort());
+  }
+  return "";
+}
+
+export function parseDraftLocations(
+  mode: "all" | "scoped",
+  text: string,
+): "*" | string[] {
+  if (mode === "all") return "*";
+  const seen = new Set<string>();
+  const parsed: string[] = [];
+  for (const token of text.split(/[\s,]+/)) {
+    const trimmed = token.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    parsed.push(trimmed);
+  }
+  return parsed;
+}
+
+export function formatLocationsEditorState(
+  locations: "*" | string[] | undefined,
+): { mode: "all" | "scoped"; text: string } {
+  if (Array.isArray(locations)) {
+    return { mode: "scoped", text: locations.join(", ") };
+  }
+  return { mode: "all", text: "" };
+}
+
+export function resolvePresetLocations(
+  presetLocations: "*" | string[] | undefined,
+  currentLocations: "*" | string[],
+): "*" | string[] {
+  if (Array.isArray(presetLocations)) return [...presetLocations];
+  if (presetLocations === "*") return "*";
+  return Array.isArray(currentLocations) ? [...currentLocations] : "*";
+}
+
+export function cloneProviderGrants(
+  providers: Record<string, ProviderGrantValue> | undefined,
+): Record<string, ProviderGrantValue> {
+  return Object.fromEntries(
+    Object.entries(providers ?? {}).map(([k, v]) => [
+      k,
+      typeof v === "string"
+        ? v
+        : {
+            ...v,
+            ...(Array.isArray(v.actions) ? { actions: [...v.actions] } : {}),
+            ...(Array.isArray(v.hooks) ? { hooks: [...v.hooks] } : {}),
+            ...(Array.isArray(v.resources) ? { resources: [...v.resources] } : {}),
+            ...(Array.isArray(v.teams) ? { teams: [...v.teams] } : {}),
+          },
+    ]),
+  );
+}
+
+export function buildGatewayPolicyPatch(
+  draft: GatewayPolicy,
+  locationsMode: "all" | "scoped",
+  locationsText: string,
+): Partial<GatewayPolicy> & { locations: "*" | string[] } {
+  const locations = parseDraftLocations(locationsMode, locationsText);
+  return {
+    mode: draft.mode,
+    allowDelete: draft.allowDelete,
+    allowOutbound: draft.allowOutbound,
+    allowAgencyWrite: draft.allowAgencyWrite,
+    allowBulk: draft.allowBulk,
+    allowSpend: draft.allowSpend,
+    allowBuild: draft.allowBuild,
+    outboundChannels: Array.isArray(draft.outboundChannels) ? [...draft.outboundChannels] : null,
+    locations,
+    providers: cloneProviderGrants(draft.providers),
+    ...(Array.isArray(draft.secrets) ? { secrets: [...draft.secrets] } : {}),
+    ...(Array.isArray(draft.scopes) ? { scopes: [...draft.scopes] } : {}),
+    ...(typeof draft.admin === "boolean" ? { admin: draft.admin } : {}),
+  };
+}
+
 export function detectPresetDrift(
   agentName: string,
   policy: GatewayPolicy,
@@ -383,6 +467,12 @@ export function detectPresetDrift(
     if (typeof presetPolicy[flag] === "boolean" && Boolean(policy[flag]) !== presetPolicy[flag]) {
       diffs.push(flag);
     }
+  }
+  if (
+    presetPolicy.locations !== undefined &&
+    normalizeLocationsKey(policy.locations) !== normalizeLocationsKey(presetPolicy.locations)
+  ) {
+    diffs.push("locations");
   }
   if (presetPolicy.providers) {
     const actualP = JSON.stringify(stableProviderMap(policy.providers));

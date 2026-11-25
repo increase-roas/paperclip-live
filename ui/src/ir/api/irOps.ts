@@ -20,8 +20,16 @@ async function irFetch<T>(
   path: string,
   init: RequestInit & { timeoutMs?: number } = {},
 ): Promise<T> {
-  const { timeoutMs = 25_000, headers: initHeaders, ...rest } = init;
+  const { timeoutMs = 25_000, headers: initHeaders, signal: externalSignal, ...rest } = init;
   const controller = new AbortController();
+  const onExternalAbort = () => controller.abort();
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      controller.abort();
+    } else {
+      externalSignal.addEventListener("abort", onExternalAbort, { once: true });
+    }
+  }
   const timer = window.setTimeout(() => controller.abort(), timeoutMs);
   try {
     const headers: Record<string, string> = {
@@ -63,6 +71,9 @@ async function irFetch<T>(
   } catch (err) {
     if (err instanceof IrApiError) throw err;
     if (err instanceof Error && err.name === "AbortError") {
+      if (externalSignal?.aborted) {
+        throw new IrApiError("Request cancelled.", 0, "aborted");
+      }
       throw new IrApiError("Request timed out.", 504, "timeout");
     }
     throw new IrApiError(
@@ -72,6 +83,7 @@ async function irFetch<T>(
     );
   } finally {
     window.clearTimeout(timer);
+    externalSignal?.removeEventListener("abort", onExternalAbort);
   }
 }
 
@@ -595,29 +607,41 @@ export const irOpsApi = {
       irFetch<{ ok?: boolean; path?: string; content: string }>(
         `/api/voice/hermes-talk/workflows/read?path=${encodeURIComponent(path)}`,
       ),
+    create: (path: string, content: string) =>
+      irFetch<{ ok?: boolean; path?: string }>("/api/voice/hermes-talk/workflows/save", {
+        method: "POST",
+        body: JSON.stringify({ path, content, mode: "create" }),
+        timeoutMs: 95_000,
+      }),
     save: (path: string, content: string) =>
       irFetch<{ ok?: boolean; path?: string }>("/api/voice/hermes-talk/workflows/save", {
         method: "POST",
-        body: JSON.stringify({ path, content }),
+        body: JSON.stringify({ path, content, mode: "update" }),
         timeoutMs: 95_000,
       }),
   },
 
   voice: {
     getStatus: () => irFetch<VoiceStatusResponse>("/api/voice/hermes-talk/status", { timeoutMs: 10_000 }),
-    createSession: () =>
+    createSession: (options?: { signal?: AbortSignal }) =>
       irFetch<VoiceSessionResponse>("/api/voice/hermes-talk/session", {
         method: "POST",
         body: JSON.stringify({}),
         timeoutMs: 20_000,
+        signal: options?.signal,
       }),
-    runTool: (name: string, args: Record<string, unknown>) =>
+    runTool: (name: string, args: Record<string, unknown>, options?: { signal?: AbortSignal }) =>
       irFetch<{ ok?: boolean; output?: string }>("/api/voice/hermes-talk/tool", {
         method: "POST",
         body: JSON.stringify({ name, arguments: args }),
         timeoutMs: 90_000,
+        signal: options?.signal,
       }),
-    getRuns: () => irFetch<{ runs?: VoiceRunRecord[] }>("/api/voice/hermes-talk/runs", { timeoutMs: 12_000 }),
+    getRuns: (options?: { signal?: AbortSignal }) =>
+      irFetch<{ runs?: VoiceRunRecord[] }>("/api/voice/hermes-talk/runs", {
+        timeoutMs: 12_000,
+        signal: options?.signal,
+      }),
     postJournal: (callId: string, events: Array<Record<string, unknown>>) =>
       irFetch<Record<string, unknown>>("/api/voice/hermes-talk/journal", {
         method: "POST",
