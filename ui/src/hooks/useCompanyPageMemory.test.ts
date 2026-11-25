@@ -87,4 +87,19 @@ describe("sanitizeRememberedPathForCompany", () => {
       }),
     ).toBe("/skills/skill-123/files/SKILL.md");
   });
+
+  it("strips matching company prefix on Team Hub paths so switching back never double-prefixes", () => {
+    expect(
+      sanitizeRememberedPathForCompany({
+        path: "/INC/teams/marketing",
+        companyPrefix: "INC",
+      }),
+    ).toBe("/teams/marketing");
+    expect(
+      sanitizeRememberedPathForCompany({
+        path: "/INC/teams/sales?tab=active",
+        companyPrefix: "INC",
+      }),
+    ).toBe("/teams/sales?tab=active");
+  });
 });

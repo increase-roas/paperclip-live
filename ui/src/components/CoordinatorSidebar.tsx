@@ -27,6 +27,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { useDialogActions } from "@/context/DialogContext";
 import { useSidebar } from "@/context/SidebarContext";
 import { useOptionalJavarVoice } from "@/ir/voice/JavarVoiceContext";
+import { isTeamHubActive, teamHubHref } from "@/ir/teams/teamHubHelpers";
 import { useLocation } from "@/lib/router";
 import { queryKeys } from "@/lib/queryKeys";
 import { agentRouteRef, cn, projectRouteRef } from "@/lib/utils";
@@ -52,49 +53,42 @@ export type TeamNavigationItem = {
   label: string;
   to: string;
   icon: LucideIcon;
+  kind: "team" | "project";
   projectId: string | null;
 };
 
 /**
- * Maps existing company Projects onto the CEO-grade TEAMS sidebar section:
- * Marketing, Sales, Fulfillment, Operations first (backed by matching Projects
- * when present, falling back to /projects?team=<key> so uncreated teams do not
- * collide on active highlighting), followed by any additional active projects.
+ * Builds the CEO-grade TEAMS sidebar section:
+ * 1. Canonical department hubs (Marketing, Sales, Fulfillment, Operations)
+ *    routed directly to `/<prefix>/teams/<key>` so each department has its own
+ *    native hub and exact active highlight.
+ * 2. Standalone active projects grouped cleanly below without colliding with
+ *    the four department hubs.
  */
-export function buildTeamNavigationItems(projects: readonly Project[]): TeamNavigationItem[] {
+export function buildTeamNavigationItems(
+  projects: readonly Project[],
+  companyPrefix?: string | null,
+): TeamNavigationItem[] {
   const activeProjects = projects.filter(project => !project.archivedAt && project.status !== "cancelled");
-  const matchedIds = new Set<string>();
+  const canonicalLabels = new Set(CEO_TEAMS.map(team => team.label.toLowerCase()));
 
-  const canonical: TeamNavigationItem[] = CEO_TEAMS.map(team => {
-    const match = activeProjects.find(
-      project => project.name.trim().toLowerCase() === team.label.toLowerCase(),
-    );
-    if (match) {
-      matchedIds.add(match.id);
-      return {
-        key: team.key,
-        label: team.label,
-        to: `/projects/${projectRouteRef(match)}/issues`,
-        icon: team.icon,
-        projectId: match.id,
-      };
-    }
-    return {
-      key: team.key,
-      label: team.label,
-      to: `/projects?team=${team.key}`,
-      icon: team.icon,
-      projectId: null,
-    };
-  });
+  const canonical: TeamNavigationItem[] = CEO_TEAMS.map(team => ({
+    key: team.key,
+    label: team.label,
+    to: teamHubHref(companyPrefix, team.key),
+    icon: team.icon,
+    kind: "team",
+    projectId: null,
+  }));
 
   const extra: TeamNavigationItem[] = activeProjects
-    .filter(project => !matchedIds.has(project.id))
+    .filter(project => !canonicalLabels.has(project.name.trim().toLowerCase()))
     .map(project => ({
       key: project.id,
       label: project.name,
       to: `/projects/${projectRouteRef(project)}/issues`,
       icon: FolderOpen,
+      kind: "project",
       projectId: project.id,
     }));
 
@@ -105,12 +99,6 @@ export function resolveJavarDestination(agents: readonly Agent[]): string {
   const javar = agents.find(agent => agent.name.trim().toLowerCase() === "javar")
     ?? agents.find(agent => agent.role === "ceo");
   return javar ? `/chats/${encodeURIComponent(agentRouteRef(javar))}` : "/chats";
-}
-
-function isFallbackTeamActive(pathname: string, search: string, teamKey: string): boolean {
-  const cleanPath = pathname.replace(/\/+$/, "").toLowerCase();
-  if (!cleanPath.endsWith("/projects") && cleanPath !== "/projects") return false;
-  return new URLSearchParams(search).get("team") === teamKey;
 }
 
 function JavarOrbIcon() {
@@ -124,7 +112,7 @@ function JavarOrbIcon() {
 
 /** CEO-grade primary navigation:
  * Top (immediate attention): Javar (with inline voice mic), Inbox, Tasks, Dashboard (+ sidebar plugin slots).
- * Middle (TEAMS): Marketing, Sales, Fulfillment, Operations backed by existing Projects.
+ * Middle (TEAMS): Marketing, Sales, Fulfillment, Operations native Team Hubs, plus standalone Projects below.
  * Bottom (COMPANY): Clients, Workflows, Agents, Routines, Settings. */
 export function CoordinatorSidebar({ children }: { children?: ReactNode }) {
   const { companyId, agents, chats } = useAgentChatNavigation();
@@ -143,8 +131,19 @@ export function CoordinatorSidebar({ children }: { children?: ReactNode }) {
   });
 
   const javarTo = useMemo(() => resolveJavarDestination(agents.data ?? []), [agents.data]);
-  const teamItems = useMemo(() => buildTeamNavigationItems(projects ?? []), [projects]);
   const companyPrefix = selectedCompany?.issuePrefix?.trim().toUpperCase() ?? null;
+  const teamItems = useMemo(
+    () => buildTeamNavigationItems(projects ?? [], companyPrefix),
+    [projects, companyPrefix],
+  );
+  const departmentItems = useMemo(
+    () => teamItems.filter(item => item.kind === "team"),
+    [teamItems],
+  );
+  const standaloneProjectItems = useMemo(
+    () => teamItems.filter(item => item.kind === "project"),
+    [teamItems],
+  );
   const clientsTo = companyPrefix ? `/${companyPrefix}/clients` : "/clients";
   const workflowsTo = companyPrefix ? `/${companyPrefix}/workflows` : "/workflows";
   const pluginContext = useMemo(() => ({
@@ -274,22 +273,35 @@ export function CoordinatorSidebar({ children }: { children?: ReactNode }) {
 
             <SidebarSection
               label="Teams"
-              headerAction={!rail ? { ariaLabel: "New team", icon: Plus, onClick: openNewProject } : undefined}
+              headerAction={!rail ? { ariaLabel: "New project", icon: Plus, onClick: openNewProject } : undefined}
             >
-              {teamItems.map(team => (
+              {departmentItems.map(team => (
                 <SidebarNavItem
                   key={team.key}
                   className="design-sidebar-item"
                   to={team.to}
                   label={team.label}
                   icon={team.icon}
-                  active={
-                    team.projectId === null
-                      ? isFallbackTeamActive(location.pathname, location.search, team.key)
-                      : undefined
-                  }
+                  end
+                  active={isTeamHubActive(location.pathname, team.key)}
                 />
               ))}
+              {standaloneProjectItems.length > 0 ? (
+                <>
+                  {!rail ? (
+                    <div className="mx-3 my-1 h-px bg-border/50" aria-hidden="true" />
+                  ) : null}
+                  {standaloneProjectItems.map(project => (
+                    <SidebarNavItem
+                      key={project.key}
+                      className="design-sidebar-item"
+                      to={project.to}
+                      label={project.label}
+                      icon={project.icon}
+                    />
+                  ))}
+                </>
+              ) : null}
             </SidebarSection>
 
             <SidebarSection label="Company">

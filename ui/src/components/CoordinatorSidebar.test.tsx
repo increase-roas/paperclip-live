@@ -184,10 +184,10 @@ describe("CEO-grade CoordinatorSidebar navigation", () => {
       "/decisions",
       "/issues",
       "/dashboard",
-      "/projects/marketing/issues",
-      "/projects/sales/issues",
-      "/projects/fulfillment/issues",
-      "/projects/operations/issues",
+      "/INC/teams/marketing",
+      "/INC/teams/sales",
+      "/INC/teams/fulfillment",
+      "/INC/teams/operations",
       "/INC/clients",
       "/INC/workflows",
       "/agents/all",
@@ -211,19 +211,23 @@ describe("CEO-grade CoordinatorSidebar navigation", () => {
     expect(navigation().querySelector('[data-testid="plugin-launcher-sidebar"]')).not.toBeNull();
   });
 
-  it("maps TEAMS to matching existing Projects and uses distinct ?team= fallback URLs", () => {
+  it("routes canonical TEAMS directly to /teams/<key> and groups standalone Projects cleanly below", () => {
     const projects = [
       makeProject({ id: "p1", name: "Marketing", urlKey: "marketing" }),
-      makeProject({ id: "p2", name: "Client Portal", urlKey: "client-portal" }),
-      makeProject({ id: "p3", name: "Old Archive", urlKey: "old", archivedAt: new Date("2026-01-01") }),
+      makeProject({ id: "p2", name: "Knowledge Base to Agent Skills", urlKey: "knowledge-base-to-agent-skills" }),
+      makeProject({ id: "p3", name: "Onboarding", urlKey: "onboarding" }),
+      makeProject({ id: "p4", name: "Agency Runtime Proof", urlKey: "agency-runtime-proof" }),
+      makeProject({ id: "p5", name: "Old Archive", urlKey: "old", archivedAt: new Date("2026-01-01") }),
     ];
-    const items = buildTeamNavigationItems(projects);
-    expect(items.map(i => ({ label: i.label, to: i.to }))).toEqual([
-      { label: "Marketing", to: "/projects/marketing/issues" },
-      { label: "Sales", to: "/projects?team=sales" },
-      { label: "Fulfillment", to: "/projects?team=fulfillment" },
-      { label: "Operations", to: "/projects?team=operations" },
-      { label: "Client Portal", to: "/projects/client-portal/issues" },
+    const items = buildTeamNavigationItems(projects, "INC");
+    expect(items.map(i => ({ label: i.label, to: i.to, kind: i.kind }))).toEqual([
+      { label: "Marketing", to: "/INC/teams/marketing", kind: "team" },
+      { label: "Sales", to: "/INC/teams/sales", kind: "team" },
+      { label: "Fulfillment", to: "/INC/teams/fulfillment", kind: "team" },
+      { label: "Operations", to: "/INC/teams/operations", kind: "team" },
+      { label: "Knowledge Base to Agent Skills", to: "/projects/knowledge-base-to-agent-skills/issues", kind: "project" },
+      { label: "Onboarding", to: "/projects/onboarding/issues", kind: "project" },
+      { label: "Agency Runtime Proof", to: "/projects/agency-runtime-proof/issues", kind: "project" },
     ]);
   });
 
@@ -235,15 +239,20 @@ describe("CEO-grade CoordinatorSidebar navigation", () => {
     expect(fixture.voiceToggleCall).toHaveBeenCalledOnce();
   });
 
-  it("highlights only the matching fallback team when viewing /projects?team=sales", async () => {
-    fixture.pathname = "/INC/projects";
-    fixture.search = "?team=sales";
-    await renderSidebar();
-    const salesLink = container.querySelector('a[href="/projects?team=sales"]');
-    const marketingLink = container.querySelector('a[href="/projects?team=marketing"]');
-    expect(salesLink?.classList.contains("bg-sidebar-accent")).toBe(true);
-    expect(marketingLink?.classList.contains("bg-sidebar-accent")).toBe(false);
-  });
+  it.each(["marketing", "sales", "fulfillment", "operations"] as const)(
+    "highlights ONLY %s when viewing /INC/teams/%s",
+    async (activeKey) => {
+      fixture.pathname = `/INC/teams/${activeKey}`;
+      fixture.search = "";
+      await renderSidebar();
+
+      for (const key of ["marketing", "sales", "fulfillment", "operations"] as const) {
+        const link = container.querySelector(`a[href="/INC/teams/${key}"]`);
+        expect(link).not.toBeNull();
+        expect(link?.classList.contains("bg-sidebar-accent")).toBe(key === activeKey);
+      }
+    },
+  );
 
   it("resolves Javar destination to Javar, CEO fallback, or /chats", () => {
     expect(resolveJavarDestination([])).toBe("/chats");

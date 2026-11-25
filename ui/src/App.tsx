@@ -140,6 +140,7 @@ const CompanyExport = lazy(() => import("./pages/CompanyExport").then((module) =
 const ClientsPage = lazy(() => import("./ir/pages/ClientsPage").then((module) => ({ default: module.ClientsPage })));
 const WorkflowsPage = lazy(() => import("./ir/pages/WorkflowsPage").then((module) => ({ default: module.WorkflowsPage })));
 const GatewayAccessPage = lazy(() => import("./ir/pages/GatewayAccessPage").then((module) => ({ default: module.GatewayAccessPage })));
+const TeamHubPage = lazy(() => import("./ir/teams/TeamHubPage").then((module) => ({ default: module.TeamHubPage })));
 
 const ProductionAgents = lazy(() => import("./pages/Agents.production").then((module) => ({ default: module.Agents })));
 const ProductionRoutines = lazy(() => import("./pages/Routines.production").then((module) => ({ default: module.Routines })));
@@ -170,6 +171,8 @@ function boardRoutes(streamlinedUiEnabled: boolean, combinedInboxTasksEnabled: b
       <Route path="companies" element={<Companies />} />
       <Route path="clients" element={<ClientsPage />} />
       <Route path="workflows" element={<WorkflowsPage />} />
+      <Route path="teams" element={<Navigate to="marketing" replace />} />
+      <Route path="teams/:teamKey" element={<TeamHubPage />} />
       <Route path="company/settings" element={<CompanySettings />} />
       <Route path="company/settings/connections" element={<CompanyConnections />} />
       <Route path="company/settings/gateway" element={<GatewayAccessPage />} />
@@ -825,6 +828,8 @@ export function App() {
           <Route path="companies" element={<UnprefixedBoardRedirect />} />
           <Route path="clients" element={<UnprefixedBoardRedirect />} />
           <Route path="workflows" element={<UnprefixedBoardRedirect />} />
+          <Route path="teams" element={<UnprefixedBoardRedirect />} />
+          <Route path="teams/:teamKey" element={<UnprefixedBoardRedirect />} />
           <Route path="company/settings/*" element={<UnprefixedBoardRedirect />} />
           <Route path="issues" element={<UnprefixedBoardRedirect />} />
           <Route path="tasks" element={<UnprefixedBoardRedirect />} />
