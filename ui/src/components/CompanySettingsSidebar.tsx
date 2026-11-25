@@ -12,6 +12,7 @@ import {
   Package,
   Puzzle,
   Shield,
+  ShieldCheck,
   SlidersHorizontal,
   Unplug,
   Upload,
@@ -147,6 +148,7 @@ export function CompanySettingsSidebar() {
             />
           )}
           <SidebarNavItem to="/company/settings/connections" label="Connections" icon={Link2} end />
+          <SidebarNavItem to="/company/settings/gateway" label="Gateway Access" icon={ShieldCheck} end />
           {showPage("instance.access") && (
             <SidebarNavItem
               to={`${INSTANCE_SETTINGS_PATH_PREFIX}/access`}

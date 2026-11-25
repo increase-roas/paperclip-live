@@ -16,11 +16,14 @@ const fixture = vi.hoisted(() => ({
   openNewIssue: vi.fn(),
   openNewProject: vi.fn(),
   pathname: "/INC/issues",
+  search: "",
   collapsed: false,
   userId: "reviewer",
   chats: [] as Array<{ isUnreadForMe: boolean }>,
   projects: [] as Project[],
   agents: [] as Agent[],
+  voiceToggleCall: vi.fn(),
+  voiceConnected: false,
 }));
 
 vi.mock("@/hooks/useAgentChatNavigation", () => ({
@@ -65,8 +68,14 @@ vi.mock("@/plugins/launchers", () => ({
     <div data-testid={`plugin-launcher-${placementZones.join(",")}`} />
   ),
 }));
+vi.mock("@/ir/voice/JavarVoiceContext", () => ({
+  useOptionalJavarVoice: () => ({
+    connected: fixture.voiceConnected,
+    toggleCall: fixture.voiceToggleCall,
+  }),
+}));
 vi.mock("@/lib/router", () => ({
-  useLocation: () => ({ pathname: fixture.pathname, search: "" }),
+  useLocation: () => ({ pathname: fixture.pathname, search: fixture.search }),
   Link: ({ to, children, ...props }: { to: string; children: ReactNode }) => <a href={to} {...props}>{children}</a>,
   NavLink: ({ to, children, className, state: _state, end: _end, ...props }: {
     to: string; children: ReactNode; className?: string | ((state: { isActive: boolean }) => string); state?: unknown; end?: boolean;
@@ -114,9 +123,12 @@ beforeEach(() => {
   fixture.collapsed = false;
   fixture.userId = "reviewer";
   fixture.pathname = "/INC/issues";
+  fixture.search = "";
   fixture.chats = [];
   fixture.projects = [];
   fixture.agents = [];
+  fixture.voiceConnected = false;
+  fixture.voiceToggleCall.mockReset();
   fixture.summary.mockResolvedValue(summary([pending("question"), pending("review")]));
   container = document.createElement("div");
   document.body.appendChild(container);
@@ -176,6 +188,8 @@ describe("CEO-grade CoordinatorSidebar navigation", () => {
       "/projects/sales/issues",
       "/projects/fulfillment/issues",
       "/projects/operations/issues",
+      "/INC/clients",
+      "/INC/workflows",
       "/agents/all",
       "/routines",
       "/company/settings",
@@ -184,11 +198,12 @@ describe("CEO-grade CoordinatorSidebar navigation", () => {
     const groupLabels = [...navigation().querySelectorAll('[data-slot="sidebar-group-label"]')].map(el => el.textContent);
     expect(groupLabels).toEqual(["Teams", "Company"]);
 
-    // No individual specialist agent names, no Pinned, no Recents, no More drawer
+    // No individual specialist agent names, no Pinned, no Recents, no More drawer, no second Javar Voice row
     expect(navigation().textContent).not.toContain("Ads checker");
     expect(navigation().textContent).not.toContain("Research");
     expect(navigation().textContent).not.toContain("Pinned");
     expect(navigation().textContent).not.toContain("Recents");
+    expect(navigation().textContent).not.toContain("Javar Voice");
     expect(navigation().querySelector('button[aria-label="More workspace pages"]')).toBeNull();
 
     // Sidebar plugin slots stay mounted right after Dashboard so Sales dashboard remains 1-click accessible
@@ -196,7 +211,7 @@ describe("CEO-grade CoordinatorSidebar navigation", () => {
     expect(navigation().querySelector('[data-testid="plugin-launcher-sidebar"]')).not.toBeNull();
   });
 
-  it("maps TEAMS to matching existing Projects and keeps extra active projects reachable", () => {
+  it("maps TEAMS to matching existing Projects and uses distinct ?team= fallback URLs", () => {
     const projects = [
       makeProject({ id: "p1", name: "Marketing", urlKey: "marketing" }),
       makeProject({ id: "p2", name: "Client Portal", urlKey: "client-portal" }),
@@ -205,11 +220,29 @@ describe("CEO-grade CoordinatorSidebar navigation", () => {
     const items = buildTeamNavigationItems(projects);
     expect(items.map(i => ({ label: i.label, to: i.to }))).toEqual([
       { label: "Marketing", to: "/projects/marketing/issues" },
-      { label: "Sales", to: "/projects" },
-      { label: "Fulfillment", to: "/projects" },
-      { label: "Operations", to: "/projects" },
+      { label: "Sales", to: "/projects?team=sales" },
+      { label: "Fulfillment", to: "/projects?team=fulfillment" },
+      { label: "Operations", to: "/projects?team=operations" },
       { label: "Client Portal", to: "/projects/client-portal/issues" },
     ]);
+  });
+
+  it("triggers Javar voice call from the inline mic button on the Javar row", async () => {
+    await renderSidebar();
+    const button = container.querySelector<HTMLButtonElement>('button[aria-label="Talk to Javar"]');
+    expect(button).not.toBeNull();
+    await act(async () => button!.click());
+    expect(fixture.voiceToggleCall).toHaveBeenCalledOnce();
+  });
+
+  it("highlights only the matching fallback team when viewing /projects?team=sales", async () => {
+    fixture.pathname = "/INC/projects";
+    fixture.search = "?team=sales";
+    await renderSidebar();
+    const salesLink = container.querySelector('a[href="/projects?team=sales"]');
+    const marketingLink = container.querySelector('a[href="/projects?team=marketing"]');
+    expect(salesLink?.classList.contains("bg-sidebar-accent")).toBe(true);
+    expect(marketingLink?.classList.contains("bg-sidebar-accent")).toBe(false);
   });
 
   it("resolves Javar destination to Javar, CEO fallback, or /chats", () => {
