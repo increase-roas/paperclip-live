@@ -2271,6 +2271,35 @@ for (const [method,path,summary,body,response] of [
 ] as const) {
   registry.registerPath({method,path,tags:["voice-sessions"],summary,description:"Experimental Speko connection. Requires a current authenticated board session (or local implicit board), company membership and current task/connection authority. Agent keys and board API keys cannot act as a caller. Caller ID grants no private access. Media tokens are short-lived; durable provider credentials are never returned. Ending your owned call remains available after losing task access.",request:{params:z.object(Object.fromEntries([...path.matchAll(/\{([^}]+)\}/g)].map(m=>[m[1],z.string().uuid()]))),...(body?{body:jsonBody(body)}:{})},responses:{200:r.ok(response),...(method==="post" && path.endsWith("voice-sessions")?{201:r.ok(voiceStartResponseSchema)}:{}),400:r.badRequest,401:r.unauthorized,403:r.forbidden,404:r.notFound,409:r.conflict,422:r.unprocessable,429:{description:"Voice attempt limit reached"}}});
 }
+for (const [method, path, summary] of [
+  ["get", "/api/voice/hermes-talk/status", "Read Hermes Talk voice bridge status"],
+  ["post", "/api/voice/hermes-talk/session", "Start a Hermes Talk voice session"],
+  ["post", "/api/voice/hermes-talk/tool", "Run a Hermes Talk voice tool call"],
+  ["get", "/api/voice/hermes-talk/runs", "List recent Hermes Talk voice runs"],
+  ["post", "/api/voice/hermes-talk/journal", "Record a spoken call transcript"],
+  ["get", "/api/voice/hermes-talk/workflows", "List Hermes Talk workflows"],
+  ["get", "/api/voice/hermes-talk/workflows/read", "Read one Hermes Talk workflow"],
+  ["post", "/api/voice/hermes-talk/workflows/save", "Save a Hermes Talk workflow"],
+] as const) {
+  registry.registerPath({
+    method,
+    path,
+    tags: ["voice-sessions"],
+    summary,
+    description: "Instance admins only. Proxies the configured Hermes Talk voice server with a server-held session token; the token is never returned. Returns 503 when the bridge is not configured.",
+    ...(path.endsWith("/workflows/read") ? { request: { query: z.object({ path: z.string().max(256).optional() }) } } : {}),
+    ...(method === "post" ? { request: { body: jsonBody(z.record(z.string(), z.unknown())) } } : {}),
+    responses: {
+      200: r.ok(undefined),
+      400: r.badRequest,
+      401: r.unauthorized,
+      403: r.forbidden,
+      502: { description: "Hermes Talk upstream unreachable or misconfigured" },
+      503: { description: "Hermes Talk voice bridge not configured" },
+      504: { description: "Hermes Talk upstream timed out" },
+    },
+  });
+}
 
 // Explicit task-bound email. Board setup and agent actions share the same vaulted
 // connection, while automatic chat publication never applies to these endpoints.

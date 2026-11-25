@@ -24,6 +24,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { copyTextToClipboard } from "@/lib/clipboard";
 import {
   irOpsApi,
   type McpAuditRecord,
@@ -141,7 +142,7 @@ export function DashboardMcpTokensTab() {
   const handleCopy = async () => {
     if (!createdToken) return;
     try {
-      await navigator.clipboard.writeText(createdToken);
+      await copyTextToClipboard(createdToken);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {

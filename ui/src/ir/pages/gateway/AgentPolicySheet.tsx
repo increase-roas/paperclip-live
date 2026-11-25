@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import { cn } from "@/lib/utils";
+import { copyTextToClipboard } from "@/lib/clipboard";
 import {
   irOpsApi,
   type GatewayAgentRecord,
@@ -411,7 +412,7 @@ export function AgentPolicySheet({
   const handleCopyKey = async () => {
     if (!issuedKey) return;
     try {
-      await navigator.clipboard.writeText(issuedKey);
+      await copyTextToClipboard(issuedKey);
       setCopiedKey(true);
       window.setTimeout(() => setCopiedKey(false), 2000);
     } catch {

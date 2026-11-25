@@ -48,6 +48,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { copyTextToClipboard } from "@/lib/clipboard";
 import {
   irOpsApi,
   type AccountingStatus,
@@ -469,7 +470,7 @@ export function ClientsPage() {
   const handleCopyMenuLink = async () => {
     if (!menuLink) return;
     try {
-      await navigator.clipboard.writeText(menuLink);
+      await copyTextToClipboard(menuLink);
       setCopiedLink(true);
       window.setTimeout(() => setCopiedLink(false), 2000);
     } catch {
