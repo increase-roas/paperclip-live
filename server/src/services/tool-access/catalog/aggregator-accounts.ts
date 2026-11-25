@@ -337,8 +337,16 @@ export function createAggregatorAccounts(db: Db, { options, secrets, audit, cred
           await startComposioAppSync(row.connectionId, false, actor);
           refreshed += 1;
         } catch {
-          failedConnectionIds.push(row.connectionId);
-          await markStartFailure(row.id);
+          // One quick retry absorbs transient Composio/network hiccups so healthy
+          // connections do not flap red ("Last check failed") on a single blip.
+          try {
+            await new Promise((r) => setTimeout(r, 400));
+            await startComposioAppSync(row.connectionId, false, actor);
+            refreshed += 1;
+          } catch {
+            failedConnectionIds.push(row.connectionId);
+            await markStartFailure(row.id);
+          }
         }
       }
     }
