@@ -22,6 +22,7 @@ import {
   getAgentStatus,
   ROLE_POLICY_DEFINITIONS,
 } from "./gatewayHelpers";
+import { GatewayAgentStatusBadge } from "./GatewayAgentStatusBadge";
 
 interface GatewayRolesTabProps {
   roles: GatewayRoleTemplate[];
@@ -242,20 +243,7 @@ export function GatewayRolesTab({
                         </div>
                       </td>
                       <td className="px-3 py-2.5">
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "font-normal",
-                            status.kind === "active" &&
-                              "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
-                            status.kind === "disabled" &&
-                              "border-destructive/40 bg-destructive/10 text-destructive",
-                            status.kind === "no_key" &&
-                              "border-border bg-muted text-muted-foreground",
-                          )}
-                        >
-                          {status.label}
-                        </Badge>
+                        <GatewayAgentStatusBadge status={status} />
                       </td>
                       <td className="px-3 py-2.5">
                         <Badge variant="outline" className="font-normal">

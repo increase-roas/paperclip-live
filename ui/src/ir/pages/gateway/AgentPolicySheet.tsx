@@ -60,6 +60,7 @@ import {
   normalizeProviderGrant,
   ROLE_POLICY_DEFINITIONS,
 } from "./gatewayHelpers";
+import { GatewayAgentStatusBadge } from "./GatewayAgentStatusBadge";
 
 interface AgentPolicySheetProps {
   open: boolean;
@@ -429,20 +430,7 @@ export function AgentPolicySheet({
           <SheetHeader className="border-b border-border px-5 py-4">
             <div className="flex flex-wrap items-center gap-2 pr-6">
               <SheetTitle className="font-mono text-base">{agent.agent}</SheetTitle>
-              <Badge
-                variant="outline"
-                className={cn(
-                  "font-normal",
-                  status.kind === "active" &&
-                    "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
-                  status.kind === "disabled" &&
-                    "border-destructive/40 bg-destructive/10 text-destructive",
-                  status.kind === "no_key" &&
-                    "border-border bg-muted text-muted-foreground",
-                )}
-              >
-                {status.label}
-              </Badge>
+              <GatewayAgentStatusBadge status={status} />
               {bot?.key.fingerprint && (
                 <Badge variant="secondary" className="font-mono text-xs font-normal">
                   sha256:{bot.key.fingerprint}

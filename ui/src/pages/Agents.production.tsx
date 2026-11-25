@@ -15,7 +15,6 @@ import { useDialogActions } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useSidebar } from "../context/SidebarContext";
 import { queryKeys } from "../lib/queryKeys";
-import { isPlatformManagedEnvironment } from "../lib/managed-sandbox-environment";
 import { AgentStatusBadge, AgentStatusCapsule } from "../components/StatusBadge";
 import { EntityRow } from "../components/EntityRow";
 import { BuiltInLifecycleChip } from "../components/BuiltInAgentBadges";
@@ -25,8 +24,14 @@ import { QueryErrorState, useQueryView } from "../components/QueryView";
 import { relativeTime, cn, agentRouteRef, agentUrl } from "../lib/utils";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Bot, Plus, List, GitBranch } from "lucide-react";
-import { AGENT_ROLE_LABELS, type Agent, type Environment, type EnvironmentCapabilities } from "@paperclipai/shared";
+import { AGENT_ROLE_LABELS, type Agent, type Environment } from "@paperclipai/shared";
 import { usePublishSharedQueryData, useSharedPollingQuery } from "../hooks/useSharedPolling";
+import {
+  loadingEnvironmentDescriptor,
+  localEnvironmentDescriptor,
+  resolveAgentEnvironment,
+  type EnvironmentDescriptor,
+} from "../lib/agent-environment-descriptor";
 
 import { getAdapterLabel } from "../adapters/adapter-display-registry";
 
@@ -40,43 +45,13 @@ const ConfigureBuiltInAgentModal = lazy(() =>
   })),
 );
 
-export const AGENT_FILTER_TABS = ["all", "active", "paused", "error", "builtin"] as const;
-type FilterTab = (typeof AGENT_FILTER_TABS)[number];
-
-function isFilterTab(value: string): value is FilterTab {
-  return (AGENT_FILTER_TABS as readonly string[]).includes(value);
-}
-
-interface EnvironmentDescriptor {
-  label: string;
-  detail: string;
-  title: string;
-}
-
-const localEnvironmentDescriptor: EnvironmentDescriptor = {
-  label: "Local",
-  detail: "Paperclip host",
-  title: "Local - Paperclip host",
-};
-
-const loadingEnvironmentDescriptor: EnvironmentDescriptor = {
-  label: "—",
-  detail: "Loading environment",
-  title: "Loading environment",
-};
-
-// Agents in these states never appear in the agents list — `terminated` is
-// hidden like an archived company, and `pending_approval` is a hiring gate that
-// lives in the task thread, not an agent run state (PAP-75).
-const HIDDEN_AGENT_STATUSES = new Set(["terminated", "pending_approval"]);
-
-function matchesFilter(status: string, tab: FilterTab): boolean {
-  if (tab === "all") return true;
-  if (tab === "active") return status === "active" || status === "running" || status === "idle";
-  if (tab === "paused") return status === "paused";
-  if (tab === "error") return status === "error";
-  return true;
-}
+import {
+  agentStatusMatchesFilter as matchesFilter,
+  HIDDEN_AGENT_STATUSES,
+  isAgentFilterTab as isFilterTab,
+  type AgentFilterTab as FilterTab,
+} from "../lib/agent-filter-tabs";
+export { AGENT_FILTER_TABS } from "../lib/agent-filter-tabs";
 
 function filterAgents(agents: Agent[], tab: FilterTab, builtInAgentIds: Set<string>): Agent[] {
   return agents
@@ -94,63 +69,6 @@ function getConfiguredModel(agent: Agent): string | null {
   if (typeof value !== "string") return null;
   const model = value.trim();
   return model.length > 0 ? model : null;
-}
-
-function formatEnvironmentDriver(driver: Environment["driver"]): string {
-  if (driver === "ssh") return "SSH";
-  return driver.charAt(0).toUpperCase() + driver.slice(1);
-}
-
-function getSandboxProviderLabel(
-  environment: Environment,
-  capabilities?: EnvironmentCapabilities | null,
-): string {
-  const provider = typeof environment.config.provider === "string"
-    ? environment.config.provider.trim()
-    : "";
-  if (!provider) return "Sandbox";
-  return capabilities?.sandboxProviders?.[provider]?.displayName ?? provider;
-}
-
-function describeEnvironment(
-  environment: Environment,
-  capabilities?: EnvironmentCapabilities | null,
-): EnvironmentDescriptor {
-  const detail = isPlatformManagedEnvironment(environment)
-    ? "Managed by Paperclip"
-    : environment.driver === "sandbox"
-      ? `${getSandboxProviderLabel(environment, capabilities)} sandbox provider`
-      : environment.driver === "local"
-        ? "Paperclip host"
-        : formatEnvironmentDriver(environment.driver);
-
-  return {
-    label: environment.name,
-    detail,
-    title: `${environment.name} - ${detail}`,
-  };
-}
-
-function describeMissingEnvironment(environmentId: string): EnvironmentDescriptor {
-  return {
-    label: "Unknown environment",
-    detail: environmentId.slice(0, 8),
-    title: `Unknown environment - ${environmentId}`,
-  };
-}
-
-function resolveAgentEnvironment(
-  agent: Agent,
-  environmentsById: Map<string, Environment>,
-  instanceDefaultEnvironmentId: string | null,
-  capabilities?: EnvironmentCapabilities | null,
-): EnvironmentDescriptor {
-  const environmentId = agent.defaultEnvironmentId ?? instanceDefaultEnvironmentId;
-  if (!environmentId) return localEnvironmentDescriptor;
-  const environment = environmentsById.get(environmentId);
-  return environment
-    ? describeEnvironment(environment, capabilities)
-    : describeMissingEnvironment(environmentId);
 }
 
 function filterOrgTree(nodes: OrgNode[], tab: FilterTab, builtInAgentIds: Set<string>): OrgNode[] {

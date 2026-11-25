@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { assertInstanceAdmin } from "../routes/authz.js";
+import { forwardUpstreamJson, type UpstreamMethod } from "./upstream-json-forward.js";
 
 export interface SalesDashboardProxyOptions {
   baseUrl?: string;
@@ -10,7 +11,6 @@ export interface SalesDashboardProxyOptions {
 
 const DEFAULT_SALES_DASHBOARD_URL = "https://dashboard.increaseai.tech";
 const DEFAULT_TIMEOUT_MS = 20_000;
-const USER_AGENT = "paperclip-server/1.0";
 
 const ALLOWED_QUERY_PARAMS = new Set([
   "view",
@@ -79,7 +79,7 @@ export function salesDashboardProxyRoutes(opts?: SalesDashboardProxyOptions) {
     req: Request,
     res: Response,
     upstreamPath: string,
-    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
+    method: UpstreamMethod,
     defaultQuery?: Record<string, string>,
   ) {
     assertInstanceAdmin(req);
@@ -97,53 +97,17 @@ export function salesDashboardProxyRoutes(opts?: SalesDashboardProxyOptions) {
     const qs = buildAllowlistedQueryString(req, defaultQuery);
     const targetUrl = `${baseUrl}${upstreamPath}${qs}`;
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const headers: Record<string, string> = {
-        authorization: `Bearer ${adminKey}`,
-        accept: "application/json",
-        "user-agent": USER_AGENT,
-      };
-      const init: RequestInit = {
-        method,
-        headers,
-        redirect: "manual",
-        signal: controller.signal,
-      };
-      if (method === "POST" || method === "PUT" || method === "PATCH") {
-        headers["content-type"] = "application/json";
-        init.body = JSON.stringify(
-          req.body && typeof req.body === "object" ? req.body : {},
-        );
-      } else if (
-        method === "DELETE" &&
-        req.body &&
-        typeof req.body === "object" &&
-        Object.keys(req.body as Record<string, unknown>).length > 0
-      ) {
-        headers["content-type"] = "application/json";
-        init.body = JSON.stringify(req.body);
-      }
-
-      const upstream = await fetchImpl(targetUrl, init);
-      const text = await upstream.text();
-      res.status(upstream.status);
-      res.setHeader("cache-control", "no-store");
-      res.setHeader("x-content-type-options", "nosniff");
-      res.setHeader("content-type", "application/json; charset=utf-8");
-      res.send(text);
-    } catch (err) {
-      const aborted = err instanceof Error && err.name === "AbortError";
-      res.status(aborted ? 504 : 502).json({
-        ok: false,
-        error: aborted
-          ? "Sales dashboard timed out."
-          : "Could not reach Sales dashboard.",
-      });
-    } finally {
-      clearTimeout(timer);
-    }
+    await forwardUpstreamJson({
+      req,
+      res,
+      fetchImpl,
+      targetUrl,
+      method,
+      bearerToken: adminKey,
+      timeoutMs,
+      timeoutMessage: "Sales dashboard timed out.",
+      unreachableMessage: "Could not reach Sales dashboard.",
+    });
   }
 
   // Tenants
