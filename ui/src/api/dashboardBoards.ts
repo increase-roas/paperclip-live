@@ -3,6 +3,7 @@ import type {
   DashboardAutomationHealthBoard,
   DashboardBoard,
   DashboardBoardId,
+  DashboardBoardMeta,
   DashboardFulfillmentBoard,
   DashboardTileValue,
   DashboardToolsConnectorsBoard,
@@ -27,6 +28,7 @@ export interface CeoMoneyTile {
 }
 
 export interface ReadingOrderMetric {
+  displayValue?: string | null;
   value?: string | number | null;
   formatted?: string | null;
   label?: string | null;
@@ -62,24 +64,21 @@ export interface TeamMemberEditable {
   rateType: string;
   rateAmount: number | null;
   hoursPerMonth: number | null;
+  monthlyEstimateUsd?: number | null;
   responsibilities?: string;
+  instructions?: string;
   performanceCriteria: string;
   status: string;
 }
 
-export interface HumanEmployeesBoardMeta {
-  monthlyLaborUsd?: number | null;
+export interface HumanEmployeesBoardMeta extends DashboardBoardMeta {
   monthlyLabor?: number | null;
   monthlyLaborCents?: number | null;
-  monthlyOverheadUsd?: number | null;
   monthlyOverhead?: number | null;
   monthlyOverheadCents?: number | null;
-  monthlyBurnUsd?: number | null;
   monthlyBurn?: number | null;
   monthlyBurnCents?: number | null;
-  runwayMonths?: number | null;
   runway?: number | null;
-  cashOnHandUsd?: number | null;
   cashOnHand?: number | null;
   cashOnHandCents?: number | null;
   capital?: {
@@ -99,9 +98,9 @@ export interface HumanEmployeesBoardMeta {
     cashOnHandUsd?: number | null;
     monthlyOverhead?: number | null;
     monthlyOverheadUsd?: number | null;
+    fixedMonthlyCostUsd?: number | null;
   };
   members?: TeamMemberEditable[];
-  [key: string]: unknown;
 }
 
 export interface DashboardBoardWithMeta extends DashboardBoard {
@@ -109,22 +108,31 @@ export interface DashboardBoardWithMeta extends DashboardBoard {
 }
 
 export interface TeamMemberUpdatePayload {
-  members: Array<{
-    id: string;
-    name: string;
-    role: string;
-    rateType: string;
-    rateAmount: number | null;
-    hoursPerMonth: number | null;
-    responsibilities?: string;
-    performanceCriteria: string;
-    status: string;
-  }>;
+  id: string;
+  name: string;
+  role: string;
+  rateType: string;
+  rateAmount: number;
+  hoursPerMonth: number | null;
+  monthlyEstimateUsd?: number | null;
+  responsibilities: string;
+  instructions: string;
+  performanceCriteria: string;
+  status: "active" | "inactive";
 }
 
 export interface TeamCapitalSettingsPayload {
-  cashOnHand?: number | null;
-  monthlyOverhead?: number | null;
+  cashOnHandUsd?: number | null;
+  fixedMonthlyCostUsd?: number | null;
+  defaultHoursPerMonth?: number;
+  monthlyCapacityJobs?: number | null;
+  monthlyRevenueTargetUsd?: number | null;
+}
+
+export interface TeamAdminSnapshotResponse {
+  ok?: boolean;
+  members?: TeamMemberEditable[];
+  settings?: TeamCapitalSettingsPayload;
 }
 
 /**
@@ -153,6 +161,8 @@ export const dashboardBoardsApi = {
     api.get<DashboardToolsConnectorsBoard>(`/companies/${companyId}/dashboards/tools-connectors`),
   fulfillment: (companyId: string) =>
     api.get<DashboardFulfillmentBoard>(`/companies/${companyId}/dashboards/fulfillment`),
+  getTeamAdmin: () =>
+    api.get<TeamAdminSnapshotResponse>("/sales-dashboard/team"),
   updateTeam: (payload: TeamMemberUpdatePayload) =>
     api.put<unknown>("/sales-dashboard/team", payload),
   updateTeamSettings: (payload: TeamCapitalSettingsPayload) =>

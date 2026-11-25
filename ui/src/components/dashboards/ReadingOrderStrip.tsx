@@ -34,6 +34,8 @@ function formatStepMetric(metric: string | ReadingOrderMetric | null | undefined
     const trimmed = metric.trim();
     return trimmed.length > 0 ? trimmed : null;
   }
+  const displayValue = metric.displayValue?.trim();
+  if (displayValue) return displayValue;
   const formatted = metric.formatted?.trim();
   if (formatted) return formatted;
   if (typeof metric.value === "number" && Number.isFinite(metric.value)) {

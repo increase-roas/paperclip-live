@@ -55,18 +55,14 @@ function formatUsd(value: number): string {
 }
 
 function pickPrimaryFinancials(bundle: PortfolioSnapshotBundle): CapitalMetricsPayload | null {
+  // Never mix client P&L into agency P&L: agency financials come strictly from the owner record.
   const owner = bundle.capital?.owner;
-  if (owner) {
-    if (owner.marketing?.evidence?.financial) return owner.marketing;
-    if (owner.financialMonth?.evidence?.financial) return owner.financialMonth;
-    if ((owner.marketing?.cashCollectedUsd ?? 0) > 0) return owner.marketing;
-    if ((owner.financialMonth?.cashCollectedUsd ?? 0) > 0) return owner.financialMonth;
-  }
-  for (const client of bundle.capital?.clients ?? []) {
-    if (client.marketing?.evidence?.financial) return client.marketing;
-    if (client.financialMonth?.evidence?.financial) return client.financialMonth;
-  }
-  return owner?.marketing ?? null;
+  if (!owner) return null;
+  if (owner.marketing?.evidence?.financial) return owner.marketing;
+  if (owner.financialMonth?.evidence?.financial) return owner.financialMonth;
+  if ((owner.marketing?.cashCollectedUsd ?? 0) > 0) return owner.marketing;
+  if ((owner.financialMonth?.cashCollectedUsd ?? 0) > 0) return owner.financialMonth;
+  return owner.marketing ?? null;
 }
 
 export function buildCeoAndReadingOrder(
@@ -81,8 +77,6 @@ export function buildCeoAndReadingOrder(
   const fin = pickPrimaryFinancials(bundle);
 
   // Aggregate portfolio totals across clients
-  let totalCashCollected = 0;
-  let hasCashCollected = false;
   let totalAdSpend = 0;
   let hasAdSpend = false;
   let totalBooked = 0;
@@ -95,10 +89,6 @@ export function buildCeoAndReadingOrder(
   let speedToLeadCount = 0;
 
   for (const client of bundle.clients) {
-    if (client.cashCollectedUsd !== null && client.cashCollectedUsd > 0) {
-      totalCashCollected += client.cashCollectedUsd;
-      hasCashCollected = true;
-    }
     if (client.spend !== null) {
       totalAdSpend += client.spend;
       hasAdSpend = true;
@@ -121,14 +111,12 @@ export function buildCeoAndReadingOrder(
     }
   }
 
-  // Prefer explicit agency/owner financial cash when positive; else portfolio cash if positive
+  // Agency cash collected comes strictly from agency owner financials (never mixed with client billing).
   const finCash = finite(fin?.cashCollectedUsd);
   const cashCollectedUsd =
-    finCash !== null && finCash > 0
+    finCash !== null && (fin?.evidence?.financial ? finCash >= 0 : finCash > 0)
       ? finCash
-      : hasCashCollected && totalCashCollected > 0
-        ? round2(totalCashCollected)
-        : null;
+      : null;
 
   const expensesUsd = finite(fin?.expensesUsd);
   const grossMarginRaw = finite(fin?.grossMarginPercent);

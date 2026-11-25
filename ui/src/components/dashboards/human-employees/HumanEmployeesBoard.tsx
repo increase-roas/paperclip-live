@@ -183,7 +183,15 @@ function ManageTeamCapitalSheet({
   onSaved,
 }: ManageTeamCapitalSheetProps) {
   const initialMembers = useMemo(() => extractEditableMembers(data), [data]);
+  const [loadedMembers, setLoadedMembers] = useState<TeamMemberEditable[]>(initialMembers);
   const [members, setMembers] = useState<TeamMemberEditable[]>(initialMembers);
+  const [loadedSettings, setLoadedSettings] = useState<{
+    cashOnHandUsd?: number | null;
+    fixedMonthlyCostUsd?: number | null;
+    defaultHoursPerMonth?: number;
+    monthlyCapacityJobs?: number | null;
+    monthlyRevenueTargetUsd?: number | null;
+  } | null>(null);
   const [cashOnHand, setCashOnHand] = useState<string>(
     summary?.cashOnHandUsd !== null && summary?.cashOnHandUsd !== undefined
       ? String(summary.cashOnHandUsd)
@@ -199,6 +207,8 @@ function ManageTeamCapitalSheet({
 
   useEffect(() => {
     if (!open) return;
+    let cancelled = false;
+    setLoadedMembers(initialMembers);
     setMembers(initialMembers);
     setCashOnHand(
       summary?.cashOnHandUsd !== null && summary?.cashOnHandUsd !== undefined
@@ -211,6 +221,35 @@ function ManageTeamCapitalSheet({
         : "",
     );
     setError(null);
+    dashboardBoardsApi
+      .getTeamAdmin()
+      .then((res) => {
+        if (cancelled) return;
+        if (Array.isArray(res.members) && res.members.length > 0) {
+          const normalized = res.members.map((m) => ({ ...m }));
+          setLoadedMembers(normalized);
+          setMembers(normalized);
+        }
+        if (res.settings) {
+          setLoadedSettings(res.settings);
+          setCashOnHand(
+            res.settings.cashOnHandUsd !== null && res.settings.cashOnHandUsd !== undefined
+              ? String(res.settings.cashOnHandUsd)
+              : "",
+          );
+          setMonthlyOverhead(
+            res.settings.fixedMonthlyCostUsd !== null && res.settings.fixedMonthlyCostUsd !== undefined
+              ? String(res.settings.fixedMonthlyCostUsd)
+              : "",
+          );
+        }
+      })
+      .catch(() => {
+        // Keep board-derived initial values when the admin endpoint is unavailable in tests.
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [open, initialMembers, summary]);
 
   const updateMemberField = <K extends keyof TeamMemberEditable>(
@@ -231,13 +270,45 @@ function ManageTeamCapitalSheet({
       const cashVal = parseOptionalNumber(cashOnHand);
       const overheadVal = parseOptionalNumber(monthlyOverhead);
 
-      if (members.length > 0) {
-        await dashboardBoardsApi.updateTeam({ members });
+      const initialById = new Map(loadedMembers.map((m) => [m.id, m]));
+      const changedMembers = members.filter((member) => {
+        const orig = initialById.get(member.id);
+        if (!orig) return true;
+        return (
+          orig.rateType !== member.rateType ||
+          orig.rateAmount !== member.rateAmount ||
+          orig.hoursPerMonth !== member.hoursPerMonth ||
+          orig.performanceCriteria !== member.performanceCriteria ||
+          orig.status !== member.status
+        );
+      });
+
+      for (const member of changedMembers) {
+        const orig = initialById.get(member.id);
+        await dashboardBoardsApi.updateTeam({
+          id: member.id,
+          name: member.name,
+          role: member.role,
+          rateType: member.rateType || "monthly",
+          rateAmount: member.rateAmount ?? 0,
+          hoursPerMonth: member.hoursPerMonth,
+          monthlyEstimateUsd: orig?.monthlyEstimateUsd ?? member.monthlyEstimateUsd ?? null,
+          responsibilities: orig?.responsibilities ?? member.responsibilities ?? "",
+          instructions: orig?.instructions ?? member.instructions ?? "",
+          performanceCriteria: member.performanceCriteria,
+          status: member.status.toLowerCase() === "inactive" ? "inactive" : "active",
+        });
       }
-      if (cashVal !== null || overheadVal !== null) {
+
+      const settingsChanged =
+        cashVal !== (loadedSettings?.cashOnHandUsd ?? summary?.cashOnHandUsd ?? null) ||
+        overheadVal !== (loadedSettings?.fixedMonthlyCostUsd ?? summary?.monthlyOverheadUsd ?? null);
+
+      if (settingsChanged) {
         await dashboardBoardsApi.updateTeamSettings({
-          ...(cashVal !== null ? { cashOnHand: cashVal } : {}),
-          ...(overheadVal !== null ? { monthlyOverhead: overheadVal } : {}),
+          ...(loadedSettings ?? {}),
+          cashOnHandUsd: cashVal,
+          fixedMonthlyCostUsd: overheadVal,
         });
       }
       await onSaved?.();

@@ -17,6 +17,7 @@ const ALLOWED_QUERY_PARAMS = new Set([
   "slug",
   "mode",
   "provider",
+  "locationId",
   "offset",
   "limit",
   "q",
@@ -191,6 +192,9 @@ export function salesDashboardProxyRoutes(opts?: SalesDashboardProxyOptions) {
   router.delete("/sales-dashboard/team", async (req, res) => {
     await forward(req, res, "/api/pilot/admin/team", "DELETE");
   });
+  router.get("/sales-dashboard/team/settings", async (req, res) => {
+    await forward(req, res, "/api/pilot/admin/team/settings", "GET");
+  });
   router.put("/sales-dashboard/team/settings", async (req, res) => {
     await forward(req, res, "/api/pilot/admin/team/settings", "PUT");
   });
@@ -209,6 +213,9 @@ export function salesDashboardProxyRoutes(opts?: SalesDashboardProxyOptions) {
   // Neon Ads & Sync
   router.get("/sales-dashboard/neon-ads", async (req, res) => {
     await forward(req, res, "/api/pilot/neon-ads", "GET");
+  });
+  router.get("/sales-dashboard/sync", async (req, res) => {
+    await forward(req, res, "/api/pilot/admin/sync", "GET");
   });
   router.post("/sales-dashboard/sync", async (req, res) => {
     await forward(req, res, "/api/pilot/admin/sync", "POST");

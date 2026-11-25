@@ -92,12 +92,13 @@ export interface DashboardTable {
 }
 
 export interface DashboardBoardMeta {
-  monthlyLaborUsd?: number;
-  monthlyOverheadUsd?: number;
-  monthlyBurnUsd?: number;
+  monthlyLaborUsd?: number | null;
+  monthlyOverheadUsd?: number | null;
+  monthlyBurnUsd?: number | null;
   runwayMonths?: number | null;
-  activeHeadcount?: number;
-  totalHeadcount?: number;
+  cashOnHandUsd?: number | null;
+  activeHeadcount?: number | null;
+  totalHeadcount?: number | null;
 }
 
 export interface DashboardBoard {

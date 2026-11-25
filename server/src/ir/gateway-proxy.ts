@@ -14,7 +14,7 @@ const USER_AGENT = "paperclip-server/1.0";
 
 const AGENT_PARAM_RE = /^[a-z][a-z0-9_-]{1,31}$/;
 const INTEGRATION_PARAM_RE = /^[a-z][a-z0-9_-]{1,40}$/;
-const SCOPE_ID_PARAM_RE = /^[A-Za-z0-9_.:\/-]{1,120}$/;
+const SCOPE_ID_PARAM_RE = /^[A-Za-z0-9_.:/-]{1,120}$/;
 const SAFE_QUERY_KEY_RE = /^[A-Za-z0-9_.-]{1,40}$/;
 
 function resolveBaseUrl(opts?: GatewayProxyOptions): string {
