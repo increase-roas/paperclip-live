@@ -44267,11 +44267,14 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
     });
     onTestFinished(unsubscribeReceipt);
     const providerAcknowledgement = Promise.resolve(callbacks.onAction(actionEvent()));
+    // Nothing is held here, so this bounds real database reconciliation time.
+    // Use Slack's 3-second interactivity acknowledgement deadline; a tighter
+    // wall-clock bound fails on loaded CI runners without a product defect.
     await expect(
       Promise.race([
         providerAcknowledgement.then(() => "acknowledged" as const),
         new Promise<"timed_out">((resolve) =>
-          setTimeout(() => resolve("timed_out"), 250),
+          setTimeout(() => resolve("timed_out"), 3_000),
         ),
       ]),
     ).resolves.toBe("acknowledged");
