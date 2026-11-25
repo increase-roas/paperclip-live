@@ -157,4 +157,17 @@ describe("hermesTalkVoiceRoutes", () => {
       else process.env.SALES_DASHBOARD_ADMIN_KEY = prev;
     }
   });
+
+  it("forwards GET /api/gateway/health for instance admin and blocks non-admin", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ status: "ok" }), { status: 200, headers: { "content-type": "application/json" } }),
+    );
+    const nonAdmin = makeApp({ type: "board", userId: "u2", source: "session", isInstanceAdmin: false, companyIds: ["c1"] } as Express.Request["actor"], { fetchImpl: fetchMock as unknown as typeof fetch });
+    expect((await request(nonAdmin).get("/api/gateway/health")).status).toBe(403);
+
+    const admin = makeApp({ type: "board", userId: "u1", source: "session", isInstanceAdmin: true, companyIds: ["c1"] } as Express.Request["actor"], { fetchImpl: fetchMock as unknown as typeof fetch });
+    const res = await request(admin).get("/api/gateway/health");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ status: "ok" });
+  });
 });
