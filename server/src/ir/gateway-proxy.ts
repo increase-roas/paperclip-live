@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { assertInstanceAdmin } from "../routes/authz.js";
+import { forwardUpstreamJson } from "./upstream-json-forward.js";
 
 export interface GatewayProxyOptions {
   baseUrl?: string;
@@ -10,7 +11,6 @@ export interface GatewayProxyOptions {
 
 const DEFAULT_GATEWAY_URL = "https://increase-roas-oauth-gateway.increase-roas.workers.dev";
 const DEFAULT_TIMEOUT_MS = 20_000;
-const USER_AGENT = "paperclip-server/1.0";
 
 const AGENT_PARAM_RE = /^[a-z][a-z0-9_-]{1,31}$/;
 const INTEGRATION_PARAM_RE = /^[a-z][a-z0-9_-]{1,40}$/;
@@ -128,53 +128,17 @@ export function gatewayProxyRoutes(opts?: GatewayProxyOptions) {
     const qs = forwardQuery ? buildSafeQueryString(req) : "";
     const targetUrl = `${baseUrl}${upstreamPath}${qs}`;
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const headers: Record<string, string> = {
-        accept: "application/json",
-        "user-agent": USER_AGENT,
-      };
-      if (authKey) {
-        headers.authorization = `Bearer ${authKey}`;
-      }
-      const init: RequestInit = {
-        method,
-        headers,
-        redirect: "manual",
-        signal: controller.signal,
-      };
-      if (method === "POST" || method === "PUT") {
-        headers["content-type"] = "application/json";
-        init.body = JSON.stringify(
-          req.body && typeof req.body === "object" ? req.body : {},
-        );
-      } else if (
-        method === "DELETE" &&
-        req.body &&
-        typeof req.body === "object" &&
-        Object.keys(req.body as Record<string, unknown>).length > 0
-      ) {
-        headers["content-type"] = "application/json";
-        init.body = JSON.stringify(req.body);
-      }
-
-      const upstream = await fetchImpl(targetUrl, init);
-      const text = await upstream.text();
-      res.status(upstream.status);
-      res.setHeader("cache-control", "no-store");
-      res.setHeader("x-content-type-options", "nosniff");
-      res.setHeader("content-type", "application/json; charset=utf-8");
-      res.send(text);
-    } catch (err) {
-      const aborted = err instanceof Error && err.name === "AbortError";
-      res.status(aborted ? 504 : 502).json({
-        ok: false,
-        error: aborted ? "Gateway timed out." : "Could not reach OAuth gateway.",
-      });
-    } finally {
-      clearTimeout(timer);
-    }
+    await forwardUpstreamJson({
+      req,
+      res,
+      fetchImpl,
+      targetUrl,
+      method,
+      bearerToken: authKey,
+      timeoutMs,
+      timeoutMessage: "Gateway timed out.",
+      unreachableMessage: "Could not reach OAuth gateway.",
+    });
   }
 
   router.get("/gateway/health", async (req, res) => {
