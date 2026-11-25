@@ -1,13 +1,24 @@
 import type {
   DashboardBoard,
   DashboardBoardId,
+  DashboardBoardMeta,
+  DashboardPeriod,
   DashboardSource,
   DashboardSourceId,
   DashboardTable,
+  DashboardTableRow,
   DashboardTile,
   DashboardTileValue,
   DashboardUnit,
 } from "@paperclipai/shared";
+import {
+  fetchSalesCapital,
+  readPortfolioSnapshotBundle,
+  type CapitalApiPayload,
+  type MergedClientMetrics,
+  type PortfolioSnapshotBundle,
+} from "../ir/sales-dashboard-client.js";
+import { readWavvSummary, type WavvSummary } from "../ir/wavv-client.js";
 import {
   teamCapitalAdapter,
   teamRosterRows,
@@ -433,123 +444,370 @@ const BOARD_DEFINITIONS: Record<
 /**
  * Builds one board payload. `now` is injectable so tests can pin the
  * generated-at timestamp; nothing else about a payload depends on the clock.
- * `adapters` lets a test supply a roster reader without a network.
+ * `adapters` lets a test supply a roster reader, fetch implementation, or WAVV
+ * reader without a network.
  */
-interface SalesSnapshotPayload {
-  observedAt: string;
-  ghl?: {
-    newLeads?: number;
-    appointmentsBooked?: number;
-    showedAppointments?: number;
-    wonDeals?: number;
-    closeRate?: number | null;
-    showRate?: number | null;
-  };
-  meta?: {
-    spend?: number;
-    impressions?: number;
-    clicks?: number;
-  };
-  calls?: {
-    outboundCalls?: number;
-  };
-  cash?: {
-    cashCollectedUsd?: number;
-  };
-}
-
-async function readSalesSnapshot(fetchImpl: typeof fetch = fetch): Promise<SalesSnapshotPayload | null> {
-  if (!(process.env.SALES_DASHBOARD_ADMIN_KEY ?? "").trim()) return null;
-  const base = (process.env.SALES_DASHBOARD_BASE_URL ?? "https://dashboard.increaseai.tech").trim().replace(/\/+$/, "");
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 5_000);
-  try {
-    const res = await fetchImpl(`${base}/api/pilot/dashboard?view=30d`, {
-      headers: { Accept: "application/json" },
-      signal: controller.signal,
-    });
-    if (!res.ok) return null;
-    const body = (await res.json()) as {
-      lastSuccessfulSyncAt?: string;
-      generatedAt?: string;
-      summary?: {
-        ghl?: { status?: string; data?: SalesSnapshotPayload["ghl"] };
-        meta?: { status?: string; data?: SalesSnapshotPayload["meta"] };
-        calls?: { status?: string; data?: SalesSnapshotPayload["calls"] };
-        cash?: { status?: string; data?: SalesSnapshotPayload["cash"] };
-      };
-    };
-    const s = body?.summary;
-    if (!s) return null;
-    return {
-      observedAt: body.lastSuccessfulSyncAt ?? body.generatedAt ?? new Date().toISOString(),
-      ghl: s.ghl?.status === "LIVE" ? s.ghl.data : undefined,
-      meta: s.meta?.status === "LIVE" ? s.meta.data : undefined,
-      calls: s.calls?.status === "LIVE" ? s.calls.data : undefined,
-      cash: s.cash?.status === "LIVE" ? s.cash.data : undefined,
-    };
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function liveVal(value: number | null | undefined, unit: DashboardUnit, observedAt: string): DashboardTileValue {
+function liveVal(
+  value: number | null | undefined,
+  unit: DashboardUnit,
+  observedAt: string,
+): DashboardTileValue {
   if (typeof value !== "number" || !Number.isFinite(value)) return notConnected();
   return { kind: "live", value, unit, observedAt };
 }
 
-function resolveTileValue(
-  tileId: string,
-  snap: SalesSnapshotPayload | null,
-  roster: Awaited<ReturnType<TeamRosterAdapter["read"]>>,
-): DashboardTileValue {
-  if (roster && (process.env.SALES_DASHBOARD_ADMIN_KEY ?? "").trim()) {
-    const active = roster.members.filter((m) => m.status.toLowerCase() === "active");
-    if (tileId === "active-team-members") return liveVal(active.length, "count", roster.observedAt);
-    if (tileId === "seats-without-judged-on-number") {
-      const missing = active.filter((m) => !m.judgedOn || m.judgedOn.trim().toUpperCase() === "NOT SET").length;
-      return liveVal(missing, "count", roster.observedAt);
+function round1(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function isMissingJudgedOn(value: string | null | undefined): boolean {
+  if (!value) return true;
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  return /^NOT SET\b/i.test(trimmed);
+}
+
+interface AggregatedPortfolio {
+  observedAt: string;
+  hasGhl: boolean;
+  hasMeta: boolean;
+  newLeads: number;
+  hasNewLeads: boolean;
+  booked: number;
+  hasBooked: boolean;
+  showed: number;
+  hasShowed: boolean;
+  pitched: number;
+  hasPitched: boolean;
+  wonDeals: number;
+  hasWonDeals: boolean;
+  cashCollectedUsd: number;
+  hasCashCollected: boolean;
+  pipelineRevenueUsd: number;
+  hasPipelineRevenue: boolean;
+  fallbackShowRate: number | null;
+  fallbackCloseRate: number | null;
+  speedToLeadSeconds: number | null;
+  spend: number;
+  hasSpend: boolean;
+  impressions: number;
+  hasImpressions: boolean;
+  clicks: number;
+  hasClicks: boolean;
+  zeroLeadDays: number;
+  hasZeroLeadDays: boolean;
+}
+
+function aggregatePortfolio(bundle: PortfolioSnapshotBundle): AggregatedPortfolio | null {
+  if (bundle.clients.length === 0 || !bundle.observedAt) return null;
+
+  let newLeads = 0;
+  let hasNewLeads = false;
+  let booked = 0;
+  let hasBooked = false;
+  let showed = 0;
+  let hasShowed = false;
+  let pitched = 0;
+  let hasPitched = false;
+  let wonDeals = 0;
+  let hasWonDeals = false;
+  let cashCollectedUsd = 0;
+  let hasCashCollected = false;
+  let pipelineRevenueUsd = 0;
+  let hasPipelineRevenue = false;
+  let fallbackShowRate: number | null = null;
+  let fallbackCloseRate: number | null = null;
+  let speedSum = 0;
+  let speedCount = 0;
+  let spend = 0;
+  let hasSpend = false;
+  let impressions = 0;
+  let hasImpressions = false;
+  let clicks = 0;
+  let hasClicks = false;
+  let zeroLeadDays = 0;
+  let hasZeroLeadDays = false;
+
+  for (const c of bundle.clients) {
+    if (c.newLeads !== null) {
+      newLeads += c.newLeads;
+      hasNewLeads = true;
+    }
+    if (c.booked !== null) {
+      booked += c.booked;
+      hasBooked = true;
+    }
+    if (c.showed !== null) {
+      showed += c.showed;
+      hasShowed = true;
+    }
+    if (c.pitched !== null) {
+      pitched += c.pitched;
+      hasPitched = true;
+    }
+    if (c.wonDeals !== null) {
+      wonDeals += c.wonDeals;
+      hasWonDeals = true;
+    }
+    if (c.cashCollectedUsd !== null && c.cashCollectedUsd > 0) {
+      cashCollectedUsd += c.cashCollectedUsd;
+      hasCashCollected = true;
+    }
+    if (c.pipelineRevenueUsd !== null && c.pipelineRevenueUsd > 0) {
+      pipelineRevenueUsd += c.pipelineRevenueUsd;
+      hasPipelineRevenue = true;
+    }
+    if (fallbackShowRate === null && c.showRate !== null) {
+      fallbackShowRate = c.showRate;
+    }
+    if (fallbackCloseRate === null && c.closeRate !== null) {
+      fallbackCloseRate = c.closeRate;
+    }
+    if (c.speedToLeadSeconds !== null && c.speedToLeadSeconds >= 0) {
+      speedSum += c.speedToLeadSeconds;
+      speedCount += 1;
+    }
+    if (c.spend !== null) {
+      spend += c.spend;
+      hasSpend = true;
+    }
+    if (c.impressions !== null) {
+      impressions += c.impressions;
+      hasImpressions = true;
+    }
+    if (c.clicks !== null) {
+      clicks += c.clicks;
+      hasClicks = true;
+    }
+    if (c.zeroLeadDays !== null) {
+      zeroLeadDays += c.zeroLeadDays;
+      hasZeroLeadDays = true;
     }
   }
-  if (!snap) return notConnected();
-  const ts = snap.observedAt;
-  const ghl = snap.ghl;
-  const meta = snap.meta;
+
+  return {
+    observedAt: bundle.observedAt,
+    hasGhl: hasNewLeads || hasBooked || hasShowed || hasWonDeals || fallbackShowRate !== null,
+    hasMeta: hasSpend || hasImpressions || hasClicks,
+    newLeads,
+    hasNewLeads,
+    booked,
+    hasBooked,
+    showed,
+    hasShowed,
+    pitched,
+    hasPitched,
+    wonDeals,
+    hasWonDeals,
+    cashCollectedUsd: round2(cashCollectedUsd),
+    hasCashCollected,
+    pipelineRevenueUsd: round2(pipelineRevenueUsd),
+    hasPipelineRevenue,
+    fallbackShowRate,
+    fallbackCloseRate,
+    speedToLeadSeconds: speedCount > 0 ? Math.round(speedSum / speedCount) : null,
+    spend: round2(spend),
+    hasSpend,
+    impressions,
+    hasImpressions,
+    clicks,
+    hasClicks,
+    zeroLeadDays,
+    hasZeroLeadDays,
+  };
+}
+
+function extractRevenueUsd(capital: CapitalApiPayload | null): number | null {
+  if (!capital) return null;
+  const candidates = [
+    capital.owner?.marketing?.salesUsd,
+    capital.owner?.financialMonth?.salesUsd,
+    capital.owner?.marketing?.cashCollectedUsd,
+    capital.owner?.financialMonth?.cashCollectedUsd,
+  ];
+  for (const val of candidates) {
+    if (typeof val === "number" && Number.isFinite(val) && val > 0) return val;
+  }
+  let sum = 0;
+  for (const client of capital.clients) {
+    const val = client.marketing?.salesUsd ?? client.financialMonth?.salesUsd;
+    if (typeof val === "number" && Number.isFinite(val) && val > 0) sum += val;
+  }
+  return sum > 0 ? round2(sum) : null;
+}
+
+function salesByBusinessRows(clients: MergedClientMetrics[]): DashboardTableRow[] {
+  return clients
+    .filter(
+      (c) =>
+        c.booked !== null ||
+        c.showed !== null ||
+        c.wonDeals !== null ||
+        c.newLeads !== null ||
+        c.showRate !== null ||
+        c.closeRate !== null,
+    )
+    .map((c) => ({
+      id: c.slug,
+      cells: {
+        client: c.displayName,
+        appointmentsSet: c.booked,
+        booked: c.booked,
+        held: c.showed,
+        showRate: c.showRate !== null ? `${c.showRate}%` : null,
+        jobsSold: c.wonDeals,
+        closeRate: c.closeRate !== null ? `${c.closeRate}%` : null,
+      },
+    }));
+}
+
+function setterScoreboardRows(wavv: WavvSummary | null): DashboardTableRow[] {
+  if (!wavv || wavv.bySetter.length === 0) return [];
+  return wavv.bySetter.map((s) => ({
+    id: s.id,
+    cells: {
+      setter: s.setter,
+      dials: s.dials,
+      talkTimeMinutes: s.talkTimeMinutes,
+      conversations: s.conversationsOver60s,
+      sets: null,
+      showRate: null,
+    },
+  }));
+}
+
+function marketingByClientRows(clients: MergedClientMetrics[]): DashboardTableRow[] {
+  return clients
+    .filter(
+      (c) =>
+        c.spend !== null ||
+        c.newLeads !== null ||
+        c.wonDeals !== null ||
+        c.showed !== null ||
+        c.cpl !== null ||
+        c.cac !== null,
+    )
+    .map((c) => ({
+      id: c.slug,
+      cells: {
+        client: c.displayName,
+        spend: c.spend,
+        leads: c.newLeads,
+        newCustomers: c.wonDeals,
+        cac: c.cac,
+        roas: c.roas,
+        costPerLead: c.cpl,
+        appointmentsHeld: c.showed,
+        costPerHeldAppointment: c.costPerHeldAppointment,
+        zeroLeadDays: c.zeroLeadDays,
+      },
+    }));
+}
+
+function resolveTileValue(
+  tileId: string,
+  agg: AggregatedPortfolio | null,
+  wavv: WavvSummary | null,
+  roster: Awaited<ReturnType<TeamRosterAdapter["read"]>>,
+  capital: CapitalApiPayload | null,
+): DashboardTileValue {
+  const hasSalesDashKey = Boolean((process.env.SALES_DASHBOARD_ADMIN_KEY ?? "").trim());
+
+  if (roster && (hasSalesDashKey || capital)) {
+    const active = roster.members.filter((m) => m.status.toLowerCase() === "active");
+    const missing = active.filter((m) => isMissingJudgedOn(m.judgedOn)).length;
+    if (tileId === "active-team-members") {
+      return liveVal(active.length, "count", roster.observedAt);
+    }
+    if (tileId === "seats-without-judged-on-number") {
+      return liveVal(missing, "count", roster.observedAt);
+    }
+    if (tileId === "one-number-per-seat") {
+      return liveVal(active.length - missing, "count", roster.observedAt);
+    }
+    if (tileId === "revenue-per-fte") {
+      const salesUsd = extractRevenueUsd(capital);
+      if (salesUsd !== null && active.length > 0 && capital) {
+        return liveVal(round2(salesUsd / active.length), "usd", capital.generatedAt);
+      }
+      return notConnected();
+    }
+  }
+
+  // WAVV dialer tiles: NEVER invent Dials: 0 when WAVV is not connected
+  if (tileId === "dials") {
+    return wavv ? liveVal(wavv.dials, "count", wavv.observedAt) : notConnected();
+  }
+  if (tileId === "conversations-over-60s") {
+    return wavv ? liveVal(wavv.conversationsOver60s, "count", wavv.observedAt) : notConnected();
+  }
+  if (tileId === "talk-time") {
+    return wavv ? liveVal(wavv.talkTimeMinutes, "minutes", wavv.observedAt) : notConnected();
+  }
+
+  if (!agg) return notConnected();
+  const ts = agg.observedAt;
+
   switch (tileId) {
     case "show-rate":
-      return liveVal(ghl?.showRate, "percent", ts);
+      if (agg.hasBooked && agg.booked > 0 && agg.hasShowed) {
+        return liveVal(round1((agg.showed / agg.booked) * 100), "percent", ts);
+      }
+      return liveVal(agg.fallbackShowRate, "percent", ts);
+    case "speed-to-lead":
+      return liveVal(agg.speedToLeadSeconds, "seconds", ts);
+    case "offer-rate":
+      return agg.hasShowed && agg.showed > 0 && agg.hasPitched
+        ? liveVal(round1((agg.pitched / agg.showed) * 100), "percent", ts)
+        : notConnected();
     case "close-rate":
-      return liveVal(ghl?.closeRate, "percent", ts);
+      if (agg.hasPitched && agg.pitched > 0 && agg.hasWonDeals) {
+        return liveVal(round1((agg.wonDeals / agg.pitched) * 100), "percent", ts);
+      }
+      if (agg.hasShowed && agg.showed > 0 && agg.hasWonDeals) {
+        return liveVal(round1((agg.wonDeals / agg.showed) * 100), "percent", ts);
+      }
+      return liveVal(agg.fallbackCloseRate, "percent", ts);
+    case "cash-collected-up-front":
+      return agg.hasPipelineRevenue && agg.pipelineRevenueUsd > 0 && agg.hasCashCollected
+        ? liveVal(round1((agg.cashCollectedUsd / agg.pipelineRevenueUsd) * 100), "percent", ts)
+        : notConnected();
     case "units-sold":
-      return liveVal(ghl?.wonDeals, "count", ts);
+      return agg.hasWonDeals ? liveVal(agg.wonDeals, "count", ts) : notConnected();
     case "set-rate":
-      return ghl?.newLeads && ghl.newLeads > 0 && typeof ghl.appointmentsBooked === "number"
-        ? liveVal(Math.round((ghl.appointmentsBooked / ghl.newLeads) * 1000) / 10, "percent", ts)
+      return agg.hasNewLeads && agg.newLeads > 0 && agg.hasBooked
+        ? liveVal(round1((agg.booked / agg.newLeads) * 100), "percent", ts)
         : notConnected();
     case "lead-to-customer":
-      return ghl?.newLeads && ghl.newLeads > 0 && typeof ghl.wonDeals === "number"
-        ? liveVal(Math.round((ghl.wonDeals / ghl.newLeads) * 1000) / 10, "percent", ts)
+      return agg.hasNewLeads && agg.newLeads > 0 && agg.hasWonDeals
+        ? liveVal(round1((agg.wonDeals / agg.newLeads) * 100), "percent", ts)
         : notConnected();
-    case "dials":
-      return liveVal(snap.calls?.outboundCalls, "count", ts);
+    case "cac-per-client":
+      return agg.hasSpend && agg.hasWonDeals && agg.wonDeals > 0
+        ? liveVal(round2(agg.spend / agg.wonDeals), "usd", ts)
+        : notConnected();
     case "ad-spend":
-      return liveVal(meta?.spend, "usd", ts);
+      return agg.hasSpend ? liveVal(agg.spend, "usd", ts) : notConnected();
     case "new-leads":
-      return liveVal(ghl?.newLeads, "count", ts);
+      return agg.hasNewLeads ? liveVal(agg.newLeads, "count", ts) : notConnected();
     case "ctr":
-      return meta?.impressions && meta.impressions > 0 && typeof meta.clicks === "number"
-        ? liveVal(Math.round((meta.clicks / meta.impressions) * 10000) / 100, "percent", ts)
+      return agg.hasImpressions && agg.impressions > 0 && agg.hasClicks
+        ? liveVal(round2((agg.clicks / agg.impressions) * 100), "percent", ts)
         : notConnected();
     case "cost-per-lead":
-      return ghl?.newLeads && ghl.newLeads > 0 && typeof meta?.spend === "number"
-        ? liveVal(Math.round((meta.spend / ghl.newLeads) * 100) / 100, "usd", ts)
+      return agg.hasNewLeads && agg.newLeads > 0 && agg.hasSpend
+        ? liveVal(round2(agg.spend / agg.newLeads), "usd", ts)
         : notConnected();
     case "cost-per-held-appointment":
-      return ghl?.showedAppointments && ghl.showedAppointments > 0 && typeof meta?.spend === "number"
-        ? liveVal(Math.round((meta.spend / ghl.showedAppointments) * 100) / 100, "usd", ts)
+      return agg.hasShowed && agg.showed > 0 && agg.hasSpend
+        ? liveVal(round2(agg.spend / agg.showed), "usd", ts)
         : notConnected();
+    case "spend-with-zero-leads":
+      return agg.hasZeroLeadDays ? liveVal(agg.zeroLeadDays, "count", ts) : notConnected();
     default:
       return notConnected();
   }
@@ -557,17 +815,39 @@ function resolveTileValue(
 
 export function dashboardBoardService(
   now: () => Date = () => new Date(),
-  adapters: { teamRoster?: TeamRosterAdapter; fetchImpl?: typeof fetch } = {},
+  adapters: {
+    teamRoster?: TeamRosterAdapter;
+    fetchImpl?: typeof fetch;
+    wavvReader?: (period: DashboardPeriod) => Promise<WavvSummary | null>;
+  } = {},
 ) {
   const teamRoster = adapters.teamRoster ?? teamCapitalAdapter(adapters.fetchImpl);
 
   return {
-    async board(board: DashboardBoardId, companyId: string): Promise<DashboardBoard> {
+    async board(
+      board: DashboardBoardId,
+      companyId: string,
+      period: DashboardPeriod = "30d",
+    ): Promise<DashboardBoard> {
       const definition = BOARD_DEFINITIONS[board];
       if (!definition) throw new Error(`Unknown dashboard board: ${board}`);
 
-      const roster = board === "human-employees" ? await teamRoster.read(companyId) : null;
-      const snap = board === "sales" || board === "marketing" ? await readSalesSnapshot(adapters.fetchImpl) : null;
+      const [roster, capital, bundle, wavv] = await Promise.all([
+        board === "human-employees" ? teamRoster.read(companyId) : Promise.resolve(null),
+        board === "human-employees"
+          ? fetchSalesCapital(period, { fetchImpl: adapters.fetchImpl })
+          : Promise.resolve(null),
+        board === "sales" || board === "marketing"
+          ? readPortfolioSnapshotBundle(period, { fetchImpl: adapters.fetchImpl })
+          : Promise.resolve(null),
+        board === "sales"
+          ? (adapters.wavvReader
+              ? adapters.wavvReader(period)
+              : readWavvSummary(period, { fetchImpl: adapters.fetchImpl, now }))
+          : Promise.resolve(null),
+      ]);
+
+      const agg = bundle ? aggregatePortfolio(bundle) : null;
 
       const sourceIds = new Set<DashboardSourceId>();
       for (const item of [...definition.tiles, ...definition.tables]) {
@@ -575,17 +855,81 @@ export function dashboardBoardService(
       }
 
       const sources = sourcesFor([...sourceIds]).map((src) => {
-        if (src.id === "team_capital" && roster) {
-          return { ...src, status: "connected" as const, detail: "Connected to live Team & capital roster.", lastSuccessfulSync: roster.observedAt };
+        if (src.id === "team_capital" && (roster || capital)) {
+          return {
+            ...src,
+            status: "connected" as const,
+            detail: "Connected to live Team & capital roster.",
+            lastSuccessfulSync: roster?.observedAt ?? capital?.generatedAt ?? null,
+          };
         }
-        if (src.id === "ghl" && snap?.ghl) {
-          return { ...src, status: "connected" as const, detail: "Connected to live Sales Dashboard GHL snapshot.", lastSuccessfulSync: snap.observedAt };
+        if (src.id === "ghl" && agg?.hasGhl) {
+          return {
+            ...src,
+            status: "connected" as const,
+            detail: "Connected to live multi-client Sales Dashboard GHL snapshots.",
+            lastSuccessfulSync: agg.observedAt,
+          };
         }
-        if (src.id === "meta_ads" && snap?.meta) {
-          return { ...src, status: "connected" as const, detail: "Connected to live Sales Dashboard Meta snapshot.", lastSuccessfulSync: snap.observedAt };
+        if (src.id === "meta_ads" && agg?.hasMeta) {
+          return {
+            ...src,
+            status: "connected" as const,
+            detail: "Connected to live multi-client Meta & Neon Ads portfolio data.",
+            lastSuccessfulSync: agg.observedAt,
+          };
+        }
+        if (src.id === "wavv" && wavv) {
+          return {
+            ...src,
+            status: "connected" as const,
+            detail: "Connected to live WAVV call feed via OAuth Gateway.",
+            lastSuccessfulSync: wavv.observedAt,
+          };
         }
         return src;
       });
+
+      let meta: DashboardBoardMeta | undefined;
+      if (board === "human-employees" && (capital || (roster && (process.env.SALES_DASHBOARD_ADMIN_KEY ?? "").trim()))) {
+        const activeFromRoster = roster
+          ? roster.members.filter((m) => m.status.toLowerCase() === "active").length
+          : undefined;
+        const totalFromRoster = roster ? roster.members.length : undefined;
+        const activeFromCapital =
+          capital && capital.members.length > 0
+            ? capital.members.filter((m) => (m.status ?? "").toLowerCase() === "active").length
+            : undefined;
+        const totalFromCapital =
+          capital && capital.members.length > 0 ? capital.members.length : undefined;
+
+        meta = {
+          ...(capital?.operating
+            ? {
+                monthlyLaborUsd: capital.operating.monthlyLaborUsd,
+                monthlyOverheadUsd: capital.operating.monthlyOverheadUsd,
+                monthlyBurnUsd: capital.operating.monthlyBurnUsd,
+                runwayMonths: capital.operating.runwayMonths,
+              }
+            : {}),
+          ...(activeFromRoster !== undefined || activeFromCapital !== undefined
+            ? { activeHeadcount: activeFromRoster ?? activeFromCapital }
+            : {}),
+          ...(totalFromRoster !== undefined || totalFromCapital !== undefined
+            ? { totalHeadcount: totalFromRoster ?? totalFromCapital }
+            : {}),
+        };
+      }
+
+      const resolveTableRows = (tableId: string): DashboardTableRow[] => {
+        if (tableId === "team-roster" && roster) return teamRosterRows(roster.members);
+        if (tableId === "sales-by-business" && bundle) return salesByBusinessRows(bundle.clients);
+        if (tableId === "setter-scoreboard") return setterScoreboardRows(wavv);
+        if (tableId === "marketing-by-client" && bundle) {
+          return marketingByClientRows(bundle.clients);
+        }
+        return [];
+      };
 
       return {
         board,
@@ -595,14 +939,15 @@ export function dashboardBoardService(
         tiles: definition.tiles.map((item) => ({
           ...item,
           sourceIds: [...item.sourceIds],
-          value: resolveTileValue(item.id, snap, roster),
+          value: resolveTileValue(item.id, agg, wavv, roster, capital),
         })),
         tables: definition.tables.map((item) => ({
           ...item,
           sourceIds: [...item.sourceIds],
           columns: item.columns.map((column) => ({ ...column })),
-          rows: roster && item.id === "team-roster" ? teamRosterRows(roster.members) : [],
+          rows: resolveTableRows(item.id),
         })),
+        ...(meta ? { meta } : {}),
       };
     },
   };

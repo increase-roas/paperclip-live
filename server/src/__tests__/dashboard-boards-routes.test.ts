@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import express from "express";
 import request from "supertest";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   agents,
   approvals,
@@ -56,6 +56,14 @@ describePostgres("lane 3 dashboard board routes", () => {
   let tempDb: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | null = null;
   let app!: express.Express;
   let companyId!: string;
+  const savedEnv: Record<string, string | undefined> = {};
+
+  beforeEach(() => {
+    for (const key of ["SALES_DASHBOARD_ADMIN_KEY", "GATEWAY_ADMIN_KEY"] as const) {
+      savedEnv[key] = process.env[key];
+      delete process.env[key];
+    }
+  });
 
   beforeAll(async () => {
     ({ dashboardBoardRoutes } = await import("../routes/dashboard-boards.js"));
@@ -65,6 +73,10 @@ describePostgres("lane 3 dashboard board routes", () => {
   }, EMBEDDED_POSTGRES_TEST_TIMEOUT_MS);
 
   afterEach(async () => {
+    for (const key of ["SALES_DASHBOARD_ADMIN_KEY", "GATEWAY_ADMIN_KEY"] as const) {
+      if (savedEnv[key] === undefined) delete process.env[key];
+      else process.env[key] = savedEnv[key];
+    }
     await db.delete(costEvents);
     await db.delete(toolInvocations);
     await db.delete(toolConnections);
@@ -536,5 +548,18 @@ describePostgres("lane 3 dashboard board routes", () => {
     for (const conn of toolsRes.body.items.filter((item: { kind: string }) => item.kind === "tool_connection")) {
       expect(conn.healthMessage).toBeNull();
     }
+  });
+
+  it("surfaces Meta system user token Dec 13 expiry alarm for board viewers when SALES_DASHBOARD_ADMIN_KEY is set", async () => {
+    await seed();
+    process.env.SALES_DASHBOARD_ADMIN_KEY = "test-dash-key";
+    const res = await request(app).get(`/api/companies/${companyId}/dashboards/tools-connectors`).expect(200);
+    const metaRow = res.body.items.find((item: { id: string }) => item.id === "ir:meta-marketing-system-user");
+    expect(metaRow).toMatchObject({
+      name: "Meta Marketing API (System User Token)",
+      kind: "tool_connection",
+      expiresAt: "2026-12-13T00:00:00.000Z",
+    });
+    expect(typeof metaRow.expiryDaysRemaining).toBe("number");
   });
 });

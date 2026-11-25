@@ -17,6 +17,9 @@ import { retryIdempotentDatabaseOperation } from "../database-retry.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const EXPIRY_WARNING_DAYS = 14;
+const DEFAULT_GATEWAY_URL = "https://increase-roas-oauth-gateway.increase-roas.workers.dev";
+const META_SYSTEM_USER_TOKEN_EXPIRES_AT = "2026-12-13T00:00:00.000Z";
+const GATEWAY_HEALTH_TIMEOUT_MS = 3_000;
 
 const ATTENTION_HEALTH = new Set(["degraded", "failed", "error", "missing_secret"]);
 
@@ -48,7 +51,62 @@ function classify(row: DashboardConnectorRow): "healthy" | "attention" | "unchec
   return "healthy";
 }
 
-export function dashboardToolsConnectorsService(db: Db) {
+async function probeOAuthGatewayHealth(
+  now: Date,
+  fetchImpl: typeof fetch,
+): Promise<DashboardConnectorRow> {
+  const baseUrl = (process.env.OAUTH_GATEWAY_URL ?? DEFAULT_GATEWAY_URL)
+    .trim()
+    .replace(/\/+$/, "");
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), GATEWAY_HEALTH_TIMEOUT_MS);
+  try {
+    const res = await fetchImpl(`${baseUrl}/health`, {
+      headers: {
+        accept: "application/json",
+        "user-agent": "paperclip-server/1.0",
+      },
+      signal: controller.signal,
+    });
+    const ok = res.ok;
+    return {
+      id: "ir:oauth-gateway",
+      name: "Increase ROAS OAuth Gateway",
+      kind: "tool_connection",
+      detail: "Cloudflare Worker · OAuth proxy",
+      status: ok ? "active" : "error",
+      health: ok ? "healthy" : "degraded",
+      healthMessage: ok ? null : `Gateway health check returned HTTP ${res.status}`,
+      lastCheckAt: now.toISOString(),
+      lastSuccessfulUseAt: ok ? now.toISOString() : null,
+      expiresAt: null,
+      expiryDaysRemaining: null,
+    };
+  } catch (err) {
+    const aborted = err instanceof Error && err.name === "AbortError";
+    return {
+      id: "ir:oauth-gateway",
+      name: "Increase ROAS OAuth Gateway",
+      kind: "tool_connection",
+      detail: "Cloudflare Worker · OAuth proxy",
+      status: "error",
+      health: "failed",
+      healthMessage: aborted ? "Gateway health check timed out" : "Could not reach OAuth gateway",
+      lastCheckAt: now.toISOString(),
+      lastSuccessfulUseAt: null,
+      expiresAt: null,
+      expiryDaysRemaining: null,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export function dashboardToolsConnectorsService(
+  db: Db,
+  options: { fetchImpl?: typeof fetch } = {},
+) {
+  const fetchImpl = options.fetchImpl ?? fetch;
   return {
     async board(companyId: string, now = new Date(), boardOptions: { boardViewer?: boolean } = {}): Promise<DashboardToolsConnectorsBoard> {
       const boardViewer = boardOptions.boardViewer ?? true;
@@ -204,6 +262,35 @@ export function dashboardToolsConnectorsService(db: Db) {
           lastSuccessfulUseAt: null,
           expiresAt: null,
           expiryDaysRemaining: null,
+        });
+      }
+
+      // Instance-level IR connector checks (board viewers only, gated on env vars
+      // so offline unit tests remain deterministic).
+      if (boardViewer && (process.env.GATEWAY_ADMIN_KEY ?? "").trim()) {
+        items.push(await probeOAuthGatewayHealth(now, fetchImpl));
+      }
+
+      if (boardViewer && (process.env.SALES_DASHBOARD_ADMIN_KEY ?? "").trim()) {
+        const metaExpiry = new Date(META_SYSTEM_USER_TOKEN_EXPIRES_AT);
+        const daysRemaining = daysUntil(metaExpiry, now);
+        items.push({
+          id: "ir:meta-marketing-system-user",
+          name: "Meta Marketing API (System User Token)",
+          kind: "tool_connection",
+          detail: "Meta Ads · system user token",
+          status: daysRemaining <= 0 ? "error" : "active",
+          health: daysRemaining <= EXPIRY_WARNING_DAYS ? "degraded" : "healthy",
+          healthMessage:
+            daysRemaining <= 0
+              ? "Meta system user token expired on 2026-12-13."
+              : daysRemaining <= EXPIRY_WARNING_DAYS
+                ? "Meta system user token expires on 2026-12-13 — rotate before expiry."
+                : "Meta system user token valid until 2026-12-13.",
+          lastCheckAt: now.toISOString(),
+          lastSuccessfulUseAt: null,
+          expiresAt: META_SYSTEM_USER_TOKEN_EXPIRES_AT,
+          expiryDaysRemaining: daysRemaining,
         });
       }
 

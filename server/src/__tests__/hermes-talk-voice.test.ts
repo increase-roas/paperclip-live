@@ -140,34 +140,11 @@ describe("hermesTalkVoiceRoutes", () => {
     expect(res.body).toEqual({ ok: true, workflows: [] });
   });
 
-  it("gates GET /api/sales-dashboard/admin-key to instance admin only", async () => {
-    const prev = process.env.SALES_DASHBOARD_ADMIN_KEY;
-    process.env.SALES_DASHBOARD_ADMIN_KEY = "test-dash-key";
-    try {
-      const nonAdmin = makeApp({ type: "board", userId: "u2", source: "session", isInstanceAdmin: false, companyIds: ["c1"] } as Express.Request["actor"]);
-      const denied = await request(nonAdmin).get("/api/sales-dashboard/admin-key");
-      expect(denied.status).toBe(403);
-
-      const admin = makeApp({ type: "board", userId: "u1", source: "session", isInstanceAdmin: true, companyIds: ["c1"] } as Express.Request["actor"]);
-      const ok = await request(admin).get("/api/sales-dashboard/admin-key");
-      expect(ok.status).toBe(200);
-      expect(ok.body).toEqual({ ok: true, adminKey: "test-dash-key" });
-    } finally {
-      if (prev === undefined) delete process.env.SALES_DASHBOARD_ADMIN_KEY;
-      else process.env.SALES_DASHBOARD_ADMIN_KEY = prev;
-    }
-  });
-
-  it("forwards GET /api/gateway/health for instance admin and blocks non-admin", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ status: "ok" }), { status: 200, headers: { "content-type": "application/json" } }),
+  it("does not expose /api/sales-dashboard/admin-key or gateway routes on hermesTalkVoiceRoutes", async () => {
+    const admin = makeApp(
+      { type: "board", userId: "u1", source: "session", isInstanceAdmin: true, companyIds: ["c1"] } as Express.Request["actor"],
     );
-    const nonAdmin = makeApp({ type: "board", userId: "u2", source: "session", isInstanceAdmin: false, companyIds: ["c1"] } as Express.Request["actor"], { fetchImpl: fetchMock as unknown as typeof fetch });
-    expect((await request(nonAdmin).get("/api/gateway/health")).status).toBe(403);
-
-    const admin = makeApp({ type: "board", userId: "u1", source: "session", isInstanceAdmin: true, companyIds: ["c1"] } as Express.Request["actor"], { fetchImpl: fetchMock as unknown as typeof fetch });
-    const res = await request(admin).get("/api/gateway/health");
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual({ status: "ok" });
+    expect((await request(admin).get("/api/sales-dashboard/admin-key")).status).toBe(404);
+    expect((await request(admin).get("/api/gateway/health")).status).toBe(404);
   });
 });

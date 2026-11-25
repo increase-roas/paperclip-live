@@ -91,6 +91,15 @@ export interface DashboardTable {
   rows: DashboardTableRow[];
 }
 
+export interface DashboardBoardMeta {
+  monthlyLaborUsd?: number;
+  monthlyOverheadUsd?: number;
+  monthlyBurnUsd?: number;
+  runwayMonths?: number | null;
+  activeHeadcount?: number;
+  totalHeadcount?: number;
+}
+
 export interface DashboardBoard {
   board: DashboardBoardId;
   /** The company the payload was built for; every row is scoped to it. */
@@ -99,4 +108,64 @@ export interface DashboardBoard {
   sources: DashboardSource[];
   tiles: DashboardTile[];
   tables: DashboardTable[];
+  meta?: DashboardBoardMeta;
+}
+
+export const DASHBOARD_PERIOD_IDS = ["7d", "30d", "month"] as const;
+export type DashboardPeriod = (typeof DASHBOARD_PERIOD_IDS)[number];
+
+export function isDashboardPeriod(value: unknown): value is DashboardPeriod {
+  return typeof value === "string" && (DASHBOARD_PERIOD_IDS as readonly string[]).includes(value);
+}
+
+export type ReadingOrderStepId =
+  | "cash"
+  | "cash-multiple"
+  | "ltgp-cac"
+  | "gross-margin"
+  | "churn"
+  | "show-rate"
+  | "speed-to-lead"
+  | "cac";
+
+export type ReadingOrderState = "ok" | "red" | "unknown";
+
+export interface CeoMoneyTile {
+  id:
+    | "cash-collected"
+    | "30-day-cash-multiple"
+    | "ltgp-cac"
+    | "gross-margin"
+    | "churn"
+    | "cac-payback";
+  label: string;
+  periodLabel: string;
+  source: string;
+  target: string;
+  needs: string;
+  href?: string;
+  state: ReadingOrderState;
+  value: DashboardTileValue;
+  note?: string;
+}
+
+export interface DashboardCeoBoard {
+  companyId: string;
+  period: DashboardPeriod;
+  generatedAt: string;
+  moneyTiles: CeoMoneyTile[];
+  readingOrder: Partial<Record<ReadingOrderStepId, ReadingOrderState>>;
+  readingOrderMetrics: Partial<
+    Record<ReadingOrderStepId, { displayValue: string; observedAt: string | null }>
+  >;
+}
+
+export interface DashboardReadingOrderPayload {
+  companyId: string;
+  period: DashboardPeriod;
+  generatedAt: string;
+  statuses: Partial<Record<ReadingOrderStepId, ReadingOrderState>>;
+  metrics: Partial<
+    Record<ReadingOrderStepId, { displayValue: string; observedAt: string | null }>
+  >;
 }

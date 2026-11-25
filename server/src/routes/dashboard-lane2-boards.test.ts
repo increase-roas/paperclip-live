@@ -1,11 +1,12 @@
 import express from "express";
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { errorHandler } from "../middleware/error-handler.js";
 import { dashboardLane2BoardRoutes } from "./dashboard-lane2-boards.js";
 
 const companyId = "11111111-1111-4111-8111-111111111111";
 const otherCompanyId = "22222222-2222-4222-8222-222222222222";
+const ENV_KEYS = ["SALES_DASHBOARD_ADMIN_KEY", "GATEWAY_PAPERCLIP_KEY", "GATEWAY_WAVV_KEY"] as const;
 
 function app(actor: Express.Request["actor"] = {
   type: "board",
@@ -25,6 +26,21 @@ function app(actor: Express.Request["actor"] = {
 }
 
 describe("dashboard board routes", () => {
+  const savedEnv: Record<string, string | undefined> = {};
+
+  beforeEach(() => {
+    for (const key of ENV_KEYS) {
+      savedEnv[key] = process.env[key];
+      delete process.env[key];
+    }
+  });
+
+  afterEach(() => {
+    for (const key of ENV_KEYS) {
+      if (savedEnv[key] === undefined) delete process.env[key];
+      else process.env[key] = savedEnv[key];
+    }
+  });
   it.each(["sales", "marketing", "human-employees"] as const)(
     "serves the %s board for a company the caller belongs to",
     async (board) => {
@@ -52,7 +68,32 @@ describe("dashboard board routes", () => {
 
   it("returns 404 for an unknown board instead of an empty board", async () => {
     await request(app())
-      .get(`/api/companies/${companyId}/dashboards/ceo`)
+      .get(`/api/companies/${companyId}/dashboards/nonexistent`)
       .expect(404);
+  });
+
+  it("serves CEO money tiles and reading-order endpoints with period support", async () => {
+    const ceoRes = await request(app())
+      .get(`/api/companies/${companyId}/dashboards/ceo?period=7d`)
+      .expect(200);
+    expect(ceoRes.body.companyId).toBe(companyId);
+    expect(ceoRes.body.period).toBe("7d");
+    expect(ceoRes.body.moneyTiles).toHaveLength(6);
+
+    const roRes = await request(app())
+      .get(`/api/companies/${companyId}/dashboards/reading-order?period=month`)
+      .expect(200);
+    expect(roRes.body.companyId).toBe(companyId);
+    expect(roRes.body.period).toBe("month");
+    expect(Object.keys(roRes.body.statuses)).toHaveLength(8);
+  });
+
+  it("rejects unauthorized company access on ceo and reading-order routes", async () => {
+    await request(app())
+      .get(`/api/companies/${otherCompanyId}/dashboards/ceo`)
+      .expect(403);
+    await request(app())
+      .get(`/api/companies/${otherCompanyId}/dashboards/reading-order`)
+      .expect(403);
   });
 });
