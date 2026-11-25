@@ -469,6 +469,196 @@ function hasAnyClientMetric(client: MergedClientMetrics): boolean {
   );
 }
 
+type ClientMergeIndex = (rawSlug: string, displayName: string) => MergedClientMetrics;
+
+function emptyClientMetrics(rawSlug: string, displayName: string): MergedClientMetrics {
+  return {
+    slug: rawSlug.trim(),
+    displayName: displayName.trim() || rawSlug.trim(),
+    observedAt: null,
+    newLeads: null,
+    booked: null,
+    showed: null,
+    pitched: null,
+    wonDeals: null,
+    showRate: null,
+    closeRate: null,
+    pipelineRevenueUsd: null,
+    cashCollectedUsd: null,
+    speedToLeadSeconds: null,
+    spend: null,
+    impressions: null,
+    clicks: null,
+    cpl: null,
+    cac: null,
+    roas: null,
+    costPerHeldAppointment: null,
+    zeroLeadDays: null,
+  };
+}
+
+function createClientMergeIndex(bySlug: Map<string, MergedClientMetrics>): ClientMergeIndex {
+  return (rawSlug, displayName) => {
+    const key = rawSlug.trim().toLowerCase();
+    const existing = bySlug.get(key);
+    if (existing) {
+      if (existing.displayName === existing.slug && displayName && displayName !== rawSlug) {
+        existing.displayName = displayName;
+      }
+      return existing;
+    }
+    const created = emptyClientMetrics(rawSlug, displayName);
+    bySlug.set(key, created);
+    return created;
+  };
+}
+
+function applySnapshotGhl(entry: MergedClientMetrics, ghl: SnapshotGhlData): void {
+  entry.newLeads = finite(ghl.newLeads) ?? entry.newLeads;
+  entry.booked = finite(ghl.appointmentsBooked) ?? entry.booked;
+  entry.showed = finite(ghl.showedAppointments) ?? entry.showed;
+  entry.pitched = finite(ghl.pitchedOpportunities) ?? entry.pitched;
+  entry.wonDeals = finite(ghl.wonDeals) ?? entry.wonDeals;
+  entry.showRate = normalizeRatePercent(ghl.showRate) ?? entry.showRate;
+  entry.closeRate = normalizeRatePercent(ghl.closeRate) ?? entry.closeRate;
+  entry.pipelineRevenueUsd = finite(ghl.pipelineWonUsd) ?? entry.pipelineRevenueUsd;
+  entry.speedToLeadSeconds = finite(ghl.speedToLeadSeconds) ?? entry.speedToLeadSeconds;
+}
+
+function applySnapshotMeta(entry: MergedClientMetrics, meta: SnapshotMetaData): void {
+  entry.spend = finite(meta.spend) ?? entry.spend;
+  entry.impressions = finite(meta.impressions) ?? entry.impressions;
+  entry.clicks = finite(meta.clicks) ?? entry.clicks;
+  entry.zeroLeadDays = finite(meta.zeroLeadDays) ?? entry.zeroLeadDays;
+}
+
+/** Per-client full snapshots are the richest GHL + Meta source, so they seed the merge. */
+function mergeSnapshots(ensure: ClientMergeIndex, snapshots: SnapshotsPayload | null): void {
+  const snapshotEntries: ParsedClientSnapshot[] = [];
+  if (snapshots?.clients) snapshotEntries.push(...snapshots.clients);
+  if (snapshots?.owner) snapshotEntries.push(snapshots.owner);
+
+  for (const snap of snapshotEntries) {
+    const entry = ensure(snap.slug, snap.displayName);
+    entry.observedAt = latestIso([entry.observedAt, snap.observedAt]);
+    if (snap.ghl) applySnapshotGhl(entry, snap.ghl);
+    if (snap.meta) applySnapshotMeta(entry, snap.meta);
+    const cashUsd = finite(snap.financials?.cashCollectedUsd) ?? finite(snap.cash?.cashCollectedUsd);
+    if (cashUsd !== null) entry.cashCollectedUsd = cashUsd;
+  }
+}
+
+function mergeCapital(ensure: ClientMergeIndex, capital: CapitalApiPayload | null): void {
+  const capitalEntries: CapitalClientEntry[] = [];
+  if (capital?.clients) capitalEntries.push(...capital.clients);
+  if (capital?.owner) capitalEntries.push(capital.owner);
+
+  for (const cap of capitalEntries) {
+    const m = cap.marketing ?? {};
+    const entry = ensure(cap.slug, cap.displayName);
+    entry.observedAt = latestIso([entry.observedAt, cap.syncedAt, capital?.generatedAt]);
+    entry.newLeads = entry.newLeads ?? finite(m.newLeads);
+    entry.wonDeals = entry.wonDeals ?? finite(m.wonDeals);
+    entry.spend = entry.spend ?? finite(m.adSpendUsd);
+    entry.cpl = entry.cpl ?? finite(m.cplUsd);
+    entry.cac = entry.cac ?? finite(m.cacUsd);
+    entry.pipelineRevenueUsd = entry.pipelineRevenueUsd ?? finite(m.pipelineRevenueUsd);
+    entry.cashCollectedUsd = entry.cashCollectedUsd ?? finite(m.cashCollectedUsd);
+    entry.closeRate = entry.closeRate ?? normalizeRatePercent(m.closeRate);
+  }
+}
+
+/** A zero from an earlier source is replaced when the Neon window reports a positive value. */
+function preferPositiveWindowValue(current: number | null, windowValue: number | null): number | null {
+  if (current === null || (current === 0 && (windowValue ?? 0) > 0)) {
+    return finite(windowValue) ?? current;
+  }
+  return current;
+}
+
+function mergeNeonAccounts(
+  ensure: ClientMergeIndex,
+  neonAccounts: NeonAdsAccountsPayload | null,
+  period: DashboardPeriod,
+): void {
+  if (!neonAccounts) return;
+  for (const acct of neonAccounts.clients) {
+    const win = period === "7d" ? acct.sevenDay : acct.thirtyDay;
+    const entry = ensure(acct.clientId, acct.displayName);
+    entry.observedAt = latestIso([entry.observedAt, neonAccounts.observedAt]);
+    entry.spend = preferPositiveWindowValue(entry.spend, win.spend);
+    entry.newLeads = preferPositiveWindowValue(entry.newLeads, win.leads);
+    entry.cpl = entry.cpl ?? finite(win.cpl);
+  }
+}
+
+function mergeNeonPipeline(ensure: ClientMergeIndex, neonPipeline: NeonAdsPipelinePayload | null): void {
+  if (!neonPipeline) return;
+  for (const pipe of neonPipeline.clients) {
+    const entry = ensure(pipe.clientId, pipe.displayName);
+    entry.observedAt = latestIso([entry.observedAt, neonPipeline.observedAt]);
+    entry.spend = entry.spend ?? finite(pipe.spend);
+    entry.newLeads = entry.newLeads ?? finite(pipe.crmLeads);
+    entry.booked = entry.booked ?? finite(pipe.booked);
+    entry.showed = entry.showed ?? finite(pipe.showed);
+    entry.wonDeals = entry.wonDeals ?? finite(pipe.sold);
+    entry.pipelineRevenueUsd = entry.pipelineRevenueUsd ?? finite(pipe.revenue);
+    entry.cpl = entry.cpl ?? finite(pipe.costPerCrmLead);
+    entry.cac = entry.cac ?? finite(pipe.costPerSold);
+    entry.roas = entry.roas ?? finite(pipe.roas);
+  }
+}
+
+function deriveCloseRate(entry: MergedClientMetrics): number | null {
+  if (entry.wonDeals === null) return null;
+  if (entry.pitched !== null && entry.pitched > 0) {
+    return round1((entry.wonDeals / entry.pitched) * 100);
+  }
+  if (entry.showed !== null && entry.showed > 0) {
+    return round1((entry.wonDeals / entry.showed) * 100);
+  }
+  return null;
+}
+
+/** Ratio of two optional metrics, or null when either is missing or the denominator is not positive. */
+function ratioOf(numerator: number | null, denominator: number | null): number | null {
+  if (numerator === null || denominator === null || denominator <= 0) return null;
+  return numerator / denominator;
+}
+
+function deriveClientRatios(entry: MergedClientMetrics): void {
+  if (entry.showRate === null) {
+    const showRatio = ratioOf(entry.showed, entry.booked);
+    if (showRatio !== null) entry.showRate = round1(showRatio * 100);
+  }
+  if (entry.closeRate === null) entry.closeRate = deriveCloseRate(entry);
+  if (entry.cpl === null) {
+    const cpl = ratioOf(entry.spend, entry.newLeads);
+    if (cpl !== null) entry.cpl = round2(cpl);
+  }
+  if (entry.cac === null) {
+    const cac = ratioOf(entry.spend, entry.wonDeals);
+    if (cac !== null) entry.cac = round2(cac);
+  }
+  if (entry.roas === null) {
+    const roas = ratioOf(entry.pipelineRevenueUsd, entry.spend);
+    if (roas !== null) entry.roas = round2(roas);
+  }
+  if (entry.costPerHeldAppointment === null) {
+    const costPerHeld = ratioOf(entry.spend, entry.showed);
+    if (costPerHeld !== null) entry.costPerHeldAppointment = round2(costPerHeld);
+  }
+}
+
+/** Named clients sorted by spend desc then display name; `__owner__` always last. */
+function compareMergedClients(a: MergedClientMetrics, b: MergedClientMetrics): number {
+  if (a.slug === "__owner__" && b.slug !== "__owner__") return 1;
+  if (b.slug === "__owner__" && a.slug !== "__owner__") return -1;
+  const spendDiff = (b.spend ?? -1) - (a.spend ?? -1);
+  if (spendDiff !== 0) return spendDiff;
+  return a.displayName.localeCompare(b.displayName);
+}
+
 /**
  * Fetches and merges multi-client portfolio metrics across `/api/pilot/admin/capital`,
  * `/api/pilot/admin/snapshots` (falling back to `/api/pilot/dashboard`), and
@@ -499,166 +689,19 @@ export async function readPortfolioSnapshotBundle(
   ]);
 
   const bySlug = new Map<string, MergedClientMetrics>();
+  const ensure = createClientMergeIndex(bySlug);
+  mergeSnapshots(ensure, snapshots);
+  mergeCapital(ensure, capital);
+  mergeNeonAccounts(ensure, neonAccounts, period);
+  mergeNeonPipeline(ensure, neonPipeline);
 
-  const ensure = (rawSlug: string, displayName: string): MergedClientMetrics => {
-    const key = rawSlug.trim().toLowerCase();
-    const existing = bySlug.get(key);
-    if (existing) {
-      if (existing.displayName === existing.slug && displayName && displayName !== rawSlug) {
-        existing.displayName = displayName;
-      }
-      return existing;
-    }
-    const created: MergedClientMetrics = {
-      slug: rawSlug.trim(),
-      displayName: displayName.trim() || rawSlug.trim(),
-      observedAt: null,
-      newLeads: null,
-      booked: null,
-      showed: null,
-      pitched: null,
-      wonDeals: null,
-      showRate: null,
-      closeRate: null,
-      pipelineRevenueUsd: null,
-      cashCollectedUsd: null,
-      speedToLeadSeconds: null,
-      spend: null,
-      impressions: null,
-      clicks: null,
-      cpl: null,
-      cac: null,
-      roas: null,
-      costPerHeldAppointment: null,
-      zeroLeadDays: null,
-    };
-    bySlug.set(key, created);
-    return created;
-  };
-
-  // 1. Seed from per-client full snapshots (richest GHL + Meta data)
-  const snapshotEntries: ParsedClientSnapshot[] = [];
-  if (snapshots?.clients) snapshotEntries.push(...snapshots.clients);
-  if (snapshots?.owner) snapshotEntries.push(snapshots.owner);
-
-  for (const snap of snapshotEntries) {
-    const entry = ensure(snap.slug, snap.displayName);
-    entry.observedAt = latestIso([entry.observedAt, snap.observedAt]);
-    if (snap.ghl) {
-      entry.newLeads = finite(snap.ghl.newLeads) ?? entry.newLeads;
-      entry.booked = finite(snap.ghl.appointmentsBooked) ?? entry.booked;
-      entry.showed = finite(snap.ghl.showedAppointments) ?? entry.showed;
-      entry.pitched = finite(snap.ghl.pitchedOpportunities) ?? entry.pitched;
-      entry.wonDeals = finite(snap.ghl.wonDeals) ?? entry.wonDeals;
-      entry.showRate = normalizeRatePercent(snap.ghl.showRate) ?? entry.showRate;
-      entry.closeRate = normalizeRatePercent(snap.ghl.closeRate) ?? entry.closeRate;
-      entry.pipelineRevenueUsd = finite(snap.ghl.pipelineWonUsd) ?? entry.pipelineRevenueUsd;
-      entry.speedToLeadSeconds = finite(snap.ghl.speedToLeadSeconds) ?? entry.speedToLeadSeconds;
-    }
-    if (snap.meta) {
-      entry.spend = finite(snap.meta.spend) ?? entry.spend;
-      entry.impressions = finite(snap.meta.impressions) ?? entry.impressions;
-      entry.clicks = finite(snap.meta.clicks) ?? entry.clicks;
-      entry.zeroLeadDays = finite(snap.meta.zeroLeadDays) ?? entry.zeroLeadDays;
-    }
-    const cashUsd = finite(snap.financials?.cashCollectedUsd) ?? finite(snap.cash?.cashCollectedUsd);
-    if (cashUsd !== null) entry.cashCollectedUsd = cashUsd;
-  }
-
-  // 2. Merge capital clients + owner
-  const capitalEntries: CapitalClientEntry[] = [];
-  if (capital?.clients) capitalEntries.push(...capital.clients);
-  if (capital?.owner) capitalEntries.push(capital.owner);
-
-  for (const cap of capitalEntries) {
-    const m = cap.marketing ?? {};
-    const entry = ensure(cap.slug, cap.displayName);
-    entry.observedAt = latestIso([entry.observedAt, cap.syncedAt, capital?.generatedAt]);
-    entry.newLeads = entry.newLeads ?? finite(m.newLeads);
-    entry.wonDeals = entry.wonDeals ?? finite(m.wonDeals);
-    entry.spend = entry.spend ?? finite(m.adSpendUsd);
-    entry.cpl = entry.cpl ?? finite(m.cplUsd);
-    entry.cac = entry.cac ?? finite(m.cacUsd);
-    entry.pipelineRevenueUsd = entry.pipelineRevenueUsd ?? finite(m.pipelineRevenueUsd);
-    entry.cashCollectedUsd = entry.cashCollectedUsd ?? finite(m.cashCollectedUsd);
-    entry.closeRate = entry.closeRate ?? normalizeRatePercent(m.closeRate);
-  }
-
-  // 3. Merge Neon Ads accounts (7d or 30d window)
-  if (neonAccounts) {
-    for (const acct of neonAccounts.clients) {
-      const win = period === "7d" ? acct.sevenDay : acct.thirtyDay;
-      const entry = ensure(acct.clientId, acct.displayName);
-      entry.observedAt = latestIso([entry.observedAt, neonAccounts.observedAt]);
-      if (entry.spend === null || (entry.spend === 0 && (win.spend ?? 0) > 0)) {
-        entry.spend = finite(win.spend) ?? entry.spend;
-      }
-      if (entry.newLeads === null || (entry.newLeads === 0 && (win.leads ?? 0) > 0)) {
-        entry.newLeads = finite(win.leads) ?? entry.newLeads;
-      }
-      entry.cpl = entry.cpl ?? finite(win.cpl);
-    }
-  }
-
-  // 4. Merge Neon Ads pipeline (CRM attribution, booked, showed, sold, revenue, ROAS)
-  if (neonPipeline) {
-    for (const pipe of neonPipeline.clients) {
-      const entry = ensure(pipe.clientId, pipe.displayName);
-      entry.observedAt = latestIso([entry.observedAt, neonPipeline.observedAt]);
-      entry.spend = entry.spend ?? finite(pipe.spend);
-      entry.newLeads = entry.newLeads ?? finite(pipe.crmLeads);
-      entry.booked = entry.booked ?? finite(pipe.booked);
-      entry.showed = entry.showed ?? finite(pipe.showed);
-      entry.wonDeals = entry.wonDeals ?? finite(pipe.sold);
-      entry.pipelineRevenueUsd = entry.pipelineRevenueUsd ?? finite(pipe.revenue);
-      entry.cpl = entry.cpl ?? finite(pipe.costPerCrmLead);
-      entry.cac = entry.cac ?? finite(pipe.costPerSold);
-      entry.roas = entry.roas ?? finite(pipe.roas);
-    }
-  }
-
-  // Derive per-client ratios where both numerator and denominator exist
   const clients: MergedClientMetrics[] = [];
   for (const entry of bySlug.values()) {
     if (!hasAnyClientMetric(entry)) continue;
-    if (entry.showRate === null && entry.booked !== null && entry.booked > 0 && entry.showed !== null) {
-      entry.showRate = round1((entry.showed / entry.booked) * 100);
-    }
-    if (entry.closeRate === null && entry.wonDeals !== null) {
-      if (entry.pitched !== null && entry.pitched > 0) {
-        entry.closeRate = round1((entry.wonDeals / entry.pitched) * 100);
-      } else if (entry.showed !== null && entry.showed > 0) {
-        entry.closeRate = round1((entry.wonDeals / entry.showed) * 100);
-      }
-    }
-    if (entry.cpl === null && entry.spend !== null && entry.newLeads !== null && entry.newLeads > 0) {
-      entry.cpl = round2(entry.spend / entry.newLeads);
-    }
-    if (entry.cac === null && entry.spend !== null && entry.wonDeals !== null && entry.wonDeals > 0) {
-      entry.cac = round2(entry.spend / entry.wonDeals);
-    }
-    if (entry.roas === null && entry.spend !== null && entry.spend > 0 && entry.pipelineRevenueUsd !== null) {
-      entry.roas = round2(entry.pipelineRevenueUsd / entry.spend);
-    }
-    if (
-      entry.costPerHeldAppointment === null &&
-      entry.spend !== null &&
-      entry.showed !== null &&
-      entry.showed > 0
-    ) {
-      entry.costPerHeldAppointment = round2(entry.spend / entry.showed);
-    }
+    deriveClientRatios(entry);
     clients.push(entry);
   }
-
-  // Deterministic ordering: named clients sorted by spend/leads desc then slug, __owner__ last
-  clients.sort((a, b) => {
-    if (a.slug === "__owner__" && b.slug !== "__owner__") return 1;
-    if (b.slug === "__owner__" && a.slug !== "__owner__") return -1;
-    const spendDiff = (b.spend ?? -1) - (a.spend ?? -1);
-    if (spendDiff !== 0) return spendDiff;
-    return a.displayName.localeCompare(b.displayName);
-  });
+  clients.sort(compareMergedClients);
 
   const observedAt = latestIso([
     capital?.generatedAt,

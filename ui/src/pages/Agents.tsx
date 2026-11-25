@@ -17,7 +17,6 @@ import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useSidebar } from "../context/SidebarContext";
 import { useStreamlinedUiEnabled } from "../hooks/useStreamlinedUiEnabled";
 import { queryKeys } from "../lib/queryKeys";
-import { isPlatformManagedEnvironment } from "../lib/managed-sandbox-environment";
 import { AgentStatusBadge, AgentStatusCapsule } from "../components/StatusBadge";
 import { EntityRow } from "../components/EntityRow";
 import { BuiltInLifecycleChip } from "../components/BuiltInAgentBadges";
@@ -38,14 +37,17 @@ import {
   type Agent,
   type AgentAvatarSize,
   type Environment,
-  type EnvironmentCapabilities,
 } from "@paperclipai/shared";
 import { agentAvatarUrl } from "@/lib/agent-avatar-url";
 import { deriveInitials } from "@/components/Identity";
 import { useAvatarInitials } from "@/components/ui/avatar-initials";
 import { usePublishSharedQueryData, useSharedPollingQuery } from "../hooks/useSharedPolling";
-
-import { agentDisplayAdapterType, getAdapterLabel } from "../adapters/adapter-display-registry";
+import {
+  loadingEnvironmentDescriptor,
+  localEnvironmentDescriptor,
+  resolveAgentEnvironment,
+  type EnvironmentDescriptor,
+} from "../lib/agent-environment-descriptor";
 
 const roleLabels = AGENT_ROLE_LABELS as Record<string, string>;
 
@@ -127,44 +129,13 @@ const ConfigureBuiltInAgentModal = lazy(() =>
   })),
 );
 
-import { AGENT_FILTER_TABS } from "../lib/agent-filter-tabs";
+import {
+  agentStatusMatchesFilter as matchesFilter,
+  HIDDEN_AGENT_STATUSES,
+  isAgentFilterTab as isFilterTab,
+  type AgentFilterTab as FilterTab,
+} from "../lib/agent-filter-tabs";
 export { AGENT_FILTER_TABS } from "../lib/agent-filter-tabs";
-type FilterTab = (typeof AGENT_FILTER_TABS)[number];
-
-function isFilterTab(value: string): value is FilterTab {
-  return (AGENT_FILTER_TABS as readonly string[]).includes(value);
-}
-
-interface EnvironmentDescriptor {
-  label: string;
-  detail: string;
-  title: string;
-}
-
-const localEnvironmentDescriptor: EnvironmentDescriptor = {
-  label: "Local",
-  detail: "Paperclip host",
-  title: "Local - Paperclip host",
-};
-
-const loadingEnvironmentDescriptor: EnvironmentDescriptor = {
-  label: "—",
-  detail: "Loading environment",
-  title: "Loading environment",
-};
-
-// Agents in these states never appear in the agents list — `terminated` is
-// hidden like an archived company, and `pending_approval` is a hiring gate that
-// lives in the task thread, not an agent run state (PAP-75).
-const HIDDEN_AGENT_STATUSES = new Set(["terminated", "pending_approval"]);
-
-function matchesFilter(status: string, tab: FilterTab): boolean {
-  if (tab === "all") return true;
-  if (tab === "active") return status === "active" || status === "running" || status === "idle";
-  if (tab === "paused") return status === "paused";
-  if (tab === "error") return status === "error";
-  return true;
-}
 
 function matchesSearch(agent: Pick<Agent, "name" | "role" | "title">, query: string): boolean {
   const words = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
@@ -181,70 +152,6 @@ export function filterAgents(agents: Agent[], tab: FilterTab, builtInAgentIds: S
       return matchesFilter(a.status, tab);
     })
     .sort((a, b) => a.name.localeCompare(b.name));
-}
-
-function getConfiguredModel(agent: Agent): string | null {
-  const value = agent.adapterConfig?.model;
-  if (typeof value !== "string") return null;
-  const model = value.trim();
-  return model.length > 0 ? model : null;
-}
-
-function formatEnvironmentDriver(driver: Environment["driver"]): string {
-  if (driver === "ssh") return "SSH";
-  return driver.charAt(0).toUpperCase() + driver.slice(1);
-}
-
-function getSandboxProviderLabel(
-  environment: Environment,
-  capabilities?: EnvironmentCapabilities | null,
-): string {
-  const provider = typeof environment.config.provider === "string"
-    ? environment.config.provider.trim()
-    : "";
-  if (!provider) return "Sandbox";
-  return capabilities?.sandboxProviders?.[provider]?.displayName ?? provider;
-}
-
-function describeEnvironment(
-  environment: Environment,
-  capabilities?: EnvironmentCapabilities | null,
-): EnvironmentDescriptor {
-  const detail = isPlatformManagedEnvironment(environment)
-    ? "Managed by Paperclip"
-    : environment.driver === "sandbox"
-      ? `${getSandboxProviderLabel(environment, capabilities)} sandbox provider`
-      : environment.driver === "local"
-        ? "Paperclip host"
-        : formatEnvironmentDriver(environment.driver);
-
-  return {
-    label: environment.name,
-    detail,
-    title: `${environment.name} - ${detail}`,
-  };
-}
-
-function describeMissingEnvironment(environmentId: string): EnvironmentDescriptor {
-  return {
-    label: "Unknown environment",
-    detail: environmentId.slice(0, 8),
-    title: `Unknown environment - ${environmentId}`,
-  };
-}
-
-function resolveAgentEnvironment(
-  agent: Agent,
-  environmentsById: Map<string, Environment>,
-  instanceDefaultEnvironmentId: string | null,
-  capabilities?: EnvironmentCapabilities | null,
-): EnvironmentDescriptor {
-  const environmentId = agent.defaultEnvironmentId ?? instanceDefaultEnvironmentId;
-  if (!environmentId) return localEnvironmentDescriptor;
-  const environment = environmentsById.get(environmentId);
-  return environment
-    ? describeEnvironment(environment, capabilities)
-    : describeMissingEnvironment(environmentId);
 }
 
 export function filterOrgTree(nodes: OrgNode[], tab: FilterTab, builtInAgentIds: Set<string>, matchingIds?: Set<string>): OrgNode[] {
@@ -603,184 +510,6 @@ export function Agents({ initialView = "list" }: { initialView?: AgentsView } = 
       )}
       </div>
     </div>
-  );
-}
-
-function OrgTreeNode({
-  node,
-  depth,
-  agentMap,
-  liveRunByAgent,
-  environmentByAgentId,
-  environmentDataLoading,
-  showEnvironment,
-  builtInByAgentId,
-  onConfigureBuiltIn,
-}: {
-  node: OrgNode;
-  depth: number;
-  agentMap: Map<string, Agent>;
-  liveRunByAgent: Map<string, { runId: string; liveCount: number }>;
-  environmentByAgentId: Map<string, EnvironmentDescriptor>;
-  environmentDataLoading: boolean;
-  showEnvironment: boolean;
-  builtInByAgentId: Map<string, BuiltInAgentState>;
-  onConfigureBuiltIn: (state: BuiltInAgentState) => void;
-}) {
-  const agent = agentMap.get(node.id);
-  const builtInState = builtInByAgentId.get(node.id);
-  const showBuiltInLifecycle = builtInState?.status === "needs_setup" || builtInState?.status === "pending_approval";
-  const hasInvalidOrgChain = Boolean(agent && agent.orgChainHealth?.status === "invalid_org_chain");
-
-  return (
-    <div style={{ paddingLeft: depth * 24 }}>
-      <Link
-        to={agent ? agentUrl(agent) : `/agents/${node.id}`}
-        className="group flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-accent/50 transition-colors w-full text-left no-underline text-inherit"
-      >
-        <span className="inline-flex shrink-0 items-center">
-          <RosterAgentAvatar agent={agent ?? node} size={24} />
-          {hasInvalidOrgChain ? (
-            <AlertTriangle
-              className="ml-1.5 h-3.5 w-3.5 shrink-0 text-(--status-task-icon-todo)"
-              aria-label="Invalid reporting chain"
-            />
-          ) : null}
-        </span>
-        <div className="flex-1 min-w-0 flex flex-wrap items-center gap-2">
-          {/* Name floor + `truncate` keeps the primary identifier readable; the
-              cluster wraps to a second line under pressure instead of starving
-              the name at narrow widths. */}
-          <div className="min-w-(--sz-7rem) truncate">
-            <span className="text-sm font-medium">{node.name}</span>
-            <span className="text-xs text-muted-foreground ml-2">
-              {formatAgentSubtitle(node.role, agent?.title)}
-            </span>
-          </div>
-          {builtInState && showBuiltInLifecycle && (
-            <div className="flex items-center gap-1.5 shrink-0">
-              <BuiltInLifecycleChip status={builtInState.status} />
-              {builtInState.status === "needs_setup" && (
-                <span
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                >
-                  <Button size="xs" variant="outline" onClick={() => onConfigureBuiltIn(builtInState)}>
-                    Set up
-                  </Button>
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <span className="sm:hidden">
-            {liveRunByAgent.has(node.id) ? (
-              <LiveRunIndicator
-                agentRef={agent ? agentRouteRef(agent) : node.id}
-                runId={liveRunByAgent.get(node.id)!.runId}
-                liveCount={liveRunByAgent.get(node.id)!.liveCount}
-              />
-            ) : (
-              <AgentStatusBadge status={node.status} />
-            )}
-          </span>
-          <div className="hidden sm:flex items-center gap-3">
-            {liveRunByAgent.has(node.id) && (
-              <LiveRunIndicator
-                agentRef={agent ? agentRouteRef(agent) : node.id}
-                runId={liveRunByAgent.get(node.id)!.runId}
-                liveCount={liveRunByAgent.get(node.id)!.liveCount}
-              />
-            )}
-            {agent && (
-              <div className="hidden xl:flex items-center gap-3">
-                <AgentMetaColumns
-                  agent={agent}
-                  environment={
-                    environmentDataLoading
-                      ? loadingEnvironmentDescriptor
-                      : environmentByAgentId.get(agent.id) ?? localEnvironmentDescriptor
-                  }
-                  showEnvironment={showEnvironment}
-                />
-              </div>
-            )}
-            <span className="w-20 flex justify-end">
-              <AgentStatusBadge status={node.status} />
-            </span>
-          </div>
-        </div>
-      </Link>
-      {node.reports && node.reports.length > 0 && (
-        <div className="border-l border-border ml-4">
-          {node.reports.map((child) => (
-            <OrgTreeNode
-              key={child.id}
-              node={child}
-              depth={depth + 1}
-              agentMap={agentMap}
-              liveRunByAgent={liveRunByAgent}
-              environmentByAgentId={environmentByAgentId}
-              environmentDataLoading={environmentDataLoading}
-              showEnvironment={showEnvironment}
-              builtInByAgentId={builtInByAgentId}
-              onConfigureBuiltIn={onConfigureBuiltIn}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * Provider/model + heartbeat columns shared by the list and org views. The
- * model and adapter label share one fixed-width cell, each line truncating with
- * an ellipsis so a long model id can never overlap the heartbeat column. The
- * heartbeat is single-line (`whitespace-nowrap`) and wide enough for a full
- * date like "Apr 30, 2026".
- */
-function AgentMetaColumns({
-  agent,
-  environment,
-  showEnvironment,
-}: {
-  agent: Agent;
-  environment: EnvironmentDescriptor;
-  showEnvironment: boolean;
-}) {
-  const model = getConfiguredModel(agent);
-  const adapterLabel = getAdapterLabel(agentDisplayAdapterType(agent));
-  return (
-    <>
-      <div className="w-44 min-w-0 leading-tight">
-        <div
-          className="truncate font-mono text-xs text-muted-foreground"
-          title={model ?? undefined}
-        >
-          {model ?? "—"}
-        </div>
-        <div className="truncate font-mono text-(length:--text-micro) text-muted-foreground/70" title={adapterLabel}>
-          {adapterLabel}
-        </div>
-      </div>
-      {showEnvironment && (
-        <div className="w-44 min-w-0 leading-tight">
-          <div className="truncate text-xs text-muted-foreground" title={environment.title}>
-            {environment.label}
-          </div>
-          <div className="truncate text-(length:--text-micro) text-muted-foreground/70">
-            {environment.detail}
-          </div>
-        </div>
-      )}
-      <span className="w-24 whitespace-nowrap text-right text-xs text-muted-foreground">
-        {agent.lastHeartbeatAt ? relativeTime(agent.lastHeartbeatAt) : "—"}
-      </span>
-    </>
   );
 }
 

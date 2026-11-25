@@ -5,13 +5,15 @@ import type {
   DashboardBoardId,
   DashboardBoardMeta,
   DashboardFulfillmentBoard,
+  DashboardPeriod,
   DashboardTileValue,
   DashboardToolsConnectorsBoard,
+  ReadingOrderState,
+  ReadingOrderStepId,
 } from "@paperclipai/shared";
-import type { DashboardPeriod } from "@/components/dashboards/period";
-import type { ReadingOrderStatusMap, ReadingOrderStepId } from "@/components/dashboards/reading-order";
-import type { TileState } from "@/components/dashboards/Tile";
 import { api } from "./client";
+
+type ReadingOrderStatusMap = Partial<Record<ReadingOrderStepId, ReadingOrderState>>;
 
 export interface CeoMoneyTile {
   id: string;
@@ -22,7 +24,7 @@ export interface CeoMoneyTile {
   target?: string;
   redLine?: string;
   href?: string;
-  state?: TileState;
+  state?: ReadingOrderState;
   note?: string;
   value: DashboardTileValue;
 }

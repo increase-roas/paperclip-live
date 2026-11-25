@@ -18,6 +18,7 @@ import {
   detectPresetDrift,
   getAgentStatus,
 } from "./gatewayHelpers";
+import { GatewayAgentStatusBadge } from "./GatewayAgentStatusBadge";
 
 interface GatewayAccessMatrixProps {
   agents: GatewayAgentRecord[];
@@ -186,20 +187,7 @@ export function GatewayAccessMatrix({
                           )}
                         </div>
                         <div className="mt-1 flex items-center gap-1.5">
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "px-1.5 py-0 text-xs font-normal",
-                              status.kind === "active" &&
-                                "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
-                              status.kind === "disabled" &&
-                                "border-destructive/40 bg-destructive/10 text-destructive",
-                              status.kind === "no_key" &&
-                                "border-border bg-muted text-muted-foreground",
-                            )}
-                          >
-                            {status.label}
-                          </Badge>
+                          <GatewayAgentStatusBadge status={status} className="px-1.5 py-0 text-xs" />
                           {agent.policy.role && (
                             <span className="font-mono text-xs text-muted-foreground">
                               {agent.policy.role}
