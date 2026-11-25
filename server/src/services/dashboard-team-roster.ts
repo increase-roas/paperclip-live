@@ -28,18 +28,66 @@ export interface TeamRosterAdapter {
   read(companyId: string): Promise<TeamRosterRead>;
 }
 
+interface RawTeamMember {
+  id?: string;
+  name?: string;
+  role?: string;
+  rateType?: string;
+  rateAmount?: number | null;
+  hoursPerMonth?: number | null;
+  responsibilities?: string;
+  performanceCriteria?: string;
+  status?: string;
+}
+
+function formatRate(rateType: string, amount: number | null | undefined): string {
+  if (typeof amount !== "number" || !Number.isFinite(amount)) return "—";
+  if (rateType === "commission") return `${amount}%`;
+  return `$${amount.toLocaleString("en-US")}`;
+}
+
 /**
- * The Team & capital API (dashboard.increaseai.tech, `/api/pilot/admin/team`)
- * is admin-authenticated. Paperclip has no read-only credential for it, and
- * this task must not create one, so the adapter reports "no read" instead of
- * guessing. When a read-only service credential exists, only this function
- * changes: the board and its table columns stay the same.
+ * Reads live human team roster from dashboard.increaseai.tech (`/api/pilot/admin/team`)
+ * using server-side `SALES_DASHBOARD_ADMIN_KEY`. Fails closed to `null` when unset or unreachable
+ * so offline unit tests stay deterministic and missing data never renders as fake zeros.
  */
-export function teamCapitalAdapter(): TeamRosterAdapter {
+export function teamCapitalAdapter(fetchImpl: typeof fetch = fetch): TeamRosterAdapter {
   return {
     sourceId: "team_capital",
     async read(_companyId: string): Promise<TeamRosterRead> {
-      return null;
+      const adminKey = (process.env.SALES_DASHBOARD_ADMIN_KEY ?? "").trim();
+      if (!adminKey) return null;
+      const base = (process.env.SALES_DASHBOARD_BASE_URL ?? "https://dashboard.increaseai.tech").trim().replace(/\/+$/, "");
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5_000);
+      try {
+        const res = await fetchImpl(`${base}/api/pilot/admin/team`, {
+          headers: { Authorization: `Bearer ${adminKey}`, Accept: "application/json" },
+          signal: controller.signal,
+        });
+        if (!res.ok) return null;
+        const body = (await res.json()) as { ok?: boolean; generatedAt?: string; members?: RawTeamMember[] };
+        if (!body?.ok || !Array.isArray(body.members)) return null;
+        const members: TeamRosterMember[] = body.members.map((m, idx) => ({
+          id: String(m.id ?? `member-${idx + 1}`),
+          name: String(m.name ?? "Unnamed"),
+          role: String(m.role ?? "—"),
+          rateType: String(m.rateType ?? "—"),
+          rate: formatRate(String(m.rateType ?? ""), m.rateAmount),
+          hours: typeof m.hoursPerMonth === "number" ? m.hoursPerMonth : null,
+          duties: String(m.responsibilities ?? "—"),
+          judgedOn: String(m.performanceCriteria ?? "NOT SET") || "NOT SET",
+          status: String(m.status ?? "active"),
+        }));
+        return {
+          observedAt: typeof body.generatedAt === "string" ? body.generatedAt : new Date().toISOString(),
+          members,
+        };
+      } catch {
+        return null;
+      } finally {
+        clearTimeout(timer);
+      }
     },
   };
 }
