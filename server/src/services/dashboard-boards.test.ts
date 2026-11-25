@@ -644,4 +644,90 @@ describe("dashboardBoardService", () => {
       else process.env.SALES_DASHBOARD_ADMIN_KEY = prevKey;
     }
   });
+
+  it("shows not_connected on month-to-date sales and marketing boards when only 30d Neon accounts or unscoped pipeline exist", async () => {
+    const prevKey = process.env.SALES_DASHBOARD_ADMIN_KEY;
+    process.env.SALES_DASHBOARD_ADMIN_KEY = "test-key";
+    try {
+      const fetchImpl = (async (input: string | URL | Request) => {
+        const url = String(input);
+        if (url.includes("/api/pilot/admin/capital?view=month")) {
+          return new Response(
+            JSON.stringify({ ok: true, generatedAt: "2026-11-23T11:45:00.000Z", view: "month", owner: null, clients: [] }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        if (url.includes("/api/pilot/admin/snapshots?view=month")) {
+          return new Response(
+            JSON.stringify({ ok: true, view: "month", generatedAt: "2026-11-23T11:45:00.000Z", clients: [] }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        if (url.includes("/api/pilot/neon-ads?view=accounts")) {
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              status: "LIVE",
+              generatedAt: "2026-11-23T11:50:00.000Z",
+              clients: [
+                {
+                  clientId: "paradise-spas",
+                  displayName: "Paradise Spas",
+                  sevenDay: { spend: 1500, leads: 30, cpl: 50 },
+                  thirtyDay: { spend: 6450, leads: 120, cpl: 53.75 },
+                  lastDataDay: "2026-11-22",
+                  stale: false,
+                },
+              ],
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        if (url.includes("/api/pilot/neon-ads?view=pipeline")) {
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              status: "LIVE",
+              generatedAt: "2026-11-23T11:50:00.000Z",
+              clients: [
+                {
+                  clientId: "paradise-spas",
+                  displayName: "Paradise Spas",
+                  spend: 6450,
+                  crmLeads: 120,
+                  qualified: 50,
+                  booked: 40,
+                  showed: 30,
+                  sold: 6,
+                  revenue: 48000,
+                  costPerCrmLead: 53.75,
+                  costPerBooked: 161.25,
+                  costPerSold: 1075,
+                  roas: 7.44,
+                },
+              ],
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        return new Response("{}", { status: 404 });
+      }) as typeof fetch;
+
+      const svc = dashboardBoardService(pinnedNow, {
+        fetchImpl,
+        wavvReader: async () => null,
+      });
+
+      const marketing = await svc.board("marketing", companyId, "month");
+      expect(marketing.tiles.every((t) => t.value.kind === "not_connected")).toBe(true);
+      expect(marketing.tables.find((t) => t.id === "marketing-by-client")?.rows).toEqual([]);
+
+      const sales = await svc.board("sales", companyId, "month");
+      expect(sales.tiles.every((t) => t.value.kind === "not_connected")).toBe(true);
+      expect(sales.tables.find((t) => t.id === "sales-by-business")?.rows).toEqual([]);
+    } finally {
+      if (prevKey === undefined) delete process.env.SALES_DASHBOARD_ADMIN_KEY;
+      else process.env.SALES_DASHBOARD_ADMIN_KEY = prevKey;
+    }
+  });
 });

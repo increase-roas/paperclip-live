@@ -621,14 +621,20 @@ function aggregatePortfolio(bundle: PortfolioSnapshotBundle): AggregatedPortfoli
   };
 }
 
-function extractRevenueUsd(capital: CapitalApiPayload | null): number | null {
-  if (!capital) return null;
+function extractRevenueUsd(
+  capital: CapitalApiPayload | null,
+  period: DashboardPeriod,
+): number | null {
+  if (!capital || (capital.view && capital.view !== period)) return null;
   // Agency revenue per FTE must come strictly from agency owner financials (never client sales).
+  const marketingWindow =
+    typeof capital.owner?.marketing?.window === "string" ? capital.owner.marketing.window.trim() : "";
+  const marketingMatches = !marketingWindow || marketingWindow === period;
   const candidates = [
-    capital.owner?.marketing?.salesUsd,
-    capital.owner?.financialMonth?.salesUsd,
-    capital.owner?.marketing?.cashCollectedUsd,
-    capital.owner?.financialMonth?.cashCollectedUsd,
+    ...(marketingMatches ? [capital.owner?.marketing?.salesUsd] : []),
+    ...(period === "month" ? [capital.owner?.financialMonth?.salesUsd] : []),
+    ...(marketingMatches ? [capital.owner?.marketing?.cashCollectedUsd] : []),
+    ...(period === "month" ? [capital.owner?.financialMonth?.cashCollectedUsd] : []),
   ];
   for (const val of candidates) {
     if (typeof val === "number" && Number.isFinite(val) && val > 0) return val;
@@ -706,6 +712,7 @@ function marketingByClientRows(clients: MergedClientMetrics[]): DashboardTableRo
 
 function resolveTileValue(
   tileId: string,
+  period: DashboardPeriod,
   agg: AggregatedPortfolio | null,
   wavv: WavvSummary | null,
   roster: Awaited<ReturnType<TeamRosterAdapter["read"]>>,
@@ -726,7 +733,7 @@ function resolveTileValue(
       return liveVal(active.length - missing, "count", roster.observedAt);
     }
     if (tileId === "revenue-per-fte") {
-      const salesUsd = extractRevenueUsd(capital);
+      const salesUsd = extractRevenueUsd(capital, period);
       if (salesUsd !== null && active.length > 0 && capital) {
         return liveVal(round2(salesUsd / active.length), "usd", capital.generatedAt);
       }
@@ -949,7 +956,7 @@ export function dashboardBoardService(
         tiles: definition.tiles.map((item) => ({
           ...item,
           sourceIds: [...item.sourceIds],
-          value: resolveTileValue(item.id, agg, wavv, roster, capital),
+          value: resolveTileValue(item.id, period, agg, wavv, roster, capital),
         })),
         tables: definition.tables.map((item) => ({
           ...item,

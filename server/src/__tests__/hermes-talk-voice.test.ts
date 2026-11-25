@@ -147,4 +147,130 @@ describe("hermesTalkVoiceRoutes", () => {
     expect((await request(admin).get("/api/sales-dashboard/admin-key")).status).toBe(404);
     expect((await request(admin).get("/api/gateway/health")).status).toBe(404);
   });
+
+  it("rejects duplicate SOP creation (exact and case-insensitive) with 409 and never calls upstream save", async () => {
+    const fetchMock = vi.fn(async (url: string | URL | Request) => {
+      expect(String(url)).toBe("https://brain.example:9119/api/plugins/hermes-talk/workflows");
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          workflows: [
+            { path: "ads-checker/audit-meta-spend.md", profile: "ads-checker", title: "Audit Meta Spend", updatedAt: 1 },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    });
+    const app = makeApp(
+      { type: "board", userId: "u1", source: "session", isInstanceAdmin: true, companyIds: ["c1"] } as Express.Request["actor"],
+      { upstreamUrl: "https://brain.example:9119", sessionToken: "secret-tok", fetchImpl: fetchMock as unknown as typeof fetch },
+    );
+
+    const exactRes = await request(app)
+      .post("/api/voice/hermes-talk/workflows/save")
+      .send({ path: "ads-checker/audit-meta-spend.md", content: "# Overwrite", mode: "create" });
+    expect(exactRes.status).toBe(409);
+    expect(exactRes.body.error).toBe("workflow_already_exists");
+
+    const caseRes = await request(app)
+      .post("/api/voice/hermes-talk/workflows/save")
+      .send({ path: "Ads-Checker/AUDIT-META-SPEND.md", content: "# Overwrite", mode: "create" });
+    expect(caseRes.status).toBe(409);
+    expect(caseRes.body.error).toBe("workflow_already_exists");
+
+    // Default save without explicit mode: "update" also refuses overwrites (fail closed).
+    const defaultRes = await request(app)
+      .post("/api/voice/hermes-talk/workflows/save")
+      .send({ path: "ads-checker/audit-meta-spend.md", content: "# Overwrite" });
+    expect(defaultRes.status).toBe(409);
+    expect(defaultRes.body.error).toBe("workflow_already_exists");
+
+    // Upstream save was never called for any rejected create/overwrite attempt.
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    for (const call of fetchMock.mock.calls) {
+      expect(String(call[0])).toBe("https://brain.example:9119/api/plugins/hermes-talk/workflows");
+    }
+  });
+
+  it("allows creating a brand-new SOP playbook and strips internal mode before forwarding upstream", async () => {
+    const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      const target = String(url);
+      if (target.endsWith("/workflows")) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            workflows: [
+              { path: "general/existing.md", profile: "general", title: "Existing", updatedAt: 1 },
+            ],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      expect(target).toBe("https://brain.example:9119/api/plugins/hermes-talk/workflows/save");
+      expect(JSON.parse(String(init?.body))).toEqual({
+        path: "general/brand-new.md",
+        content: "# Brand New",
+      });
+      return new Response(JSON.stringify({ ok: true, path: "general/brand-new.md" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    });
+    const app = makeApp(
+      { type: "board", userId: "u1", source: "session", isInstanceAdmin: true, companyIds: ["c1"] } as Express.Request["actor"],
+      { upstreamUrl: "https://brain.example:9119", sessionToken: "secret-tok", fetchImpl: fetchMock as unknown as typeof fetch },
+    );
+
+    const res = await request(app)
+      .post("/api/voice/hermes-talk/workflows/save")
+      .send({ path: "general/brand-new.md", content: "# Brand New", mode: "create" });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true, path: "general/brand-new.md" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("allows modifying an existing SOP playbook only when explicit mode: update is supplied", async () => {
+    const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      expect(String(url)).toBe("https://brain.example:9119/api/plugins/hermes-talk/workflows/save");
+      expect(JSON.parse(String(init?.body))).toEqual({
+        path: "general/existing.md",
+        content: "# Updated",
+      });
+      return new Response(JSON.stringify({ ok: true, path: "general/existing.md" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    });
+    const app = makeApp(
+      { type: "board", userId: "u1", source: "session", isInstanceAdmin: true, companyIds: ["c1"] } as Express.Request["actor"],
+      { upstreamUrl: "https://brain.example:9119", sessionToken: "secret-tok", fetchImpl: fetchMock as unknown as typeof fetch },
+    );
+
+    const res = await request(app)
+      .post("/api/voice/hermes-talk/workflows/save")
+      .send({ path: "general/existing.md", content: "# Updated", mode: "update" });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true, path: "general/existing.md" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails closed on create when upstream workflow existence check fails and rejects invalid paths", async () => {
+    const fetchMock = vi.fn(async () => new Response("upstream down", { status: 500 }));
+    const app = makeApp(
+      { type: "board", userId: "u1", source: "session", isInstanceAdmin: true, companyIds: ["c1"] } as Express.Request["actor"],
+      { upstreamUrl: "https://brain.example:9119", sessionToken: "secret-tok", fetchImpl: fetchMock as unknown as typeof fetch },
+    );
+
+    const badPath = await request(app)
+      .post("/api/voice/hermes-talk/workflows/save")
+      .send({ path: "../escape.md", content: "# Nope", mode: "create" });
+    expect(badPath.status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    const failedCheck = await request(app)
+      .post("/api/voice/hermes-talk/workflows/save")
+      .send({ path: "general/new-sop.md", content: "# New", mode: "create" });
+    expect(failedCheck.status).toBe(502);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });

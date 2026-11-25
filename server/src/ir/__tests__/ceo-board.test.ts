@@ -214,6 +214,46 @@ describe("ceoBoardService & readingOrder", () => {
     expect(readingOrder.statuses["speed-to-lead"]).toBe("red");
     expect(readingOrder.statuses.cac).toBe("unknown");
   });
+
+  it("shows not_connected CEO money tiles when capital returned a mismatched 30d window for a 7d request", () => {
+    const bundle: PortfolioSnapshotBundle = {
+      observedAt: null,
+      capital: {
+        generatedAt: "2026-11-23T11:30:00.000Z",
+        view: "30d",
+        members: [],
+        operating: null,
+        owner: {
+          slug: "__owner__",
+          displayName: "IR / HTL owner",
+          syncedAt: "2026-11-23T11:30:00.000Z",
+          syncStatus: "success",
+          marketing: {
+            window: "30d",
+            cashCollectedUsd: 50000,
+            salesUsd: 50000,
+            expensesUsd: 18000,
+            grossMarginPercent: 0.64,
+            evidence: { financial: true },
+          },
+          financialMonth: null,
+        },
+        clients: [],
+      },
+      snapshots: null,
+      neonAccounts: null,
+      neonPipeline: null,
+      clients: [],
+    };
+
+    const { ceo, readingOrder } = buildCeoAndReadingOrder(companyId, "7d", bundle, pinnedNow);
+    for (const tile of ceo.moneyTiles) {
+      expect(tile.value).toEqual({ kind: "not_connected" });
+      expect(tile.state).toBe("unknown");
+    }
+    expect(readingOrder.statuses.cash).toBe("unknown");
+    expect(readingOrder.metrics.cash).toBeUndefined();
+  });
 });
 
 describe("readWavvSummary", () => {
