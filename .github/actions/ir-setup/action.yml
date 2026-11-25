@@ -4,11 +4,13 @@ runs:
   using: composite
   steps:
     - name: Free runner disk (Rust target + node_modules need ~30 GB)
+      if: runner.environment == 'github-hosted'
       shell: bash
       run: |
         sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift
         df -h /
     - name: Add 8 GB swap (standard runners have little RAM for the server build)
+      if: runner.environment == 'github-hosted'
       shell: bash
       run: |
         sudo swapoff -a || true
@@ -21,9 +23,25 @@ runs:
     - name: Enable pnpm from packageManager
       shell: bash
       run: corepack enable && pnpm --version
+    - name: Ensure rustup is available on self-hosted runners
+      if: runner.environment == 'self-hosted'
+      shell: bash
+      run: |
+        export PATH="$HOME/.cargo/bin:$PATH"
+        if ! command -v rustup >/dev/null 2>&1; then
+          curl --proto =https --tlsv1.2 -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none
+        fi
+        echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
     - name: Rust toolchain from packages/paperclip-runner/rust-toolchain.toml
       shell: bash
-      run: cd packages/paperclip-runner && rustup show active-toolchain || rustup toolchain install
+      run: |
+        cd packages/paperclip-runner
+        rustup show active-toolchain || rustup toolchain install
+        toolchain="$(rustup show active-toolchain | awk '{print $1}')"
+        if [ -n "$toolchain" ]; then
+          rustup default "$toolchain"
+        fi
+        rustc --version && cargo --version
     - uses: Swatinem/rust-cache@v2
       with:
         workspaces: packages/paperclip-runner/runner

@@ -1,3 +1,4 @@
+export { errorRoutes, isClientErrorPost } from "./error-routes.js";
 export { gatewayProxyRoutes, type GatewayProxyOptions } from "./gateway-proxy.js";
 export {
   salesDashboardProxyRoutes,

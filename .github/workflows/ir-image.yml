@@ -23,6 +23,7 @@ permissions:
 
 jobs:
   image:
+    # brain-vps has no Docker daemon. This job builds multi-stage images with buildx.
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:

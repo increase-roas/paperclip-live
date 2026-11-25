@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   cleanup:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, brain-vps]
     timeout-minutes: 10
     steps:
       - name: Prune stale merged and backup branches

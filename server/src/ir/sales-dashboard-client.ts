@@ -1,4 +1,4 @@
-import type { DashboardPeriod } from "@paperclipai/shared";
+import { isDashboardPeriod, type DashboardPeriod } from "@paperclipai/shared";
 
 const DEFAULT_SALES_DASHBOARD_URL = "https://dashboard.increaseai.tech";
 const DEFAULT_TIMEOUT_MS = 6_000;
@@ -149,6 +149,7 @@ export interface NeonAdsPipelineClient {
 
 export interface NeonAdsPipelinePayload {
   observedAt: string;
+  period?: DashboardPeriod | null;
   clients: NeonAdsPipelineClient[];
 }
 
@@ -341,6 +342,18 @@ export async function fetchSalesCapital(
   };
 }
 
+function parseDeclaredPeriod(raw: unknown): DashboardPeriod | null {
+  if (isDashboardPeriod(raw)) return raw;
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    const rec = raw as { period?: unknown; view?: unknown; days?: unknown };
+    if (isDashboardPeriod(rec.period)) return rec.period;
+    if (isDashboardPeriod(rec.view)) return rec.view;
+    if (rec.days === 7) return "7d";
+    if (rec.days === 30) return "30d";
+  }
+  return null;
+}
+
 export async function fetchSalesSnapshots(
   period: DashboardPeriod = "30d",
   opts?: SalesDashboardClientOptions,
@@ -348,6 +361,7 @@ export async function fetchSalesSnapshots(
   // Primary: multi-client admin snapshots endpoint
   const rawMulti = await fetchSalesDashJson<{
     ok?: boolean;
+    view?: string;
     generatedAt?: string;
     owner?: Record<string, unknown>;
     clients?: Array<Record<string, unknown>>;
@@ -355,6 +369,10 @@ export async function fetchSalesSnapshots(
   }>(`/api/pilot/admin/snapshots?view=${encodeURIComponent(period)}`, opts);
 
   if (rawMulti && rawMulti.ok !== false && (rawMulti.owner || rawMulti.clients || rawMulti.snapshots)) {
+    const multiView = typeof rawMulti.view === "string" ? rawMulti.view.trim() : "";
+    if (multiView && multiView !== period) {
+      return null;
+    }
     const observedAt =
       typeof rawMulti.generatedAt === "string" ? rawMulti.generatedAt : new Date().toISOString();
     const owner = rawMulti.owner
@@ -392,6 +410,8 @@ export async function fetchSalesSnapshots(
     opts,
   );
   if (!rawLegacy) return null;
+  const legacyView = typeof rawLegacy.view === "string" ? rawLegacy.view.trim() : "";
+  if (legacyView && legacyView !== period) return null;
   const fallbackTs =
     (typeof rawLegacy.lastSuccessfulSyncAt === "string" && rawLegacy.lastSuccessfulSyncAt) ||
     (typeof rawLegacy.generatedAt === "string" && rawLegacy.generatedAt) ||
@@ -427,12 +447,16 @@ export async function fetchNeonAdsPipeline(
     ok?: boolean;
     status?: string;
     generatedAt?: string;
+    period?: unknown;
+    window?: unknown;
     clients?: NeonAdsPipelineClient[];
   }>("/api/pilot/neon-ads?view=pipeline", opts);
 
   if (!body || body.status !== "LIVE" || !Array.isArray(body.clients)) return null;
+  const period = parseDeclaredPeriod(body.period) ?? parseDeclaredPeriod(body.window);
   return {
     observedAt: typeof body.generatedAt === "string" ? body.generatedAt : new Date().toISOString(),
+    period,
     clients: body.clients,
   };
 }
@@ -548,15 +572,22 @@ function mergeSnapshots(ensure: ClientMergeIndex, snapshots: SnapshotsPayload | 
   }
 }
 
-function mergeCapital(ensure: ClientMergeIndex, capital: CapitalApiPayload | null): void {
+function mergeCapital(
+  ensure: ClientMergeIndex,
+  capital: CapitalApiPayload | null,
+  period: DashboardPeriod,
+): void {
+  if (!capital || capital.view !== period) return;
   const capitalEntries: CapitalClientEntry[] = [];
-  if (capital?.clients) capitalEntries.push(...capital.clients);
-  if (capital?.owner) capitalEntries.push(capital.owner);
+  if (capital.clients) capitalEntries.push(...capital.clients);
+  if (capital.owner) capitalEntries.push(capital.owner);
 
   for (const cap of capitalEntries) {
     const m = cap.marketing ?? {};
+    const metricWindow = typeof m.window === "string" ? m.window.trim() : "";
+    if (metricWindow && metricWindow !== period) continue;
     const entry = ensure(cap.slug, cap.displayName);
-    entry.observedAt = latestIso([entry.observedAt, cap.syncedAt, capital?.generatedAt]);
+    entry.observedAt = latestIso([entry.observedAt, cap.syncedAt, capital.generatedAt]);
     entry.newLeads = entry.newLeads ?? finite(m.newLeads);
     entry.wonDeals = entry.wonDeals ?? finite(m.wonDeals);
     entry.spend = entry.spend ?? finite(m.adSpendUsd);
@@ -576,24 +607,43 @@ function preferPositiveWindowValue(current: number | null, windowValue: number |
   return current;
 }
 
+function selectNeonAccountWindow(
+  acct: NeonAdsAccountClient,
+  period: DashboardPeriod,
+): NeonAdsAccountClient["sevenDay"] | null {
+  if (period === "7d") return acct.sevenDay;
+  if (period === "30d") return acct.thirtyDay;
+  return null;
+}
+
 function mergeNeonAccounts(
   ensure: ClientMergeIndex,
   neonAccounts: NeonAdsAccountsPayload | null,
   period: DashboardPeriod,
 ): void {
-  if (!neonAccounts) return;
+  if (!neonAccounts || (period !== "7d" && period !== "30d")) return;
   for (const acct of neonAccounts.clients) {
-    const win = period === "7d" ? acct.sevenDay : acct.thirtyDay;
+    const win = selectNeonAccountWindow(acct, period);
+    if (!win) continue;
+    const spend = finite(win.spend);
+    const leads = finite(win.leads);
+    const cpl = finite(win.cpl);
+    if (spend === null && leads === null && cpl === null) continue;
     const entry = ensure(acct.clientId, acct.displayName);
     entry.observedAt = latestIso([entry.observedAt, neonAccounts.observedAt]);
-    entry.spend = preferPositiveWindowValue(entry.spend, win.spend);
-    entry.newLeads = preferPositiveWindowValue(entry.newLeads, win.leads);
-    entry.cpl = entry.cpl ?? finite(win.cpl);
+    entry.spend = preferPositiveWindowValue(entry.spend, spend);
+    entry.newLeads = preferPositiveWindowValue(entry.newLeads, leads);
+    entry.cpl = entry.cpl ?? cpl;
   }
 }
 
-function mergeNeonPipeline(ensure: ClientMergeIndex, neonPipeline: NeonAdsPipelinePayload | null): void {
-  if (!neonPipeline) return;
+function mergeNeonPipeline(
+  ensure: ClientMergeIndex,
+  neonPipeline: NeonAdsPipelinePayload | null,
+  period: DashboardPeriod,
+): void {
+  // Never fall back to unscoped or mismatched-period pipeline figures for a windowed dashboard.
+  if (!neonPipeline || neonPipeline.period !== period) return;
   for (const pipe of neonPipeline.clients) {
     const entry = ensure(pipe.clientId, pipe.displayName);
     entry.observedAt = latestIso([entry.observedAt, neonPipeline.observedAt]);
@@ -681,19 +731,22 @@ export async function readPortfolioSnapshotBundle(
     };
   }
 
-  const [capital, snapshots, neonAccounts, neonPipeline] = await Promise.all([
+  const supportsNeonAccounts = period === "7d" || period === "30d";
+  const [capital, snapshots, neonAccounts, rawNeonPipeline] = await Promise.all([
     fetchSalesCapital(period, opts),
     fetchSalesSnapshots(period, opts),
-    fetchNeonAdsAccounts(opts),
+    supportsNeonAccounts ? fetchNeonAdsAccounts(opts) : Promise.resolve(null),
     fetchNeonAdsPipeline(opts),
   ]);
+  const neonPipeline =
+    rawNeonPipeline && rawNeonPipeline.period === period ? rawNeonPipeline : null;
 
   const bySlug = new Map<string, MergedClientMetrics>();
   const ensure = createClientMergeIndex(bySlug);
   mergeSnapshots(ensure, snapshots);
-  mergeCapital(ensure, capital);
+  mergeCapital(ensure, capital, period);
   mergeNeonAccounts(ensure, neonAccounts, period);
-  mergeNeonPipeline(ensure, neonPipeline);
+  mergeNeonPipeline(ensure, neonPipeline, period);
 
   const clients: MergedClientMetrics[] = [];
   for (const entry of bySlug.values()) {
@@ -703,8 +756,9 @@ export async function readPortfolioSnapshotBundle(
   }
   clients.sort(compareMergedClients);
 
+  const capitalMatchesPeriod = Boolean(capital && capital.view === period);
   const observedAt = latestIso([
-    capital?.generatedAt,
+    capitalMatchesPeriod ? capital?.generatedAt : null,
     snapshots?.observedAt,
     neonAccounts?.observedAt,
     neonPipeline?.observedAt,

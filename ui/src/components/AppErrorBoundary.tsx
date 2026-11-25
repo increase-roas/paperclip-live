@@ -2,6 +2,7 @@ import { describeError } from "@/api/errors";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { onChunkLoadReloadAbandoned, reloadForChunkLoadError } from "@/lib/chunk-load-recovery";
 import { captureBrowserException } from "@/lib/sentry";
+import { reportClientError } from "@/ir/lib/errorReporter";
 
 type AppErrorBoundaryState = {
   error: Error | null;
@@ -49,6 +50,7 @@ export class AppErrorBoundary extends Component<{ children: ReactNode }, AppErro
 
   private report(error: unknown, info: ErrorInfo): void {
     console.error("App shell crashed", { error, componentStack: info.componentStack });
+    reportClientError(error, { severity: "fatal", componentStack: info.componentStack });
     captureBrowserException(error, { boundary: "app", componentStack: info.componentStack });
   }
 

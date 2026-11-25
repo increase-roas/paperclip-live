@@ -43,7 +43,15 @@ export function sanitizeRememberedPathForCompany(params: {
   path: string | null | undefined;
   companyPrefix: string;
 }): string {
-  const relativePath = params.path ? toCompanyRelativePath(params.path) : "/dashboard";
+  const normalizedPrefix = normalizeCompanyPrefix(params.companyPrefix);
+  let relativePath = params.path ? toCompanyRelativePath(params.path) : "/dashboard";
+  const pathSplit = relativePath.match(/^([^?#]*)(\?[^#]*)?(#.*)?$/);
+  const rawPathname = pathSplit?.[1] ?? relativePath;
+  const suffix = `${pathSplit?.[2] ?? ""}${pathSplit?.[3] ?? ""}`;
+  const rawSegments = rawPathname.split("/").filter(Boolean);
+  if (rawSegments.length >= 2 && normalizeCompanyPrefix(rawSegments[0]!) === normalizedPrefix) {
+    relativePath = `/${rawSegments.slice(1).join("/")}${suffix}`;
+  }
   if (!isRememberableCompanyPath(relativePath)) {
     return "/dashboard";
   }
@@ -55,7 +63,7 @@ export function sanitizeRememberedPathForCompany(params: {
     const identifierMatch = /^([A-Za-z]+)-\d+$/.exec(entityId);
     if (
       identifierMatch &&
-      normalizeCompanyPrefix(identifierMatch[1] ?? "") !== normalizeCompanyPrefix(params.companyPrefix)
+      normalizeCompanyPrefix(identifierMatch[1] ?? "") !== normalizedPrefix
     ) {
       return "/dashboard";
     }

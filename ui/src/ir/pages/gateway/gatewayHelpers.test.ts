@@ -2,13 +2,17 @@ import { describe, expect, it } from "vitest";
 import type { GatewayPolicy, GatewayProviderSummary } from "../../api/irOps";
 import {
   buildGatewayConnectUrl,
+  buildGatewayPolicyPatch,
   buildNormalizedScopesCatalog,
   classifyProviderConnection,
   describeGhlPolicy,
   describeProviderGrant,
   detectPresetDrift,
+  formatLocationsEditorState,
   getAgentStatus,
+  parseDraftLocations,
   parseMultiLineScopes,
+  resolvePresetLocations,
 } from "./gatewayHelpers";
 
 const basePolicy: GatewayPolicy = {
@@ -198,5 +202,54 @@ describe("gatewayHelpers", () => {
     expect(ffUnconfigured.badgeLabel).toBe("Not Configured");
 
     expect(buildGatewayConnectUrl("javascript:alert(1)")).toBeNull();
+  });
+
+  it("parses, formats, and preserves restricted location policies across edits and preset resets", () => {
+    expect(parseDraftLocations("all", "loc_1, loc_2")).toBe("*");
+    expect(parseDraftLocations("scoped", "loc_1, loc_2\nloc_1  loc_3")).toEqual([
+      "loc_1",
+      "loc_2",
+      "loc_3",
+    ]);
+    expect(formatLocationsEditorState("*")).toEqual({ mode: "all", text: "" });
+    expect(formatLocationsEditorState(["loc_a", "loc_b"])).toEqual({
+      mode: "scoped",
+      text: "loc_a, loc_b",
+    });
+
+    // Restricted preset preserves its location limits; omitted preset locations keep current restrictions.
+    expect(resolvePresetLocations(["loc_preset"], "*")).toEqual(["loc_preset"]);
+    expect(resolvePresetLocations("*", ["loc_only"])).toBe("*");
+    expect(resolvePresetLocations(undefined, ["loc_only"])).toEqual(["loc_only"]);
+
+    const patch = buildGatewayPolicyPatch(basePolicy, "scoped", "loc_alpha, loc_beta");
+    expect(patch.locations).toEqual(["loc_alpha", "loc_beta"]);
+
+    const drifted = detectPresetDrift(
+      "scoped-bot",
+      { ...basePolicy, locations: "*" },
+      {
+        agent: "scoped-bot",
+        name: "Scoped Bot",
+        preset: { name: "scoped-bot", description: "Restricted" },
+        enabled: true,
+        hasKey: true,
+        key: {
+          present: true,
+          algorithm: null,
+          fingerprint: null,
+          createdAt: null,
+          rotatedAt: null,
+          updatedAt: null,
+        },
+        providers: {},
+        grantedProviders: [],
+        policy: { ...basePolicy, locations: "*" },
+        usage: { lastUsedAt: null },
+        presetPolicy: { ...basePolicy, locations: ["loc_preset"] },
+      },
+    );
+    expect(drifted.drifted).toBe(true);
+    expect(drifted.reason).toContain("locations");
   });
 });

@@ -625,14 +625,20 @@ function aggregatePortfolio(bundle: PortfolioSnapshotBundle): AggregatedPortfoli
   };
 }
 
-function extractRevenueUsd(capital: CapitalApiPayload | null): number | null {
-  if (!capital) return null;
+function extractRevenueUsd(
+  capital: CapitalApiPayload | null,
+  period: DashboardPeriod,
+): number | null {
+  if (!capital || (capital.view && capital.view !== period)) return null;
   // Agency revenue per FTE must come strictly from agency owner financials (never client sales).
+  const marketingWindow =
+    typeof capital.owner?.marketing?.window === "string" ? capital.owner.marketing.window.trim() : "";
+  const marketingMatches = !marketingWindow || marketingWindow === period;
   const candidates = [
-    capital.owner?.marketing?.salesUsd,
-    capital.owner?.financialMonth?.salesUsd,
-    capital.owner?.marketing?.cashCollectedUsd,
-    capital.owner?.financialMonth?.cashCollectedUsd,
+    ...(marketingMatches ? [capital.owner?.marketing?.salesUsd] : []),
+    ...(period === "month" ? [capital.owner?.financialMonth?.salesUsd] : []),
+    ...(marketingMatches ? [capital.owner?.marketing?.cashCollectedUsd] : []),
+    ...(period === "month" ? [capital.owner?.financialMonth?.cashCollectedUsd] : []),
   ];
   for (const val of candidates) {
     if (typeof val === "number" && Number.isFinite(val) && val > 0) return val;
@@ -710,6 +716,7 @@ function marketingByClientRows(clients: MergedClientMetrics[]): DashboardTableRo
 
 function resolveHumanEmployeesTile(
   tileId: string,
+  period: DashboardPeriod,
   roster: NonNullable<Awaited<ReturnType<TeamRosterAdapter["read"]>>>,
   capital: CapitalApiPayload | null,
   qbo: AgencyQuickBooksFinancials | null,
@@ -728,7 +735,7 @@ function resolveHumanEmployeesTile(
   if (tileId === "revenue-per-fte") {
     const qboRevenue = qbo?.accrualRevenueUsd ?? qbo?.cashCollectedUsd ?? null;
     const salesUsd =
-      qboRevenue !== null && qboRevenue > 0 ? qboRevenue : extractRevenueUsd(capital);
+      qboRevenue !== null && qboRevenue > 0 ? qboRevenue : extractRevenueUsd(capital, period);
     const observedAt =
       qboRevenue !== null && qboRevenue > 0 && qbo
         ? qbo.observedAt
@@ -743,6 +750,7 @@ function resolveHumanEmployeesTile(
 
 function resolveTileValue(
   tileId: string,
+  period: DashboardPeriod,
   agg: AggregatedPortfolio | null,
   wavv: WavvSummary | null,
   roster: Awaited<ReturnType<TeamRosterAdapter["read"]>>,
@@ -752,7 +760,7 @@ function resolveTileValue(
   const hasSalesDashKey = Boolean((process.env.SALES_DASHBOARD_ADMIN_KEY ?? "").trim());
 
   if (roster && (hasSalesDashKey || capital || qbo)) {
-    const teamTile = resolveHumanEmployeesTile(tileId, roster, capital, qbo);
+    const teamTile = resolveHumanEmployeesTile(tileId, period, roster, capital, qbo);
     if (teamTile) return teamTile;
   }
 
@@ -977,7 +985,7 @@ export function dashboardBoardService(
         tiles: definition.tiles.map((item) => ({
           ...item,
           sourceIds: [...item.sourceIds],
-          value: resolveTileValue(item.id, agg, wavv, roster, capital, qbo),
+          value: resolveTileValue(item.id, period, agg, wavv, roster, capital, qbo),
         })),
         tables: definition.tables.map((item) => ({
           ...item,

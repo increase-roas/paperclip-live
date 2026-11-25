@@ -10,7 +10,7 @@ import { finishServiceShutdown } from "./shutdown.js";
 import { promptInjectionPreventionRoutes } from "./routes/prompt-injection-prevention.js";
 import { voiceSessionRoutes, voiceWebhookRoutes } from "./routes/voice-sessions.js";
 import { hermesTalkVoiceRoutes } from "./routes/hermes-talk-voice.js";
-import { gatewayProxyRoutes, salesDashboardProxyRoutes } from "./ir/index.js";
+import { errorRoutes, gatewayProxyRoutes, isClientErrorPost, salesDashboardProxyRoutes } from "./ir/index.js";
 import { eq } from "drizzle-orm";
 import { chatEndpoints } from "@paperclipai/db";
 import { fastResponseRoutes } from "./routes/fast-responses.js";
@@ -538,8 +538,8 @@ export async function createApp(
   const dotPrincipalHttp = createDotPrincipalHttp(() => dotPrincipalOAuth);
   app.use(dotPrincipalHttp.bodyParser);
   const jsonBodyParser = express.json({ limit: DEFAULT_JSON_BODY_LIMIT, verify: captureRawBody });
-  // File tickets authenticate before parsing bytes; JSON attachments must remain bytes too.
-  app.use((req, res, next) => (dotPrincipalHttp.matchesPost(req) || ["/mcp/files/upload", "/mcp/runner/files/upload"].includes(req.path)) ? next() : jsonBodyParser(req, res, next));
+  // File tickets and IR error reports authenticate before parsing their own bodies.
+  app.use((req, res, next) => (isClientErrorPost(req) || dotPrincipalHttp.matchesPost(req) || ["/mcp/files/upload", "/mcp/runner/files/upload"].includes(req.path)) ? next() : jsonBodyParser(req, res, next));
   app.use("/api", apiCompression());
   app.use(httpLogger);
   app.use(metricsMiddleware);
@@ -840,6 +840,7 @@ export async function createApp(
   api.use(boardChatRoutes(db, { deploymentMode: opts.deploymentMode }));
   api.use(voiceSessionRoutes(db, chatChannels.voice));
   api.use(hermesTalkVoiceRoutes());
+  api.use(errorRoutes());
   api.use(gatewayProxyRoutes());
   api.use(salesDashboardProxyRoutes());
   api.use(approvalRoutes(db, { pluginWorkerManager: workerManager }));

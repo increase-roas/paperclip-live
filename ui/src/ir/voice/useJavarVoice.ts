@@ -30,8 +30,32 @@ interface ToolBatchItem {
 }
 
 interface ToolBatch {
+  sessionId: number;
+  journalCallId: string | null;
   done: boolean;
   results: Array<ToolBatchItem | null>;
+}
+
+interface QueuedToolCommand {
+  sessionId: number;
+  journalCallId: string | null;
+  callId: string;
+  name: string;
+  rawArguments: string;
+  batch: ToolBatch;
+  pos: number;
+}
+
+function parseToolArgs(rawArguments: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(rawArguments || "{}");
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    /* execute with empty args */
+  }
+  return {};
 }
 
 export function useJavarVoiceSession(options: {
@@ -51,9 +75,13 @@ export function useJavarVoiceSession(options: {
   const mediaRef = useRef<MediaStream | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const closedRef = useRef(true);
+  const sessionSeqRef = useRef(0);
+  const activeSessionIdRef = useRef<number | null>(null);
+  const sessionAbortRef = useRef<AbortController | null>(null);
   const responseActiveRef = useRef(false);
   const toolBatchRef = useRef<ToolBatch | null>(null);
-  const toolTailRef = useRef<Promise<void>>(Promise.resolve());
+  const toolQueueRef = useRef<QueuedToolCommand[]>([]);
+  const toolDrainingSessionRef = useRef<number | null>(null);
   const pollTimersRef = useRef<Set<number>>(new Set());
   const watchedRunsRef = useRef<Set<number>>(new Set());
   const journalCallIdRef = useRef<string | null>(null);
@@ -65,15 +93,27 @@ export function useJavarVoiceSession(options: {
     typeof navigator.mediaDevices?.getUserMedia === "function" &&
     typeof RTCPeerConnection !== "undefined";
 
-  const sendEvent = useCallback((payload: Record<string, unknown>) => {
-    const ch = channelRef.current;
-    if (!closedRef.current && ch && ch.readyState === "open") {
-      ch.send(JSON.stringify(payload));
-    }
-  }, []);
+  const isSessionActive = useCallback(
+    (sessionId: number, expectedJournalCallId?: string | null) =>
+      !closedRef.current &&
+      activeSessionIdRef.current === sessionId &&
+      (expectedJournalCallId === undefined || journalCallIdRef.current === expectedJournalCallId),
+    [],
+  );
+
+  const sendEvent = useCallback(
+    (payload: Record<string, unknown>, sessionId: number) => {
+      const ch = channelRef.current;
+      if (isSessionActive(sessionId) && ch && ch.readyState === "open") {
+        ch.send(JSON.stringify(payload));
+      }
+    },
+    [isSessionActive],
+  );
 
   const postJournalEvent = useCallback(
-    (kind: "user" | "assistant" | "call_end", text?: string) => {
+    (kind: "user" | "assistant" | "call_end", text?: string, sessionId?: number) => {
+      if (sessionId !== undefined && !isSessionActive(sessionId)) return;
       const callId = journalCallIdRef.current;
       if (!callId) return;
       journalSeqRef.current += 1;
@@ -88,13 +128,20 @@ export function useJavarVoiceSession(options: {
       }
       void irOpsApi.voice.postJournal(callId, [event]).catch(() => {});
     },
-    [],
+    [isSessionActive],
   );
 
   const stop = useCallback(() => {
     closedRef.current = true;
+    activeSessionIdRef.current = null;
     responseActiveRef.current = false;
     toolBatchRef.current = null;
+    toolQueueRef.current = [];
+    toolDrainingSessionRef.current = null;
+    if (sessionAbortRef.current) {
+      sessionAbortRef.current.abort();
+      sessionAbortRef.current = null;
+    }
     for (const id of pollTimersRef.current) window.clearTimeout(id);
     pollTimersRef.current.clear();
     watchedRunsRef.current.clear();
@@ -168,15 +215,15 @@ export function useJavarVoiceSession(options: {
   useEffect(() => () => stop(), [stop]);
 
   const pollRun = useCallback(
-    (runId: number, kind: string) => {
-      if (closedRef.current || watchedRunsRef.current.has(runId)) return;
+    (runId: number, kind: string, sessionId: number) => {
+      if (!isSessionActive(sessionId) || watchedRunsRef.current.has(runId)) return;
       watchedRunsRef.current.add(runId);
       const startedAt = Date.now();
       const tick = async () => {
-        if (closedRef.current || Date.now() - startedAt > RUN_POLL_CAP_MS) return;
+        if (!isSessionActive(sessionId) || Date.now() - startedAt > RUN_POLL_CAP_MS) return;
         let run: { runId?: number; status?: string; kind?: string; output?: string } | null = null;
         try {
-          const res = await irOpsApi.voice.getRuns();
+          const res = await irOpsApi.voice.getRuns({ signal: sessionAbortRef.current?.signal });
           for (const r of res.runs ?? []) {
             if (Number(r.runId) === runId) {
               run = r;
@@ -184,7 +231,7 @@ export function useJavarVoiceSession(options: {
             }
           }
         } catch {
-          if (!closedRef.current) {
+          if (isSessionActive(sessionId)) {
             const id = window.setTimeout(() => {
               pollTimersRef.current.delete(id);
               void tick();
@@ -193,7 +240,7 @@ export function useJavarVoiceSession(options: {
           }
           return;
         }
-        if (closedRef.current) return;
+        if (!isSessionActive(sessionId)) return;
         if (!run || run.status === "running" || responseActiveRef.current || toolBatchRef.current) {
           const id = window.setTimeout(() => {
             pollTimersRef.current.delete(id);
@@ -203,24 +250,27 @@ export function useJavarVoiceSession(options: {
           return;
         }
         const result = run.output || "(no output)";
-        sendEvent({
-          type: "conversation.item.create",
-          item: {
-            type: "message",
-            role: "user",
-            content: [
-              {
-                type: "input_text",
-                text:
-                  `Work run #${runId} (${run.kind || kind}) finished with status '${run.status}'. ` +
-                  `Result: ${result}\n\nSummarize this aloud in one to three spoken sentences.`,
-              },
-            ],
+        sendEvent(
+          {
+            type: "conversation.item.create",
+            item: {
+              type: "message",
+              role: "user",
+              content: [
+                {
+                  type: "input_text",
+                  text:
+                    `Work run #${runId} (${run.kind || kind}) finished with status '${run.status}'. ` +
+                    `Result: ${result}\n\nSummarize this aloud in one to three spoken sentences.`,
+                },
+              ],
+            },
           },
-        });
-        sendEvent({ type: "response.create" });
+          sessionId,
+        );
+        sendEvent({ type: "response.create" }, sessionId);
         const followOn = WORK_STARTED_RE.exec(result);
-        if (followOn) pollRun(Number(followOn[1]), followOn[2]);
+        if (followOn) pollRun(Number(followOn[1]), followOn[2], sessionId);
       };
       const id = window.setTimeout(() => {
         pollTimersRef.current.delete(id);
@@ -228,74 +278,116 @@ export function useJavarVoiceSession(options: {
       }, RUN_POLL_MS);
       pollTimersRef.current.add(id);
     },
-    [sendEvent],
+    [isSessionActive, sendEvent],
   );
 
   const flushToolBatch = useCallback(
     (batch: ToolBatch) => {
-      if (closedRef.current || toolBatchRef.current !== batch || !batch.done || batch.results.some((x) => !x)) {
+      if (
+        !isSessionActive(batch.sessionId, batch.journalCallId) ||
+        toolBatchRef.current !== batch ||
+        !batch.done ||
+        batch.results.some((x) => !x)
+      ) {
         return;
       }
       for (const item of batch.results) {
-        if (item) sendEvent(item.message);
+        if (item) sendEvent(item.message, batch.sessionId);
       }
-      sendEvent({ type: "response.create" });
+      sendEvent({ type: "response.create" }, batch.sessionId);
       for (const item of batch.results) {
         if (item) {
           const m = WORK_STARTED_RE.exec(item.output);
-          if (m) pollRun(Number(m[1]), m[2]);
+          if (m) pollRun(Number(m[1]), m[2], batch.sessionId);
         }
       }
       toolBatchRef.current = null;
     },
-    [pollRun, sendEvent],
+    [isSessionActive, pollRun, sendEvent],
+  );
+
+  const drainToolQueue = useCallback(
+    async (sessionId: number) => {
+      if (toolDrainingSessionRef.current === sessionId) return;
+      toolDrainingSessionRef.current = sessionId;
+      try {
+        while (isSessionActive(sessionId)) {
+          const next = toolQueueRef.current.shift();
+          if (!next) return;
+          if (next.sessionId !== sessionId || !isSessionActive(next.sessionId, next.journalCallId)) {
+            continue;
+          }
+          const args = parseToolArgs(next.rawArguments);
+          if (!isSessionActive(next.sessionId, next.journalCallId)) return;
+
+          let output = "";
+          try {
+            setState("thinking");
+            const res = await irOpsApi.voice.runTool(next.name, args, {
+              signal: sessionAbortRef.current?.signal,
+            });
+            output = res && res.output ? String(res.output) : "(no output)";
+          } catch (err) {
+            if (!isSessionActive(next.sessionId, next.journalCallId)) return;
+            output = `${next.name} failed: ${err instanceof Error ? err.message : String(err)}`;
+          }
+
+          if (!isSessionActive(next.sessionId, next.journalCallId)) return;
+          if (toolBatchRef.current !== next.batch) return;
+
+          next.batch.results[next.pos] = {
+            output,
+            message: {
+              type: "conversation.item.create",
+              item: { type: "function_call_output", call_id: next.callId, output },
+            },
+          };
+          flushToolBatch(next.batch);
+        }
+      } finally {
+        if (toolDrainingSessionRef.current === sessionId) {
+          toolDrainingSessionRef.current = null;
+        }
+      }
+    },
+    [flushToolBatch, isSessionActive],
   );
 
   const enqueueToolCall = useCallback(
-    (event: { call_id?: string; name?: string; arguments?: string }) => {
+    (event: { call_id?: string; name?: string; arguments?: string }, sessionId: number) => {
+      if (!isSessionActive(sessionId)) return;
       const callId = typeof event.call_id === "string" ? event.call_id : "";
       const name = typeof event.name === "string" ? event.name : "";
       if (!callId || !name) return;
-      if (!toolBatchRef.current) toolBatchRef.current = { done: false, results: [] };
+      const journalCallId = journalCallIdRef.current;
+      if (
+        !toolBatchRef.current ||
+        toolBatchRef.current.sessionId !== sessionId ||
+        toolBatchRef.current.journalCallId !== journalCallId
+      ) {
+        toolBatchRef.current = { sessionId, journalCallId, done: false, results: [] };
+      }
       const batch = toolBatchRef.current;
       const pos = batch.results.length;
       batch.results.push(null);
 
-      toolTailRef.current = toolTailRef.current.then(async () => {
-        let args: Record<string, unknown> = {};
-        try {
-          const parsed = JSON.parse(event.arguments || "{}");
-          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-            args = parsed as Record<string, unknown>;
-          }
-        } catch {
-          /* execute with empty args */
-        }
-        let output = "";
-        try {
-          setState("thinking");
-          const res = await irOpsApi.voice.runTool(name, args);
-          output = res && res.output ? String(res.output) : "(no output)";
-        } catch (err) {
-          output = `${name} failed: ${err instanceof Error ? err.message : String(err)}`;
-        }
-        if (closedRef.current) return;
-        batch.results[pos] = {
-          output,
-          message: {
-            type: "conversation.item.create",
-            item: { type: "function_call_output", call_id: callId, output },
-          },
-        };
-        flushToolBatch(batch);
+      toolQueueRef.current.push({
+        sessionId,
+        journalCallId,
+        callId,
+        name,
+        rawArguments: event.arguments || "{}",
+        batch,
+        pos,
       });
+      void drainToolQueue(sessionId);
     },
-    [flushToolBatch],
+    [drainToolQueue, isSessionActive],
   );
 
   const handleRealtimeEvent = useCallback(
-    (raw: string) => {
-      if (closedRef.current) return;
+    (raw: string, sessionId: number) => {
+      if (!isSessionActive(sessionId)) return;
       let ev: Record<string, unknown>;
       try {
         ev = JSON.parse(raw) as Record<string, unknown>;
@@ -305,7 +397,7 @@ export function useJavarVoiceSession(options: {
       switch (ev.type) {
         case "input_audio_buffer.speech_started":
           setState("listening");
-          if (responseActiveRef.current) sendEvent({ type: "response.cancel" });
+          if (responseActiveRef.current) sendEvent({ type: "response.cancel" }, sessionId);
           return;
         case "input_audio_buffer.speech_stopped":
           setState("thinking");
@@ -314,7 +406,7 @@ export function useJavarVoiceSession(options: {
           if (typeof ev.transcript === "string" && ev.transcript.trim()) {
             const text = ev.transcript.trim();
             onTranscriptRef.current({ role: "user", text, final: true });
-            postJournalEvent("user", text);
+            postJournalEvent("user", text, sessionId);
           }
           return;
         case "response.output_audio_transcript.delta":
@@ -327,7 +419,7 @@ export function useJavarVoiceSession(options: {
           if (typeof ev.transcript === "string" && ev.transcript.trim()) {
             const text = ev.transcript.trim();
             onTranscriptRef.current({ role: "javar", text, final: true });
-            postJournalEvent("assistant", text);
+            postJournalEvent("assistant", text, sessionId);
           }
           return;
         case "response.created":
@@ -343,14 +435,14 @@ export function useJavarVoiceSession(options: {
           return;
         case "response.done":
           responseActiveRef.current = false;
-          if (toolBatchRef.current) {
+          if (toolBatchRef.current && toolBatchRef.current.sessionId === sessionId) {
             toolBatchRef.current.done = true;
             flushToolBatch(toolBatchRef.current);
           }
           setState("listening");
           return;
         case "response.function_call_arguments.done":
-          enqueueToolCall(ev as { call_id?: string; name?: string; arguments?: string });
+          enqueueToolCall(ev as { call_id?: string; name?: string; arguments?: string }, sessionId);
           return;
         case "error": {
           const errObj = ev.error as { message?: string; code?: string } | undefined;
@@ -362,7 +454,7 @@ export function useJavarVoiceSession(options: {
           return;
       }
     },
-    [enqueueToolCall, flushToolBatch, postJournalEvent, sendEvent],
+    [enqueueToolCall, flushToolBatch, isSessionActive, postJournalEvent, sendEvent],
   );
 
   const start = useCallback(async () => {
@@ -373,6 +465,13 @@ export function useJavarVoiceSession(options: {
     if (peerRef.current || mediaRef.current || audioRef.current) {
       return;
     }
+    const sessionId = ++sessionSeqRef.current;
+    const sessionAbort = new AbortController();
+    activeSessionIdRef.current = sessionId;
+    sessionAbortRef.current = sessionAbort;
+    toolQueueRef.current = [];
+    toolBatchRef.current = null;
+    toolDrainingSessionRef.current = null;
     setError(null);
     closedRef.current = false;
     setState("connecting");
@@ -387,14 +486,14 @@ export function useJavarVoiceSession(options: {
       audioRef.current = audioEl;
 
       const media = await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (closedRef.current) {
+      if (!isSessionActive(sessionId)) {
         media.getTracks().forEach((t) => t.stop());
         return;
       }
       mediaRef.current = media;
 
-      const session = await irOpsApi.voice.createSession();
-      if (closedRef.current) return;
+      const session = await irOpsApi.voice.createSession({ signal: sessionAbort.signal });
+      if (!isSessionActive(sessionId)) return;
       if (!session.clientSecret || !session.offerUrl) {
         throw new Error("Voice server did not return a WebRTC session.");
       }
@@ -408,6 +507,7 @@ export function useJavarVoiceSession(options: {
       peerRef.current = peer;
 
       peer.addEventListener("track", (event) => {
+        if (!isSessionActive(sessionId)) return;
         const stream = event.streams[0];
         if (audioRef.current && stream) {
           audioRef.current.srcObject = stream;
@@ -420,12 +520,12 @@ export function useJavarVoiceSession(options: {
       const channel = peer.createDataChannel("oai-events");
       channelRef.current = channel;
       channel.addEventListener("open", () => {
-        if (!closedRef.current) setState("listening");
+        if (isSessionActive(sessionId)) setState("listening");
       });
-      channel.addEventListener("message", (ev) => handleRealtimeEvent(String(ev.data)));
+      channel.addEventListener("message", (ev) => handleRealtimeEvent(String(ev.data), sessionId));
 
       peer.addEventListener("connectionstatechange", () => {
-        if (closedRef.current) return;
+        if (!isSessionActive(sessionId)) return;
         if (peer.connectionState === "failed" || peer.connectionState === "closed") {
           setError("Voice connection closed.");
           stop();
@@ -433,11 +533,13 @@ export function useJavarVoiceSession(options: {
       });
 
       const offer = await peer.createOffer();
-      if (closedRef.current) return;
+      if (!isSessionActive(sessionId)) return;
       await peer.setLocalDescription(offer);
-      if (closedRef.current) return;
+      if (!isSessionActive(sessionId)) return;
 
       const sdpCtrl = new AbortController();
+      const onSessionAbort = () => sdpCtrl.abort();
+      sessionAbort.signal.addEventListener("abort", onSessionAbort, { once: true });
       const sdpTimer = window.setTimeout(() => sdpCtrl.abort(), OFFER_TIMEOUT_MS);
       let answerSdp = "";
       try {
@@ -454,10 +556,12 @@ export function useJavarVoiceSession(options: {
         answerSdp = await sdpRes.text();
       } finally {
         window.clearTimeout(sdpTimer);
+        sessionAbort.signal.removeEventListener("abort", onSessionAbort);
       }
 
-      if (closedRef.current) return;
+      if (!isSessionActive(sessionId)) return;
       await peer.setRemoteDescription({ type: "answer", sdp: answerSdp });
+      if (!isSessionActive(sessionId)) return;
       setStatusInfo((prev) => ({
         ...prev,
         checked: true,
@@ -466,6 +570,7 @@ export function useJavarVoiceSession(options: {
         voice: session.voice ?? prev.voice,
       }));
     } catch (caught) {
+      if (!isSessionActive(sessionId)) return;
       const msg =
         caught instanceof Error && caught.name === "NotAllowedError"
           ? "Microphone access was blocked. Allow microphone permission in your browser and try again."
@@ -475,7 +580,7 @@ export function useJavarVoiceSession(options: {
       setError(msg);
       stop();
     }
-  }, [handleRealtimeEvent, stop, supported]);
+  }, [handleRealtimeEvent, isSessionActive, stop, supported]);
 
   const toggleCall = useCallback(() => {
     if (state === "idle") void start();

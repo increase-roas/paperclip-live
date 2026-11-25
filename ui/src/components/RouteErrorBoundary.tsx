@@ -8,6 +8,7 @@ import {
   reloadForChunkLoadError,
 } from "@/lib/chunk-load-recovery";
 import { captureBrowserException } from "@/lib/sentry";
+import { reportClientError } from "@/ir/lib/errorReporter";
 import { PaperclipLoading } from "./AnimatedPaperclipIcon";
 
 type RouteErrorBoundaryInnerProps = {
@@ -60,6 +61,7 @@ class RouteErrorBoundaryInner extends Component<RouteErrorBoundaryInnerProps, Ro
 
   private report(error: unknown, info: ErrorInfo): void {
     console.error("Page render failed", { error, componentStack: info.componentStack });
+    reportClientError(error, { severity: "fatal", componentStack: info.componentStack });
     captureBrowserException(error, { boundary: "route", componentStack: info.componentStack });
   }
 
