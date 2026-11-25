@@ -18,8 +18,16 @@ import { retryIdempotentDatabaseOperation } from "../database-retry.js";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const EXPIRY_WARNING_DAYS = 14;
 const DEFAULT_GATEWAY_URL = "https://increase-roas-oauth-gateway.increase-roas.workers.dev";
-const META_SYSTEM_USER_TOKEN_EXPIRES_AT = "2026-12-13T00:00:00.000Z";
+const DEFAULT_META_SYSTEM_USER_TOKEN_EXPIRES_AT = "2026-12-13T00:00:00.000Z";
 const GATEWAY_HEALTH_TIMEOUT_MS = 3_000;
+
+function resolveMetaTokenExpiresAt(): string {
+  const configured = (process.env.META_SYSTEM_USER_TOKEN_EXPIRES_AT ?? "").trim();
+  if (configured && !Number.isNaN(new Date(configured).getTime())) {
+    return new Date(configured).toISOString();
+  }
+  return DEFAULT_META_SYSTEM_USER_TOKEN_EXPIRES_AT;
+}
 
 const ATTENTION_HEALTH = new Set(["degraded", "failed", "error", "missing_secret"]);
 
@@ -272,7 +280,9 @@ export function dashboardToolsConnectorsService(
       }
 
       if (boardViewer && (process.env.SALES_DASHBOARD_ADMIN_KEY ?? "").trim()) {
-        const metaExpiry = new Date(META_SYSTEM_USER_TOKEN_EXPIRES_AT);
+        const metaExpiresAt = resolveMetaTokenExpiresAt();
+        const metaExpiry = new Date(metaExpiresAt);
+        const expiryDateLabel = metaExpiresAt.slice(0, 10);
         const daysRemaining = daysUntil(metaExpiry, now);
         items.push({
           id: "ir:meta-marketing-system-user",
@@ -283,13 +293,13 @@ export function dashboardToolsConnectorsService(
           health: daysRemaining <= EXPIRY_WARNING_DAYS ? "degraded" : "healthy",
           healthMessage:
             daysRemaining <= 0
-              ? "Meta system user token expired on 2026-12-13."
+              ? `Meta system user token expired on ${expiryDateLabel}.`
               : daysRemaining <= EXPIRY_WARNING_DAYS
-                ? "Meta system user token expires on 2026-12-13 — rotate before expiry."
-                : "Meta system user token valid until 2026-12-13.",
+                ? `Meta system user token expires on ${expiryDateLabel} — rotate before expiry.`
+                : `Meta system user token valid until ${expiryDateLabel}.`,
           lastCheckAt: now.toISOString(),
           lastSuccessfulUseAt: null,
-          expiresAt: META_SYSTEM_USER_TOKEN_EXPIRES_AT,
+          expiresAt: metaExpiresAt,
           expiryDaysRemaining: daysRemaining,
         });
       }

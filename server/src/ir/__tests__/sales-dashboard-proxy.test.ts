@@ -123,7 +123,7 @@ describe("salesDashboardProxyRoutes", () => {
     await request(app).post("/api/sales-dashboard/tenants").send({ slug: "acme" }).expect(200);
     await request(app).put("/api/sales-dashboard/tenants").send({ slug: "acme" }).expect(200);
     await request(app).patch("/api/sales-dashboard/tenants").send({ slug: "acme" }).expect(200);
-    await request(app).get("/api/sales-dashboard/diagnostic?slug=acme").expect(200);
+    await request(app).get("/api/sales-dashboard/diagnostic?slug=acme&slug=sun-pool").expect(200);
     await request(app).post("/api/sales-dashboard/diagnostic").send({ slug: "acme" }).expect(200);
     await request(app).get("/api/sales-dashboard/discovery?provider=ghl").expect(200);
     await request(app).get("/api/sales-dashboard/accounting?slug=acme").expect(200);
@@ -133,10 +133,12 @@ describe("salesDashboardProxyRoutes", () => {
     await request(app).post("/api/sales-dashboard/team").send({ name: "Sam" }).expect(200);
     await request(app).put("/api/sales-dashboard/team").send({ id: "1" }).expect(200);
     await request(app).delete("/api/sales-dashboard/team?id=1").expect(200);
+    await request(app).get("/api/sales-dashboard/team/settings").expect(200);
     await request(app).put("/api/sales-dashboard/team/settings").send({ fixedMonthlyCostUsd: 2000 }).expect(200);
     await request(app).get("/api/sales-dashboard/mcp-tokens").expect(200);
     await request(app).post("/api/sales-dashboard/mcp-tokens").send({ name: "bot" }).expect(200);
     await request(app).delete("/api/sales-dashboard/mcp-tokens?id=tok1").expect(200);
+    await request(app).get("/api/sales-dashboard/sync").expect(200);
     await request(app).post("/api/sales-dashboard/sync").send({ slug: "acme" }).expect(200);
 
     expect(calls).toEqual([
@@ -144,7 +146,7 @@ describe("salesDashboardProxyRoutes", () => {
       "POST https://dash.example/api/pilot/admin/tenants",
       "PUT https://dash.example/api/pilot/admin/tenants",
       "PATCH https://dash.example/api/pilot/admin/tenants",
-      "GET https://dash.example/api/pilot/admin/diagnostic?slug=acme",
+      "GET https://dash.example/api/pilot/admin/diagnostic?slug=acme&slug=sun-pool",
       "POST https://dash.example/api/pilot/admin/diagnostic",
       "GET https://dash.example/api/pilot/admin/discovery?provider=ghl",
       "GET https://dash.example/api/pilot/admin/accounting?slug=acme",
@@ -154,10 +156,12 @@ describe("salesDashboardProxyRoutes", () => {
       "POST https://dash.example/api/pilot/admin/team",
       "PUT https://dash.example/api/pilot/admin/team",
       "DELETE https://dash.example/api/pilot/admin/team?id=1",
+      "GET https://dash.example/api/pilot/admin/team/settings",
       "PUT https://dash.example/api/pilot/admin/team/settings",
       "GET https://dash.example/api/pilot/admin/mcp-tokens",
       "POST https://dash.example/api/pilot/admin/mcp-tokens",
       "DELETE https://dash.example/api/pilot/admin/mcp-tokens?id=tok1",
+      "GET https://dash.example/api/pilot/admin/sync",
       "POST https://dash.example/api/pilot/admin/sync",
     ]);
   });

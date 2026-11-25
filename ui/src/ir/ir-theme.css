@@ -76,7 +76,7 @@ html.dark ::selection {
   gap: calc(var(--spacing) * 3);
 }
 
-.coordinator-sidebar .design-sidebar-item {
+.coordinator-sidebar.design-sidebar .design-sidebar-item {
   min-height: calc(var(--spacing) * 7.5);
   padding-block: calc(var(--spacing) * 1.25);
 }

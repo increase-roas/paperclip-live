@@ -125,10 +125,12 @@ export function buildCeoAndReadingOrder(
       ? normalizePercent(grossMarginRaw)
       : null;
 
-  const cacUsd =
-    hasAdSpend && hasWon && totalWon > 0
-      ? round2(totalAdSpend / totalWon)
-      : finite(fin?.cacUsd);
+  // Agency acquisition cost comes strictly from agency owner financials (never client ad spend / won deals).
+  const ownerAdSpendUsd = finite(fin?.adSpendUsd);
+  const ownerCacUsd = finite(fin?.cacUsd);
+  // Client portfolio CPA is strictly for Marketing / Reading Order step #8 (never mixed into agency LTGP:CAC).
+  const portfolioCacUsd =
+    hasAdSpend && hasWon && totalWon > 0 ? round2(totalAdSpend / totalWon) : null;
   const grossProfitPerWon = finite(fin?.grossProfitPerWonDealUsd);
   const cacPaybackDeals = finite(fin?.cacPaybackDeals);
 
@@ -144,13 +146,14 @@ export function buildCeoAndReadingOrder(
         ? "red"
         : "ok";
 
-  // 2. 30-day cash multiple = cash / (COGS + CAC)
+  // 2. 30-day cash multiple = agency cash / (agency COGS + agency CAC)
   const operatingBurn = finite(bundle.capital?.operating?.monthlyBurnUsd);
+  const agencyAdSpend = ownerAdSpendUsd !== null && ownerAdSpendUsd > 0 ? ownerAdSpendUsd : 0;
   const cashMultipleDenominator =
     expensesUsd !== null && expensesUsd > 0
-      ? expensesUsd + (hasAdSpend ? totalAdSpend : 0)
+      ? expensesUsd + agencyAdSpend
       : fin?.evidence?.financial && operatingBurn !== null && operatingBurn > 0
-        ? operatingBurn + (hasAdSpend ? totalAdSpend : 0)
+        ? operatingBurn + agencyAdSpend
         : null;
   const cashMultiple =
     cashCollectedUsd !== null &&
@@ -165,10 +168,13 @@ export function buildCeoAndReadingOrder(
   const cashMultipleState: ReadingOrderState =
     cashMultiple === null ? "unknown" : cashMultiple >= 2 ? "ok" : "red";
 
-  // 3. LTGP : CAC
+  // 3. LTGP : CAC (agency gross profit per won client ÷ agency CAC)
   const ltgpToCac =
-    grossProfitPerWon !== null && grossProfitPerWon > 0 && cacUsd !== null && cacUsd > 0
-      ? round2(grossProfitPerWon / cacUsd)
+    grossProfitPerWon !== null &&
+    grossProfitPerWon > 0 &&
+    ownerCacUsd !== null &&
+    ownerCacUsd > 0
+      ? round2(grossProfitPerWon / ownerCacUsd)
       : null;
   const ltgpCacValue: DashboardTileValue =
     ltgpToCac !== null && observedAt
@@ -224,9 +230,10 @@ export function buildCeoAndReadingOrder(
           ? "red"
           : "ok";
 
-  // 9. CAC (for reading order)
+  // 9. CAC (for reading order -> Marketing)
+  const readingOrderCacUsd = portfolioCacUsd ?? ownerCacUsd;
   const cacStepState: ReadingOrderState =
-    cacUsd !== null && totalWon > 0 ? "ok" : "unknown";
+    readingOrderCacUsd !== null ? "ok" : "unknown";
 
   const moneyTiles: CeoMoneyTile[] = [
     {
@@ -236,7 +243,6 @@ export function buildCeoAndReadingOrder(
       source: "QuickBooks / GHL payments / Authorize.net",
       target: "Exceeds COGS + CAC for the same period",
       needs: "Read-only QuickBooks, GHL payments, or Authorize.net settlement access.",
-      href: "/dashboards/sales",
       state: cashState,
       value: cashValue,
       ...(cashCollectedUsd !== null && expensesUsd !== null
@@ -281,7 +287,7 @@ export function buildCeoAndReadingOrder(
       source: "GHL subscription state + Authorize.net",
       target: "Under 3% per month and at least 80% per year",
       needs: "Clients lost and revenue retained, including expansion.",
-      href: "/dashboards/fulfillment",
+      href: "/dashboard/fulfillment",
       state: churnState,
       value: churnValue,
     },
@@ -292,7 +298,7 @@ export function buildCeoAndReadingOrder(
       source: "Billing dates + acquisition cost",
       target: "30 days or less; over 60 days red",
       needs: "The date each client's collected gross profit covers what it cost to acquire them.",
-      href: "/dashboards/marketing",
+      href: "/dashboard/marketing",
       state: cacPaybackState,
       value: cacPaybackValue,
       ...(cacPaybackDeals !== null
@@ -312,42 +318,32 @@ export function buildCeoAndReadingOrder(
     cac: cacStepState,
   };
 
+  // Only include metrics for steps with a live reading so ReadingOrderStrip
+  // does not render bold "Not connected" next to the Grey badge.
   const metrics: Partial<
     Record<ReadingOrderStepId, { displayValue: string; observedAt: string | null }>
-  > = {
-    cash: {
-      displayValue: cashCollectedUsd !== null ? formatUsd(cashCollectedUsd) : "Not connected",
-      observedAt: cashCollectedUsd !== null ? observedAt : null,
-    },
-    "cash-multiple": {
-      displayValue: cashMultiple !== null ? `${cashMultiple}x` : "Not connected",
-      observedAt: cashMultiple !== null ? observedAt : null,
-    },
-    "ltgp-cac": {
-      displayValue: ltgpToCac !== null ? `${ltgpToCac}:1` : "Not connected",
-      observedAt: ltgpToCac !== null ? observedAt : null,
-    },
-    "gross-margin": {
-      displayValue: grossMarginPct !== null ? `${grossMarginPct}%` : "Not connected",
-      observedAt: grossMarginPct !== null ? observedAt : null,
-    },
-    churn: {
-      displayValue: "Not connected",
-      observedAt: null,
-    },
-    "show-rate": {
-      displayValue: showRatePct !== null ? `${showRatePct}%` : "Not connected",
-      observedAt: showRatePct !== null ? observedAt : null,
-    },
-    "speed-to-lead": {
-      displayValue: speedToLeadSec !== null ? `${speedToLeadSec}s` : "Not connected",
-      observedAt: speedToLeadSec !== null ? observedAt : null,
-    },
-    cac: {
-      displayValue: cacUsd !== null && totalWon > 0 ? formatUsd(cacUsd) : "Not connected",
-      observedAt: cacUsd !== null && totalWon > 0 ? observedAt : null,
-    },
-  };
+  > = {};
+  if (cashCollectedUsd !== null) {
+    metrics.cash = { displayValue: formatUsd(cashCollectedUsd), observedAt };
+  }
+  if (cashMultiple !== null) {
+    metrics["cash-multiple"] = { displayValue: `${cashMultiple}x`, observedAt };
+  }
+  if (ltgpToCac !== null) {
+    metrics["ltgp-cac"] = { displayValue: `${ltgpToCac}:1`, observedAt };
+  }
+  if (grossMarginPct !== null) {
+    metrics["gross-margin"] = { displayValue: `${grossMarginPct}%`, observedAt };
+  }
+  if (showRatePct !== null) {
+    metrics["show-rate"] = { displayValue: `${showRatePct}%`, observedAt };
+  }
+  if (speedToLeadSec !== null) {
+    metrics["speed-to-lead"] = { displayValue: `${speedToLeadSec}s`, observedAt };
+  }
+  if (readingOrderCacUsd !== null) {
+    metrics.cac = { displayValue: formatUsd(readingOrderCacUsd), observedAt };
+  }
 
   return {
     ceo: {
@@ -368,20 +364,47 @@ export function buildCeoAndReadingOrder(
   };
 }
 
+const EMPTY_BUNDLE: PortfolioSnapshotBundle = {
+  capital: null,
+  snapshots: null,
+  neonAccounts: null,
+  neonPipeline: null,
+  clients: [],
+  observedAt: null,
+};
+
+function canReadInstanceDashboards(req: Request): boolean {
+  return (
+    req.actor.type === "board" &&
+    (req.actor.source === "local_implicit" || Boolean(req.actor.isInstanceAdmin))
+  );
+}
+
 export function ceoBoardService(
   now: () => Date = () => new Date(),
   clientOpts?: SalesDashboardClientOptions,
 ) {
   return {
-    async ceoBoard(companyId: string, period: DashboardPeriod = "30d"): Promise<DashboardCeoBoard> {
-      const bundle = await readPortfolioSnapshotBundle(period, clientOpts);
+    async ceoBoard(
+      companyId: string,
+      period: DashboardPeriod = "30d",
+      options: { boardViewer?: boolean } = {},
+    ): Promise<DashboardCeoBoard> {
+      const boardViewer = options.boardViewer ?? true;
+      const bundle = boardViewer
+        ? await readPortfolioSnapshotBundle(period, clientOpts)
+        : EMPTY_BUNDLE;
       return buildCeoAndReadingOrder(companyId, period, bundle, now()).ceo;
     },
     async readingOrder(
       companyId: string,
       period: DashboardPeriod = "30d",
+      options: { boardViewer?: boolean } = {},
     ): Promise<DashboardReadingOrderPayload> {
-      const bundle = await readPortfolioSnapshotBundle(period, clientOpts);
+      const boardViewer = options.boardViewer ?? true;
+      const bundle = boardViewer
+        ? await readPortfolioSnapshotBundle(period, clientOpts)
+        : EMPTY_BUNDLE;
       return buildCeoAndReadingOrder(companyId, period, bundle, now()).readingOrder;
     },
   };
@@ -396,14 +419,22 @@ export function ceoBoardRoutes(
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     const period = parsePeriodQuery(req.query.period);
-    res.json(await service.ceoBoard(companyId, period));
+    res.json(
+      await service.ceoBoard(companyId, period, {
+        boardViewer: canReadInstanceDashboards(req),
+      }),
+    );
   });
 
   router.get("/companies/:companyId/dashboards/reading-order", async (req: Request, res: Response) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     const period = parsePeriodQuery(req.query.period);
-    res.json(await service.readingOrder(companyId, period));
+    res.json(
+      await service.readingOrder(companyId, period, {
+        boardViewer: canReadInstanceDashboards(req),
+      }),
+    );
   });
 
   return router;

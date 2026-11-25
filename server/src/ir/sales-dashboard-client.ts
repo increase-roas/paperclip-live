@@ -59,6 +59,11 @@ export interface CapitalApiPayload {
     monthlyOverheadUsd: number;
     monthlyBurnUsd: number;
     runwayMonths: number | null;
+    cashOnHandUsd?: number | null;
+  } | null;
+  settings?: {
+    cashOnHandUsd?: number | null;
+    fixedMonthlyCostUsd?: number | null;
   } | null;
   owner: CapitalClientEntry | null;
   clients: CapitalClientEntry[];
@@ -227,6 +232,7 @@ async function fetchSalesDashJson<T>(
         accept: "application/json",
         "user-agent": USER_AGENT,
       },
+      redirect: "manual",
       signal: controller.signal,
     });
     if (!res.ok) return null;
@@ -248,9 +254,9 @@ function extractSummarySection<T>(
   const record = section as { status?: string; data?: T };
   if (record.status && record.status !== "LIVE") return undefined;
   if (record.data && typeof record.data === "object") return record.data;
-  // Support already-unwrapped snapshots
-  if (!("status" in record) && !("data" in record)) return section as T;
-  return undefined;
+  // Support both flat live sections (`{ status: "LIVE", spend: 6470, ... }`)
+  // and already-unwrapped snapshot sections.
+  return section as T;
 }
 
 function parseSnapshotEntry(
@@ -264,7 +270,9 @@ function parseSnapshotEntry(
       ? (raw.summary as Record<string, unknown>)
       : raw.payload && typeof raw.payload === "object"
         ? ((raw.payload as Record<string, unknown>).summary as Record<string, unknown> | undefined)
-        : undefined);
+        : raw.ghl || raw.meta || raw.cash || raw.calls || raw.ga4
+          ? raw
+          : undefined);
   if (!summary) return null;
 
   const slug = typeof raw.slug === "string" && raw.slug.trim() ? raw.slug.trim() : fallbackSlug;
@@ -278,12 +286,27 @@ function parseSnapshotEntry(
     (typeof raw.generatedAt === "string" && raw.generatedAt) ||
     fallbackObservedAt;
 
+  const meta = extractSummarySection<SnapshotMetaData>(summary, "meta");
+  const zeroLeadDays7d =
+    typeof raw.zeroLeadDays7d === "number" && Number.isFinite(raw.zeroLeadDays7d)
+      ? raw.zeroLeadDays7d
+      : null;
+  const mergedMeta: SnapshotMetaData | undefined =
+    meta || zeroLeadDays7d !== null
+      ? {
+          ...(meta ?? {}),
+          ...(meta?.zeroLeadDays === undefined && zeroLeadDays7d !== null
+            ? { zeroLeadDays: zeroLeadDays7d }
+            : {}),
+        }
+      : undefined;
+
   return {
     slug,
     displayName,
     observedAt,
     ghl: extractSummarySection<SnapshotGhlData>(summary, "ghl"),
-    meta: extractSummarySection<SnapshotMetaData>(summary, "meta"),
+    meta: mergedMeta,
     cash: extractSummarySection<SnapshotCashData>(summary, "cash"),
     financials: extractSummarySection<SnapshotFinancialsData>(summary, "companyFinancials"),
   };
@@ -299,6 +322,7 @@ export async function fetchSalesCapital(
     view?: string;
     members?: Array<{ id?: string; status?: string }>;
     operating?: CapitalApiPayload["operating"];
+    settings?: CapitalApiPayload["settings"];
     owner?: CapitalClientEntry;
     clients?: CapitalClientEntry[];
   }>(`/api/pilot/admin/capital?view=${encodeURIComponent(period)}`, opts);
@@ -311,6 +335,7 @@ export async function fetchSalesCapital(
     view: typeof body.view === "string" ? body.view : period,
     members: Array.isArray(body.members) ? body.members : [],
     operating: body.operating ?? null,
+    settings: body.settings ?? null,
     owner: body.owner ?? null,
     clients: Array.isArray(body.clients) ? body.clients : [],
   };

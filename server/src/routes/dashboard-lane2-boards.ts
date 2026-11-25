@@ -10,11 +10,20 @@ function parsePeriodQuery(raw: unknown): DashboardPeriod {
   return isDashboardPeriod(raw) ? raw : "30d";
 }
 
+function canReadInstanceDashboards(req: Request): boolean {
+  return (
+    req.actor.type === "board" &&
+    (req.actor.source === "local_implicit" || Boolean(req.actor.isInstanceAdmin))
+  );
+}
+
 /**
  * Read-only board payloads for the Sales, Marketing, Human employees, CEO
- * money tiles and Reading Order boards. Company access is the only
- * authorization: a board is a read of the company's own numbers, and its
- * tables are keyed by client id.
+ * money tiles and Reading Order boards. Company access is verified on every
+ * route, and instance-global env-backed reads (payroll, agency QBO P&L,
+ * multi-client Sales Dashboard portfolio) are additionally gated to board
+ * instance admins so agent keys and non-admin company members receive honest
+ * `not_connected` payloads instead of cross-company or payroll data.
  *
  * Each board has an explicit literal path. A `:board` catch-all would swallow
  * the other lanes' `/dashboards/<id>` reads, because Express matches in order,
@@ -29,7 +38,11 @@ export function dashboardLane2BoardRoutes(
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     const period = parsePeriodQuery(req.query.period);
-    res.json(await service.board(board, companyId, period));
+    res.json(
+      await service.board(board, companyId, period, {
+        boardViewer: canReadInstanceDashboards(req),
+      }),
+    );
   };
 
   router.get("/companies/:companyId/dashboards/sales", read("sales"));

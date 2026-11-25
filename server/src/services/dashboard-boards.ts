@@ -623,6 +623,7 @@ function aggregatePortfolio(bundle: PortfolioSnapshotBundle): AggregatedPortfoli
 
 function extractRevenueUsd(capital: CapitalApiPayload | null): number | null {
   if (!capital) return null;
+  // Agency revenue per FTE must come strictly from agency owner financials (never client sales).
   const candidates = [
     capital.owner?.marketing?.salesUsd,
     capital.owner?.financialMonth?.salesUsd,
@@ -632,12 +633,7 @@ function extractRevenueUsd(capital: CapitalApiPayload | null): number | null {
   for (const val of candidates) {
     if (typeof val === "number" && Number.isFinite(val) && val > 0) return val;
   }
-  let sum = 0;
-  for (const client of capital.clients) {
-    const val = client.marketing?.salesUsd ?? client.financialMonth?.salesUsd;
-    if (typeof val === "number" && Number.isFinite(val) && val > 0) sum += val;
-  }
-  return sum > 0 ? round2(sum) : null;
+  return null;
 }
 
 function salesByBusinessRows(clients: MergedClientMetrics[]): DashboardTableRow[] {
@@ -828,24 +824,28 @@ export function dashboardBoardService(
       board: DashboardBoardId,
       companyId: string,
       period: DashboardPeriod = "30d",
+      boardOptions: { boardViewer?: boolean } = {},
     ): Promise<DashboardBoard> {
       const definition = BOARD_DEFINITIONS[board];
       if (!definition) throw new Error(`Unknown dashboard board: ${board}`);
+      const allowInstanceData = boardOptions.boardViewer ?? true;
 
-      const [roster, capital, bundle, wavv] = await Promise.all([
-        board === "human-employees" ? teamRoster.read(companyId) : Promise.resolve(null),
-        board === "human-employees"
-          ? fetchSalesCapital(period, { fetchImpl: adapters.fetchImpl })
-          : Promise.resolve(null),
-        board === "sales" || board === "marketing"
-          ? readPortfolioSnapshotBundle(period, { fetchImpl: adapters.fetchImpl })
-          : Promise.resolve(null),
-        board === "sales"
-          ? (adapters.wavvReader
-              ? adapters.wavvReader(period)
-              : readWavvSummary(period, { fetchImpl: adapters.fetchImpl, now }))
-          : Promise.resolve(null),
-      ]);
+      const [roster, capital, bundle, wavv] = allowInstanceData
+        ? await Promise.all([
+            board === "human-employees" ? teamRoster.read(companyId) : Promise.resolve(null),
+            board === "human-employees"
+              ? fetchSalesCapital(period, { fetchImpl: adapters.fetchImpl })
+              : Promise.resolve(null),
+            board === "sales" || board === "marketing"
+              ? readPortfolioSnapshotBundle(period, { fetchImpl: adapters.fetchImpl })
+              : Promise.resolve(null),
+            board === "sales"
+              ? (adapters.wavvReader
+                  ? adapters.wavvReader(period)
+                  : readWavvSummary(period, { fetchImpl: adapters.fetchImpl, now }))
+              : Promise.resolve(null),
+          ])
+        : [null, null, null, null];
 
       const agg = bundle ? aggregatePortfolio(bundle) : null;
 
@@ -903,6 +903,15 @@ export function dashboardBoardService(
         const totalFromCapital =
           capital && capital.members.length > 0 ? capital.members.length : undefined;
 
+        const cashOnHandUsd =
+          typeof capital?.operating?.cashOnHandUsd === "number" &&
+          Number.isFinite(capital.operating.cashOnHandUsd)
+            ? capital.operating.cashOnHandUsd
+            : typeof capital?.settings?.cashOnHandUsd === "number" &&
+                Number.isFinite(capital.settings.cashOnHandUsd)
+              ? capital.settings.cashOnHandUsd
+              : undefined;
+
         meta = {
           ...(capital?.operating
             ? {
@@ -912,6 +921,7 @@ export function dashboardBoardService(
                 runwayMonths: capital.operating.runwayMonths,
               }
             : {}),
+          ...(cashOnHandUsd !== undefined ? { cashOnHandUsd } : {}),
           ...(activeFromRoster !== undefined || activeFromCapital !== undefined
             ? { activeHeadcount: activeFromRoster ?? activeFromCapital }
             : {}),

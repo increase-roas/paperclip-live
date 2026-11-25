@@ -60,9 +60,11 @@ describe("ceoBoardService & readingOrder", () => {
             cashCollectedUsd: 50000,
             salesUsd: 50000,
             expensesUsd: 18000,
+            adSpendUsd: 2000,
+            cacUsd: 1000,
             netProfitUsd: 32000,
             grossMarginPercent: 0.64,
-            grossProfitPerWonDealUsd: 4000,
+            grossProfitPerWonDealUsd: 8000,
             cacPaybackDeals: 0.5,
             evidence: { financial: true, marketing: true },
           },
@@ -105,12 +107,13 @@ describe("ceoBoardService & readingOrder", () => {
 
     expect(tiles.get("cash-collected")?.value).toMatchObject({ kind: "live", value: 50000, unit: "usd" });
     expect(tiles.get("cash-collected")?.state).toBe("ok");
+    expect(tiles.get("cash-collected")?.href).toBeUndefined();
 
-    // 50000 / (18000 + 4000) = 2.27 >= 2 => ok
-    expect(tiles.get("30-day-cash-multiple")?.value).toMatchObject({ kind: "live", value: 2.27, unit: "ratio" });
+    // Agency-only: 50000 / (18000 + 2000) = 2.5 (never mixes Paradise Spas' $4,000 client ad spend)
+    expect(tiles.get("30-day-cash-multiple")?.value).toMatchObject({ kind: "live", value: 2.5, unit: "ratio" });
     expect(tiles.get("30-day-cash-multiple")?.state).toBe("ok");
 
-    // 4000 / 500 = 8:1 => ok
+    // Agency-only: 8000 / 1000 = 8:1 (never divides by Paradise Spas' $500 client CPA)
     expect(tiles.get("ltgp-cac")?.value).toMatchObject({ kind: "live", value: 8, unit: "ratio" });
     expect(tiles.get("ltgp-cac")?.state).toBe("ok");
 
@@ -120,9 +123,16 @@ describe("ceoBoardService & readingOrder", () => {
 
     expect(tiles.get("churn")?.value).toEqual({ kind: "not_connected" });
     expect(tiles.get("churn")?.state).toBe("unknown");
+    expect(tiles.get("churn")?.href).toBe("/dashboard/fulfillment");
 
     expect(tiles.get("cac-payback")?.value).toMatchObject({ kind: "live", value: 0.5, unit: "ratio" });
     expect(tiles.get("cac-payback")?.state).toBe("ok");
+    expect(tiles.get("cac-payback")?.href).toBe("/dashboard/marketing");
+
+    // No plural /dashboards/* 404 links anywhere on CEO tiles
+    for (const tile of ceo.moneyTiles) {
+      if (tile.href) expect(tile.href).toMatch(/^\/dashboard\//);
+    }
 
     expect(readingOrder.statuses).toEqual({
       cash: "ok",
@@ -136,7 +146,10 @@ describe("ceoBoardService & readingOrder", () => {
     });
     expect(readingOrder.metrics["show-rate"]?.displayValue).toBe("75%");
     expect(readingOrder.metrics["speed-to-lead"]?.displayValue).toBe("45s");
+    // Reading Order #8 (Marketing) shows client portfolio CPA ($4000 / 8 = $500)
     expect(readingOrder.metrics.cac?.displayValue).toBe("$500");
+    // Disconnected churn step is omitted from metrics so ReadingOrderStrip doesn't duplicate "Not connected"
+    expect(readingOrder.metrics.churn).toBeUndefined();
   });
 
   it("flags red thresholds for show-rate < 60%, speed-to-lead > 300s, gross-margin < 50%, cash-multiple < 2", () => {

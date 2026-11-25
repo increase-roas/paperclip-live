@@ -509,4 +509,139 @@ describe("dashboardBoardService", () => {
       else process.env.SALES_DASHBOARD_ADMIN_KEY = prevKey;
     }
   });
+
+  it("parses flat live /api/pilot/admin/snapshots sections and never mixes client sales into agency revenue-per-fte", async () => {
+    const prevKey = process.env.SALES_DASHBOARD_ADMIN_KEY;
+    process.env.SALES_DASHBOARD_ADMIN_KEY = "test-key";
+    try {
+      const fakeRoster: TeamRosterAdapter = {
+        sourceId: "team_capital",
+        read: async () => ({
+          observedAt: "2026-11-23T11:00:00.000Z",
+          members: [
+            {
+              id: "m1",
+              name: "Kat",
+              role: "Fulfillment lead",
+              rateType: "monthly",
+              rate: "$4,000",
+              hours: 160,
+              duties: "Fulfillment",
+              judgedOn: "On-time launches",
+              status: "active",
+            },
+          ],
+        }),
+      };
+
+      const fetchImpl = (async (input: string | URL | Request) => {
+        const url = String(input);
+        if (url.includes("/api/pilot/admin/capital")) {
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              generatedAt: "2026-11-23T11:45:00.000Z",
+              view: "30d",
+              operating: {
+                monthlyLaborUsd: 4000,
+                monthlyOverheadUsd: 1000,
+                monthlyBurnUsd: 5000,
+                runwayMonths: 10,
+              },
+              settings: { cashOnHandUsd: 50000, fixedMonthlyCostUsd: 1000 },
+              owner: null,
+              clients: [
+                {
+                  slug: "paradise-spas",
+                  displayName: "Paradise Spas",
+                  syncedAt: "2026-11-23T11:40:00.000Z",
+                  syncStatus: "success",
+                  marketing: { salesUsd: 250000, adSpendUsd: 6473.6 },
+                  financialMonth: null,
+                },
+              ],
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        if (url.includes("/api/pilot/admin/snapshots")) {
+          // Exact flat JSON shape returned live by dashboard.increaseai.tech/api/pilot/admin/snapshots
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              view: "30d",
+              generatedAt: "2026-11-23T11:55:00.000Z",
+              clients: [
+                {
+                  slug: "paradise-spas",
+                  displayName: "Paradise Spas",
+                  lastSuccessfulSyncAt: "2026-11-23T11:50:00.000Z",
+                  zeroLeadDays7d: 0,
+                  ghl: {
+                    status: "LIVE",
+                    newLeads: 20,
+                    appointmentsBooked: 10,
+                    showedAppointments: 7,
+                    wonDeals: 3,
+                  },
+                  meta: {
+                    status: "LIVE",
+                    spend: 6473.6,
+                    impressions: 225000,
+                    clicks: 3330,
+                  },
+                },
+                {
+                  slug: "the-hot-tub-store",
+                  displayName: "The Hot Tub Store",
+                  lastSuccessfulSyncAt: "2026-11-23T11:50:00.000Z",
+                  zeroLeadDays7d: 1,
+                  ghl: {
+                    status: "LIVE",
+                    newLeads: 3,
+                    appointmentsBooked: 2,
+                    showedAppointments: 1,
+                    wonDeals: 0,
+                  },
+                  meta: {
+                    status: "LIVE",
+                    spend: 78,
+                    impressions: 3649,
+                    clicks: 57,
+                  },
+                },
+              ],
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        return new Response(JSON.stringify({ ok: true, status: "NOT_CONFIGURED" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }) as typeof fetch;
+
+      const svc = dashboardBoardService(pinnedNow, {
+        teamRoster: fakeRoster,
+        fetchImpl,
+        wavvReader: async () => null,
+      });
+
+      const marketing = await svc.board("marketing", companyId, "30d");
+      const mktById = new Map(marketing.tiles.map((t) => [t.id, t.value]));
+      expect(mktById.get("ad-spend")).toMatchObject({ kind: "live", value: 6551.6, unit: "usd" });
+      expect(mktById.get("new-leads")).toMatchObject({ kind: "live", value: 23, unit: "count" });
+      expect(mktById.get("ctr")).toMatchObject({ kind: "live", value: 1.48, unit: "percent" });
+      expect(mktById.get("spend-with-zero-leads")).toMatchObject({ kind: "live", value: 1, unit: "count" });
+
+      // Human employees must NOT use Paradise Spas' $250,000 client sales for agency Revenue per FTE
+      const humans = await svc.board("human-employees", companyId, "30d");
+      const humanById = new Map(humans.tiles.map((t) => [t.id, t.value]));
+      expect(humanById.get("revenue-per-fte")).toEqual({ kind: "not_connected" });
+      expect(humans.meta?.cashOnHandUsd).toBe(50000);
+    } finally {
+      if (prevKey === undefined) delete process.env.SALES_DASHBOARD_ADMIN_KEY;
+      else process.env.SALES_DASHBOARD_ADMIN_KEY = prevKey;
+    }
+  });
 });

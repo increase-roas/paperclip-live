@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,6 +34,14 @@ export function AddScopeDialog({
   const [group, setGroup] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setRawScopes("");
+      setGroup("");
+      setError(null);
+    }
+  }, [open, integrationId]);
 
   const parsed = useMemo(() => parseMultiLineScopes(rawScopes), [rawScopes]);
 

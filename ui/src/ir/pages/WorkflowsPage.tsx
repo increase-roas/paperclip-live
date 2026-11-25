@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   AlertTriangle,
   BookOpen,
@@ -174,10 +174,16 @@ export function WorkflowsPage() {
     void loadList();
   }, [loadList]);
 
+  const justCreatedPathRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!selectedPath) {
       setContent("");
       setSavedContent("");
+      return;
+    }
+    if (justCreatedPathRef.current === selectedPath) {
+      justCreatedPathRef.current = null;
       return;
     }
     let active = true;
@@ -276,6 +282,7 @@ export function WorkflowsPage() {
       setNewInputs("");
       setNewSteps("");
       setNewApprovals("");
+      justCreatedPathRef.current = relPath;
       setSelectedPath(relPath);
       setContent(formatted);
       setSavedContent(formatted);
@@ -382,7 +389,16 @@ export function WorkflowsPage() {
                   <button
                     key={item.path}
                     type="button"
-                    onClick={() => setSelectedPath(item.path)}
+                    onClick={() => {
+                      if (
+                        item.path !== selectedPath &&
+                        hasUnsavedChanges &&
+                        !window.confirm("You have unsaved changes. Discard them and switch playbooks?")
+                      ) {
+                        return;
+                      }
+                      setSelectedPath(item.path);
+                    }}
                     className={cn(
                       "flex w-full flex-col gap-1.5 px-4 py-3 text-left transition-colors",
                       active ? "bg-accent/70" : "hover:bg-accent/35",

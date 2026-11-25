@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   useJavarVoiceSession,
   type JavarVoiceState,
@@ -37,6 +37,7 @@ const MAX_TRANSCRIPT_ENTRIES = 60;
 export function JavarVoiceProvider({ children }: { children: ReactNode }) {
   const [transcript, setTranscript] = useState<VoiceTranscriptEntry[]>([]);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const nextEntryIdRef = useRef(0);
 
   const handleTranscript = useCallback((event: VoiceTranscriptEvent) => {
     setTranscript((prev) => {
@@ -45,8 +46,9 @@ export function JavarVoiceProvider({ children }: { children: ReactNode }) {
         if (last && last.role === "javar" && !last.final) {
           return [...prev.slice(0, -1), { ...last, text: `${last.text}${event.text}` }];
         }
+        nextEntryIdRef.current += 1;
         const next: VoiceTranscriptEntry = {
-          id: `voice-${Date.now()}-${prev.length}`,
+          id: `voice-${nextEntryIdRef.current}`,
           role: "javar",
           text: event.text,
           final: false,
@@ -61,8 +63,9 @@ export function JavarVoiceProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      nextEntryIdRef.current += 1;
       const next: VoiceTranscriptEntry = {
-        id: `voice-${Date.now()}-${prev.length}`,
+        id: `voice-${nextEntryIdRef.current}`,
         role: event.role,
         text: event.text,
         final: event.final,

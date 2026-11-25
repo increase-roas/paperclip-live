@@ -144,6 +144,7 @@ async function fetchGatewayJson<T>(
         accept: "application/json",
         "user-agent": USER_AGENT,
       },
+      redirect: "manual",
       signal: controller.signal,
     });
     if (!res.ok) return null;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Check,
@@ -160,14 +160,19 @@ export function AgentPolicySheet({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  const latestAgentRef = useRef<GatewayAgentRecord | null>(agent);
+  latestAgentRef.current = agent;
+  const agentKey = agent?.agent ?? null;
+
   useEffect(() => {
-    if (!agent || !open) return;
-    let initial = clonePolicy(agent.policy);
+    const currentAgent = latestAgentRef.current;
+    if (!currentAgent || !open) return;
+    let initial = clonePolicy(currentAgent.policy);
     if (initialRoleToApply && ROLE_POLICY_DEFINITIONS[initialRoleToApply]) {
       initial = { ...initial, ...ROLE_POLICY_DEFINITIONS[initialRoleToApply].patch };
     }
     setDraft(initial);
-    setEnabledDraft(agent.enabled);
+    setEnabledDraft(currentAgent.enabled);
     if (initial.locations === "*") {
       setLocationsMode("all");
       setLocationsText("");
@@ -175,7 +180,7 @@ export function AgentPolicySheet({
       setLocationsMode("scoped");
       setLocationsText(initial.locations.join(", "));
     }
-    setSelectedRoleTemplate(initialRoleToApply ?? agent.policy.role ?? "");
+    setSelectedRoleTemplate(initialRoleToApply ?? currentAgent.policy.role ?? "");
     setIssuedKey(null);
     setError(null);
     setNotice(
@@ -184,7 +189,7 @@ export function AgentPolicySheet({
         : null,
     );
     setExpandedProviders(new Set());
-  }, [agent, open, initialRoleToApply]);
+  }, [open, agentKey, initialRoleToApply]);
 
   const drift = useMemo(() => {
     if (!agent || !draft) return { drifted: false, presetPolicy: null };
@@ -242,6 +247,17 @@ export function AgentPolicySheet({
     setError(null);
   };
 
+  const extractExtraGrantFields = (
+    grant: ProviderGrantValue | undefined,
+  ): Partial<Extract<ProviderGrantValue, object>> => {
+    if (!grant || typeof grant !== "object") return {};
+    return {
+      ...(Array.isArray(grant.hooks) ? { hooks: [...grant.hooks] } : {}),
+      ...(Array.isArray(grant.resources) ? { resources: [...grant.resources] } : {}),
+      ...(Array.isArray(grant.teams) ? { teams: [...grant.teams] } : {}),
+    };
+  };
+
   const setProviderCapability = (provider: GatewayProviderSummary, cap: "none" | "read" | "write") => {
     setDraft((prev) => {
       if (!prev) return prev;
@@ -249,9 +265,18 @@ export function AgentPolicySheet({
       if (cap === "none") {
         delete nextProviders[provider.id];
       } else {
-        const existing = normalizeProviderGrant(nextProviders[provider.id]);
-        if (existing.actions && existing.actions.length > 0) {
-          nextProviders[provider.id] = { capability: cap, actions: existing.actions };
+        const prevGrant = nextProviders[provider.id];
+        const extra = extractExtraGrantFields(prevGrant);
+        const existing = normalizeProviderGrant(prevGrant);
+        const hasExtra = Object.keys(extra).length > 0;
+        if ((existing.actions && existing.actions.length > 0) || hasExtra) {
+          nextProviders[provider.id] = {
+            ...extra,
+            capability: cap,
+            ...(existing.actions && existing.actions.length > 0
+              ? { actions: existing.actions }
+              : {}),
+          };
         } else {
           nextProviders[provider.id] = cap;
         }
@@ -264,7 +289,10 @@ export function AgentPolicySheet({
     setDraft((prev) => {
       if (!prev) return prev;
       const allActions = provider.actions ?? [];
-      const current = normalizeProviderGrant(prev.providers[provider.id]);
+      const prevGrant = prev.providers[provider.id];
+      const extra = extractExtraGrantFields(prevGrant);
+      const hasExtra = Object.keys(extra).length > 0;
+      const current = normalizeProviderGrant(prevGrant);
       const cap = current.capability === "none" ? "read" : current.capability;
       const baseSet = new Set(current.actions ?? allActions);
       if (checked) baseSet.add(actionId);
@@ -274,9 +302,9 @@ export function AgentPolicySheet({
       if (nextList.length === 0) {
         delete nextProviders[provider.id];
       } else if (nextList.length === allActions.length) {
-        nextProviders[provider.id] = cap;
+        nextProviders[provider.id] = hasExtra ? { ...extra, capability: cap } : cap;
       } else {
-        nextProviders[provider.id] = { capability: cap, actions: nextList };
+        nextProviders[provider.id] = { ...extra, capability: cap, actions: nextList };
       }
       return { ...prev, providers: nextProviders };
     });
@@ -306,6 +334,9 @@ export function AgentPolicySheet({
         outboundChannels: draft.outboundChannels ?? null,
         locations,
         providers: draft.providers,
+        ...(Array.isArray(draft.secrets) ? { secrets: draft.secrets } : {}),
+        ...(Array.isArray(draft.scopes) ? { scopes: draft.scopes } : {}),
+        ...(typeof draft.admin === "boolean" ? { admin: draft.admin } : {}),
       };
       await irOpsApi.gateway.updateAgentPolicy(agent.agent, patch);
       setNotice("Policy updated live — no key rotation required.");

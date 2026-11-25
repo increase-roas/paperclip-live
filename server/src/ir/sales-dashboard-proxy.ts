@@ -54,8 +54,16 @@ function buildAllowlistedQueryString(
     if (!ALLOWED_QUERY_PARAMS.has(key)) continue;
     if (typeof raw === "string") {
       if (raw.length <= 256) params.set(key, raw);
-    } else if (Array.isArray(raw) && typeof raw[0] === "string" && raw[0].length <= 256) {
-      params.set(key, raw[0]);
+    } else if (Array.isArray(raw)) {
+      const valid = raw.filter(
+        (item): item is string => typeof item === "string" && item.length <= 256,
+      );
+      if (valid.length > 0) {
+        params.delete(key);
+        for (const item of valid) {
+          params.append(key, item);
+        }
+      }
     }
   }
   const serialized = params.toString();
@@ -97,7 +105,12 @@ export function salesDashboardProxyRoutes(opts?: SalesDashboardProxyOptions) {
         accept: "application/json",
         "user-agent": USER_AGENT,
       };
-      const init: RequestInit = { method, headers, signal: controller.signal };
+      const init: RequestInit = {
+        method,
+        headers,
+        redirect: "manual",
+        signal: controller.signal,
+      };
       if (method === "POST" || method === "PUT" || method === "PATCH") {
         headers["content-type"] = "application/json";
         init.body = JSON.stringify(

@@ -1,3 +1,4 @@
+import http from "node:http";
 import express from "express";
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
@@ -112,7 +113,27 @@ describe("gatewayProxyRoutes", () => {
     );
   });
 
-  it("validates :agent, :integration and :scopeId params strictly", async () => {
+  it("returns 503 for admin routes when GATEWAY_ADMIN_KEY is unset and no fallback key is provided", async () => {
+    const fetchMock = jsonFetch({ ok: true });
+    const app = makeApp(ADMIN_ACTOR, {
+      baseUrl: "https://gw.example",
+      adminKey: "",
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    });
+
+    const res = await request(app).get("/api/gateway/admin/agents");
+    expect(res.status).toBe(503);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    // Malformed header (space / non-token chars) rejected with 400
+    const badHeader = await request(app)
+      .get("/api/gateway/admin/agents")
+      .set("x-gateway-owner-key", "bad key with spaces");
+    expect(badHeader.status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("validates :agent, :integration and :scopeId params strictly including dot-segment traversal", async () => {
     const fetchMock = jsonFetch();
     const app = makeApp(ADMIN_ACTOR, {
       baseUrl: "https://gw.example",
@@ -124,7 +145,45 @@ describe("gatewayProxyRoutes", () => {
     expect((await request(app).put("/api/gateway/admin/agents/1starts-digit").send({})).status).toBe(400);
     expect((await request(app).post("/api/gateway/admin/scopes/INVALID!").send({})).status).toBe(400);
     expect((await request(app).delete("/api/gateway/admin/scopes/ghl/bad%20space")).status).toBe(400);
+    // Dot-segment / boundary slash traversal regressions
+    expect((await request(app).delete("/api/gateway/admin/scopes/ghl/a%2F..%2Fb")).status).toBe(400);
+    expect((await request(app).delete("/api/gateway/admin/scopes/ghl/%2Fleading")).status).toBe(400);
+    expect((await request(app).delete("/api/gateway/admin/scopes/ghl/trailing%2F")).status).toBe(400);
+    expect((await request(app).delete("/api/gateway/admin/scopes/ghl/a%2F%2Fb")).status).toBe(400);
+
+    // Raw HTTP wire test (no client-side path normalization, like curl --path-as-is)
+    const server = app.listen(0);
+    try {
+      const addr = server.address();
+      const port = typeof addr === "object" && addr ? addr.port : 0;
+      const sendRawDelete = (rawPath: string) =>
+        new Promise<number>((resolve, reject) => {
+          const req = http.request(
+            { host: "127.0.0.1", port, method: "DELETE", path: rawPath },
+            (res) => {
+              res.resume();
+              resolve(res.statusCode ?? 0);
+            },
+          );
+          req.on("error", reject);
+          req.end();
+        });
+      expect(await sendRawDelete("/api/gateway/admin/scopes/ghl/%2e")).toBe(400);
+      expect(await sendRawDelete("/api/gateway/admin/scopes/ghl/%2e%2e")).toBe(400);
+      expect(await sendRawDelete("/api/gateway/admin/scopes/ghl/..")).toBe(400);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
     expect(fetchMock).not.toHaveBeenCalled();
+
+    // Legitimate GHL scope containing an internal slash must still pass
+    expect(
+      (await request(app).delete("/api/gateway/admin/scopes/ghl/locations%2FcustomFields.readonly")).status,
+    ).toBe(200);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://gw.example/api/admin/scopes/ghl/locations%2FcustomFields.readonly",
+      expect.objectContaining({ method: "DELETE", redirect: "manual" }),
+    );
   });
 
   it("proxies all 17 gateway routes with exact upstream paths and methods", async () => {

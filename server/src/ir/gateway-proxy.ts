@@ -16,6 +16,7 @@ const AGENT_PARAM_RE = /^[a-z][a-z0-9_-]{1,31}$/;
 const INTEGRATION_PARAM_RE = /^[a-z][a-z0-9_-]{1,40}$/;
 const SCOPE_ID_PARAM_RE = /^[A-Za-z0-9_.:/-]{1,120}$/;
 const SAFE_QUERY_KEY_RE = /^[A-Za-z0-9_.-]{1,40}$/;
+const OWNER_KEY_HEADER_RE = /^[\x21-\x7e]{1,512}$/;
 
 function resolveBaseUrl(opts?: GatewayProxyOptions): string {
   return (opts?.baseUrl ?? process.env.OAUTH_GATEWAY_URL ?? DEFAULT_GATEWAY_URL)
@@ -23,19 +24,26 @@ function resolveBaseUrl(opts?: GatewayProxyOptions): string {
     .replace(/\/+$/, "");
 }
 
-function resolveAuthKey(req: Request, opts?: GatewayProxyOptions): string {
+function resolveAuthKey(
+  req: Request,
+  opts?: GatewayProxyOptions,
+): { key: string; invalidHeader: boolean } {
   const configured =
     opts?.adminKey !== undefined
       ? opts.adminKey.trim()
       : (process.env.GATEWAY_ADMIN_KEY ?? "").trim();
-  if (configured) return configured;
+  if (configured) return { key: configured, invalidHeader: false };
 
   const headerValue = req.headers["x-gateway-owner-key"];
-  if (typeof headerValue === "string") return headerValue.trim();
-  if (Array.isArray(headerValue) && typeof headerValue[0] === "string") {
-    return headerValue[0].trim();
-  }
-  return "";
+  const raw =
+    typeof headerValue === "string"
+      ? headerValue.trim()
+      : Array.isArray(headerValue) && typeof headerValue[0] === "string"
+        ? headerValue[0].trim()
+        : "";
+  if (!raw) return { key: "", invalidHeader: false };
+  if (!OWNER_KEY_HEADER_RE.test(raw)) return { key: "", invalidHeader: true };
+  return { key: raw, invalidHeader: false };
 }
 
 function buildSafeQueryString(req: Request): string {
@@ -71,6 +79,24 @@ function validateParam(
   return value;
 }
 
+function validateScopeId(raw: unknown, res: Response): string | null {
+  const value = typeof raw === "string" ? raw : "";
+  if (
+    !SCOPE_ID_PARAM_RE.test(value) ||
+    value === "." ||
+    value === ".." ||
+    value.includes("..") ||
+    value.startsWith("/") ||
+    value.endsWith("/") ||
+    value.includes("//") ||
+    value.split("/").some((segment) => segment === "." || segment === "..")
+  ) {
+    res.status(400).json({ ok: false, error: "Invalid scopeId parameter." });
+    return null;
+  }
+  return value;
+}
+
 export function gatewayProxyRoutes(opts?: GatewayProxyOptions) {
   const router = Router();
   const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -86,7 +112,19 @@ export function gatewayProxyRoutes(opts?: GatewayProxyOptions) {
     assertInstanceAdmin(req);
 
     const baseUrl = resolveBaseUrl(opts);
-    const authKey = resolveAuthKey(req, opts);
+    const auth = resolveAuthKey(req, opts);
+    if (auth.invalidHeader) {
+      res.status(400).json({ ok: false, error: "Invalid gateway owner key header." });
+      return;
+    }
+    const authKey = auth.key;
+    if (!authKey && upstreamPath.startsWith("/api/admin/")) {
+      res.status(503).json({
+        ok: false,
+        error: "Gateway admin key is not configured on this server.",
+      });
+      return;
+    }
     const qs = forwardQuery ? buildSafeQueryString(req) : "";
     const targetUrl = `${baseUrl}${upstreamPath}${qs}`;
 
@@ -100,7 +138,12 @@ export function gatewayProxyRoutes(opts?: GatewayProxyOptions) {
       if (authKey) {
         headers.authorization = `Bearer ${authKey}`;
       }
-      const init: RequestInit = { method, headers, signal: controller.signal };
+      const init: RequestInit = {
+        method,
+        headers,
+        redirect: "manual",
+        signal: controller.signal,
+      };
       if (method === "POST" || method === "PUT") {
         headers["content-type"] = "application/json";
         init.body = JSON.stringify(
@@ -241,7 +284,7 @@ export function gatewayProxyRoutes(opts?: GatewayProxyOptions) {
       res,
     );
     if (!integration) return;
-    const scopeId = validateParam(req.params.scopeId, SCOPE_ID_PARAM_RE, "scopeId", res);
+    const scopeId = validateScopeId(req.params.scopeId, res);
     if (!scopeId) return;
     await forward(
       req,

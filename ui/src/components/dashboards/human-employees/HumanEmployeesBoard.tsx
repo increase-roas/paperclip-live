@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import {
   dashboardBoardsApi,
@@ -183,6 +183,11 @@ function ManageTeamCapitalSheet({
   onSaved,
 }: ManageTeamCapitalSheetProps) {
   const initialMembers = useMemo(() => extractEditableMembers(data), [data]);
+  const initialMembersRef = useRef(initialMembers);
+  initialMembersRef.current = initialMembers;
+  const summaryRef = useRef(summary);
+  summaryRef.current = summary;
+
   const [loadedMembers, setLoadedMembers] = useState<TeamMemberEditable[]>(initialMembers);
   const [members, setMembers] = useState<TeamMemberEditable[]>(initialMembers);
   const [loadedSettings, setLoadedSettings] = useState<{
@@ -202,55 +207,102 @@ function ManageTeamCapitalSheet({
       ? String(summary.monthlyOverheadUsd)
       : "",
   );
+  const [loadingAdmin, setLoadingAdmin] = useState(false);
+  const [loadAdminError, setLoadAdminError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchAdminRecords = useCallback(async (signal: { cancelled: boolean }) => {
+    setLoadingAdmin(true);
+    setLoadAdminError(null);
+    setError(null);
+    const [teamResult, settingsResult] = await Promise.allSettled([
+      dashboardBoardsApi.getTeamAdmin(),
+      dashboardBoardsApi.getTeamSettings(),
+    ]);
+    if (signal.cancelled) return;
+
+    if (teamResult.status === "rejected") {
+      setLoadAdminError(
+        `Could not load full team records (${describeError(teamResult.reason).body}). Retry before saving so existing seat instructions are preserved.`,
+      );
+      setLoadingAdmin(false);
+      return;
+    }
+
+    const adminMembers = Array.isArray(teamResult.value.members)
+      ? teamResult.value.members.map((m) => ({ ...m }))
+      : [];
+    setLoadedMembers(adminMembers);
+    setMembers(adminMembers);
+
+    const rawSettings =
+      settingsResult.status === "fulfilled"
+        ? (settingsResult.value.settings ?? settingsResult.value)
+        : teamResult.value.settings ?? null;
+
+    if (rawSettings) {
+      const normalizedSettings = {
+        ...(rawSettings.cashOnHandUsd !== undefined
+          ? { cashOnHandUsd: rawSettings.cashOnHandUsd }
+          : {}),
+        ...(rawSettings.fixedMonthlyCostUsd !== undefined
+          ? { fixedMonthlyCostUsd: rawSettings.fixedMonthlyCostUsd }
+          : {}),
+        ...(rawSettings.defaultHoursPerMonth !== undefined
+          ? { defaultHoursPerMonth: rawSettings.defaultHoursPerMonth }
+          : {}),
+        ...(rawSettings.monthlyCapacityJobs !== undefined
+          ? { monthlyCapacityJobs: rawSettings.monthlyCapacityJobs }
+          : {}),
+        ...(rawSettings.monthlyRevenueTargetUsd !== undefined
+          ? { monthlyRevenueTargetUsd: rawSettings.monthlyRevenueTargetUsd }
+          : {}),
+      };
+      setLoadedSettings(normalizedSettings);
+      setCashOnHand(
+        normalizedSettings.cashOnHandUsd !== null && normalizedSettings.cashOnHandUsd !== undefined
+          ? String(normalizedSettings.cashOnHandUsd)
+          : "",
+      );
+      setMonthlyOverhead(
+        normalizedSettings.fixedMonthlyCostUsd !== null &&
+          normalizedSettings.fixedMonthlyCostUsd !== undefined
+          ? String(normalizedSettings.fixedMonthlyCostUsd)
+          : "",
+      );
+    } else if (settingsResult.status === "rejected") {
+      setLoadAdminError(
+        `Could not load agency capital settings (${describeError(settingsResult.reason).body}). Retry before saving.`,
+      );
+    }
+
+    setLoadingAdmin(false);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
-    let cancelled = false;
-    setLoadedMembers(initialMembers);
-    setMembers(initialMembers);
+    const signal = { cancelled: false };
+    const seededMembers = initialMembersRef.current;
+    const seededSummary = summaryRef.current;
+    setLoadedMembers(seededMembers);
+    setMembers(seededMembers);
+    setLoadedSettings(null);
     setCashOnHand(
-      summary?.cashOnHandUsd !== null && summary?.cashOnHandUsd !== undefined
-        ? String(summary.cashOnHandUsd)
+      seededSummary?.cashOnHandUsd !== null && seededSummary?.cashOnHandUsd !== undefined
+        ? String(seededSummary.cashOnHandUsd)
         : "",
     );
     setMonthlyOverhead(
-      summary?.monthlyOverheadUsd !== null && summary?.monthlyOverheadUsd !== undefined
-        ? String(summary.monthlyOverheadUsd)
+      seededSummary?.monthlyOverheadUsd !== null && seededSummary?.monthlyOverheadUsd !== undefined
+        ? String(seededSummary.monthlyOverheadUsd)
         : "",
     );
-    setError(null);
-    dashboardBoardsApi
-      .getTeamAdmin()
-      .then((res) => {
-        if (cancelled) return;
-        if (Array.isArray(res.members) && res.members.length > 0) {
-          const normalized = res.members.map((m) => ({ ...m }));
-          setLoadedMembers(normalized);
-          setMembers(normalized);
-        }
-        if (res.settings) {
-          setLoadedSettings(res.settings);
-          setCashOnHand(
-            res.settings.cashOnHandUsd !== null && res.settings.cashOnHandUsd !== undefined
-              ? String(res.settings.cashOnHandUsd)
-              : "",
-          );
-          setMonthlyOverhead(
-            res.settings.fixedMonthlyCostUsd !== null && res.settings.fixedMonthlyCostUsd !== undefined
-              ? String(res.settings.fixedMonthlyCostUsd)
-              : "",
-          );
-        }
-      })
-      .catch(() => {
-        // Keep board-derived initial values when the admin endpoint is unavailable in tests.
-      });
+    void fetchAdminRecords(signal);
     return () => {
-      cancelled = true;
+      signal.cancelled = true;
     };
-  }, [open, initialMembers, summary]);
+  }, [open, fetchAdminRecords]);
 
   const updateMemberField = <K extends keyof TeamMemberEditable>(
     id: string,
@@ -264,6 +316,7 @@ function ManageTeamCapitalSheet({
 
   const handleSave = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (loadingAdmin || loadAdminError) return;
     setSaving(true);
     setError(null);
     try {
@@ -290,7 +343,7 @@ function ManageTeamCapitalSheet({
           name: member.name,
           role: member.role,
           rateType: member.rateType || "monthly",
-          rateAmount: member.rateAmount ?? 0,
+          rateAmount: member.rateAmount ?? orig?.rateAmount ?? 0,
           hoursPerMonth: member.hoursPerMonth,
           monthlyEstimateUsd: orig?.monthlyEstimateUsd ?? member.monthlyEstimateUsd ?? null,
           responsibilities: orig?.responsibilities ?? member.responsibilities ?? "",
@@ -301,8 +354,8 @@ function ManageTeamCapitalSheet({
       }
 
       const settingsChanged =
-        cashVal !== (loadedSettings?.cashOnHandUsd ?? summary?.cashOnHandUsd ?? null) ||
-        overheadVal !== (loadedSettings?.fixedMonthlyCostUsd ?? summary?.monthlyOverheadUsd ?? null);
+        cashVal !== (loadedSettings?.cashOnHandUsd ?? null) ||
+        overheadVal !== (loadedSettings?.fixedMonthlyCostUsd ?? null);
 
       if (settingsChanged) {
         await dashboardBoardsApi.updateTeamSettings({
@@ -336,6 +389,30 @@ function ManageTeamCapitalSheet({
 
         <form onSubmit={handleSave} className="flex min-h-0 flex-1 flex-col">
           <div className="flex-1 space-y-6 overflow-y-auto px-5 py-4">
+            {loadingAdmin ? (
+              <div
+                role="status"
+                className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
+              >
+                Loading full team roster and capital settings…
+              </div>
+            ) : null}
+            {loadAdminError ? (
+              <div
+                role="alert"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+              >
+                <span>{loadAdminError}</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  onClick={() => void fetchAdminRecords({ cancelled: false })}
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : null}
             {error ? (
               <div
                 role="alert"
@@ -480,8 +557,12 @@ function ManageTeamCapitalSheet({
             >
               Cancel
             </Button>
-            <Button type="submit" size="sm" disabled={saving}>
-              {saving ? "Saving…" : "Save changes"}
+            <Button
+              type="submit"
+              size="sm"
+              disabled={saving || loadingAdmin || Boolean(loadAdminError)}
+            >
+              {saving ? "Saving…" : loadingAdmin ? "Loading…" : "Save changes"}
             </Button>
           </div>
         </form>

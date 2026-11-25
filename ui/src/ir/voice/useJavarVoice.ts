@@ -370,6 +370,9 @@ export function useJavarVoiceSession(options: {
       setError("This browser does not support live microphone calls.");
       return;
     }
+    if (peerRef.current || mediaRef.current || audioRef.current) {
+      return;
+    }
     setError(null);
     closedRef.current = false;
     setState("connecting");

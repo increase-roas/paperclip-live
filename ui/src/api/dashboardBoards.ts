@@ -163,6 +163,10 @@ export const dashboardBoardsApi = {
     api.get<DashboardFulfillmentBoard>(`/companies/${companyId}/dashboards/fulfillment`),
   getTeamAdmin: () =>
     api.get<TeamAdminSnapshotResponse>("/sales-dashboard/team"),
+  getTeamSettings: () =>
+    api.get<
+      ({ ok?: boolean; settings?: TeamCapitalSettingsPayload } & TeamCapitalSettingsPayload)
+    >("/sales-dashboard/team/settings"),
   updateTeam: (payload: TeamMemberUpdatePayload) =>
     api.put<unknown>("/sales-dashboard/team", payload),
   updateTeamSettings: (payload: TeamCapitalSettingsPayload) =>

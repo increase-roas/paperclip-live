@@ -45,7 +45,12 @@ async function forwardToHermesTalk(
       "x-hermes-session-token": sessionToken,
       accept: "application/json",
     };
-    const init: RequestInit = { method, headers, signal: controller.signal };
+    const init: RequestInit = {
+      method,
+      headers,
+      redirect: "manual",
+      signal: controller.signal,
+    };
     if (method === "POST") {
       headers["content-type"] = "application/json";
       init.body = JSON.stringify(req.body && typeof req.body === "object" ? req.body : {});
@@ -107,7 +112,16 @@ export function hermesTalkVoiceRoutes(opts?: HermesTalkVoiceRouteOptions) {
   });
 
   router.get("/voice/hermes-talk/workflows/read", async (req, res) => {
-    const rawPath = typeof req.query.path === "string" ? req.query.path : "";
+    const rawPath = typeof req.query.path === "string" ? req.query.path.trim() : "";
+    if (
+      rawPath.length > 256 ||
+      rawPath.includes("..") ||
+      rawPath.startsWith("/") ||
+      rawPath.includes("\\")
+    ) {
+      res.status(400).json({ ok: false, error: "Invalid workflow path." });
+      return;
+    }
     const qs = rawPath ? `?path=${encodeURIComponent(rawPath)}` : "";
     await forwardToHermesTalk(req, res, opts, `/workflows/read${qs}`, "GET", DEFAULT_TIMEOUT_MS);
   });

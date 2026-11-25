@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   AlertTriangle,
   Building2,
@@ -226,33 +226,61 @@ export function ClientsPage() {
     [tenants, selectedSlug],
   );
 
+  const prevSlugRef = useRef<string | null>(null);
+  const preserveFeedbackForSlugRef = useRef<string | null>(null);
+  const accountingReqIdRef = useRef(0);
+
   const loadAccounting = useCallback(async (slug: string) => {
+    const reqId = ++accountingReqIdRef.current;
     setAccountingLoading(true);
     setAccounting(null);
     try {
       const res = await irOpsApi.salesDashboard.getAccounting(slug);
+      if (accountingReqIdRef.current !== reqId) return;
       setAccounting(res.ok && res.status ? res.status : null);
     } catch {
+      if (accountingReqIdRef.current !== reqId) return;
       setAccounting(null);
     } finally {
-      setAccountingLoading(false);
+      if (accountingReqIdRef.current === reqId) {
+        setAccountingLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
     if (!selectedTenant) {
+      prevSlugRef.current = null;
       setDraft(null);
       setDirty(false);
       setMenuLink("");
+      setGhlResources({ calendars: [], pipelines: [] });
       setAccounting(null);
       return;
     }
+    const slugChanged = prevSlugRef.current !== selectedTenant.slug;
+    const preserveFeedback =
+      preserveFeedbackForSlugRef.current === selectedTenant.slug;
+    if (preserveFeedback) {
+      preserveFeedbackForSlugRef.current = null;
+    }
+    prevSlugRef.current = selectedTenant.slug;
+
     setDraft(withTenantDefaults(selectedTenant));
     setDirty(false);
-    setMenuLink("");
-    setNotice(null);
-    setActionError(null);
+    if (slugChanged) {
+      setGhlResources({ calendars: [], pipelines: [] });
+      setDiscoveryNote(null);
+      if (!preserveFeedback) {
+        setMenuLink("");
+        setNotice(null);
+        setActionError(null);
+      }
+    }
     void loadAccounting(selectedTenant.slug);
+    return () => {
+      accountingReqIdRef.current += 1;
+    };
   }, [selectedTenant, loadAccounting]);
 
   const filteredTenants = useMemo(() => {
@@ -292,10 +320,14 @@ export function ClientsPage() {
       if (provider === "ghl") {
         const collected: GhlLocationChoice[] = [];
         let offset: number | null = 0;
-        while (offset !== null) {
+        const maxPages = 20;
+        let pages = 0;
+        while (offset !== null && pages < maxPages) {
+          pages += 1;
           const res = await irOpsApi.salesDashboard.discoverGhlLocations(offset, 25);
           if (Array.isArray(res.locations)) collected.push(...res.locations);
-          offset = typeof res.nextOffset === "number" ? res.nextOffset : null;
+          const next = typeof res.nextOffset === "number" ? res.nextOffset : null;
+          offset = next !== null && next > offset ? next : null;
         }
         setGhlLocations(collected);
         const locId = (draft?.ghlLocationId ?? newClient.ghlLocationId ?? "").trim();
@@ -491,6 +523,7 @@ export function ClientsPage() {
       const slug = res.slug ?? res.tenant?.slug;
       setAddOpen(false);
       setNewClient(EMPTY_NEW_CLIENT);
+      if (slug) preserveFeedbackForSlugRef.current = slug;
       if (res.customMenuUrl) setMenuLink(res.customMenuUrl);
       setNotice(`Added client ${newClient.displayName.trim()}.`);
       await loadAll(slug);
