@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useCopyAction } from "@/lib/use-copy-action";
 import { IrApiError, irOpsApi } from "../../api/irOps";
 
 export interface ProviderSecretSchema {
@@ -39,7 +40,7 @@ export function ConfigureSecretsDialog({
 }: ConfigureSecretsDialogProps) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
-  const [copiedUri, setCopiedUri] = useState(false);
+  const redirectCopy = useCopyAction();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,7 +48,6 @@ export function ConfigureSecretsDialog({
     if (!open) {
       setValues({});
       setRevealed({});
-      setCopiedUri(false);
       setError(null);
       setSaving(false);
     }
@@ -58,17 +58,6 @@ export function ConfigureSecretsDialog({
   const filledEntries = schema.fields
     .map((f) => [f.key, (values[f.key] ?? "").trim()] as const)
     .filter(([, val]) => val.length > 0);
-
-  const handleCopyRedirect = async () => {
-    if (!schema.redirectUri) return;
-    try {
-      await navigator.clipboard.writeText(schema.redirectUri);
-      setCopiedUri(true);
-      window.setTimeout(() => setCopiedUri(false), 1800);
-    } catch {
-      // Clipboard may be unavailable in non-HTTPS dev contexts
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,10 +140,10 @@ export function ConfigureSecretsDialog({
                 type="button"
                 size="xs"
                 variant="outline"
-                onClick={() => void handleCopyRedirect()}
+                onClick={() => void redirectCopy.copy(schema.redirectUri!)}
               >
-                {copiedUri ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3" />}
-                {copiedUri ? "Copied" : "Copy"}
+                {redirectCopy.copied ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3" />}
+                {redirectCopy.copied ? "Copied" : redirectCopy.failed ? "Copy failed" : "Copy"}
               </Button>
             </div>
           </div>
