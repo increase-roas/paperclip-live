@@ -2,12 +2,20 @@ import { Router, type Request, type Response } from "express";
 import { assertInstanceAdmin } from "../routes/authz.js";
 import { forwardUpstreamJson } from "./upstream-json-forward.js";
 import { resetQuickBooksCache } from "./quickbooks-client.js";
+import {
+  GATEWAY_PROVIDER_SECRETS,
+  putCloudflareWorkerSecrets,
+  resolveCloudflareSecretConfig,
+  validateProviderSecretsPayload,
+  type CloudflareSecretWriterOptions,
+} from "./gateway-secrets.js";
 
 export interface GatewayProxyOptions {
   baseUrl?: string;
   adminKey?: string;
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
+  cloudflare?: CloudflareSecretWriterOptions;
 }
 
 const DEFAULT_GATEWAY_URL = "https://increase-roas-oauth-gateway.increase-roas.workers.dev";
@@ -305,6 +313,54 @@ export function gatewayProxyRoutes(opts?: GatewayProxyOptions) {
       `/api/admin/oauth/${encodeURIComponent(provider)}/${encodeURIComponent(rawAccount)}`,
       "DELETE",
     );
+  });
+
+  router.get("/gateway/admin/secrets/schema", (req, res) => {
+    assertInstanceAdmin(req);
+    const cf = resolveCloudflareSecretConfig(opts?.cloudflare);
+    res.json({
+      ok: true,
+      configured: cf.configured,
+      workerName: cf.workerName,
+      providers: GATEWAY_PROVIDER_SECRETS,
+    });
+  });
+
+  router.put("/gateway/admin/secrets/:provider", async (req, res) => {
+    assertInstanceAdmin(req);
+    const provider = validateParam(
+      req.params.provider,
+      INTEGRATION_PARAM_RE,
+      "provider",
+      res,
+    );
+    if (!provider) return;
+
+    const validated = validateProviderSecretsPayload(
+      provider,
+      (req.body as { secrets?: unknown } | undefined)?.secrets,
+    );
+    if (!validated.ok) {
+      res.status(400).json({ ok: false, error: validated.error });
+      return;
+    }
+
+    const result = await putCloudflareWorkerSecrets(validated.entries, {
+      ...opts?.cloudflare,
+      fetchImpl: opts?.cloudflare?.fetchImpl ?? fetchImpl,
+      timeoutMs: opts?.cloudflare?.timeoutMs ?? timeoutMs,
+    });
+    if (!result.ok) {
+      res.status(result.status).json({ ok: false, error: result.error });
+      return;
+    }
+
+    if (provider === "quickbooks") resetQuickBooksCache();
+    res.json({
+      ok: true,
+      provider,
+      updatedKeys: result.updatedKeys,
+    });
   });
 
   return router;

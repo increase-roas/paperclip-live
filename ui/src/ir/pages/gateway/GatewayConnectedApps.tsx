@@ -40,6 +40,10 @@ import {
   PAPERCLIP_GATEWAY_RETURN_URL,
   type ProviderConnectionStatus,
 } from "./gatewayHelpers";
+import {
+  ConfigureSecretsDialog,
+  type ProviderSecretSchema,
+} from "./ConfigureSecretsDialog";
 
 interface GatewayConnectedAppsProps {
   providers: GatewayProviderSummary[];
@@ -153,6 +157,36 @@ export function GatewayConnectedApps({
     account: GatewayProviderAccount;
   } | null>(null);
   const [feedback, setFeedback] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [secretsMeta, setSecretsMeta] = useState<{
+    configured: boolean;
+    workerName: string;
+    providers: Record<string, ProviderSecretSchema>;
+  }>({
+    configured: false,
+    workerName: "increase-roas-oauth-gateway",
+    providers: {},
+  });
+  const [configuringSchema, setConfiguringSchema] = useState<ProviderSecretSchema | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    irOpsApi.gateway
+      .getSecretsSchema()
+      .then((res) => {
+        if (!active || !res?.ok) return;
+        setSecretsMeta({
+          configured: Boolean(res.configured),
+          workerName: res.workerName || "increase-roas-oauth-gateway",
+          providers: res.providers ?? {},
+        });
+      })
+      .catch(() => {
+        // Older server without secret writer endpoint: keep Configure buttons hidden
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Clear "Opening…" button state if user returns via browser Back (bfcache)
   useEffect(() => {
@@ -558,63 +592,82 @@ export function GatewayConnectedApps({
                     </td>
 
                     <td className="px-4 py-3 text-right align-top">
-                      {row.isGhl || row.connectUrl ? (
-                        row.canConnect && row.connectUrl ? (
-                          row.isGhl ? (
-                            <Button
-                              type="button"
-                              size="xs"
-                              variant={row.status === "needs_connect" ? "default" : "outline"}
-                              asChild
-                            >
-                              <a
-                                href={row.connectUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                      <div className="inline-flex items-center justify-end gap-1.5">
+                        {!row.isGhl && secretsMeta.providers[row.id] ? (
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant={row.status === "not_configured" ? "default" : "ghost"}
+                            onClick={() => setConfiguringSchema(secretsMeta.providers[row.id])}
+                            title={
+                              row.status === "live"
+                                ? `Rotate ${row.label} key on ${secretsMeta.workerName}`
+                                : `Configure ${row.label} credentials on ${secretsMeta.workerName}`
+                            }
+                          >
+                            <KeyRound className="size-3" />
+                            {row.status === "live" ? "Key" : "Configure"}
+                          </Button>
+                        ) : null}
+
+                        {row.isGhl || row.connectUrl ? (
+                          row.canConnect && row.connectUrl ? (
+                            row.isGhl ? (
+                              <Button
+                                type="button"
+                                size="xs"
+                                variant={row.status === "needs_connect" ? "default" : "outline"}
+                                asChild
                               >
-                                {row.connectButtonLabel}
+                                <a
+                                  href={row.connectUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  {row.connectButtonLabel}
+                                  <ExternalLink className="size-3" />
+                                </a>
+                              </Button>
+                            ) : (
+                              <Button
+                                type="button"
+                                size="xs"
+                                variant={row.status === "needs_connect" ? "default" : "outline"}
+                                disabled={launchingId === row.id}
+                                onClick={() => void handleOAuthConnect(row)}
+                              >
+                                {row.multiAccount && row.status === "live" ? (
+                                  <Plus className="size-3" />
+                                ) : null}
+                                {launchingId === row.id ? "Opening…" : row.connectButtonLabel}
                                 <ExternalLink className="size-3" />
-                              </a>
-                            </Button>
+                              </Button>
+                            )
                           ) : (
-                            <Button
-                              type="button"
-                              size="xs"
-                              variant={row.status === "needs_connect" ? "default" : "outline"}
-                              disabled={launchingId === row.id}
-                              onClick={() => void handleOAuthConnect(row)}
-                            >
-                              {row.multiAccount && row.status === "live" ? (
-                                <Plus className="size-3" />
-                              ) : null}
-                              {launchingId === row.id ? "Opening…" : row.connectButtonLabel}
-                              <ExternalLink className="size-3" />
-                            </Button>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-block" tabIndex={0}>
+                                  <Button type="button" size="xs" variant="outline" disabled>
+                                    Connect
+                                  </Button>
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="left" className="max-w-xs">
+                                {row.disabledTooltip ?? "OAuth credentials not yet bound on Gateway."}
+                              </TooltipContent>
+                            </Tooltip>
                           )
-                        ) : (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="inline-block" tabIndex={0}>
-                                <Button type="button" size="xs" variant="outline" disabled>
-                                  Connect
-                                </Button>
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="left" className="max-w-xs">
-                              {row.disabledTooltip ?? "OAuth credentials not yet bound on Gateway."}
-                            </TooltipContent>
-                          </Tooltip>
-                        )
-                      ) : row.status === "live" ? (
-                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                          <Shield className="size-3 text-emerald-400" />
-                          Managed on Gateway
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">
-                          Bind key on Gateway
-                        </span>
-                      )}
+                        ) : row.status === "live" ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                            <Shield className="size-3 text-emerald-400" />
+                            Managed on Gateway
+                          </span>
+                        ) : !secretsMeta.providers[row.id] ? (
+                          <span className="text-xs text-muted-foreground">
+                            Bind key on Gateway
+                          </span>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -623,6 +676,21 @@ export function GatewayConnectedApps({
           )}
         </CardContent>
       </Card>
+
+      <ConfigureSecretsDialog
+        open={configuringSchema !== null}
+        schema={configuringSchema}
+        workerName={secretsMeta.workerName}
+        writerConfigured={secretsMeta.configured}
+        onClose={() => setConfiguringSchema(null)}
+        onSaved={(providerLabel, updatedKeys) => {
+          setFeedback({
+            kind: "ok",
+            text: `Bound ${updatedKeys.join(", ")} for ${providerLabel} on ${secretsMeta.workerName}.`,
+          });
+          onRefresh();
+        }}
+      />
 
       <AlertDialog
         open={pendingDisconnect !== null}
