@@ -73,17 +73,41 @@ describe("quickbooks-client", () => {
 
   it("computes UTC date bounds for 7d, 30d, and month", () => {
     expect(quickBooksPeriodRange("7d", pinnedNow)).toEqual({
-      startDate: "2026-11-18",
+      startDate: "2026-11-19",
       endDate: "2026-11-25",
     });
     expect(quickBooksPeriodRange("30d", pinnedNow)).toEqual({
-      startDate: "2026-10-26",
+      startDate: "2026-10-27",
       endDate: "2026-11-25",
     });
     expect(quickBooksPeriodRange("month", pinnedNow)).toEqual({
       startDate: "2026-11-01",
       endDate: "2026-11-25",
     });
+  });
+
+  it.each([
+    ["7d", "2026-02-23"],
+    ["30d", "2026-01-31"],
+  ] as const)("requests exactly %s calendar dates including today", async (period, startDate) => {
+    const fetchMock = vi.fn<typeof fetch>(async () =>
+      new Response(JSON.stringify({ ok: true, data: SAMPLE_PNL_CASH }), { status: 200 }));
+    await readAgencyQuickBooksFinancials(period, {
+      baseUrl: "https://gw.example",
+      token: "paperclip-test-key",
+      fetchImpl: fetchMock,
+      now: () => new Date("2026-03-01T00:01:00.000Z"),
+      bypassCache: true,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    for (const [, init] of fetchMock.mock.calls) {
+      const body = JSON.parse(String(init?.body));
+      if (body.path === "/reports/ProfitAndLoss") {
+        expect(body.query).toMatchObject({ start_date: startDate, end_date: "2026-03-01" });
+      } else {
+        expect(body.query.query).toContain(`TxnDate >= '${startDate}' AND TxnDate <= '2026-03-01'`);
+      }
+    }
   });
 
   it("parses QuickBooks ProfitAndLoss across Gateway and Composio envelopes", () => {

@@ -1,6 +1,6 @@
 import { REDACTED_VALUE, redactText } from "./redaction.js";
 
-const SECRET_NAME = String.raw`(?:x[-_])?(?:authorization|(?:set[-_])?cookie|api[-_]?key|(?:client[-_])?secret|passw(?:or)?d|(?:(?:access|refresh|session|auth)[-_])?token|credential[s]?)`;
+const SECRET_NAME = String.raw`(?:x[-_])?(?:authorization|(?:set[-_])?cookie|api[-_]?key|private[-_]?key|session[-_]?id|(?:client[-_])?secret|passw(?:or)?d|(?:(?:access|refresh|session|auth)[-_])?token|credential[s]?)`;
 const SECRET_KEY = new RegExp(`^${SECRET_NAME}$`, "i");
 const SECRET_ASSIGNMENT = new RegExp(
   String.raw`\b(${SECRET_NAME}["']?\s*[:=]\s*)(?!\[REDACTED\])(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[\[{][\s\S]*|[^\s&,;})\]"']+)`,
@@ -11,6 +11,7 @@ const CREDENTIAL = /\b(?:(?:sk|ops|op)[-_]|gh[op]_)[a-z\d_.-]+/gi;
 const AUTH_SCHEME = /\b((?:Bearer|Basic)[ \t]+)(?!\[REDACTED\])[^\s,"';)\]}]+/gi;
 const URL_USER_INFO = /(\b[a-z][a-z\d+.-]*:\/\/)[^\s/?#]+@/gi;
 const URL_PARAM = /([?&])([^=?&\s]+)=([^&#\r\n]*)/g;
+const SECRET_PATH_NAMESPACE = /^(?:invites?|board-claim)$/i;
 
 function decodeEscapes(value: string): string {
   return value
@@ -24,12 +25,36 @@ function decodeEscapes(value: string): string {
     .replace(/\\(?:u00|x)([\da-f]{2})/gi, (_, hex: string) => String.fromCharCode(Number.parseInt(hex, 16)));
 }
 
+function redactSecretPaths(value: string): string {
+  return value.replace(/(?:\/|%(?:25){0,3}2f|\\(?:u00|x)2f)(?:\\(?:u00|x)[\da-f]{2}|[^\s?#"'<>\\])*/gi, (path) => {
+    const segments = path.split("/");
+    for (let index = 0; index < segments.length; index++) {
+      let segment = segments[index];
+      for (let pass = 0; pass < 4; pass++) {
+        const decoded = decodeEscapes(segment);
+        if (decoded === segment) break;
+        segment = decoded;
+      }
+      const decodedSegments = segment.split("/");
+      const namespace = decodedSegments.findIndex((part) => SECRET_PATH_NAMESPACE.test(part));
+      if (namespace >= 0 && namespace < decodedSegments.length - 1) {
+        // An encoded slash can pack the token into the namespace segment.
+        segments[index] = [...decodedSegments.slice(0, namespace + 1), ":token"].join("/");
+      } else {
+        segments[index] = segment;
+        if (namespace >= 0 && index + 1 < segments.length) segments[++index] = ":token";
+      }
+    }
+    return segments.join("/");
+  });
+}
+
 function redactParam(match: string, separator: string, key: string): string {
   return SECRET_KEY.test(decodeEscapes(key)) ? `${separator}${key}=${REDACTED_VALUE}` : match;
 }
 
 export function redactIncidentText(value: string, limit = 32_768): string {
-  return redactText(decodeEscapes(value.slice(0, 32_768).replace(URL_PARAM, redactParam))
+  return redactText(decodeEscapes(redactSecretPaths(value.slice(0, 32_768).replace(URL_PARAM, redactParam)))
     .replace(URL_PARAM, redactParam)
     .replace(URL_USER_INFO, `$1${REDACTED_VALUE}@`)
     .replace(HEADER_LINE, `$1${REDACTED_VALUE}`)

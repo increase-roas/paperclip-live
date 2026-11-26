@@ -734,10 +734,9 @@ function resolveHumanEmployeesTile(
   }
   if (tileId === "revenue-per-fte") {
     const qboRevenue = qbo?.accrualRevenueUsd ?? qbo?.cashCollectedUsd ?? null;
-    const salesUsd =
-      qboRevenue !== null && qboRevenue > 0 ? qboRevenue : extractRevenueUsd(capital, period);
+    const salesUsd = qboRevenue ?? extractRevenueUsd(capital, period);
     const observedAt =
-      qboRevenue !== null && qboRevenue > 0 && qbo
+      qboRevenue !== null && qbo
         ? qbo.observedAt
         : capital?.generatedAt ?? roster.observedAt;
     if (salesUsd !== null && active.length > 0) {

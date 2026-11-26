@@ -284,6 +284,42 @@ describe("teamHubHelpers", () => {
     ]);
   });
 
+  it("uses the fulfillment aggregate rather than the capped client table, including zero and older responses", () => {
+    const board = {
+      clients: Array.from({ length: 10 }, (_, index) => ({ clientKey: `client-${index}` })),
+      openClientTasks: { total: 11, unassigned: 0 },
+      onboarding: { openSteps: 0 },
+      retention: { churnMonthly: { value: null, target: "< 3%" } },
+      clientsWithOpenWork: 11,
+    } as unknown as DashboardFulfillmentBoard;
+    const clientKpi = (value: DashboardFulfillmentBoard) =>
+      selectFulfillmentKpis(value).find((kpi) => kpi.id === "clients-with-open-work");
+
+    expect(clientKpi(board)?.value).toBe("11");
+    expect(clientKpi({ ...board, clientsWithOpenWork: 0 })?.value).toBe("0");
+    const { clientsWithOpenWork: _count, ...olderBoard } = board;
+    expect(clientKpi(olderBoard)).toMatchObject({ value: "—", tone: "muted", detail: "Awaiting total count" });
+  });
+
+  it("counts a pending budget override once while retaining its budget subtotal", () => {
+    const summary = {
+      agents: { active: 0, running: 0, paused: 1, error: 0 },
+      tasks: { inProgress: 0, open: 0, blocked: 0 },
+      costs: { monthSpendCents: 0, monthBudgetCents: 0, monthUtilizationPercent: 0 },
+      pendingApprovals: 1,
+      budgets: { pendingApprovals: 1 },
+    } as DashboardSummary;
+    const pendingKpi = (value: DashboardSummary) =>
+      selectOperationsKpis(value).find((kpi) => kpi.id === "pending-approvals");
+
+    expect(pendingKpi(summary)).toMatchObject({
+      value: "1", detail: "1 budget overrides awaiting review", tone: "warning",
+    });
+    expect(pendingKpi({ ...summary, pendingApprovals: 2 })?.value).toBe("2");
+    expect(pendingKpi({ ...summary, pendingApprovals: 0, budgets: { ...summary.budgets, pendingApprovals: 0 } }))
+      .toMatchObject({ value: "0", tone: "default" });
+  });
+
   it("extracts compact 4-card headline KPIs from existing live dashboard payloads without recomputing", () => {
     const marketingBoard = {
       tiles: [
@@ -317,6 +353,7 @@ describe("teamHubHelpers", () => {
 
     const fulfillmentBoard = {
       openClientTasks: { total: 4, unassigned: 1 },
+      clientsWithOpenWork: 2,
       clients: [{ clientKey: "c1" }, { clientKey: "c2" }],
       onboarding: { openSteps: 2 },
       retention: { churnMonthly: { value: null, target: "< 3%" } },

@@ -235,6 +235,7 @@ export function dashboardFulfillmentService(db: Db) {
         companyId,
         generatedAt: now.toISOString(),
         retention: retentionWithoutSources(),
+        clientsWithOpenWork: clientById.size,
         clients: clients.slice(0, ITEM_LIMIT),
         openClientTasks: {
           total: openIssueRows.length - unassigned,

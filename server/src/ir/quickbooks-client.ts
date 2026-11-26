@@ -85,7 +85,7 @@ export function quickBooksPeriodRange(
     return { startDate: formatDayUtc(start), endDate };
   }
   const days = period === "7d" ? 7 : 30;
-  const start = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  const start = new Date(now.getTime() - (days - 1) * 24 * 60 * 60 * 1000);
   return { startDate: formatDayUtc(start), endDate };
 }
 
