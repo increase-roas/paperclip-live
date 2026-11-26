@@ -109,7 +109,8 @@ export function ConfigureSecretsDialog({
           <DialogDescription>
             Credentials are pushed directly to Cloudflare Worker{" "}
             <span className="font-mono text-foreground">{workerName}</span> as encrypted
-            secrets and are never stored in Paperclip&apos;s database.
+            secrets and are never stored in Paperclip&apos;s database. Leading and trailing
+            spaces are trimmed; leave a field blank to keep its current value.
           </DialogDescription>
         </DialogHeader>
 
