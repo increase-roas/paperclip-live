@@ -19,7 +19,7 @@ export const OWN_BRANDS = [
   { code: "SSA", slug: "start-scale-automate", name: "Start Scale Automate" },
   { code: "PSL", slug: "powersports-launch", name: "Powersports Launch" },
   { code: "NS", slug: "natural-sanitation", name: "Natural Sanitation" },
-  { code: "DL", slug: "dynamite-lights", name: "Dynamite Lights" },
+  { code: "DYNAMITE", slug: "dynamite-lights", name: "Dynamite Lights" },
 ] as const;
 
 export type OwnBrandCode = (typeof OWN_BRANDS)[number]["code"];

@@ -92,7 +92,7 @@ describe("ir-metrics client portfolio", () => {
 
 describe("ir-metrics registry", () => {
   it("locks the six own brands and keeps Revstead out", () => {
-    expect(OWN_BRANDS.map((brand) => brand.code)).toEqual(["IR", "HTL", "SSA", "PSL", "NS", "DL"]);
+    expect(OWN_BRANDS.map((brand) => brand.code)).toEqual(["IR", "HTL", "SSA", "PSL", "NS", "DYNAMITE"]);
     expect(isOwnBrandCode("HTL")).toBe(true);
     expect(isOwnBrandCode("REVSTEAD")).toBe(false);
   });
