@@ -63,9 +63,6 @@ export function describeCron(expression: string | null | undefined): string | nu
   if (/^\d+$/.test(minute) && /^\d+$/.test(hour) && month === "*") {
     const time = describeTime(minute, hour);
     if (!time) return null;
-    if (dom === "*" && (dow === "*" || dow === "?")) {
-      return `Every day at ${time}`;
-    }
     if (dom === "*") {
       const dowText = describeDayOfWeek(dow);
       if (dowText) return `${dowText[0].toUpperCase()}${dowText.slice(1)} at ${time}`;
