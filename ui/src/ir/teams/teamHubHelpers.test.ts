@@ -172,10 +172,11 @@ describe("teamHubHelpers", () => {
     ).toEqual(["marketing", "sales", "fulfillment"]);
 
     const edited = buildNextAgentDepartmentsMetadata(makeAgent({
+      id: "edited-1", name: "Ads Auditor", urlKey: "ads-auditor",
       metadata: { departments: ["sales"], teams: ["fulfillment"], tags: ["marketing", "ads", "priority:high"] },
     }), ["fulfillment"]);
     expect(edited).toEqual({ departments: ["fulfillment"], tags: ["priority:high"] });
-    expect(matchAgentTeams(makeAgent({ metadata: edited }))).toEqual(["fulfillment"]);
+    expect(matchAgentTeams(makeAgent({ id: "edited-1", name: "Ads Auditor", urlKey: "ads-auditor", metadata: edited }))).toEqual(["fulfillment"]);
 
     // Rejects writing empty or all-invalid departments
     expect(() =>
