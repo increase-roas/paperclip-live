@@ -41,6 +41,9 @@ jobs:
           node-version: 24
           cache: pnpm
 
+      - name: Check paid eval entrypoint safety
+        run: node --test scripts/__tests__/runner-live-eval-safety.test.mjs
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
