@@ -1,8 +1,12 @@
 import http from "node:http";
+import { Writable } from "node:stream";
 import express from "express";
+import pino from "pino";
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
 import { errorHandler } from "../../middleware/error-handler.js";
+import { createHttpLogger } from "../../middleware/logger.js";
+import { HTTP_LOG_REDACT_PATHS } from "../../middleware/http-log-redaction.js";
 import { gatewayProxyRoutes, type GatewayProxyOptions } from "../gateway-proxy.js";
 
 const ADMIN_ACTOR = {
@@ -43,6 +47,30 @@ function jsonFetch(body: unknown = { ok: true }, status = 200) {
 }
 
 describe("gatewayProxyRoutes", () => {
+  it.each([
+    { actor: ADMIN_ACTOR, status: 502 },
+    { actor: NON_ADMIN_ACTOR, status: 403 },
+  ])("does not log submitted secrets when setup returns $status", async ({ actor, status }) => {
+    const canary = "private-worker-credential-canary";
+    const chunks: string[] = [];
+    const stream = new Writable({ write(chunk, _encoding, callback) { chunks.push(chunk.toString()); callback(); } });
+    const app = express();
+    app.use(createHttpLogger(pino({ redact: [...HTTP_LOG_REDACT_PATHS] }, stream)));
+    app.use(makeApp(actor, { cloudflare: {
+      apiToken: "cloudflare-test-token",
+      accountId: "test-account",
+      workerName: "test-worker",
+      fetchImpl: jsonFetch({ success: false }, 500),
+    } }));
+
+    await request(app).put("/api/gateway/admin/secrets/quickbooks")
+      .send({ secrets: { QBO_CLIENT_ID: "test-client-id", QBO_CLIENT_SECRET: canary } })
+      .expect(status);
+
+    expect(chunks.join("")).not.toContain(canary);
+    expect(JSON.parse(chunks.join("").trim()).reqBody).toBe("[REDACTED]");
+  });
+
   it("enforces assertInstanceAdmin on every route", async () => {
     const fetchMock = jsonFetch();
     const nonAdminApp = makeApp(NON_ADMIN_ACTOR, {

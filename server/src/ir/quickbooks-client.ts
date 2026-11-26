@@ -451,8 +451,10 @@ export async function readAgencyQuickBooksFinancials(
   const fetchImpl = opts.fetchImpl ?? fetch;
   const now = (opts.now ?? (() => new Date()))();
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const configuredComposioAccountId = (process.env.COMPOSIO_QUICKBOOKS_ACCOUNT_ID ?? "").trim();
+  const configuredComposioUserId = (process.env.COMPOSIO_QUICKBOOKS_USER_ID ?? "").trim();
   const tokenFp = createHash("sha256").update(token).digest("hex").slice(0, 16);
-  const cacheKey = `${baseUrl}|${period}|${tokenFp}`;
+  const cacheKey = JSON.stringify([baseUrl, period, tokenFp, configuredComposioAccountId, configuredComposioUserId]);
 
   if (!opts.bypassCache) {
     const cached = cache.get(cacheKey);
@@ -557,8 +559,8 @@ export async function readAgencyQuickBooksFinancials(
   // 2. Graceful fallback: Gateway's Composio bridge until native QuickBooks is connected
   // Auto-discover active QuickBooks connected_account_id + user_id from Composio v3 so
   // project-scoped API keys execute against the connected QuickBooks account cleanly.
-  let composioAccountId = (process.env.COMPOSIO_QUICKBOOKS_ACCOUNT_ID ?? "").trim();
-  let composioUserId = (process.env.COMPOSIO_QUICKBOOKS_USER_ID ?? "").trim();
+  let composioAccountId = configuredComposioAccountId;
+  let composioUserId = configuredComposioUserId;
   if (!composioAccountId) {
     const accountsRes = await callGatewayProvider(
       baseUrl,
@@ -571,29 +573,28 @@ export async function readAgencyQuickBooksFinancials(
         query: {
           toolkit_slugs: "quickbooks",
           statuses: "ACTIVE",
+          ...(composioUserId ? { user_ids: composioUserId } : {}),
         },
       },
       fetchImpl,
       timeoutMs,
     );
-    const items =
-      accountsRes.ok && isRecord(accountsRes.body?.data) && Array.isArray(accountsRes.body.data.items)
-        ? accountsRes.body.data.items
-        : [];
-    // Check toolkit and status here too, in case the gateway drops the query filter.
-    const firstActive = items.find(
-      (item) =>
-        isRecord(item) &&
-        typeof item.id === "string" &&
-        String(item.status ?? "").toUpperCase() === "ACTIVE" &&
-        (isRecord(item.toolkit) ? item.toolkit.slug : item.toolkit_slug) === "quickbooks",
-    );
-    if (isRecord(firstActive)) {
-      composioAccountId = typeof firstActive.id === "string" ? firstActive.id.trim() : "";
-      if (!composioUserId && typeof firstActive.user_id === "string") {
-        composioUserId = firstActive.user_id.trim();
-      }
-    }
+    const listing = accountsRes.ok && isRecord(accountsRes.body?.data) ? accountsRes.body.data : null;
+    // A partial list cannot establish uniqueness. An explicit account ID is
+    // required when discovery is ambiguous, incomplete, or unavailable.
+    if (!listing || !Array.isArray(listing.items) || listing.next_cursor) return null;
+    const eligible = listing.items.flatMap((item) => {
+      if (!isRecord(item) || typeof item.id !== "string" || typeof item.user_id !== "string") return [];
+      const toolkit = isRecord(item.toolkit) ? item.toolkit.slug : item.toolkit_slug;
+      if (String(item.status ?? "").toUpperCase() !== "ACTIVE" || toolkit !== "quickbooks") return [];
+      const id = item.id.trim();
+      const userId = item.user_id.trim();
+      if (!id || !userId || (composioUserId && userId !== composioUserId)) return [];
+      return [{ id, userId }];
+    });
+    if (eligible.length !== 1) return null;
+    composioAccountId = eligible[0].id;
+    composioUserId = eligible[0].userId;
   }
 
   const composioAuthBody: Record<string, string> = {};

@@ -69,7 +69,11 @@ const SAMPLE_PNL_CASH = {
 describe("quickbooks-client", () => {
   beforeEach(() => {
     resetQuickBooksCache();
+    vi.stubEnv("COMPOSIO_QUICKBOOKS_ACCOUNT_ID", "");
+    vi.stubEnv("COMPOSIO_QUICKBOOKS_USER_ID", "");
   });
+
+  afterEach(() => vi.unstubAllEnvs());
 
   it("computes UTC date bounds for 7d, 30d, and month", () => {
     expect(quickBooksPeriodRange("7d", pinnedNow)).toEqual({
@@ -187,12 +191,16 @@ describe("quickbooks-client", () => {
   });
 
   it("gracefully falls back to Gateway composio bridge when native quickbooks is not connected yet", async () => {
-    const fetchMock = vi.fn(async (url: string | URL | Request) => {
+    const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
       const target = String(url);
       if (target.includes("/api/providers/quickbooks/call")) {
         return new Response(JSON.stringify({ error: "provider_not_connected" }), { status: 503 });
       }
       if (target.includes("/api/providers/composio/call")) {
+        const payload = JSON.parse(String(init?.body));
+        if (payload.path === "/connected_accounts") {
+          return new Response(JSON.stringify({ ok: true, data: { items: [{ id: "agency-account", user_id: "agency-user", status: "ACTIVE", toolkit: { slug: "quickbooks" } }] } }));
+        }
         return new Response(
           JSON.stringify({ ok: true, data: { response_data: SAMPLE_PNL_CASH } }),
           { status: 200 },
@@ -214,6 +222,87 @@ describe("quickbooks-client", () => {
       cashCollectedUsd: 60000,
       grossMarginPercent: 75,
     });
+    for (const [, init] of fetchMock.mock.calls) {
+      const payload = JSON.parse(String(init?.body));
+      if (payload.path?.startsWith("/tools/execute/")) {
+        expect(payload.body).toMatchObject({ connected_account_id: "agency-account", user_id: "agency-user" });
+      }
+    }
+  });
+
+  it.each([
+    { name: "multiple businesses", ids: ["client-account", "agency-account"], user: "", expected: null },
+    { name: "configured user after another business", ids: ["client-account", "agency-account"], user: "agency-user", expected: "agency-account" },
+    { name: "no account for configured user", ids: ["client-account"], user: "agency-user", expected: null },
+    { name: "multiple accounts for configured user", ids: ["agency-account", "agency-second"], user: "agency-user", expected: null },
+    { name: "no active accounts", ids: [], user: "", expected: null },
+    { name: "an incomplete first page", ids: ["agency-account"], user: "", nextCursor: "more-accounts", expected: null },
+    { name: "an inactive connection", ids: ["agency-account"], user: "", status: "EXPIRED", expected: null },
+    { name: "another toolkit", ids: ["agency-account"], user: "", toolkit: "gmail", expected: null },
+  ])("binds Composio reports safely with $name", async ({ ids, user, expected, nextCursor, status, toolkit }) => {
+    vi.stubEnv("COMPOSIO_QUICKBOOKS_USER_ID", user);
+    const executed: unknown[] = [];
+    const fetchMock = vi.fn<typeof fetch>(async (url, init) => {
+      const payload = JSON.parse(String(init?.body));
+      if (String(url).includes("/api/providers/quickbooks/call")) return new Response("{}", { status: 503 });
+      if (payload.path === "/connected_accounts") {
+        return new Response(JSON.stringify({ ok: true, data: {
+          items: ids.map((id) => ({ id, user_id: id.startsWith("agency-") ? "agency-user" : "client-user", status: status ?? "ACTIVE", toolkit: { slug: toolkit ?? "quickbooks" } })),
+          next_cursor: nextCursor ?? null,
+        } }));
+      }
+      executed.push(payload.body);
+      return new Response(JSON.stringify({ ok: true, data: { response_data: SAMPLE_PNL_CASH } }));
+    });
+
+    const result = await readAgencyQuickBooksFinancials("30d", {
+      baseUrl: "https://gw.example",
+      token: "account-selection-test",
+      fetchImpl: fetchMock,
+      now: () => pinnedNow,
+      bypassCache: true,
+    });
+
+    if (expected) {
+      expect(result?.source).toBe("quickbooks_composio");
+      expect(executed).toHaveLength(2);
+      for (const body of executed) expect(body).toMatchObject({ connected_account_id: expected, user_id: "agency-user" });
+    } else {
+      expect(result).toBeNull();
+      expect(executed).toHaveLength(0);
+    }
+  });
+
+  it("uses explicit account bindings and invalidates cached reports when those bindings change", async () => {
+    vi.stubEnv("COMPOSIO_QUICKBOOKS_ACCOUNT_ID", "agency-account");
+    vi.stubEnv("COMPOSIO_QUICKBOOKS_USER_ID", "agency-user");
+    const executed: unknown[] = [];
+    const fetchMock = vi.fn<typeof fetch>(async (url, init) => {
+      const payload = JSON.parse(String(init?.body));
+      if (String(url).includes("/api/providers/quickbooks/call")) return new Response("{}", { status: 503 });
+      expect(payload.path).toBe("/tools/execute/QUICKBOOKS_GET_PROFIT_AND_LOSS_REPORT");
+      executed.push(payload.body);
+      return new Response(JSON.stringify({ ok: true, data: { response_data: SAMPLE_PNL_CASH } }));
+    });
+    const options = { baseUrl: "https://gw.example", token: "binding-cache-test", fetchImpl: fetchMock, now: () => pinnedNow };
+
+    expect((await readAgencyQuickBooksFinancials("30d", options))?.source).toBe("quickbooks_composio");
+    expect((await readAgencyQuickBooksFinancials("30d", options))?.source).toBe("quickbooks_composio");
+    expect(executed).toHaveLength(2);
+
+    vi.stubEnv("COMPOSIO_QUICKBOOKS_ACCOUNT_ID", "agency-second");
+    expect((await readAgencyQuickBooksFinancials("30d", options))?.source).toBe("quickbooks_composio");
+    vi.stubEnv("COMPOSIO_QUICKBOOKS_USER_ID", "agency-second-user");
+    expect((await readAgencyQuickBooksFinancials("30d", options))?.source).toBe("quickbooks_composio");
+    expect(executed).toHaveLength(6);
+    expect(executed.slice(2, 4)).toEqual([
+      expect.objectContaining({ connected_account_id: "agency-second", user_id: "agency-user" }),
+      expect.objectContaining({ connected_account_id: "agency-second", user_id: "agency-user" }),
+    ]);
+    expect(executed.slice(4)).toEqual([
+      expect.objectContaining({ connected_account_id: "agency-second", user_id: "agency-second-user" }),
+      expect.objectContaining({ connected_account_id: "agency-second", user_id: "agency-second-user" }),
+    ]);
   });
 
   describe("composio connected account discovery", () => {
@@ -281,13 +370,10 @@ describe("quickbooks-client", () => {
       }
     });
 
-    it("still returns the fallback without account ids when discovery fails", async () => {
+    it("does not execute reports without an account when discovery fails", async () => {
       const { fetchImpl, calls } = composioMock(new Response("{}", { status: 503 }));
-      expect(await read(fetchImpl)).toMatchObject({ source: "quickbooks_composio", cashCollectedUsd: 60000 });
-      for (const body of executeBodies(calls)) {
-        expect(body).not.toHaveProperty("connected_account_id");
-        expect(body).not.toHaveProperty("user_id");
-      }
+      expect(await read(fetchImpl)).toBeNull();
+      expect(executeBodies(calls)).toEqual([]);
     });
 
     it("ignores accounts that are not active QuickBooks accounts", async () => {

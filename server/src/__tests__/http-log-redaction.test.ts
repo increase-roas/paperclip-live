@@ -22,6 +22,57 @@ it("redacts a routine caller run token on ordinary HTTP routes", async () => {
 });
 
 describe("HTTP logger redaction", () => {
+  it.each([200, 400, 403, 500, 502])("keeps Gateway setup content out of %i logs with and without error context", async (status) => {
+    const canary = "private-gateway-setup-canary";
+    const chunks: string[] = [];
+    const stream = new Writable({ write(chunk, _encoding, callback) { chunks.push(chunk.toString()); callback(); } });
+    for (const provider of ["quickbooks", "unknown"]) {
+      for (const withContext of [false, true]) {
+        const app = express();
+        app.use(createHttpLogger(pino({ redact: [...HTTP_LOG_REDACT_PATHS] }, stream)));
+        app.use(express.json());
+        app.use((req, res) => {
+          if (status >= 400) {
+            Object.assign(res, {
+              err: new Error(canary),
+              ...(withContext ? { __errorContext: { error: { message: canary }, reqBody: req.body, reqParams: req.params } } : {}),
+            });
+          }
+          res.setHeader("x-provider-prose", canary);
+          res.status(status).end();
+        });
+        await request(app)
+          .put(`/API/GATEWAY/ADMIN/SECRETS/${provider}`)
+          .query({ unexpected: canary })
+          .set("x-provider-prose", canary)
+          .send({ secrets: { QBO_CLIENT_SECRET: canary, futureKey: canary }, unexpected: canary })
+          .expect(status);
+      }
+    }
+    expect(chunks.join("")).not.toContain(canary);
+    const logs = chunks.flatMap((chunk) => chunk.trim().split("\n").map((line) => JSON.parse(line)));
+    expect(logs).toHaveLength(4);
+    for (const log of logs) {
+      expect(log.req.url).toBe("/api/gateway/admin/secrets/:provider");
+      if (status >= 400) expect(log.reqBody).toBe("[REDACTED]");
+    }
+  });
+
+  it("sanitizes Gateway setup parser errors before the route runs", async () => {
+    const canary = "private-gateway-parser-canary";
+    const chunks: string[] = [];
+    const stream = new Writable({ write(chunk, _encoding, callback) { chunks.push(chunk.toString()); callback(); } });
+    const app = express();
+    app.use(createHttpLogger(pino({ redact: [...HTTP_LOG_REDACT_PATHS] }, stream)));
+    app.use(express.json());
+    app.use(errorHandler);
+    await request(app).put("/api/gateway/admin/secrets/quickbooks")
+      .set("content-type", "application/json")
+      .send(`{"secrets": {"QBO_CLIENT_SECRET": "${canary}"}`);
+    expect(chunks.join("")).not.toContain(canary);
+    expect(JSON.parse(chunks.join("").trim()).reqBody).toBe("[REDACTED]");
+  });
+
   it.each([200, 400, 500])("keeps connector and observability credentials out of %i logs", async status => {
     const canaries = ["configuration-canary", "signing-canary", "client-canary", "bot-canary", "oauth-code-canary", "provider-echo-canary"];
     const chunks: string[] = [];
