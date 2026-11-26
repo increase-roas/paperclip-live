@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ShieldCheck } from "lucide-react";
 import { IrApiError, irSystemMapApi } from "../api/irOps";
 import { HealthChip } from "../pages/system-map/HealthChip";
-import type { Tone } from "../pages/system-map/systemMapHelpers";
+import { formatCheckName, type Tone } from "../pages/system-map/systemMapHelpers";
 import { proofGateDisabledStatuses, proofGateState, type ProofGateState } from "./proofGate";
 
 /** Live proof-gate state for an issue's `proof:<check>` label (queries only when one exists). */
@@ -27,7 +27,8 @@ export function IssueProofCheckBadge({ state }: { state: ProofGateState }) {
   if (state.kind === "none") return null;
   let tone: Tone = "muted";
   let text = "checking…";
-  let title = `Closing needs proof check "${state.key}" to pass.`;
+  const name = formatCheckName(state.key);
+  let title = `Closing needs proof check "${name}" to pass.`;
   if (state.kind === "hidden") text = "status visible to instance admins";
   if (state.kind === "checked") {
     tone = state.allowed ? "ok" : "bad";
@@ -38,7 +39,7 @@ export function IssueProofCheckBadge({ state }: { state: ProofGateState }) {
     <span title={title} data-testid="issue-proof-check-badge">
       <HealthChip tone={tone}>
         <ShieldCheck className="size-3" />
-        Proof: {state.key} · {text}
+        Proof: {name} · {text}
       </HealthChip>
     </span>
   );

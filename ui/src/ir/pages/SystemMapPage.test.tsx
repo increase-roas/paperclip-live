@@ -38,6 +38,7 @@ const MAP: SystemMapResponse = {
       checks: [
         { key: "gateway", status: "green", anomalies: [] },
         { key: "db_feeds", status: "yellow", anomalies: ["sales_dashboard_snapshots_fail:401"] },
+        { key: "hermes", status: "red", anomalies: ["hermes_gateway:unknown"] },
       ],
       error: null,
     },
@@ -140,7 +141,9 @@ describe("SystemMapPage", () => {
     expect(container.querySelector("[role=alert]")?.textContent).toContain("Health data is stale");
     expect(container.querySelector('[data-testid="host-paperclip-vps"]')?.textContent).toContain("Down");
     expect(text).toContain("sales_dashboard_snapshots_fail:401");
-    expect(text).not.toMatch(/Jarvis|Hermes dashboard|ticket/i);
+    expect(text).toContain("Javar profiles");
+    expect(text).toContain("javar_gateway:unknown");
+    expect(text).not.toMatch(/Jarvis|Hermes|ticket/i);
     expect(fixture.gbrainSkeleton).not.toHaveBeenCalled();
   });
 

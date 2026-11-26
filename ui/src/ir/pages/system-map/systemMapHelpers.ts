@@ -62,8 +62,26 @@ export function ageSecondsSince(iso: string | null, now: Date = new Date()): num
   return Number.isFinite(parsed) ? Math.max(0, Math.round((now.getTime() - parsed) / 1000)) : null;
 }
 
+const CHECK_LABELS: Record<string, string> = {
+  health: "Service health",
+  hermes: "Javar profiles",
+  paperclip: "Paperclip",
+  gateway: "OAuth Gateway",
+  git_drift: "Git drift",
+  crons: "Scheduled jobs",
+  jev_audits: "Jev audits",
+  infra: "Servers and backups",
+  errors_spend: "Errors and spend",
+  db_feeds: "Databases and feeds",
+};
+
 export function formatCheckName(key: string): string {
-  return key.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+  return CHECK_LABELS[key] ?? key.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+}
+
+/** Diagnostic text as shown in the UI: one agent name everywhere (Javar). */
+export function displayDiagnostic(text: string): string {
+  return text.replace(/hermes/gi, "javar");
 }
 
 export type DefinitionState =

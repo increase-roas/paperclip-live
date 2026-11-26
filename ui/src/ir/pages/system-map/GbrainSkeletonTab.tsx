@@ -236,7 +236,7 @@ export function GbrainSkeletonTab({ data }: { data: GbrainSkeletonResponse }) {
                   <li key={definition.slug} className="flex flex-col gap-1 py-2 first:pt-0 last:pb-0" data-testid={`definition-${definition.slug}`}>
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="text-sm text-foreground">
-                        {definition.term}
+                        {definition.title}
                         {definition.brands.length > 0 ? (
                           <span className="ml-2 font-mono text-xs text-muted-foreground">{definition.brands.join(" ")}</span>
                         ) : null}

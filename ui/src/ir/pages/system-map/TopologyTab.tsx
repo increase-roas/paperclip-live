@@ -2,7 +2,7 @@ import { AlertTriangle, Server } from "lucide-react";
 import type { SystemMapResponse } from "@paperclipai/shared/ir-system-map";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { HealthChip } from "./HealthChip";
-import { ageSecondsSince, formatAge, formatCheckName, healthLabel, healthTone } from "./systemMapHelpers";
+import { ageSecondsSince, displayDiagnostic, formatAge, formatCheckName, healthLabel, healthTone } from "./systemMapHelpers";
 
 export function TopologyTab({ data }: { data: SystemMapResponse }) {
   const { feed, freshness } = data;
@@ -56,7 +56,7 @@ export function TopologyTab({ data }: { data: SystemMapResponse }) {
                   <ul className="flex flex-col gap-2">
                     {services.map((service) => (
                       <li key={service.key} className="flex items-center justify-between gap-3 text-sm">
-                        <span className="min-w-0 truncate text-foreground">{service.label}</span>
+                        <span className="min-w-0 truncate text-foreground">{displayDiagnostic(service.label)}</span>
                         <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
                           {service.latencyMs !== null ? <span className="font-mono">{service.latencyMs} ms</span> : null}
                           <HealthChip tone={healthTone(service.status)}>{healthLabel(service.status)}</HealthChip>
@@ -86,7 +86,7 @@ export function TopologyTab({ data }: { data: SystemMapResponse }) {
                     <HealthChip tone={healthTone(check.status)}>{healthLabel(check.status)}</HealthChip>
                   </div>
                   {check.anomalies.length > 0 ? (
-                    <p className="break-words font-mono text-xs text-muted-foreground">{check.anomalies.join(" · ")}</p>
+                    <p className="break-words font-mono text-xs text-muted-foreground">{check.anomalies.map(displayDiagnostic).join(" · ")}</p>
                   ) : null}
                 </li>
               ))}

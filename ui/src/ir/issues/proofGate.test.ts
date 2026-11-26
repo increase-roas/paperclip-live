@@ -25,7 +25,7 @@ describe("proofGateState", () => {
       proofGateState({ labels, data: undefined, loading: false, errorStatus: 502 }),
       proofGateState({ labels, data: { ...checks("pass"), freshness: { ...fresh, stale: true } }, loading: false, errorStatus: null }),
     ]) {
-      expect(proofGateDisabledStatuses(state)?.done).toMatch(/Proof check "gateway" must pass/);
+      expect(proofGateDisabledStatuses(state)?.done).toMatch(/Proof check "OAuth Gateway" must pass/);
     }
   });
 

@@ -3,6 +3,7 @@ import {
   requiredProofCheckFromLabels,
   type ProofChecksResponse,
 } from "@paperclipai/shared/ir-system-map";
+import { formatCheckName } from "../pages/system-map/systemMapHelpers";
 
 export type ProofGateState =
   | { kind: "none" }
@@ -35,5 +36,5 @@ export function proofGateDisabledStatuses(state: ProofGateState): Partial<Record
   if (state.kind === "none" || state.kind === "hidden") return undefined;
   if (state.kind === "checked" && state.allowed) return undefined;
   const why = state.kind === "loading" ? "checking" : state.status;
-  return { done: `Proof check "${state.key}" must pass before this issue can close (now: ${why}).` };
+  return { done: `Proof check "${formatCheckName(state.key)}" must pass before this issue can close (now: ${why}).` };
 }
