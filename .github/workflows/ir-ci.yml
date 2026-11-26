@@ -42,8 +42,9 @@ jobs:
     outputs:
       code: ${{ steps.filter.outputs.code }}
       ir: ${{ steps.filter.outputs.ir }}
-      # Pull requests get build + typecheck only. The test suites run on
-      # master pushes, manual runs, and PRs with the full-ci label.
+      # Pull requests get build + typecheck, plus the IR tests when IR code
+      # changed. The full test suites run on master pushes, manual runs, and
+      # PRs with the full-ci label.
       full: ${{ github.event_name != 'pull_request' || inputs.full_suite == true }}
     steps:
       - uses: actions/checkout@v4

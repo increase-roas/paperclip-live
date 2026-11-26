@@ -7,8 +7,9 @@
 #
 # This workflow is the fork's PR entry point for repository-owned branches.
 # It calls ir-ci.yml on GitHub-hosted ubuntu-latest so untrusted PR branch code
-# does not execute on brain-vps. Pull requests get build + typecheck; tests run
-# after merge to master (on brain-vps) or when a PR receives the full-ci label.
+# does not execute on brain-vps. Pull requests get build + typecheck, plus the
+# IR tests when IR code changed; the full suites run after merge to master (on
+# brain-vps) or when a PR receives the full-ci label.
 # The repository setting Settings -> Actions ->
 # General must also be enabled; a workflow cannot run while Actions is disabled.
 name: IR PR

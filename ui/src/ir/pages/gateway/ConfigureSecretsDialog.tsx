@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { irOpsApi } from "../../api/irOps";
+import { IrApiError, irOpsApi } from "../../api/irOps";
 
 export interface ProviderSecretSchema {
   provider: string;
@@ -83,10 +83,19 @@ export function ConfigureSecretsDialog({
       onSaved(schema.label, res.updatedKeys);
       onClose();
     } catch (err) {
-      setError(
+      const message =
         err instanceof Error
           ? err.message
-          : `Failed to bind ${schema.label} credentials on ${workerName}.`,
+          : `Failed to bind ${schema.label} credentials on ${workerName}.`;
+      // A multi-key save can fail partway; say which keys already landed.
+      const written = err instanceof IrApiError ? err.body?.updatedKeys : undefined;
+      const writtenKeys = Array.isArray(written)
+        ? written.filter((k): k is string => typeof k === "string")
+        : [];
+      setError(
+        writtenKeys.length > 0
+          ? `${message} Already saved: ${writtenKeys.join(", ")}. Save the remaining fields again.`
+          : message,
       );
     } finally {
       setSaving(false);
