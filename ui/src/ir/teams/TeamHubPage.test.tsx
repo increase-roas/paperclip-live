@@ -73,6 +73,10 @@ vi.mock("@/api/agents", () => ({
       return fixture.agents;
     },
     update: vi.fn(async (_id: string, data: Record<string, unknown>) => ({ ...fixture.agents[0], ...data })),
+    getConfiguration: vi.fn(async (id: string) => ({
+      ...fixture.agents.find((agent) => agent.id === id),
+      configurationRevision: "a".repeat(64),
+    })),
   },
 }));
 
@@ -495,7 +499,7 @@ describe("TeamHubPage", () => {
         metadata: {
           bot: { transport: "hermes_gateway" },
           departments: ["marketing", "fulfillment"],
-          tags: ["marketing"],
+          tags: ["marketing", "priority:high"],
         },
       } as unknown as Agent,
       {
@@ -542,7 +546,19 @@ describe("TeamHubPage", () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
 
-    // 2. Open popover for Ads Auditor (marketing + fulfillment) and add sales while preserving metadata.bot
+    // A configuration change after the list loaded must survive the team edit.
+    vi.mocked(agentsApi.getConfiguration).mockResolvedValueOnce({
+      ...fixture.agents[0],
+      metadata: {
+        ...fixture.agents[0]!.metadata,
+        apiKey: "***REDACTED***",
+        serverOnly: "new-value",
+        teams: ["operations"],
+      },
+      configurationRevision: "b".repeat(64),
+    } as Awaited<ReturnType<typeof agentsApi.getConfiguration>>);
+
+    // 2. Add Sales using the current configuration and its redaction-safe revision.
     const adsTrigger = container.querySelector('[data-testid="team-agent-departments-btn-ads-auditor"]') as HTMLButtonElement;
     await act(async () => {
       adsTrigger.click();
@@ -557,12 +573,16 @@ describe("TeamHubPage", () => {
       {
         metadata: {
           bot: { transport: "hermes_gateway" },
-          tags: ["marketing"],
-          departments: ["marketing", "sales", "fulfillment"],
+          apiKey: "***REDACTED***",
+          serverOnly: "new-value",
+          tags: ["priority:high"],
+          departments: ["marketing", "sales", "fulfillment", "operations"],
         },
+        expectedConfigurationRevision: "b".repeat(64),
       },
       "company-1",
     );
+    expect(agentsApi.getConfiguration).toHaveBeenCalledWith("a-ads", "company-1");
 
     // 3. Failure renders role="alert" and clears when closing and reopening popover
     updateSpy.mockRejectedValueOnce(new Error("PATCH failed: 500"));

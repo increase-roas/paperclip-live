@@ -159,17 +159,23 @@ describe("teamHubHelpers", () => {
       departments: ["marketing", "fulfillment"],
     });
 
-    // Canonical metadata.departments takes precedence over sticky legacy metadata.tags
+    // Existing memberships remain visible until an explicit team edit.
     expect(
       matchAgentTeams(
         makeAgent({
           id: "sticky-1",
           name: "Ads Auditor",
           urlKey: "ads-auditor",
-          metadata: { departments: ["fulfillment"], tags: ["marketing", "ads"] },
+          metadata: { departments: ["sales"], teams: ["fulfillment"], tags: ["marketing", "ads", "priority:high"] },
         }),
       ),
-    ).toEqual(["fulfillment"]);
+    ).toEqual(["marketing", "sales", "fulfillment"]);
+
+    const edited = buildNextAgentDepartmentsMetadata(makeAgent({
+      metadata: { departments: ["sales"], teams: ["fulfillment"], tags: ["marketing", "ads", "priority:high"] },
+    }), ["fulfillment"]);
+    expect(edited).toEqual({ departments: ["fulfillment"], tags: ["priority:high"] });
+    expect(matchAgentTeams(makeAgent({ metadata: edited }))).toEqual(["fulfillment"]);
 
     // Rejects writing empty or all-invalid departments
     expect(() =>

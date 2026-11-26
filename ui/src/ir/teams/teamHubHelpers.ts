@@ -218,14 +218,9 @@ function extractCanonicalFromValue(item: unknown): TeamHubKey[] {
 
 function collectMetadataTeamKeys(metadata: Record<string, unknown> | null | undefined): TeamHubKey[] {
   if (!metadata) return [];
-  // Canonical `metadata.departments` takes strict precedence when populated so
-  // removing a team via the popover is never undone by sticky legacy `tags`.
-  if (metadata.departments !== undefined) {
-    const explicitDepartments = extractCanonicalFromValue(metadata.departments);
-    if (explicitDepartments.length > 0) return explicitDepartments;
-  }
   const found = new Set<TeamHubKey>();
   const legacyCandidates: unknown[] = [
+    metadata.departments,
     metadata.department,
     metadata.teams,
     metadata.team,
@@ -298,7 +293,7 @@ export function getSharedAgentDepartments(
 }
 
 export function buildNextAgentDepartmentsMetadata(
-  agent: Agent,
+  agent: Pick<Agent, "metadata">,
   nextDepartments: readonly TeamHubKey[],
 ): Record<string, unknown> {
   const canonical = sortCanonicalTeams(nextDepartments);
@@ -312,6 +307,14 @@ export function buildNextAgentDepartmentsMetadata(
   delete existing.department;
   delete existing.team;
   delete existing.teams;
+  const removeTeamTags = (value: unknown) => typeof value === "string"
+    ? value.split(/[,;]+/).filter((part) => !normalizeTeamAlias(part)).join(",")
+    : value;
+  if (Array.isArray(existing.tags)) {
+    existing.tags = existing.tags.map(removeTeamTags).filter((tag) => tag !== "");
+  } else if (typeof existing.tags === "string") {
+    existing.tags = removeTeamTags(existing.tags);
+  }
   return {
     ...existing,
     departments: canonical,
