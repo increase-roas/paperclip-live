@@ -166,82 +166,91 @@ function buildClientDelivery(
   }
 
   let spend = 0;
-  let hasSpend = false;
+  let hasCompleteSpend = true;
   let newLeads = 0;
-  let hasLeads = false;
+  let hasCompleteLeads = true;
   let impressions = 0;
-  let hasImpressions = false;
+  let hasCompleteImpressions = true;
   let clicks = 0;
-  let hasClicks = false;
+  let hasCompleteClicks = true;
   let booked = 0;
-  let hasBooked = false;
+  let hasCompleteBooked = true;
   let showed = 0;
-  let hasShowed = false;
+  let hasCompleteShowed = true;
   let pitched = 0;
-  let hasPitched = false;
+  let hasCompletePitched = true;
   let wonDeals = 0;
-  let hasWon = false;
+  let hasCompleteWon = true;
   let zeroLeadDays = 0;
-  let hasZeroLeadDays = false;
+  let hasCompleteZeroLeadDays = true;
   let fallbackShowRate: number | null = null;
   let fallbackCloseRate: number | null = null;
 
   for (const c of clientOnly) {
     if (c.spend !== null) {
       spend += c.spend;
-      hasSpend = true;
+    } else {
+      hasCompleteSpend = false;
     }
     if (c.newLeads !== null) {
       newLeads += c.newLeads;
-      hasLeads = true;
+    } else {
+      hasCompleteLeads = false;
     }
     if (c.impressions !== null) {
       impressions += c.impressions;
-      hasImpressions = true;
+    } else {
+      hasCompleteImpressions = false;
     }
     if (c.clicks !== null) {
       clicks += c.clicks;
-      hasClicks = true;
+    } else {
+      hasCompleteClicks = false;
     }
     if (c.booked !== null) {
       booked += c.booked;
-      hasBooked = true;
+    } else {
+      hasCompleteBooked = false;
     }
     if (c.showed !== null) {
       showed += c.showed;
-      hasShowed = true;
+    } else {
+      hasCompleteShowed = false;
     }
     if (c.pitched !== null) {
       pitched += c.pitched;
-      hasPitched = true;
+    } else {
+      hasCompletePitched = false;
     }
     if (c.wonDeals !== null) {
       wonDeals += c.wonDeals;
-      hasWon = true;
+    } else {
+      hasCompleteWon = false;
     }
     if (c.zeroLeadDays !== null) {
       zeroLeadDays += c.zeroLeadDays;
-      hasZeroLeadDays = true;
+    } else {
+      hasCompleteZeroLeadDays = false;
     }
     if (fallbackShowRate === null && c.showRate !== null) fallbackShowRate = c.showRate;
     if (fallbackCloseRate === null && c.closeRate !== null) fallbackCloseRate = c.closeRate;
   }
 
-  const roundedSpend = hasSpend ? round2(spend) : null;
-  const costPerLeadUsd = hasSpend && hasLeads && newLeads > 0 ? round2(spend / newLeads) : null;
+  const roundedSpend = hasCompleteSpend ? round2(spend) : null;
+  const costPerLeadUsd = hasCompleteSpend && hasCompleteLeads && newLeads > 0 ? round2(spend / newLeads) : null;
   const ctrPercent =
-    hasImpressions && impressions > 0 && hasClicks ? round2((clicks / impressions) * 100) : null;
+    hasCompleteImpressions && impressions > 0 && hasCompleteClicks ? round2((clicks / impressions) * 100) : null;
   const isSingleClient = clientOnly.length === 1;
   const showRatePercent =
-    hasBooked && booked > 0 && hasShowed
+    hasCompleteBooked && booked > 0 && hasCompleteShowed
       ? round1((showed / booked) * 100)
       : isSingleClient
         ? fallbackShowRate
         : null;
   const closeRatePercent =
-    hasPitched && pitched > 0 && hasWon
+    hasCompletePitched && pitched > 0 && hasCompleteWon
       ? round1((wonDeals / pitched) * 100)
-      : hasShowed && showed > 0 && hasWon
+      : hasCompleteShowed && showed > 0 && hasCompleteWon
         ? round1((wonDeals / showed) * 100)
         : isSingleClient
           ? fallbackCloseRate
@@ -251,15 +260,15 @@ function buildClientDelivery(
     period,
     observedAt: bundle.observedAt,
     adSpendUsd: roundedSpend,
-    newLeads: hasLeads ? newLeads : null,
+    newLeads: hasCompleteLeads ? newLeads : null,
     costPerLeadUsd,
     ctrPercent,
-    appointmentsBooked: hasBooked ? booked : null,
-    appointmentsShowed: hasShowed ? showed : null,
+    appointmentsBooked: hasCompleteBooked ? booked : null,
+    appointmentsShowed: hasCompleteShowed ? showed : null,
     showRatePercent,
-    wonDeals: hasWon ? wonDeals : null,
+    wonDeals: hasCompleteWon ? wonDeals : null,
     closeRatePercent,
-    zeroLeadDays: hasZeroLeadDays ? zeroLeadDays : null,
+    zeroLeadDays: hasCompleteZeroLeadDays ? zeroLeadDays : null,
     accounts: clientOnly.map(buildClientDeliveryRow),
     notConnected: null,
   };
