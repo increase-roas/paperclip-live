@@ -1,11 +1,11 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { issueLabels, labels } from "@paperclipai/db";
 import {
   proofCheckAllowsClosure,
   requiredProofCheckFromLabels,
 } from "@paperclipai/shared/ir-system-map";
 import { unprocessable } from "../errors.js";
-import { readProofCheckSnapshot, type ProofCheckSnapshot } from "./system-map.js";
+import { cachedProofCheckSnapshot, type ProofCheckSnapshot } from "./system-map.js";
 
 /**
  * Proof-gated closure for operational issues. An issue that carries a
@@ -16,7 +16,9 @@ import { readProofCheckSnapshot, type ProofCheckSnapshot } from "./system-map.js
  */
 export type ProofSnapshotReader = () => Promise<ProofCheckSnapshot | null>;
 
-let readSnapshot: ProofSnapshotReader = () => readProofCheckSnapshot();
+// Never a network call here: the caller may hold row locks. The refresher
+// started with the routes keeps this cache warm.
+let readSnapshot: ProofSnapshotReader = async () => cachedProofCheckSnapshot();
 
 /** Test seam: swap the live feed reader. Returns a restore function. */
 export function setProofSnapshotReaderForTests(reader: ProofSnapshotReader): () => void {
@@ -32,6 +34,7 @@ export async function assertIrProofGateAllowsTransition(
   dbOrTx: any,
   existing: { id: string; companyId: string; status: string },
   nextStatus: string | null | undefined,
+  nextLabelIds?: readonly string[],
 ): Promise<void> {
   if (nextStatus !== "done" || existing.status === "done") return;
   const rows: Array<{ name: string }> = await dbOrTx
@@ -39,6 +42,15 @@ export async function assertIrProofGateAllowsTransition(
     .from(issueLabels)
     .innerJoin(labels, eq(issueLabels.labelId, labels.id))
     .where(and(eq(issueLabels.issueId, existing.id), eq(labels.companyId, existing.companyId)));
+  // A proof label added in the same update also gates this close.
+  if (nextLabelIds && nextLabelIds.length > 0) {
+    rows.push(
+      ...(await dbOrTx
+        .select({ name: labels.name })
+        .from(labels)
+        .where(and(inArray(labels.id, [...nextLabelIds]), eq(labels.companyId, existing.companyId)))),
+    );
+  }
   const requiredProofCheck = requiredProofCheckFromLabels(rows);
   if (!requiredProofCheck) return;
   const snapshot = await readSnapshot();

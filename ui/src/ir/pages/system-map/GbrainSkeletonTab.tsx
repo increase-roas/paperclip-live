@@ -61,7 +61,7 @@ export function GbrainSkeletonTab({ data }: { data: GbrainSkeletonResponse }) {
   return (
     <div className="flex flex-col gap-4">
       <section aria-label="Schema pack" className="flex flex-wrap items-center gap-2 text-sm">
-        <HealthChip tone={skeleton.pack.version === "1.0.0" ? "ok" : "warn"}>
+        <HealthChip tone="muted">
           {skeleton.pack.name} v{skeleton.pack.version}
         </HealthChip>
         <HealthChip tone={skeleton.lint.ok ? "ok" : "bad"}>

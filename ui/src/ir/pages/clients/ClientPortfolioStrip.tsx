@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { IR_METRIC_DEFINITIONS } from "@paperclipai/shared/ir-metrics";
-import { irSystemMapApi, type TenantProfile } from "../../api/irOps";
+import { IrApiError, irSystemMapApi, type TenantProfile } from "../../api/irOps";
 import { HealthChip } from "../system-map/HealthChip";
 import { partitionClientPortfolio } from "./clientHelpers";
 
@@ -18,6 +18,7 @@ export function ClientPortfolioStrip({ tenants, loading }: { tenants: TenantProf
   });
 
   if (loading || registry.isLoading) return null;
+  if (registry.error instanceof IrApiError && registry.error.status === 403) return null;
   if (registry.error) {
     return (
       <p className="text-xs text-muted-foreground" role="status" data-testid="client-portfolio-strip">

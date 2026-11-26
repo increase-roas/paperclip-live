@@ -44,7 +44,9 @@ export {
   ceoBoardService,
 } from "./ceo-board.js";
 export {
+  cachedProofCheckSnapshot,
   readProofCheckSnapshot,
+  startProofCheckRefresher,
   readSystemFeed,
   resetProofCheckCache,
   systemMapRoutes,

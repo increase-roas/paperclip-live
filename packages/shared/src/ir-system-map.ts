@@ -218,16 +218,19 @@ export function requiredProofCheckFromLabels(labels: ReadonlyArray<{ name: strin
 
 /**
  * Closing an issue that names a proof check is allowed only while that check
- * reports `pass` in a fresh snapshot. Missing, failing, unknown or stale = blocked.
+ * reports `pass` and its own result is fresh. Missing, failing, unknown or
+ * stale = blocked.
  */
 export function proofCheckAllowsClosure(
   key: string,
   checks: ReadonlyArray<ProofCheckResult> | null,
   freshness: Pick<Freshness, "stale"> | null,
+  now: Date = new Date(),
 ): { allowed: boolean; status: ProofCheckStatus | "missing" | "stale"; detail: string | null } {
   if (!checks || !freshness) return { allowed: false, status: "missing", detail: "Proof checks are not reachable." };
   const check = checks.find((candidate) => candidate.key === key);
   if (!check) return { allowed: false, status: "missing", detail: `No proof check named "${key}".` };
-  if (freshness.stale) return { allowed: false, status: "stale", detail: "Proof check results are stale." };
+  const checkStale = check.observedAt ? freshnessOf(check.observedAt, now).stale : freshness.stale;
+  if (freshness.stale || checkStale) return { allowed: false, status: "stale", detail: "Proof check results are stale." };
   return { allowed: check.status === "pass", status: check.status, detail: check.detail };
 }

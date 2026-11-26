@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ProofChecksResponse } from "@paperclipai/shared/ir-system-map";
 import { proofGateDisabledStatuses, proofGateState } from "./proofGate";
 
-const fresh = { observedAt: "2026-11-26T18:00:00Z", ageSeconds: 30, stale: false, thresholdSeconds: 900 };
+const fresh = { observedAt: new Date().toISOString(), ageSeconds: 30, stale: false, thresholdSeconds: 900 };
 
 function checks(status: "pass" | "fail"): ProofChecksResponse {
   return { checks: [{ key: "gateway", status, detail: status === "fail" ? "gateway_health_fail:502" : null, observedAt: fresh.observedAt }], freshness: fresh };

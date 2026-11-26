@@ -13,13 +13,13 @@ const PINNED_NOW = new Date("2026-11-26T06:00:00.000Z");
 
 // Agency account IDs are configuration (never code defaults); tests supply them the same way.
 const AGENCY_ACCOUNT_ENV = {
-  META_AGENCY_INCREASE_ROAS_ACCOUNT_ID: "act_1751702711685898",
-  META_AGENCY_ALEX_BLOOMFIELD_ACCOUNT_ID: "act_735997837915750",
-  META_AGENCY_HOT_TUB_LAUNCH_ACCOUNT_ID: "act_931652032962948",
-  GHL_AGENCY_COMPANY_ID: "uVK13CFqZs9TOBENvXSH",
-  GHL_AGENCY_INCREASE_ROAS_LOCATION_ID: "Sr90yJUmFoBTgBQuejtU",
-  GHL_AGENCY_HOT_TUB_LAUNCH_LOCATION_ID: "AG47jEV5rVUrGLt5FlKO",
-  GHL_ALEX_BLOOMFIELD_LOCATION_ID: "3uSZwndvL6yEo5syDV5m",
+  META_AGENCY_INCREASE_ROAS_ACCOUNT_ID: "act_1000000000000001",
+  META_AGENCY_ALEX_BLOOMFIELD_ACCOUNT_ID: "act_200000000000002",
+  META_AGENCY_HOT_TUB_LAUNCH_ACCOUNT_ID: "act_300000000000003",
+  GHL_AGENCY_COMPANY_ID: "AgencyCompanyFake001",
+  GHL_AGENCY_INCREASE_ROAS_LOCATION_ID: "LocIrMainFake0000001",
+  GHL_AGENCY_HOT_TUB_LAUNCH_LOCATION_ID: "LocHtlB2bFake0000002",
+  GHL_ALEX_BLOOMFIELD_LOCATION_ID: "LocAlexSsaFake000003",
 };
 
 function stubAgencyAccountEnv() {
@@ -56,7 +56,7 @@ describe("readAgencyMarketingSummary", () => {
     });
     const htl = summary?.accounts.find((account) => account.id === "hot-tub-launch");
     expect(htl?.status).toBe("needs_config");
-    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("931652032962948"))).toBe(false);
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("300000000000003"))).toBe(false);
   });
 
   it("fails closed to null when no Gateway token is configured", async () => {
@@ -81,7 +81,7 @@ describe("readAgencyMarketingSummary", () => {
       const acct = url.searchParams.get("adAccountId") ?? "";
       requestedAccounts.push(acct);
 
-      if (acct === "act_735997837915750") {
+      if (acct === "act_200000000000002") {
         // Real Meta shape: lead + onsite_web_lead + offsite_conversion.fb_pixel_lead all report the SAME 7 leads.
         return jsonRes({
           data: [
@@ -108,7 +108,7 @@ describe("readAgencyMarketingSummary", () => {
           next: null,
         });
       }
-      if (acct === "act_931652032962948") {
+      if (acct === "act_300000000000003") {
         // Connected account with $0 spend in window
         return jsonRes({ data: [], next: null });
       }
@@ -125,9 +125,9 @@ describe("readAgencyMarketingSummary", () => {
 
     expect(summary).not.toBeNull();
     expect(requestedAccounts).toEqual([
-      "act_1751702711685898",
-      "act_735997837915750",
-      "act_931652032962948",
+      "act_1000000000000001",
+      "act_200000000000002",
+      "act_300000000000003",
     ]);
     expect(summary?.hasMeta).toBe(true);
     expect(summary?.liveAccountCount).toBe(2);
@@ -160,7 +160,7 @@ describe("readAgencyMarketingSummary", () => {
       const acct = url.searchParams.get("adAccountId") ?? "";
       const after = url.searchParams.get("after");
 
-      if (acct === "act_735997837915750") {
+      if (acct === "act_200000000000002") {
         if (!after) {
           return jsonRes({
             data: [
@@ -192,7 +192,7 @@ describe("readAgencyMarketingSummary", () => {
           next: null,
         });
       }
-      if (acct === "act_1751702711685898") {
+      if (acct === "act_1000000000000001") {
         // Mid-page 500 failure must fail closed to status: "error"
         if (!after) {
           return jsonRes({
@@ -337,8 +337,8 @@ describe("readAgencySalesSummary", () => {
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
       const url = new URL(String(input));
       const ghlPath = url.searchParams.get("path") ?? "";
-      const isIrMain = url.pathname.includes("/Sr90yJUmFoBTgBQuejtU/");
-      const isHtl = url.pathname.includes("/AG47jEV5rVUrGLt5FlKO/");
+      const isIrMain = url.pathname.includes("/LocIrMainFake0000001/");
+      const isHtl = url.pathname.includes("/LocHtlB2bFake0000002/");
 
       if (ghlPath === "/opportunities/pipelines") {
         return jsonRes({
@@ -452,7 +452,7 @@ describe("readAgencySalesSummary", () => {
     expect(alex?.locationId).toBeNull();
   });
 
-  it("defaults Alex Bloomfield locationId to 3uSZwndvL6yEo5syDV5m when only PIT key is set, excludes recruiting calendars, computes accurate showRate without 100% inflation, and fails closed on partial GHL errors", async () => {
+  it("defaults Alex Bloomfield locationId to LocAlexSsaFake000003 when only PIT key is set, excludes recruiting calendars, computes accurate showRate without 100% inflation, and fails closed on partial GHL errors", async () => {
     const requestedUrls: string[] = [];
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
       const url = String(input);
@@ -460,7 +460,7 @@ describe("readAgencySalesSummary", () => {
 
       // 1. Increase ROAS Main: /opportunities/pipelines fails (500), /payments/transactions fails (403),
       //    /contacts/ fails (500), but calendars succeed with 10 booked / 2 showed / 0 noShows + recruiting calendar!
-      if (url.includes("/Sr90yJUmFoBTgBQuejtU/")) {
+      if (url.includes("/LocIrMainFake0000001/")) {
         const ghlPath = new URL(url).searchParams.get("path") ?? "";
         if (ghlPath === "/opportunities/pipelines") return jsonRes({ error: "boom" }, 500);
         if (ghlPath.startsWith("/opportunities/search")) {
@@ -498,14 +498,14 @@ describe("readAgencySalesSummary", () => {
       }
 
       // 2. Hot Tub Launch B2B: returns 401 auth failure -> needs_config
-      if (url.includes("/AG47jEV5rVUrGLt5FlKO/")) {
+      if (url.includes("/LocHtlB2bFake0000002/")) {
         return jsonRes({ error: "unauthorized" }, 401);
       }
 
-      // 3. Alex Bloomfield direct PIT: defaults to 3uSZwndvL6yEo5syDV5m, subtracts amountRefunded,
+      // 3. Alex Bloomfield direct PIT: defaults to LocAlexSsaFake000003, subtracts amountRefunded,
       //    ignores string liveMode:"false", and deduplicates contacts across cursor pages.
       if (url.startsWith("https://ghl-direct.example")) {
-        expect(url).toContain("3uSZwndvL6yEo5syDV5m");
+        expect(url).toContain("LocAlexSsaFake000003");
         if (url.includes("/opportunities/pipelines")) {
           return jsonRes({
             pipelines: [
@@ -576,7 +576,7 @@ describe("readAgencySalesSummary", () => {
       gatewayToken: "gw-test",
       ghlDirectOrigin: "https://ghl-direct.example",
       alexBloomfieldPitKey: "pit-default-loc-test",
-      // alexBloomfieldLocationId intentionally omitted -> must default to 3uSZwndvL6yEo5syDV5m
+      // alexBloomfieldLocationId intentionally omitted -> must default to LocAlexSsaFake000003
       fetchImpl: fetchMock as unknown as typeof fetch,
       now: () => PINNED_NOW,
       bypassCache: true,
@@ -598,7 +598,7 @@ describe("readAgencySalesSummary", () => {
 
     const alex = summary?.accounts.find((a) => a.id === "alex-bloomfield-ssa");
     expect(alex?.status).toBe("live");
-    expect(alex?.locationId).toBe("3uSZwndvL6yEo5syDV5m");
+    expect(alex?.locationId).toBe("LocAlexSsaFake000003");
     expect(alex?.newLeads).toBe(101);
     // $5000 - $1000 refund = $4000 (string liveMode:"false" ignored)
     expect(alex?.cashCollectedUsd).toBe(4000);
@@ -635,7 +635,7 @@ describe("readAgencySalesSummary", () => {
       if (url.startsWith("https://direct-a.example") || url.startsWith("https://direct-b.example")) {
         return jsonRes({ error: "forbidden" }, 403);
       }
-      if (url.includes("/Sr90yJUmFoBTgBQuejtU/") && irMain500) {
+      if (url.includes("/LocIrMainFake0000001/") && irMain500) {
         return jsonRes({ error: "gateway_502" }, 502);
       }
       const ghlPath = new URL(url).searchParams.get("path") ?? "";
@@ -766,7 +766,7 @@ describe("readAgencySalesSummary", () => {
   it("paginates multi-page opportunities and unordered contacts, fails closed on partial calendar failure, and marks truncated accounts as 'Live (partial)'", async () => {
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
       const url = String(input);
-      if (url.includes("/Sr90yJUmFoBTgBQuejtU/")) {
+      if (url.includes("/LocIrMainFake0000001/")) {
         const ghlPath = new URL(url).searchParams.get("path") ?? "";
         if (ghlPath === "/opportunities/pipelines") {
           return jsonRes({
@@ -840,7 +840,7 @@ describe("readAgencySalesSummary", () => {
         }
         if (ghlPath.startsWith("/payments/transactions")) return jsonRes({ data: [] });
       }
-      if (url.includes("/AG47jEV5rVUrGLt5FlKO/")) {
+      if (url.includes("/LocHtlB2bFake0000002/")) {
         const ghlPath = new URL(url).searchParams.get("path") ?? "";
         if (ghlPath === "/opportunities/pipelines") return jsonRes({ pipelines: [] });
         if (ghlPath.startsWith("/opportunities/search")) return jsonRes({ opportunities: [] });
@@ -897,7 +897,7 @@ describe("readAgencySalesSummary", () => {
       if (ghlPath.startsWith("/contacts/")) return jsonRes({ contacts: [] });
       if (ghlPath === "/calendars/") return jsonRes({ calendars: [] });
 
-      if (url.includes("/Sr90yJUmFoBTgBQuejtU/") && ghlPath.startsWith("/payments/transactions")) {
+      if (url.includes("/LocIrMainFake0000001/") && ghlPath.startsWith("/payments/transactions")) {
         const parsed = new URL(ghlPath, "https://ghl.local");
         const offset = Number(parsed.searchParams.get("offset") ?? "0");
         if (offset === 0) {
@@ -925,7 +925,7 @@ describe("readAgencySalesSummary", () => {
         });
       }
 
-      if (url.includes("/AG47jEV5rVUrGLt5FlKO/") && ghlPath.startsWith("/payments/transactions")) {
+      if (url.includes("/LocHtlB2bFake0000002/") && ghlPath.startsWith("/payments/transactions")) {
         const parsed = new URL(ghlPath, "https://ghl.local");
         const offset = Number(parsed.searchParams.get("offset") ?? "0");
         // Always returns 50 rows with totalCount=600 -> hits 10-page cap (500 rows) -> truncated!

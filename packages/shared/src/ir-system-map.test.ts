@@ -35,10 +35,15 @@ describe("proof-gated closure", () => {
   });
 
   it("allows closure only while the named check passes in a fresh snapshot", () => {
-    expect(proofCheckAllowsClosure("gateway", checks, fresh)).toMatchObject({ allowed: true, status: "pass" });
-    expect(proofCheckAllowsClosure("db_feeds", checks, fresh)).toMatchObject({ allowed: false, status: "fail" });
-    expect(proofCheckAllowsClosure("crons", checks, fresh)).toMatchObject({ allowed: false, status: "missing" });
-    expect(proofCheckAllowsClosure("gateway", checks, { stale: true })).toMatchObject({ allowed: false, status: "stale" });
+    expect(proofCheckAllowsClosure("gateway", checks, fresh, NOW)).toMatchObject({ allowed: true, status: "pass" });
+    expect(proofCheckAllowsClosure("db_feeds", checks, fresh, NOW)).toMatchObject({ allowed: false, status: "fail" });
+    expect(proofCheckAllowsClosure("crons", checks, fresh, NOW)).toMatchObject({ allowed: false, status: "missing" });
+    expect(proofCheckAllowsClosure("gateway", checks, { stale: true }, NOW)).toMatchObject({ allowed: false, status: "stale" });
     expect(proofCheckAllowsClosure("gateway", null, null)).toMatchObject({ allowed: false, status: "missing" });
+  });
+
+  it("judges freshness by the gated check, not by the snapshot", () => {
+    const mixed = [{ key: "gateway", status: "pass" as const, detail: null, observedAt: "2026-11-26T12:00:00Z" }];
+    expect(proofCheckAllowsClosure("gateway", mixed, fresh, NOW)).toMatchObject({ allowed: false, status: "stale" });
   });
 });

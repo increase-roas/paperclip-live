@@ -25,10 +25,10 @@ test("allows library calls, comments and non-metric math", () => {
 });
 
 test("flags hardcoded Meta and GHL account IDs", () => {
-  assert.deepEqual(rules('defaultAccountId: "act_1751702711685898",'), ["hardcoded-account-id"]);
-  assert.deepEqual(rules('const LOC = "Sr90yJUmFoBTgBQuejtU";'), ["hardcoded-account-id"]);
-  assert.deepEqual(rules('fetch(`/locations/AG47jEV5rVUrGLt5FlKO/`)'), ["hardcoded-account-id"]);
-  assert.deepEqual(rules('const id = "931652032962948";'), ["hardcoded-account-id"]);
+  assert.deepEqual(rules('defaultAccountId: "act_1000000000000001",'), ["hardcoded-account-id"]);
+  assert.deepEqual(rules('const LOC = "LocIrMainFake0000001";'), ["hardcoded-account-id"]);
+  assert.deepEqual(rules('fetch(`/locations/LocHtlB2bFake0000002/`)'), ["hardcoded-account-id"]);
+  assert.deepEqual(rules('const id = "300000000000003";'), ["hardcoded-account-id"]);
   assert.deepEqual(rules('const label = "ghl_payment_scope_or_access";'), []);
 });
 
@@ -41,7 +41,7 @@ test("scans only ui/src/ir and server/src/ir and skips tests", () => {
   const root = mkdtempSync(join(tmpdir(), "ir-metrics-"));
   try {
     for (const dir of ["server/src/ir/__tests__", "ui/src/ir/pages", "server/src/services"]) mkdirSync(join(root, dir), { recursive: true });
-    writeFileSync(join(root, "server/src/ir/__tests__/a.test.ts"), 'const id = "act_1751702711685898";\n');
+    writeFileSync(join(root, "server/src/ir/__tests__/a.test.ts"), 'const id = "act_1000000000000001";\n');
     writeFileSync(join(root, "server/src/services/b.ts"), "const r = showed / booked;\n");
     writeFileSync(join(root, "ui/src/ir/pages/C.tsx"), "const r = (clicks / impressions) * 100;\n");
     const findings = checkRepo(root);

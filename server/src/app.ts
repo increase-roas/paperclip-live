@@ -10,7 +10,7 @@ import { finishServiceShutdown } from "./shutdown.js";
 import { promptInjectionPreventionRoutes } from "./routes/prompt-injection-prevention.js";
 import { voiceSessionRoutes, voiceWebhookRoutes } from "./routes/voice-sessions.js";
 import { hermesTalkVoiceRoutes } from "./routes/hermes-talk-voice.js";
-import { errorRoutes, gatewayProxyRoutes, isClientErrorPost, salesDashboardProxyRoutes, systemMapRoutes } from "./ir/index.js";
+import { errorRoutes, gatewayProxyRoutes, isClientErrorPost, salesDashboardProxyRoutes, startProofCheckRefresher, systemMapRoutes } from "./ir/index.js";
 import { eq } from "drizzle-orm";
 import { chatEndpoints } from "@paperclipai/db";
 import { fastResponseRoutes } from "./routes/fast-responses.js";
@@ -844,6 +844,7 @@ export async function createApp(
   api.use(gatewayProxyRoutes());
   api.use(salesDashboardProxyRoutes());
   api.use(systemMapRoutes());
+  startProofCheckRefresher();
   api.use(approvalRoutes(db, { pluginWorkerManager: workerManager }));
   api.use(secretRoutes(db));
   api.use(managedAgentProfileRoutes(db));

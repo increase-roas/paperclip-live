@@ -13,7 +13,7 @@ const describePostgres = support.supported ? describe : describe.skip;
 function snapshot(checks: ProofCheckResult[], stale = false) {
   return async () => ({
     checks,
-    freshness: { observedAt: "2026-11-26T18:00:00Z", ageSeconds: stale ? 7200 : 30, stale, thresholdSeconds: 900 },
+    freshness: { observedAt: new Date().toISOString(), ageSeconds: stale ? 7200 : 30, stale, thresholdSeconds: 900 },
   });
 }
 
@@ -21,7 +21,7 @@ const gateway = (status: ProofCheckResult["status"]): ProofCheckResult => ({
   key: "gateway",
   status,
   detail: status === "pass" ? null : "gateway_health_fail:502",
-  observedAt: "2026-11-26T18:00:00Z",
+  observedAt: new Date().toISOString(),
 });
 
 describePostgres("proof-gated issue closure", () => {
@@ -84,6 +84,16 @@ describePostgres("proof-gated issue closure", () => {
     restoreReader();
     restoreReader = setProofSnapshotReaderForTests(snapshot([gateway("pass")], true));
     await expect(issueService(db).update(issueId, { status: "done" })).rejects.toMatchObject({ status: 422, details: { proofStatus: "stale" } });
+    expect(await statusOf(issueId)).toBe("in_progress");
+  }, 30_000);
+
+  it("gates a close that adds the proof label in the same update", async () => {
+    const issueId = await seedIssue(null);
+    const [issue] = await db.select({ companyId: issues.companyId }).from(issues).where(eq(issues.id, issueId));
+    const labelId = randomUUID();
+    await db.insert(labels).values({ id: labelId, companyId: issue!.companyId, name: "proof:gateway", color: "#888888" });
+    restoreReader = setProofSnapshotReaderForTests(snapshot([gateway("fail")]));
+    await expect(issueService(db).update(issueId, { status: "done", labelIds: [labelId] })).rejects.toMatchObject({ status: 422 });
     expect(await statusOf(issueId)).toBe("in_progress");
   }, 30_000);
 

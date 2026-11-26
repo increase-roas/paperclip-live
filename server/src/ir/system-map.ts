@@ -106,6 +106,7 @@ function proofFreshness(feed: ProofChecksFeed, now: Date): Freshness {
 }
 
 let proofCache: { at: number; snapshot: ProofCheckSnapshot } | null = null;
+let proofRefresher: ReturnType<typeof setInterval> | null = null;
 
 /** Live proof-check results, cached briefly so issue closure stays fast. Null when unreachable. */
 export async function readProofCheckSnapshot(opts?: SystemFeedOptions): Promise<ProofCheckSnapshot | null> {
@@ -118,8 +119,32 @@ export async function readProofCheckSnapshot(opts?: SystemFeedOptions): Promise<
   return snapshot;
 }
 
+/**
+ * The last proof-check snapshot, without any network call. Issue closure reads
+ * this inside its transaction; freshness is re-checked there, so an old cache
+ * fails closed.
+ */
+export function cachedProofCheckSnapshot(): ProofCheckSnapshot | null {
+  return proofCache?.snapshot ?? null;
+}
+
+/** Keeps the proof-check cache warm (every minute) when the feed is configured. */
+export function startProofCheckRefresher(opts?: SystemFeedOptions): void {
+  const { baseUrl, key } = resolveConfig(opts);
+  if (proofRefresher || !baseUrl || !key) return;
+  const refresh = () => {
+    proofCache = null;
+    void readProofCheckSnapshot(opts).catch(() => null);
+  };
+  refresh();
+  proofRefresher = setInterval(refresh, PROOF_CACHE_MS);
+  proofRefresher.unref?.();
+}
+
 export function resetProofCheckCache(): void {
   proofCache = null;
+  if (proofRefresher) clearInterval(proofRefresher);
+  proofRefresher = null;
 }
 
 function sendFailure(res: Response, result: Extract<FeedResult<unknown>, { ok: false }>) {

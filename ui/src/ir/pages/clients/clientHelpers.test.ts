@@ -94,7 +94,7 @@ describe("clientHelpers", () => {
 describe("partitionClientPortfolio", () => {
   const gbrain = [
     { slug: "companies/revstead-systems", title: "Revstead Systems", aliases: ["Revstead"], brands: ["SSA"], lifecycle: "active" },
-    { slug: "companies/paradise-spas", title: "Paradise Spas", aliases: [], brands: ["HTL"], lifecycle: "paused" },
+    { slug: "companies/lakeside-spas", title: "Lakeside Spas", aliases: [], brands: ["HTL"], lifecycle: "paused" },
     { slug: "companies/odd", title: "Odd Co", aliases: [], brands: ["REVSTEAD"], lifecycle: null },
   ];
 
@@ -102,7 +102,7 @@ describe("partitionClientPortfolio", () => {
     const result = partitionClientPortfolio(
       [
         { slug: "revstead", displayName: "Revstead" },
-        { slug: "paradise-spas", displayName: "Paradise Spas" },
+        { slug: "lakeside-spas", displayName: "Lakeside Spas" },
         { slug: "odd-co", displayName: "Odd Co" },
         { slug: "sun-pool", displayName: "Sun Pool" },
       ],
