@@ -25,66 +25,58 @@ export function buildLineDiff(oldText: string, newText: string): DiffRow[] {
   const rows: DiffRow[] = [];
   let i = 0;
   let j = 0;
-  let oldLineNumber = 1;
-  let newLineNumber = 1;
 
   while (i < oldCount && j < newCount) {
     if (oldLines[i] === newLines[j]) {
       rows.push({
         kind: "context",
-        oldLineNumber,
-        newLineNumber,
+        oldLineNumber: i + 1,
+        newLineNumber: j + 1,
         text: oldLines[i],
       });
       i += 1;
       j += 1;
-      oldLineNumber += 1;
-      newLineNumber += 1;
       continue;
     }
 
     if (dp[i + 1][j] >= dp[i][j + 1]) {
       rows.push({
         kind: "removed",
-        oldLineNumber,
+        oldLineNumber: i + 1,
         newLineNumber: null,
         text: oldLines[i],
       });
       i += 1;
-      oldLineNumber += 1;
       continue;
     }
 
     rows.push({
       kind: "added",
       oldLineNumber: null,
-      newLineNumber,
+      newLineNumber: j + 1,
       text: newLines[j],
     });
     j += 1;
-    newLineNumber += 1;
   }
 
   while (i < oldCount) {
     rows.push({
       kind: "removed",
-      oldLineNumber,
+      oldLineNumber: i + 1,
       newLineNumber: null,
       text: oldLines[i],
     });
     i += 1;
-    oldLineNumber += 1;
   }
 
   while (j < newCount) {
     rows.push({
       kind: "added",
       oldLineNumber: null,
-      newLineNumber,
+      newLineNumber: j + 1,
       text: newLines[j],
     });
     j += 1;
-    newLineNumber += 1;
   }
 
   return rows;
