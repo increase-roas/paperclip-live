@@ -230,6 +230,43 @@ describe("readAgencySalesSummary", () => {
     resetAgencySalesCache();
   });
 
+  it.each([
+    { stage: "Showed No Pitch", wonUnavailable: false, offerRate: 0, closeRate: 0 },
+    { stage: "Showed Pitched", wonUnavailable: false, offerRate: 100, closeRate: 0 },
+    { stage: "Showed Pitched", wonUnavailable: true, offerRate: 100, closeRate: null },
+    { stage: null, wonUnavailable: false, offerRate: null, closeRate: null },
+  ])("preserves zero rates and unknown metrics for $stage (won unavailable: $wonUnavailable)", async ({ stage, wonUnavailable, offerRate, closeRate }) => {
+    const fetchMock = vi.fn<typeof fetch>(async (input) => {
+      const path = new URL(String(input)).searchParams.get("path") ?? "";
+      if (path === "/opportunities/pipelines") {
+        return jsonRes({ pipelines: [{ id: "sales", name: "Agency Sales", stages: [{ id: "stage", name: stage ?? "New" }] }] });
+      }
+      if (path.startsWith("/opportunities/search")) {
+        if (path.includes("status=won") && wonUnavailable) return jsonRes({}, 503);
+        return jsonRes({ opportunities: stage && path.includes("status=all")
+          ? [{ id: "opp", pipelineId: "sales", pipelineStageId: "stage", status: "open", createdAt: "2026-11-25T00:00:00Z" }]
+          : [] });
+      }
+      if (path.startsWith("/contacts/")) return jsonRes({ contacts: [] });
+      if (path === "/calendars/") return jsonRes({ calendars: [{ id: "calendar", name: "Sales" }] });
+      if (path.startsWith("/calendars/events")) return jsonRes({ events: stage ? [{ id: "appointment", appointmentStatus: "showed" }] : [] });
+      if (path.startsWith("/payments/transactions")) return jsonRes({ data: [] });
+      throw new Error(`Unexpected fixture path: ${path}`);
+    });
+    const summary = await readAgencySalesSummary("30d", {
+      gatewayBaseUrl: "https://gw.example",
+      gatewayToken: "agency-rate-test",
+      alexBloomfieldPitKey: "",
+      locationIds: { hotTubLaunchB2b: null },
+      fetchImpl: fetchMock,
+      now: () => PINNED_NOW,
+      bypassCache: true,
+    });
+
+    expect(summary).toMatchObject({ offerRate, closeRate });
+    expect(summary?.accounts.find((account) => account.id === "increase-roas-main")).toMatchObject({ offerRate, closeRate });
+  });
+
   afterEach(() => {
     resetAgencySalesCache();
   });

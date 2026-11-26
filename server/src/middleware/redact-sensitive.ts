@@ -48,6 +48,7 @@ const SENSITIVE_KEYS = new Set<string>([
   "value",
   "token",
   "secret",
+  "secrets",
   "client_secret",
   "clientsecret",
   "access_token",

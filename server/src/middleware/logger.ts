@@ -8,6 +8,7 @@ import {
   isSecretSensitiveHttpRequest,
   isPrivateAgentCommentaryHttpRequest,
   isPrivateAgentObservabilityHttpRequest,
+  isPrivateGatewaySecretsHttpRequest,
   isPrivateMuseHttpRequest,
   isPrivateDotPrincipalHttpRequest,
   shouldSilenceHttpSuccessLog,
@@ -78,6 +79,7 @@ function requestLogUrl(req: {
   originalUrl?: unknown;
   url?: unknown;
 }) {
+  if (isPrivateGatewaySecretsHttpRequest(requestClassificationUrl(req))) return "/api/gateway/admin/secrets/:provider";
   if(isPrivateDotPrincipalHttpRequest(requestClassificationUrl(req)))return "/mcp/runner/oauth/cloud-principal";
   if(isPrivateMuseHttpRequest(requestClassificationUrl(req)))return "/api/muse/:protocol";
   if (isPrivateAgentObservabilityHttpRequest(requestClassificationUrl(req))) return "/api/companies/:companyId/observability";
@@ -96,6 +98,9 @@ export function createHttpLogger(baseLogger: Logger) {
     logger: baseLogger,
     serializers: {
       req(req: Record<string, unknown> & { url?: unknown }) {
+        if (isPrivateGatewaySecretsHttpRequest(typeof req.url === "string" ? req.url : undefined)) {
+          return { id: req.id, method: req.method, url: "/api/gateway/admin/secrets/:provider" };
+        }
         if (isPrivateAgentObservabilityHttpRequest(typeof req.url === "string" ? req.url : undefined)) {
           return { id: req.id, method: req.method, url: "/api/companies/:companyId/observability" };
         }
@@ -138,6 +143,9 @@ export function createHttpLogger(baseLogger: Logger) {
           };
         },
       ) {
+        if (res.raw?.req && isPrivateGatewaySecretsHttpRequest(requestClassificationUrl(res.raw.req))) {
+          return { statusCode: res.statusCode };
+        }
         // A provider error may also be reflected in response headers. Keep the
         // same content-free contract on both sides of a webhook request.
         return res.raw?.req && (isPrivateWebhook(res.raw.req) || isPrivateMuseHttpRequest(requestClassificationUrl(res.raw.req)) || isPrivateDotPrincipalHttpRequest(requestClassificationUrl(res.raw.req)) || isPrivateAgentCommentaryHttpRequest(requestClassificationUrl(res.raw.req)) || isPrivateAgentObservabilityHttpRequest(requestClassificationUrl(res.raw.req)))
@@ -174,6 +182,9 @@ export function createHttpLogger(baseLogger: Logger) {
       return `${req.method} ${stripSecretBearingUrlParts(req.url ?? "")} ${res.statusCode} — ${errMsg}`;
     },
     customErrorObject(req, _res, _err, value) {
+      if (isPrivateGatewaySecretsHttpRequest(requestClassificationUrl(req))) {
+        return { ...value, err: { type: "Error", message: "Gateway secret setup failed" } };
+      }
       if (isPrivateAgentObservabilityHttpRequest(requestClassificationUrl(req))) {
         return { ...value, err: { type: "Error", message: "Agent observability request failed" } };
       }
@@ -194,6 +205,9 @@ export function createHttpLogger(baseLogger: Logger) {
     customProps(req, res) {
       if (res.statusCode >= 400) {
         const ctx = (res as any).__errorContext;
+        if (isPrivateGatewaySecretsHttpRequest(requestClassificationUrl(req))) {
+          return { reqBody: "[REDACTED]", ...(ctx ? { errorContext: { name: "Error" } } : {}) };
+        }
         if (/^\/mcp\/(?:oauth|paperclip)(?:\/|$)/.test(requestClassificationUrl(req) ?? "")) {
           return { reqBody: "[REDACTED]", ...(ctx ? { errorContext: { name: "Error" } } : {}) };
         }

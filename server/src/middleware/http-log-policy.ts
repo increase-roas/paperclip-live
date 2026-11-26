@@ -49,6 +49,7 @@ export type SecretSensitiveRouteFamily =
   | "mcp_files"
   | "agent_commentary"
   | "agent_observability"
+  | "gateway_secrets"
   | "mcp_runner"
   | "agent_avatar"
   | "chat_slack_oauth"
@@ -79,6 +80,13 @@ export function isPrivateAgentObservabilityHttpRequest(url: string | undefined):
   if (!url) return false;
   const pathname = normalizePath(url).replace(/^https?:\/\/[^/]*/i, "");
   return /^\/api\/companies\/[^/]+\/observability(?:\/|$)/i.test(pathname);
+}
+
+/** Gateway setup accepts arbitrary provider secret names, including rejected input. */
+export function isPrivateGatewaySecretsHttpRequest(url: string | undefined): boolean {
+  if (!url) return false;
+  const pathname = normalizePath(url).replace(/^https?:\/\/[^/]*/i, "");
+  return /^\/api\/gateway\/admin\/secrets(?:\/|$)/i.test(pathname);
 }
 
 /** Muse OAuth and worker payloads stay private even on malformed/rejected paths. */
@@ -161,6 +169,7 @@ export function secretSensitiveRouteFamily(
   // Custom OTLP header values are arbitrary credentials, including on rejected
   // methods or malformed subpaths. Named-field redaction cannot identify them.
   if (isPrivateAgentObservabilityHttpRequest(url)) return "agent_observability";
+  if (isPrivateGatewaySecretsHttpRequest(url)) return "gateway_secrets";
   // Avatar uploads and dedicated Dot MCP calls may contain private image bytes.
   if (url && /^\/mcp\/runner(?:\/|$)/i.test(normalizePath(url).replace(/^https?:\/\/[^/]*/i, ""))) return "mcp_runner";
   if (url && /^\/api\/companies\/[^/]+\/agents\/[^/]+\/avatar(?:\/|$)/i.test(normalizePath(url).replace(/^https?:\/\/[^/]*/i, ""))) return "agent_avatar";

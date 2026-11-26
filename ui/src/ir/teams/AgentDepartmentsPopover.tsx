@@ -27,12 +27,21 @@ export function AgentDepartmentsPopover({
   const currentTeams = matchAgentTeams(agent);
 
   const mutation = useMutation({
-    mutationFn: (nextDepartments: TeamHubKey[]) =>
-      agentsApi.update(
+    mutationFn: async ({ teamKey, include }: { teamKey: TeamHubKey; include: boolean }) => {
+      const current = await agentsApi.getConfiguration(agent.id, companyId);
+      const latestTeams = matchAgentTeams({ ...current, urlKey: agent.urlKey });
+      const nextDepartments = include
+        ? [...latestTeams, teamKey]
+        : latestTeams.filter((entry) => entry !== teamKey);
+      return agentsApi.update(
         agent.id,
-        { metadata: buildNextAgentDepartmentsMetadata(agent, nextDepartments) },
+        {
+          metadata: buildNextAgentDepartmentsMetadata(current, nextDepartments),
+          expectedConfigurationRevision: current.configurationRevision,
+        },
         companyId,
-      ),
+      );
+    },
     onSuccess: (updatedAgent) => {
       setErrorMessage(null);
       queryClient.setQueryData<Agent[]>(queryKeys.agents.list(companyId), (prev) =>
@@ -56,10 +65,7 @@ export function AgentDepartmentsPopover({
     if (mutation.isPending) return;
     const hasTeam = currentTeams.includes(teamKey);
     if (hasTeam && currentTeams.length <= 1) return;
-    const next = hasTeam
-      ? currentTeams.filter((entry) => entry !== teamKey)
-      : [...currentTeams, teamKey];
-    mutation.mutate(next);
+    mutation.mutate({ teamKey, include: !hasTeam });
   };
 
   return (

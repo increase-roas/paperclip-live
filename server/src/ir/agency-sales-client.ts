@@ -667,15 +667,15 @@ function computeRates(m: {
       ? round1(Math.min(100, (m.showed / m.booked) * 100))
       : null;
   const offerRate =
-    m.showed !== null && m.showed > 0 && m.pitched !== null && m.pitched > 0
+    m.showed !== null && m.showed > 0 && m.pitched !== null
       ? round1(Math.min(100, (m.pitched / m.showed) * 100))
       : null;
   const closeRate =
     m.wonDeals !== null && m.lostDeals !== null && m.wonDeals + m.lostDeals > 0
       ? round1((m.wonDeals / (m.wonDeals + m.lostDeals)) * 100)
-      : m.pitched !== null && m.pitched > 0 && m.wonDeals !== null && m.wonDeals > 0
+      : m.pitched !== null && m.pitched > 0 && m.wonDeals !== null
         ? round1(Math.min(100, (m.wonDeals / m.pitched) * 100))
-        : m.showed !== null && m.showed > 0 && m.wonDeals !== null && m.wonDeals > 0
+        : m.showed !== null && m.showed > 0 && m.wonDeals !== null
           ? round1(Math.min(100, (m.wonDeals / m.showed) * 100))
           : null;
   return { showRate, offerRate, closeRate };
