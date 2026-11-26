@@ -93,12 +93,12 @@ describe("clientHelpers", () => {
 
 describe("partitionClientPortfolio", () => {
   const gbrain = [
-    { slug: "companies/revstead-systems", title: "Revstead Systems", aliases: ["Revstead"], brands: ["SSA"], lifecycle: "active" },
-    { slug: "companies/lakeside-spas", title: "Lakeside Spas", aliases: [], brands: ["HTL"], lifecycle: "paused" },
-    { slug: "companies/odd", title: "Odd Co", aliases: [], brands: ["REVSTEAD"], lifecycle: null },
+    { slug: "companies/revstead-systems", title: "Revstead Systems", aliases: ["Revstead"], brands: ["SSA"] },
+    { slug: "companies/lakeside-spas", title: "Lakeside Spas", aliases: [], brands: ["HTL"] },
+    { slug: "companies/odd", title: "Odd Co", aliases: [], brands: ["REVSTEAD"] },
   ];
 
-  it("splits live tenants by own brand and lifecycle from GBrain pages", () => {
+  it("splits live tenants by own brand from the GBrain customer list", () => {
     const result = partitionClientPortfolio(
       [
         { slug: "revstead", displayName: "Revstead" },
@@ -112,7 +112,6 @@ describe("partitionClientPortfolio", () => {
     expect(result.byBrand.find((row) => row.code === "HTL")?.count).toBe(1);
     expect(result.byBrand.map((row) => row.code)).toEqual(["IR", "HTL", "SSA", "PSL", "NS", "DYNAMITE"]);
     expect(result.unclassified).toBe(2);
-    expect(result.lifecycle).toEqual({ active: 1, pastDue: 0, paused: 1, cancelled: 0, other: 2, total: 4 });
   });
 
   it("matches tenants by slug, title or alias", () => {

@@ -5,9 +5,10 @@ import { HealthChip } from "../system-map/HealthChip";
 import { partitionClientPortfolio } from "./clientHelpers";
 
 /**
- * Live client counts by own brand and by active / paused / cancelled, read
- * from GBrain client pages (the same feed as the System Map). Nothing is
- * assumed: a tenant without a classified GBrain page shows as unclassified.
+ * Live client counts by own brand, read from the GBrain customer list (the
+ * same feed as the System Map). Active / paused / cancelled needs live billing
+ * state from the payment system and stays "not connected" until that reader
+ * exists; it is never copied into GBrain. Nothing is assumed.
  */
 export function ClientPortfolioStrip({ tenants, loading }: { tenants: TenantProfile[]; loading: boolean }) {
   const registry = useQuery({
@@ -27,7 +28,6 @@ export function ClientPortfolioStrip({ tenants, loading }: { tenants: TenantProf
     );
   }
   const partition = partitionClientPortfolio(tenants, registry.data?.skeleton.clients ?? []);
-  const { lifecycle } = partition;
   return (
     <section
       aria-label="Clients by brand and status"
@@ -47,12 +47,8 @@ export function ClientPortfolioStrip({ tenants, loading }: { tenants: TenantProf
         </HealthChip>
       </span>
       <span className="flex flex-wrap items-center gap-1.5">
-        <span>Status</span>
-        <HealthChip tone="ok">Active {lifecycle.active}</HealthChip>
-        {lifecycle.pastDue > 0 ? <HealthChip tone="warn">Past due {lifecycle.pastDue}</HealthChip> : null}
-        <HealthChip tone="muted">Paused {lifecycle.paused}</HealthChip>
-        <HealthChip tone="muted">Cancelled {lifecycle.cancelled}</HealthChip>
-        {lifecycle.other > 0 ? <HealthChip tone="warn">Not recorded {lifecycle.other}</HealthChip> : null}
+        <span>Active / paused / cancelled</span>
+        <HealthChip tone="muted">Not connected: needs a payment source (GHL payments or QuickBooks)</HealthChip>
       </span>
     </section>
   );

@@ -128,14 +128,16 @@ export interface SkeletonBrand {
   company: string | null;
 }
 
-/** A GBrain client page (`companies/` with `kind: customer`). */
+/**
+ * A GBrain client page (`companies/` with `kind: customer`). GBrain holds the
+ * customer list and brand only; live billing state (client status, failed
+ * payments) comes from the payment system, never from markdown.
+ */
 export interface SkeletonClient {
   slug: string;
   title: string;
   aliases: string[];
   brands: string[];
-  /** `client_status` frontmatter: active / paused / cancelled, or null when not recorded. */
-  lifecycle: string | null;
 }
 
 /** `GET /v1/gbrain/skeleton` on the feed. */

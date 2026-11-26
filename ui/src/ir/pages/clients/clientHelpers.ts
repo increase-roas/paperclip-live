@@ -1,8 +1,4 @@
-import {
-  clientStatusCounts,
-  OWN_BRANDS,
-  type ClientStatusCounts,
-} from "@paperclipai/shared/ir-metrics";
+import { OWN_BRANDS } from "@paperclipai/shared/ir-metrics";
 import type { SkeletonClient } from "@paperclipai/shared/ir-system-map";
 import type {
   ConnectionStatus,
@@ -228,13 +224,11 @@ export function matchGbrainClient(
 export interface ClientPortfolioPartition {
   byBrand: Array<{ code: string; name: string; count: number }>;
   unclassified: number;
-  lifecycle: ClientStatusCounts;
 }
 
 /**
- * Live tenants split by own brand and lifecycle, using GBrain client pages as
- * the source of truth. A tenant with no GBrain page or no brand counts as
- * unclassified; a missing `client_status` counts as "other" (not recorded).
+ * Live tenants split by own brand, using the GBrain customer list as the
+ * source of truth. A tenant with no GBrain page or no brand is unclassified.
  */
 export function partitionClientPortfolio(
   tenants: ReadonlyArray<Pick<TenantProfile, "slug" | "displayName">>,
@@ -242,17 +236,14 @@ export function partitionClientPortfolio(
 ): ClientPortfolioPartition {
   const counts = new Map<string, number>();
   let unclassified = 0;
-  const lifecycleRows: Array<{ status: unknown }> = [];
   for (const tenant of tenants) {
     const page = matchGbrainClient(tenant, clients);
     const brands = (page?.brands ?? []).filter((code) => OWN_BRANDS.some((brand) => brand.code === code));
     if (brands.length === 0) unclassified += 1;
     for (const code of brands) counts.set(code, (counts.get(code) ?? 0) + 1);
-    lifecycleRows.push({ status: page?.lifecycle ?? null });
   }
   return {
     byBrand: OWN_BRANDS.map((brand) => ({ code: brand.code, name: brand.name, count: counts.get(brand.code) ?? 0 })),
     unclassified,
-    lifecycle: clientStatusCounts(lifecycleRows),
   };
 }
