@@ -156,8 +156,15 @@ export const GATEWAY_PROVIDER_SECRETS: Record<string, ProviderSecretSpec> = {
 };
 
 // Reject ASCII control chars / newlines inside secret values
-const INVALID_SECRET_VALUE_RE = /[\x00-\x1f\x7f]/;
 const MAX_SECRET_LENGTH = 4096;
+
+function hasControlChar(value: string): boolean {
+  for (let i = 0; i < value.length; i += 1) {
+    const code = value.charCodeAt(i);
+    if (code <= 0x1f || code === 0x7f) return true;
+  }
+  return false;
+}
 
 export function resolveCloudflareSecretConfig(opts?: CloudflareSecretWriterOptions) {
   const apiToken = (
@@ -212,7 +219,7 @@ export function validateProviderSecretsPayload(
     if (trimmed.length > MAX_SECRET_LENGTH) {
       return { ok: false, error: `Secret value for "${key}" exceeds maximum length.` };
     }
-    if (INVALID_SECRET_VALUE_RE.test(trimmed)) {
+    if (hasControlChar(trimmed)) {
       return { ok: false, error: `Secret value for "${key}" contains invalid control characters.` };
     }
     entries.push([key, trimmed]);
