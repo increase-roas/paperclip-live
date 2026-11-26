@@ -264,4 +264,122 @@ describe("gatewayProxyRoutes", () => {
       "DELETE https://gw.example/api/admin/oauth/gmail/alex%40increaseroas.com",
     ]);
   });
+
+  it("enforces admin auth, validates allowlist, and writes encrypted secrets to Cloudflare API", async () => {
+    const cfCalls: Array<{ url: string; method: string; auth: string | null; body: unknown }> = [];
+    const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      const headers = new Headers(init?.headers);
+      cfCalls.push({
+        url: String(url),
+        method: init?.method ?? "GET",
+        auth: headers.get("authorization"),
+        body: init?.body ? JSON.parse(String(init.body)) : null,
+      });
+      return new Response(JSON.stringify({ success: true, result: { name: "ok" } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    });
+
+    // Non-admin rejected with 403
+    const nonAdminApp = makeApp(NON_ADMIN_ACTOR, {
+      cloudflare: {
+        apiToken: "cf-token",
+        accountId: "acc-123",
+        workerName: "increase-roas-oauth-gateway",
+        fetchImpl: fetchMock as unknown as typeof fetch,
+      },
+    });
+    expect((await request(nonAdminApp).get("/api/gateway/admin/secrets/schema")).status).toBe(403);
+    expect(
+      (
+        await request(nonAdminApp)
+          .put("/api/gateway/admin/secrets/fireflies")
+          .send({ secrets: { FIREFLIES_API_KEY: "ff-secret-123" } })
+      ).status,
+    ).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    // Unconfigured token returns configured=false and 503 on PUT
+    const unconfiguredApp = makeApp(ADMIN_ACTOR, {
+      cloudflare: {
+        apiToken: "",
+        accountId: "acc-123",
+        workerName: "increase-roas-oauth-gateway",
+        fetchImpl: fetchMock as unknown as typeof fetch,
+      },
+    });
+    const schemaUnconf = await request(unconfiguredApp)
+      .get("/api/gateway/admin/secrets/schema")
+      .expect(200);
+    expect(schemaUnconf.body.configured).toBe(false);
+    expect(schemaUnconf.body.providers.quickbooks.fields.map((f: { key: string }) => f.key)).toEqual([
+      "QUICKBOOKS_CLIENT_ID",
+      "QUICKBOOKS_CLIENT_SECRET",
+    ]);
+    await request(unconfiguredApp)
+      .put("/api/gateway/admin/secrets/fireflies")
+      .send({ secrets: { FIREFLIES_API_KEY: "ff-secret-123" } })
+      .expect(503);
+
+    // Configured admin app validates allowlist and pushes to Cloudflare
+    const adminApp = makeApp(ADMIN_ACTOR, {
+      cloudflare: {
+        apiToken: "cf-token",
+        accountId: "acc-123",
+        workerName: "increase-roas-oauth-gateway",
+        fetchImpl: fetchMock as unknown as typeof fetch,
+      },
+    });
+
+    // Reject unknown provider, disallowed key, empty value, and control chars
+    await request(adminApp)
+      .put("/api/gateway/admin/secrets/unknown_provider")
+      .send({ secrets: { FOO: "bar" } })
+      .expect(400);
+    await request(adminApp)
+      .put("/api/gateway/admin/secrets/fireflies")
+      .send({ secrets: { ARBITRARY_KEY: "bar" } })
+      .expect(400);
+    await request(adminApp)
+      .put("/api/gateway/admin/secrets/fireflies")
+      .send({ secrets: { FIREFLIES_API_KEY: "   " } })
+      .expect(400);
+    await request(adminApp)
+      .put("/api/gateway/admin/secrets/fireflies")
+      .send({ secrets: { FIREFLIES_API_KEY: "bad\nvalue" } })
+      .expect(400);
+
+    // Valid PUT binds both QuickBooks secrets and never echoes raw values
+    const okRes = await request(adminApp)
+      .put("/api/gateway/admin/secrets/quickbooks")
+      .send({
+        secrets: {
+          QUICKBOOKS_CLIENT_ID: "qb-id-supersecret",
+          QUICKBOOKS_CLIENT_SECRET: "qb-sec-supersecret",
+        },
+      })
+      .expect(200);
+
+    expect(okRes.body).toEqual({
+      ok: true,
+      provider: "quickbooks",
+      updatedKeys: ["QUICKBOOKS_CLIENT_ID", "QUICKBOOKS_CLIENT_SECRET"],
+    });
+    expect(JSON.stringify(okRes.body)).not.toContain("supersecret");
+    expect(cfCalls).toEqual([
+      {
+        url: "https://api.cloudflare.com/client/v4/accounts/acc-123/workers/scripts/increase-roas-oauth-gateway/secrets",
+        method: "PUT",
+        auth: "Bearer cf-token",
+        body: { name: "QUICKBOOKS_CLIENT_ID", text: "qb-id-supersecret", type: "secret_text" },
+      },
+      {
+        url: "https://api.cloudflare.com/client/v4/accounts/acc-123/workers/scripts/increase-roas-oauth-gateway/secrets",
+        method: "PUT",
+        auth: "Bearer cf-token",
+        body: { name: "QUICKBOOKS_CLIENT_SECRET", text: "qb-sec-supersecret", type: "secret_text" },
+      },
+    ]);
+  });
 });

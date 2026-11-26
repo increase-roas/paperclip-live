@@ -624,6 +624,26 @@ export const irOpsApi = {
         `/api/gateway/admin/oauth/${encodeURIComponent(provider)}/${encodeURIComponent(accountId)}`,
         { method: "DELETE" },
       ),
+    getSecretsSchema: () =>
+      irFetch<{
+        ok: boolean;
+        configured: boolean;
+        workerName: string;
+        providers: Record<
+          string,
+          {
+            provider: string;
+            label: string;
+            redirectUri?: string;
+            fields: Array<{ key: string; label: string; placeholder?: string }>;
+          }
+        >;
+      }>("/api/gateway/admin/secrets/schema"),
+    saveProviderSecrets: (provider: string, secrets: Record<string, string>) =>
+      irFetch<{ ok: boolean; provider: string; updatedKeys: string[] }>(
+        `/api/gateway/admin/secrets/${encodeURIComponent(provider)}`,
+        { method: "PUT", body: JSON.stringify({ secrets }) },
+      ),
   },
 
   workflows: {
