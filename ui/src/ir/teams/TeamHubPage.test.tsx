@@ -11,6 +11,7 @@ import type {
   Project,
 } from "@paperclipai/shared";
 import type { DashboardBoardWithMeta } from "@/api/dashboardBoards";
+import { agentsApi } from "@/api/agents";
 import { queryKeys } from "@/lib/queryKeys";
 import { OPEN_TASK_STATUS_FILTER } from "./teamHubHelpers";
 import { TeamHubPage } from "./TeamHubPage";
@@ -71,6 +72,7 @@ vi.mock("@/api/agents", () => ({
       if (fixture.failAgents) throw new Error("agents 500");
       return fixture.agents;
     },
+    update: vi.fn(async (_id: string, data: Record<string, unknown>) => ({ ...fixture.agents[0], ...data })),
   },
 }));
 
@@ -209,14 +211,40 @@ beforeEach(() => {
     sources: [],
     tables: [],
     tiles: [
-      { id: "dials", label: "Dials", definition: "", owner: "", target: "", sourceIds: ["wavv"], value: { kind: "live", value: 982, unit: "count", observedAt: "2026-11-25T20:00:00Z" } },
-      { id: "conversations-over-60s", label: "Conversations over 60 s", definition: "", owner: "", target: "", sourceIds: ["wavv"], value: { kind: "live", value: 10, unit: "count", observedAt: "2026-11-25T20:00:00Z" } },
-      { id: "talk-time", label: "Talk time", definition: "", owner: "", target: "", sourceIds: ["wavv"], value: { kind: "live", value: 67, unit: "minutes", observedAt: "2026-11-25T20:00:00Z" } },
+      { id: "new-leads", label: "Agency new leads", definition: "", owner: "", target: "", sourceIds: ["ghl"], value: { kind: "live", value: 33, unit: "count", observedAt: "2026-11-25T20:00:00Z" } },
+      { id: "active-opportunities", label: "Active opportunities", definition: "", owner: "", target: "", sourceIds: ["ghl"], value: { kind: "live", value: 16, unit: "count", observedAt: "2026-11-25T20:00:00Z" } },
+      { id: "show-rate", label: "Show rate", definition: "", owner: "", target: "", sourceIds: ["ghl"], value: { kind: "live", value: 75, unit: "percent", observedAt: "2026-11-25T20:00:00Z" } },
       { id: "units-sold", label: "Units sold", definition: "", owner: "", target: "", sourceIds: ["ghl"], value: { kind: "live", value: 3, unit: "count", observedAt: "2026-11-25T20:00:00Z" } },
     ],
   } as DashboardBoardWithMeta;
   fixture.fulfillmentBoard = {
     generatedAt: "2026-11-25T20:00:00Z",
+    period: "30d",
+    clientDelivery: {
+      period: "30d",
+      observedAt: "2026-11-25T20:00:00Z",
+      adSpendUsd: 6807,
+      newLeads: 55,
+      costPerLeadUsd: 123.76,
+      ctrPercent: 1.59,
+      appointmentsBooked: 10,
+      appointmentsShowed: 7,
+      showRatePercent: 70,
+      wonDeals: 2,
+      closeRatePercent: 28.6,
+      zeroLeadDays: 0,
+      accounts: [{ slug: "client-a", displayName: "Client A" }],
+      notConnected: null,
+    },
+    wavvDelivery: {
+      period: "30d",
+      observedAt: "2026-11-25T20:00:00Z",
+      dials: 982,
+      conversationsOver60s: 10,
+      talkTimeMinutes: 67,
+      bySetter: [],
+      notConnected: null,
+    },
     openClientTasks: { total: 2, unassigned: 1 },
     clients: [{ clientKey: "p1", clientName: "Sun Pool", openTasks: 2, blockedTasks: 0, oldestOpenAgeHours: 4 }],
     onboarding: { openSteps: 1, items: [], overdue: null },
@@ -307,6 +335,7 @@ describe("TeamHubPage", () => {
 
     const agentRow = container.querySelector('[data-testid="team-agent-row-ads-auditor"]');
     expect(agentRow?.textContent).toContain("Ads Auditor");
+    expect(agentRow?.textContent).toContain("Also in Fulfillment");
     expect(agentRow?.textContent).toContain("INC-111");
     expect(agentRow?.querySelector('a[href="/chats/ads-auditor"]')?.getAttribute("aria-label")).toBe("Chat with Ads Auditor");
     expect(agentRow?.querySelector('a[href="/agents/ads-auditor"][aria-label="Inspect Ads Auditor"]')).not.toBeNull();
@@ -351,7 +380,7 @@ describe("TeamHubPage", () => {
     }));
   });
 
-  it("renders Sales Team Hub with live WAVV/GHL KPIs, Sales agent, Sales tasks, and setters", async () => {
+  it("renders Sales Team Hub with agency GHL KPIs, Sales agent, Sales tasks, and setters", async () => {
     fixture.teamKey = "sales";
     await renderPage();
 
@@ -359,13 +388,14 @@ describe("TeamHubPage", () => {
     expect(container.querySelector('[data-testid="team-hub-open-dashboard"]')?.getAttribute("href")).toBe(
       "/dashboard/sales",
     );
-    expect(container.querySelector('[data-testid="team-hub-kpi-strip"]')?.textContent).toContain("982");
+    expect(container.querySelector('[data-testid="team-hub-kpi-strip"]')?.textContent).toContain("33");
+    expect(container.querySelector('[data-testid="team-hub-kpi-strip"]')?.textContent).toContain("16");
     expect(container.querySelector('[data-testid="team-agent-row-ir-sales-desk"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="team-task-row-INC-110"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="team-hub-humans"]')?.textContent).toContain("12 sets / wk");
   });
 
-  it("renders Fulfillment empty-agent CTA cleanly when no Fulfillment agents are assigned", async () => {
+  it("renders Fulfillment Team Hub with client ad & WAVV KPIs, shared multi-team agents, and empty-agent CTA when none match", async () => {
     fixture.teamKey = "fulfillment";
     await renderPage();
 
@@ -373,10 +403,21 @@ describe("TeamHubPage", () => {
     expect(container.querySelector('[data-testid="team-hub-open-dashboard"]')?.getAttribute("href")).toBe(
       "/dashboard/fulfillment",
     );
+    const kpiText = container.querySelector('[data-testid="team-hub-kpi-strip"]')?.textContent ?? "";
+    expect(kpiText).toContain("$6,807.00");
+    expect(kpiText).toContain("982");
+    expect(container.querySelector('[data-testid="team-agent-row-ads-auditor"]')?.textContent).toContain(
+      "Also in Marketing",
+    );
+    expect(container.querySelector('[data-testid="team-hub-humans"]')?.textContent).toContain("Kat");
+
+    // Empty-agent CTA still renders cleanly when no agents belong to Fulfillment
+    fixture.agents = [fixture.agents[1]!];
+    client.clear();
+    await renderPage();
     const agentsSection = container.querySelector('[data-testid="team-hub-agents"]');
     expect(agentsSection?.textContent).toContain("No AI agents assigned to Fulfillment yet");
     expect(agentsSection?.querySelector('a[href="/agents/new"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="team-hub-humans"]')?.textContent).toContain("Kat");
   });
 
   it("renders Operations Team Hub with summary KPIs and redirects unknown team keys", async () => {
@@ -438,5 +479,111 @@ describe("TeamHubPage", () => {
     expect(container.querySelector('[data-testid="team-hub-tasks-truncated"]')?.textContent).toContain(
       "Showing 12 of 14 open tasks",
     );
+  });
+
+  it("interactively manages multi-team department membership via AgentDepartmentsPopover (aria-pressed, metadata preservation, last-department guard, error alert & clear on reopen)", async () => {
+    fixture.teamKey = "marketing";
+    fixture.agents = [
+      {
+        id: "a-ads",
+        companyId: "company-1",
+        name: "Ads Auditor",
+        urlKey: "ads-auditor",
+        role: "general",
+        title: "Ads Auditor",
+        status: "idle",
+        metadata: {
+          bot: { transport: "hermes_gateway" },
+          departments: ["marketing", "fulfillment"],
+          tags: ["marketing"],
+        },
+      } as unknown as Agent,
+      {
+        id: "a-single",
+        companyId: "company-1",
+        name: "Brand Copywriter",
+        urlKey: "brand-copywriter",
+        role: "cmo",
+        title: "Brand Copywriter",
+        status: "idle",
+        metadata: { departments: ["marketing"] },
+      } as unknown as Agent,
+    ];
+
+    const updateSpy = vi.mocked(agentsApi.update);
+    updateSpy.mockImplementation(async (id: string, data: Record<string, unknown>) => {
+      const idx = fixture.agents.findIndex((a) => a.id === id);
+      const updated = { ...fixture.agents[idx]!, ...data } as Agent;
+      fixture.agents[idx] = updated;
+      return updated as unknown as Awaited<ReturnType<typeof agentsApi.update>>;
+    });
+
+    await renderPage();
+
+    // 1. Open popover for Brand Copywriter (single team) and verify last-department button is disabled + aria-pressed
+    const singleTrigger = container.querySelector('[data-testid="team-agent-departments-btn-brand-copywriter"]') as HTMLButtonElement;
+    expect(singleTrigger).not.toBeNull();
+    await act(async () => {
+      singleTrigger.click();
+    });
+    const singleMktOpt = document.body.querySelector('[data-testid="team-agent-dept-option-brand-copywriter-marketing"]') as HTMLButtonElement;
+    const singleSalesOpt = document.body.querySelector('[data-testid="team-agent-dept-option-brand-copywriter-sales"]') as HTMLButtonElement;
+    expect(singleMktOpt?.getAttribute("aria-pressed")).toBe("true");
+    expect(singleMktOpt?.disabled).toBe(true);
+    expect(singleSalesOpt?.getAttribute("aria-pressed")).toBe("false");
+    expect(singleSalesOpt?.disabled).toBe(false);
+
+    // Close single popover, then let Radix's deferred focus-return run so it
+    // cannot dismiss the next popover we open.
+    await act(async () => {
+      singleTrigger.click();
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    // 2. Open popover for Ads Auditor (marketing + fulfillment) and add sales while preserving metadata.bot
+    const adsTrigger = container.querySelector('[data-testid="team-agent-departments-btn-ads-auditor"]') as HTMLButtonElement;
+    await act(async () => {
+      adsTrigger.click();
+    });
+    const adsSalesOpt = document.body.querySelector('[data-testid="team-agent-dept-option-ads-auditor-sales"]') as HTMLButtonElement;
+    expect(adsSalesOpt).not.toBeNull();
+    await act(async () => {
+      adsSalesOpt.click();
+    });
+    expect(updateSpy).toHaveBeenCalledWith(
+      "a-ads",
+      {
+        metadata: {
+          bot: { transport: "hermes_gateway" },
+          tags: ["marketing"],
+          departments: ["marketing", "sales", "fulfillment"],
+        },
+      },
+      "company-1",
+    );
+
+    // 3. Failure renders role="alert" and clears when closing and reopening popover
+    updateSpy.mockRejectedValueOnce(new Error("PATCH failed: 500"));
+    const adsOpsOpt = document.body.querySelector('[data-testid="team-agent-dept-option-ads-auditor-operations"]') as HTMLButtonElement;
+    await act(async () => {
+      adsOpsOpt.click();
+    });
+    const alertEl = document.body.querySelector('[role="alert"]');
+    expect(alertEl?.textContent).toContain("PATCH failed: 500");
+
+    // Close and reopen -> stale error clears
+    await act(async () => {
+      adsTrigger.click();
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await act(async () => {
+      adsTrigger.click();
+    });
+    expect(adsTrigger.getAttribute("data-state")).toBe("open");
+    expect(document.body.querySelector('[role="alert"]')).toBeNull();
   });
 });

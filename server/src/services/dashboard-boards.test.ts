@@ -7,7 +7,15 @@ const companyId = "11111111-1111-4111-8111-111111111111";
 const otherCompanyId = "22222222-2222-4222-8222-222222222222";
 const pinnedNow = () => new Date("2026-11-23T12:00:00.000Z");
 
-const ENV_KEYS = ["SALES_DASHBOARD_ADMIN_KEY", "GATEWAY_PAPERCLIP_KEY", "GATEWAY_WAVV_KEY"] as const;
+const ENV_KEYS = [
+  "SALES_DASHBOARD_ADMIN_KEY",
+  "GATEWAY_PAPERCLIP_KEY",
+  "GATEWAY_WAVV_KEY",
+  "GATEWAY_META_KEY",
+  "GATEWAY_GHL_KEY",
+  "GHL_ALEX_BLOOMFIELD_PIT_KEY",
+  "GHL_ALEX_BLOOMFIELD_LOCATION_ID",
+] as const;
 
 function board(id: DashboardBoardId, forCompany = companyId) {
   return dashboardBoardService(pinnedNow).board(id, forCompany);
@@ -91,7 +99,7 @@ describe("dashboardBoardService", () => {
     expect(ids[0]).toBe("show-rate");
     expect(ids[1]).toBe("speed-to-lead");
     const tables = payload.tables.map((table) => table.id);
-    expect(tables).toEqual(expect.arrayContaining(["sales-by-business", "setter-scoreboard"]));
+    expect(tables).toEqual(["sales-by-business"]);
     expect(payload.tables.find((table) => table.id === "sales-by-business")?.scope).toBe("client");
   });
 
@@ -109,19 +117,15 @@ describe("dashboardBoardService", () => {
     expect(JSON.stringify(payload)).not.toContain("HBR");
   });
 
-  it("keeps every other v1 sales tile and labels it as v1", async () => {
+  it("keeps every agency v1 sales tile (client WAVV moved to Fulfillment) and labels it as v1", async () => {
     const payload = await board("sales");
     const byId = new Map(payload.tiles.map((tile) => [tile.id, tile]));
-    for (const id of [
-      "set-rate",
-      "lead-to-customer",
-      "appointments-per-setter-day",
-      "dials",
-      "conversations-over-60s",
-      "talk-time",
-    ]) {
+    for (const id of ["new-leads", "active-opportunities", "set-rate", "lead-to-customer"]) {
       expect(byId.get(id)?.target).toContain("v1 source");
     }
+    expect(byId.has("dials")).toBe(false);
+    expect(byId.has("conversations-over-60s")).toBe(false);
+    expect(byId.has("talk-time")).toBe(false);
   });
 
   it("puts CAC first and keeps CPL as a reference number", async () => {
@@ -354,163 +358,211 @@ describe("dashboardBoardService", () => {
     }
   });
 
-  it("aggregates multi-client sales and marketing live data and never renders Dials: 0 without WAVV", async () => {
-    const prevKey = process.env.SALES_DASHBOARD_ADMIN_KEY;
-    process.env.SALES_DASHBOARD_ADMIN_KEY = "test-key";
-    try {
-      const fetchImpl = (async (input: string | URL | Request) => {
-        const url = String(input);
-        if (url.includes("/api/pilot/admin/capital")) {
-          return new Response(
-            JSON.stringify({
-              ok: true,
-              generatedAt: "2026-11-23T11:45:00.000Z",
-              view: "30d",
-              owner: null,
-              clients: [
-                {
-                  slug: "paradise-spas",
-                  displayName: "Paradise Spas",
-                  syncedAt: "2026-11-23T11:40:00.000Z",
-                  syncStatus: "success",
-                  marketing: { adSpendUsd: 6450, newLeads: 120, wonDeals: 6, pipelineRevenueUsd: 48000 },
-                  financialMonth: null,
-                },
-                {
-                  slug: "the-hot-tub-store",
-                  displayName: "The Hot Tub Store",
-                  syncedAt: "2026-11-23T11:40:00.000Z",
-                  syncStatus: "success",
-                  marketing: { adSpendUsd: 78, newLeads: 4, wonDeals: 0 },
-                  financialMonth: null,
-                },
-              ],
-            }),
-            { status: 200, headers: { "content-type": "application/json" } },
-          );
-        }
-        if (url.includes("/api/pilot/admin/snapshots")) {
-          return new Response(
-            JSON.stringify({
-              ok: true,
-              generatedAt: "2026-11-23T11:45:00.000Z",
-              clients: [
-                {
-                  slug: "paradise-spas",
-                  displayName: "Paradise Spas",
-                  syncedAt: "2026-11-23T11:45:00.000Z",
-                  summary: {
-                    ghl: {
-                      status: "LIVE",
-                      data: {
-                        newLeads: 120,
-                        appointmentsBooked: 40,
-                        showedAppointments: 30,
-                        pitchedOpportunities: 24,
-                        wonDeals: 6,
-                      },
-                    },
-                    meta: {
-                      status: "LIVE",
-                      data: { spend: 6450, impressions: 100000, clicks: 2500, zeroLeadDays: 0 },
-                    },
-                    calls: { status: "LIVE", data: { outboundCalls: 0 } },
-                  },
-                },
-                {
-                  slug: "sun-pool",
-                  displayName: "Sun Pool",
-                  syncedAt: "2026-11-23T11:45:00.000Z",
-                  summary: {
-                    ghl: {
-                      status: "LIVE",
-                      data: {
-                        newLeads: 30,
-                        appointmentsBooked: 10,
-                        showedAppointments: 10,
-                        pitchedOpportunities: 6,
-                        wonDeals: 2,
-                      },
-                    },
-                  },
-                },
-              ],
-            }),
-            { status: 200, headers: { "content-type": "application/json" } },
-          );
-        }
-        if (url.includes("/api/pilot/neon-ads?view=accounts")) {
-          return new Response(
-            JSON.stringify({
-              ok: true,
-              status: "LIVE",
-              generatedAt: "2026-11-23T11:50:00.000Z",
-              clients: [
-                {
-                  clientId: "paradise-spas",
-                  displayName: "Paradise Spas",
-                  sevenDay: { spend: 1500, leads: 30, cpl: 50 },
-                  thirtyDay: { spend: 6450, leads: 120, cpl: 53.75 },
-                  lastDataDay: "2026-11-22",
-                  stale: false,
-                },
-                {
-                  clientId: "the-hot-tub-store",
-                  displayName: "The Hot Tub Store",
-                  sevenDay: { spend: 78, leads: 4, cpl: 19.5 },
-                  thirtyDay: { spend: 78, leads: 4, cpl: 19.5 },
-                  lastDataDay: "2026-11-22",
-                  stale: false,
-                },
-              ],
-            }),
-            { status: 200, headers: { "content-type": "application/json" } },
-          );
-        }
-        if (url.includes("/api/pilot/neon-ads?view=pipeline")) {
-          return new Response(
-            JSON.stringify({ ok: true, status: "LIVE", generatedAt: "2026-11-23T11:50:00.000Z", clients: [] }),
-            { status: 200, headers: { "content-type": "application/json" } },
-          );
-        }
-        return new Response("{}", { status: 404 });
-      }) as typeof fetch;
+  it("keeps Marketing and Sales strictly scoped to Increase ROAS agency accounts and never mixes client portfolio metrics", async () => {
+    const svc = dashboardBoardService(pinnedNow, {
+      agencyMarketingReader: async () => ({
+        period: "30d",
+        since: "2026-10-24",
+        until: "2026-11-23",
+        observedAt: "2026-11-23T11:45:00.000Z",
+        liveAccountCount: 2,
+        totalAccountCount: 3,
+        hasMeta: true,
+        spend: 1200,
+        impressions: 24000,
+        clicks: 900,
+        linkClicks: 600,
+        leads: 24,
+        ctr: 2.5,
+        cpl: 50,
+        zeroLeadDays: 0,
+        accounts: [
+          {
+            id: "increase-roas-b2b",
+            displayName: "Increase ROAS B2B",
+            adAccountId: "act_1751702711685898",
+            status: "needs_config",
+            statusLabel: "Needs account ID / key",
+            observedAt: null,
+            spend: null,
+            impressions: null,
+            clicks: null,
+            linkClicks: null,
+            leads: null,
+            ctr: null,
+            cpl: null,
+            zeroLeadDays: null,
+          },
+          {
+            id: "alex-bloomfield-ssa",
+            displayName: "Alex Bloomfield (Start Scale Automate)",
+            adAccountId: "act_735997837915750",
+            status: "live",
+            statusLabel: "Live",
+            observedAt: "2026-11-23T11:45:00.000Z",
+            spend: 1200,
+            impressions: 24000,
+            clicks: 900,
+            linkClicks: 600,
+            leads: 24,
+            ctr: 2.5,
+            cpl: 50,
+            zeroLeadDays: 0,
+          },
+          {
+            id: "hot-tub-launch",
+            displayName: "Hot Tub Launch",
+            adAccountId: "act_931652032962948",
+            status: "live",
+            statusLabel: "Live · $0 spend",
+            observedAt: "2026-11-23T11:45:00.000Z",
+            spend: 0,
+            impressions: 0,
+            clicks: 0,
+            linkClicks: 0,
+            leads: 0,
+            ctr: null,
+            cpl: null,
+            zeroLeadDays: 0,
+          },
+        ],
+      }),
+      agencySalesReader: async () => ({
+        period: "30d",
+        observedAt: "2026-11-23T11:45:00.000Z",
+        liveAccountCount: 2,
+        totalAccountCount: 3,
+        hasGhl: true,
+        newLeads: 33,
+        activeOpportunities: 16,
+        booked: 10,
+        showed: 8,
+        noShows: 2,
+        pitched: 6,
+        wonDeals: 2,
+        lostDeals: 3,
+        pipelineWonUsd: 12000,
+        cashCollectedUsd: 6000,
+        showRate: 80,
+        offerRate: 75,
+        closeRate: 40,
+        setRate: 30.3,
+        leadToCustomerRate: 6.1,
+        accounts: [
+          {
+            id: "increase-roas-main",
+            displayName: "Increase ROAS Main",
+            locationId: "Sr90yJUmFoBTgBQuejtU",
+            authMode: "gateway",
+            status: "live",
+            statusLabel: "Live",
+            observedAt: "2026-11-23T11:45:00.000Z",
+            newLeads: 15,
+            activeOpportunities: 4,
+            booked: 6,
+            showed: 5,
+            noShows: 1,
+            pitched: 4,
+            wonDeals: 2,
+            lostDeals: 2,
+            pipelineWonUsd: 12000,
+            cashCollectedUsd: 6000,
+            showRate: 83.3,
+            offerRate: 80,
+            closeRate: 50,
+          },
+          {
+            id: "hot-tub-launch-b2b",
+            displayName: "Hot Tub Launch B2B",
+            locationId: "AG47jEV5rVUrGLt5FlKO",
+            authMode: "gateway",
+            status: "live",
+            statusLabel: "Live",
+            observedAt: "2026-11-23T11:45:00.000Z",
+            newLeads: 18,
+            activeOpportunities: 12,
+            booked: 4,
+            showed: 3,
+            noShows: 1,
+            pitched: 2,
+            wonDeals: 0,
+            lostDeals: 1,
+            pipelineWonUsd: 0,
+            cashCollectedUsd: 0,
+            showRate: 75,
+            offerRate: 66.7,
+            closeRate: 0,
+          },
+          {
+            id: "alex-bloomfield-ssa",
+            displayName: "Alex Bloomfield (Start Scale Automate)",
+            locationId: null,
+            authMode: "pit",
+            status: "needs_config",
+            statusLabel: "Needs PIT key / location ID",
+            observedAt: null,
+            newLeads: null,
+            activeOpportunities: null,
+            booked: null,
+            showed: null,
+            noShows: null,
+            pitched: null,
+            wonDeals: null,
+            lostDeals: null,
+            pipelineWonUsd: null,
+            cashCollectedUsd: null,
+            showRate: null,
+            offerRate: null,
+            closeRate: null,
+          },
+        ],
+      }),
+    });
 
-      const svc = dashboardBoardService(pinnedNow, {
-        fetchImpl,
-        wavvReader: async () => null,
-      });
+    const sales = await svc.board("sales", companyId, "30d");
+    const salesById = new Map(sales.tiles.map((t) => [t.id, t.value]));
+    expect(salesById.get("show-rate")).toMatchObject({ kind: "live", value: 80, unit: "percent" });
+    expect(salesById.get("offer-rate")).toMatchObject({ kind: "live", value: 75, unit: "percent" });
+    expect(salesById.get("close-rate")).toMatchObject({ kind: "live", value: 40, unit: "percent" });
+    expect(salesById.get("cash-collected-up-front")).toMatchObject({ kind: "live", value: 50, unit: "percent" });
+    expect(salesById.get("units-sold")).toMatchObject({ kind: "live", value: 2, unit: "count" });
+    expect(salesById.get("new-leads")).toMatchObject({ kind: "live", value: 33, unit: "count" });
+    expect(salesById.get("active-opportunities")).toMatchObject({ kind: "live", value: 16, unit: "count" });
 
-      const sales = await svc.board("sales", companyId, "30d");
-      const salesById = new Map(sales.tiles.map((t) => [t.id, t.value]));
-      expect(salesById.get("show-rate")).toMatchObject({ kind: "live", value: 80, unit: "percent" });
-      expect(salesById.get("offer-rate")).toMatchObject({ kind: "live", value: 75, unit: "percent" });
-      expect(salesById.get("units-sold")).toMatchObject({ kind: "live", value: 8, unit: "count" });
-      // Never render Dials: 0 when WAVV is not connected
-      expect(salesById.get("dials")).toEqual({ kind: "not_connected" });
-      expect(sales.sources.find((s) => s.id === "wavv")?.status).toBe("not_connected");
+    const salesTable = sales.tables.find((t) => t.id === "sales-by-business");
+    expect(salesTable?.rows.map((r) => r.id)).toEqual([
+      "increase-roas-main",
+      "hot-tub-launch-b2b",
+      "alex-bloomfield-ssa",
+    ]);
+    expect(salesTable?.rows.find((r) => r.id === "alex-bloomfield-ssa")?.cells.status).toBe(
+      "Needs PIT key / location ID",
+    );
+    expect(JSON.stringify(sales)).not.toContain("Client A");
 
-      const salesTable = sales.tables.find((t) => t.id === "sales-by-business");
-      expect(salesTable?.rows.map((r) => r.id)).toEqual(
-        expect.arrayContaining(["paradise-spas", "sun-pool", "the-hot-tub-store"]),
-      );
+    const marketing = await svc.board("marketing", companyId, "30d");
+    const mktById = new Map(marketing.tiles.map((t) => [t.id, t.value]));
+    expect(mktById.get("ad-spend")).toMatchObject({ kind: "live", value: 1200, unit: "usd" });
+    expect(mktById.get("new-leads")).toMatchObject({ kind: "live", value: 24, unit: "count" });
+    expect(mktById.get("cost-per-lead")).toMatchObject({ kind: "live", value: 50, unit: "usd" });
+    expect(mktById.get("ctr")).toMatchObject({ kind: "live", value: 2.5, unit: "percent" });
+    expect(mktById.get("cac-per-client")).toMatchObject({ kind: "live", value: 600, unit: "usd" });
+    expect(mktById.get("cost-per-held-appointment")).toMatchObject({ kind: "live", value: 150, unit: "usd" });
 
-      const marketing = await svc.board("marketing", companyId, "30d");
-      const mktById = new Map(marketing.tiles.map((t) => [t.id, t.value]));
-      expect(mktById.get("ad-spend")).toMatchObject({ kind: "live", value: 6528, unit: "usd" });
-      expect(mktById.get("new-leads")).toMatchObject({ kind: "live", value: 154, unit: "count" });
-      expect(mktById.get("cac-per-client")).toMatchObject({ kind: "live", value: 816, unit: "usd" });
-      expect(mktById.get("ctr")).toMatchObject({ kind: "live", value: 2.5, unit: "percent" });
-      const mktTable = marketing.tables.find((t) => t.id === "marketing-by-client");
-      expect(mktTable?.rows.find((r) => r.id === "paradise-spas")?.cells.spend).toBe(6450);
-      expect(mktTable?.rows.find((r) => r.id === "the-hot-tub-store")?.cells.spend).toBe(78);
-    } finally {
-      if (prevKey === undefined) delete process.env.SALES_DASHBOARD_ADMIN_KEY;
-      else process.env.SALES_DASHBOARD_ADMIN_KEY = prevKey;
-    }
+    const mktTable = marketing.tables.find((t) => t.id === "marketing-by-client");
+    expect(mktTable?.rows.map((r) => r.id)).toEqual([
+      "increase-roas-b2b",
+      "alex-bloomfield-ssa",
+      "hot-tub-launch",
+    ]);
+    expect(mktTable?.rows.find((r) => r.id === "increase-roas-b2b")?.cells.status).toBe(
+      "Needs account ID / key",
+    );
+    expect(mktTable?.rows.find((r) => r.id === "alex-bloomfield-ssa")?.cells.spend).toBe("$1,200.00");
+    expect(JSON.stringify(marketing)).not.toContain("Client A");
   });
 
-  it("parses flat live /api/pilot/admin/snapshots sections and never mixes client sales into agency revenue-per-fte", async () => {
+  it("never mixes client sales into agency Marketing, Sales, or Human employees Revenue per FTE when only SALES_DASHBOARD_ADMIN_KEY is set", async () => {
     const prevKey = process.env.SALES_DASHBOARD_ADMIN_KEY;
     process.env.SALES_DASHBOARD_ADMIN_KEY = "test-key";
     try {
@@ -552,63 +604,12 @@ describe("dashboardBoardService", () => {
               owner: null,
               clients: [
                 {
-                  slug: "paradise-spas",
-                  displayName: "Paradise Spas",
+                  slug: "client-a",
+                  displayName: "Client A",
                   syncedAt: "2026-11-23T11:40:00.000Z",
                   syncStatus: "success",
                   marketing: { salesUsd: 250000, adSpendUsd: 6473.6 },
                   financialMonth: null,
-                },
-              ],
-            }),
-            { status: 200, headers: { "content-type": "application/json" } },
-          );
-        }
-        if (url.includes("/api/pilot/admin/snapshots")) {
-          // Exact flat JSON shape returned live by dashboard.increaseai.tech/api/pilot/admin/snapshots
-          return new Response(
-            JSON.stringify({
-              ok: true,
-              view: "30d",
-              generatedAt: "2026-11-23T11:55:00.000Z",
-              clients: [
-                {
-                  slug: "paradise-spas",
-                  displayName: "Paradise Spas",
-                  lastSuccessfulSyncAt: "2026-11-23T11:50:00.000Z",
-                  zeroLeadDays7d: 0,
-                  ghl: {
-                    status: "LIVE",
-                    newLeads: 20,
-                    appointmentsBooked: 10,
-                    showedAppointments: 7,
-                    wonDeals: 3,
-                  },
-                  meta: {
-                    status: "LIVE",
-                    spend: 6473.6,
-                    impressions: 225000,
-                    clicks: 3330,
-                  },
-                },
-                {
-                  slug: "the-hot-tub-store",
-                  displayName: "The Hot Tub Store",
-                  lastSuccessfulSyncAt: "2026-11-23T11:50:00.000Z",
-                  zeroLeadDays7d: 1,
-                  ghl: {
-                    status: "LIVE",
-                    newLeads: 3,
-                    appointmentsBooked: 2,
-                    showedAppointments: 1,
-                    wonDeals: 0,
-                  },
-                  meta: {
-                    status: "LIVE",
-                    spend: 78,
-                    impressions: 3649,
-                    clicks: 57,
-                  },
                 },
               ],
             }),
@@ -624,17 +625,18 @@ describe("dashboardBoardService", () => {
       const svc = dashboardBoardService(pinnedNow, {
         teamRoster: fakeRoster,
         fetchImpl,
-        wavvReader: async () => null,
       });
 
+      // Marketing & Sales must NEVER pull client portfolio data from SALES_DASHBOARD_ADMIN_KEY
       const marketing = await svc.board("marketing", companyId, "30d");
-      const mktById = new Map(marketing.tiles.map((t) => [t.id, t.value]));
-      expect(mktById.get("ad-spend")).toMatchObject({ kind: "live", value: 6551.6, unit: "usd" });
-      expect(mktById.get("new-leads")).toMatchObject({ kind: "live", value: 23, unit: "count" });
-      expect(mktById.get("ctr")).toMatchObject({ kind: "live", value: 1.48, unit: "percent" });
-      expect(mktById.get("spend-with-zero-leads")).toMatchObject({ kind: "live", value: 1, unit: "count" });
+      expect(marketing.tiles.every((t) => t.value.kind === "not_connected")).toBe(true);
+      expect(marketing.tables.find((t) => t.id === "marketing-by-client")?.rows).toEqual([]);
 
-      // Human employees must NOT use Paradise Spas' $250,000 client sales for agency Revenue per FTE
+      const sales = await svc.board("sales", companyId, "30d");
+      expect(sales.tiles.every((t) => t.value.kind === "not_connected")).toBe(true);
+      expect(sales.tables.find((t) => t.id === "sales-by-business")?.rows).toEqual([]);
+
+      // Human employees must NOT use Client A's $250,000 client sales for agency Revenue per FTE
       const humans = await svc.board("human-employees", companyId, "30d");
       const humanById = new Map(humans.tiles.map((t) => [t.id, t.value]));
       expect(humanById.get("revenue-per-fte")).toEqual({ kind: "not_connected" });
@@ -698,89 +700,51 @@ describe("dashboardBoardService", () => {
     });
   });
 
-  it("shows not_connected on month-to-date sales and marketing boards when only 30d Neon accounts or unscoped pipeline exist", async () => {
-    const prevKey = process.env.SALES_DASHBOARD_ADMIN_KEY;
-    process.env.SALES_DASHBOARD_ADMIN_KEY = "test-key";
-    try {
-      const fetchImpl = (async (input: string | URL | Request) => {
-        const url = String(input);
-        if (url.includes("/api/pilot/admin/capital?view=month")) {
-          return new Response(
-            JSON.stringify({ ok: true, generatedAt: "2026-11-23T11:45:00.000Z", view: "month", owner: null, clients: [] }),
-            { status: 200, headers: { "content-type": "application/json" } },
-          );
-        }
-        if (url.includes("/api/pilot/admin/snapshots?view=month")) {
-          return new Response(
-            JSON.stringify({ ok: true, view: "month", generatedAt: "2026-11-23T11:45:00.000Z", clients: [] }),
-            { status: 200, headers: { "content-type": "application/json" } },
-          );
-        }
-        if (url.includes("/api/pilot/neon-ads?view=accounts")) {
-          return new Response(
-            JSON.stringify({
-              ok: true,
-              status: "LIVE",
-              generatedAt: "2026-11-23T11:50:00.000Z",
-              clients: [
-                {
-                  clientId: "paradise-spas",
-                  displayName: "Paradise Spas",
-                  sevenDay: { spend: 1500, leads: 30, cpl: 50 },
-                  thirtyDay: { spend: 6450, leads: 120, cpl: 53.75 },
-                  lastDataDay: "2026-11-22",
-                  stale: false,
-                },
-              ],
-            }),
-            { status: 200, headers: { "content-type": "application/json" } },
-          );
-        }
-        if (url.includes("/api/pilot/neon-ads?view=pipeline")) {
-          return new Response(
-            JSON.stringify({
-              ok: true,
-              status: "LIVE",
-              generatedAt: "2026-11-23T11:50:00.000Z",
-              clients: [
-                {
-                  clientId: "paradise-spas",
-                  displayName: "Paradise Spas",
-                  spend: 6450,
-                  crmLeads: 120,
-                  qualified: 50,
-                  booked: 40,
-                  showed: 30,
-                  sold: 6,
-                  revenue: 48000,
-                  costPerCrmLead: 53.75,
-                  costPerBooked: 161.25,
-                  costPerSold: 1075,
-                  roas: 7.44,
-                },
-              ],
-            }),
-            { status: 200, headers: { "content-type": "application/json" } },
-          );
-        }
-        return new Response("{}", { status: 404 });
-      }) as typeof fetch;
+  it("returns not_connected on month-to-date agency sales and marketing boards when agency sources return null", async () => {
+    const svc = dashboardBoardService(pinnedNow, {
+      agencyMarketingReader: async () => null,
+      agencySalesReader: async () => null,
+    });
 
-      const svc = dashboardBoardService(pinnedNow, {
-        fetchImpl,
-        wavvReader: async () => null,
-      });
+    const marketing = await svc.board("marketing", companyId, "month");
+    expect(marketing.tiles.every((t) => t.value.kind === "not_connected")).toBe(true);
+    expect(marketing.tables.find((t) => t.id === "marketing-by-client")?.rows).toEqual([]);
 
-      const marketing = await svc.board("marketing", companyId, "month");
-      expect(marketing.tiles.every((t) => t.value.kind === "not_connected")).toBe(true);
-      expect(marketing.tables.find((t) => t.id === "marketing-by-client")?.rows).toEqual([]);
+    const sales = await svc.board("sales", companyId, "month");
+    expect(sales.tiles.every((t) => t.value.kind === "not_connected")).toBe(true);
+    expect(sales.tables.find((t) => t.id === "sales-by-business")?.rows).toEqual([]);
+  });
 
-      const sales = await svc.board("sales", companyId, "month");
-      expect(sales.tiles.every((t) => t.value.kind === "not_connected")).toBe(true);
-      expect(sales.tables.find((t) => t.id === "sales-by-business")?.rows).toEqual([]);
-    } finally {
-      if (prevKey === undefined) delete process.env.SALES_DASHBOARD_ADMIN_KEY;
-      else process.env.SALES_DASHBOARD_ADMIN_KEY = prevKey;
-    }
+  it("renders cash-collected-up-front as not_connected (never 0%) when agency transactions failed (cashCollectedUsd: null)", async () => {
+    const svc = dashboardBoardService(pinnedNow, {
+      agencySalesReader: async () => ({
+        period: "30d",
+        observedAt: "2026-11-26T05:00:00.000Z",
+        liveAccountCount: 1,
+        totalAccountCount: 3,
+        hasGhl: true,
+        newLeads: 15,
+        activeOpportunities: 5,
+        booked: 4,
+        showed: 3,
+        noShows: 1,
+        pitched: 2,
+        wonDeals: 1,
+        lostDeals: 1,
+        pipelineWonUsd: 10000,
+        cashCollectedUsd: null,
+        showRate: 75,
+        offerRate: 66.7,
+        closeRate: 50,
+        setRate: 26.7,
+        leadToCustomerRate: 6.7,
+        accounts: [],
+      }),
+    });
+
+    const sales = await svc.board("sales", companyId, "30d");
+    const byId = new Map(sales.tiles.map((t) => [t.id, t.value]));
+    expect(byId.get("cash-collected-up-front")).toEqual({ kind: "not_connected" });
+    expect(byId.get("units-sold")).toMatchObject({ kind: "live", value: 1, unit: "count" });
   });
 });

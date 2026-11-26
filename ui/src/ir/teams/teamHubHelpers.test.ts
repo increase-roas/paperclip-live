@@ -10,11 +10,13 @@ import type {
 import type { DashboardBoardWithMeta } from "@/api/dashboardBoards";
 import {
   buildAgentCurrentTaskMap,
+  buildNextAgentDepartmentsMetadata,
   extractHumanMembersForTeam,
   filterAgentsForTeam,
   filterTeamActiveTasks,
   findMatchingTeamProject,
   formatTeamAgentSubtitle,
+  getSharedAgentDepartments,
   getTeamHubConfig,
   isMissingJudgedOn,
   isTeamCapitalDisconnected,
@@ -101,9 +103,9 @@ describe("teamHubHelpers", () => {
     expect(isTeamHubActive("/teams/operations", "operations")).toBe(true);
   });
 
-  it("partitions the live 10-agent roster and future scaled/hyphenated agents cleanly across all 4 departments", () => {
+  it("supports multi-team agent membership (departments: string[]) across Marketing and Fulfillment without duplicating records", () => {
     const liveAgents: Agent[] = [
-      makeAgent({ id: "1", name: "Ads Auditor", urlKey: "ads-auditor", title: "Ads Auditor" }),
+      makeAgent({ id: "1", name: "Ads Auditor", urlKey: "ads-auditor", title: "Ads Auditor", metadata: { departments: ["marketing", "fulfillment"] } }),
       makeAgent({ id: "2", name: "Ads checker", urlKey: "ads-checker", title: "Ads checker" }),
       makeAgent({ id: "3", name: "Video Editor", urlKey: "video-editor", title: "Video Editor" }),
       makeAgent({ id: "4", name: "Research Analyst", urlKey: "research-analyst", role: "researcher", title: "Research Analyst" }),
@@ -123,8 +125,13 @@ describe("teamHubHelpers", () => {
       "Video Editor",
     ]);
     expect(filterAgentsForTeam(liveAgents, "sales").map((a) => a.name)).toEqual(["IR Sales Desk"]);
+    // Ads Auditor, Ads checker, Research Analyst, Video Editor support BOTH marketing & fulfillment
     expect(filterAgentsForTeam(liveAgents, "fulfillment").map((a) => a.name)).toEqual([
+      "Ads Auditor",
+      "Ads checker",
       "IR Client Support Desk",
+      "Research Analyst",
+      "Video Editor",
       "Web Builder",
     ]);
     expect(filterAgentsForTeam(liveAgents, "operations").map((a) => a.name)).toEqual([
@@ -133,9 +140,54 @@ describe("teamHubHelpers", () => {
       "Reviewer",
     ]);
 
+    expect(getSharedAgentDepartments(liveAgents[0]!, "marketing")).toEqual(["fulfillment"]);
+    expect(getSharedAgentDepartments(liveAgents[0]!, "fulfillment")).toEqual(["marketing"]);
+    expect(getSharedAgentDepartments(liveAgents[4]!, "sales")).toEqual([]);
+
+    // Explicit metadata preserves unrelated keys and normalizes departments canonically
+    const nextMeta = buildNextAgentDepartmentsMetadata(
+      makeAgent({
+        id: "m1",
+        name: "Ads Auditor",
+        urlKey: "ads-auditor",
+        metadata: { bot: { transport: "hermes_gateway" }, department: "marketing" },
+      }),
+      ["fulfillment", "marketing"],
+    );
+    expect(nextMeta).toEqual({
+      bot: { transport: "hermes_gateway" },
+      departments: ["marketing", "fulfillment"],
+    });
+
+    // Canonical metadata.departments takes precedence over sticky legacy metadata.tags
+    expect(
+      matchAgentTeams(
+        makeAgent({
+          id: "sticky-1",
+          name: "Ads Auditor",
+          urlKey: "ads-auditor",
+          metadata: { departments: ["fulfillment"], tags: ["marketing", "ads"] },
+        }),
+      ),
+    ).toEqual(["fulfillment"]);
+
+    // Rejects writing empty or all-invalid departments
+    expect(() =>
+      buildNextAgentDepartmentsMetadata(
+        makeAgent({ id: "empty-1", name: "Ads Auditor", urlKey: "ads-auditor" }),
+        [],
+      ),
+    ).toThrow(/at least one valid department/i);
+
     // Scaling future roles, hyphenated urlKeys, and explicit metadata
-    expect(matchAgentTeams(makeAgent({ id: "s1", name: "Ad Ops", urlKey: "ad-ops", title: "Ad Ops" }))).toEqual(["marketing"]);
-    expect(matchAgentTeams(makeAgent({ id: "s2", name: "Paid Media", urlKey: "media-buyer", title: "Meta Ads Manager" }))).toEqual(["marketing"]);
+    expect(matchAgentTeams(makeAgent({ id: "s1", name: "Ad Ops", urlKey: "ad-ops", title: "Ad Ops" }))).toEqual([
+      "marketing",
+      "fulfillment",
+    ]);
+    expect(matchAgentTeams(makeAgent({ id: "s2", name: "Paid Media", urlKey: "media-buyer", title: "Meta Ads Manager" }))).toEqual([
+      "marketing",
+      "fulfillment",
+    ]);
     expect(matchAgentTeams(makeAgent({ id: "s3", name: "Client Support", urlKey: "client-support", title: "Client Support" }))).toEqual(["fulfillment"]);
     expect(
       matchAgentTeams(
@@ -143,10 +195,10 @@ describe("teamHubHelpers", () => {
           id: "12",
           name: "Growth Closer",
           urlKey: "growth-closer",
-          metadata: { teams: ["sales", "department: marketing"] },
+          metadata: { departments: ["sales", "department: marketing"] },
         }),
       ),
-    ).toEqual(["sales", "marketing"]);
+    ).toEqual(["marketing", "sales"]);
   });
 
   it("deduplicates identical role and title subtitles", () => {
@@ -338,17 +390,17 @@ describe("teamHubHelpers", () => {
 
     const salesBoard = {
       tiles: [
-        { id: "dials", label: "Dials", value: { kind: "live", value: 982, unit: "count", observedAt: "2026-11-25T20:00:00Z" } },
-        { id: "conversations-over-60s", label: "Conversations over 60 s", value: { kind: "live", value: 10, unit: "count", observedAt: "2026-11-25T20:00:00Z" } },
-        { id: "talk-time", label: "Talk time", value: { kind: "live", value: 67, unit: "minutes", observedAt: "2026-11-25T20:00:00Z" } },
-        { id: "units-sold", label: "Units sold", value: { kind: "not_connected" } },
+        { id: "new-leads", label: "Agency new leads", value: { kind: "live", value: 33, unit: "count", observedAt: "2026-11-25T20:00:00Z" } },
+        { id: "active-opportunities", label: "Active opportunities", value: { kind: "live", value: 16, unit: "count", observedAt: "2026-11-25T20:00:00Z" } },
+        { id: "show-rate", label: "Show rate", value: { kind: "not_connected" } },
+        { id: "units-sold", label: "Units sold", value: { kind: "live", value: 2, unit: "count", observedAt: "2026-11-25T20:00:00Z" } },
       ],
     } as unknown as DashboardBoard;
     expect(selectSalesKpis(salesBoard).map((k) => [k.id, k.value, k.tone])).toEqual([
-      ["dials", "982", "default"],
-      ["conversations-over-60s", "10", "default"],
-      ["talk-time", "67 min", "default"],
-      ["units-sold", "—", "muted"],
+      ["new-leads", "33", "default"],
+      ["active-opportunities", "16", "default"],
+      ["show-rate", "—", "muted"],
+      ["units-sold", "2", "default"],
     ]);
 
     const fulfillmentBoard = {
@@ -357,12 +409,67 @@ describe("teamHubHelpers", () => {
       clients: [{ clientKey: "c1" }, { clientKey: "c2" }],
       onboarding: { openSteps: 2 },
       retention: { churnMonthly: { value: null, target: "< 3%" } },
+      clientDelivery: {
+        period: "30d",
+        observedAt: "2026-11-26T05:00:00Z",
+        adSpendUsd: 6807,
+        newLeads: 55,
+        costPerLeadUsd: 123.76,
+        ctrPercent: 1.59,
+        appointmentsBooked: 10,
+        appointmentsShowed: 7,
+        showRatePercent: 70,
+        wonDeals: 2,
+        closeRatePercent: 28.6,
+        zeroLeadDays: 0,
+        accounts: [{ slug: "client-a" }, { slug: "client-b" }],
+        notConnected: null,
+      },
+      wavvDelivery: {
+        period: "30d",
+        observedAt: "2026-11-26T05:00:00Z",
+        dials: 982,
+        conversationsOver60s: 10,
+        talkTimeMinutes: 67,
+        bySetter: [],
+        notConnected: null,
+      },
     } as unknown as DashboardFulfillmentBoard;
-    expect(selectFulfillmentKpis(fulfillmentBoard).map((k) => [k.label, k.value])).toEqual([
-      ["Open client tasks", "4"],
-      ["Clients with open work", "2"],
-      ["Open onboarding steps", "2"],
-      ["Unassigned open tasks", "1"],
+    expect(selectFulfillmentKpis(fulfillmentBoard).map((k) => [k.id, k.value])).toEqual([
+      ["client-ad-spend", "$6,807.00"],
+      ["client-new-leads", "55"],
+      ["client-cost-per-lead", "$123.76"],
+      ["client-ctr", "1.59%"],
+      ["wavv-dials", "982"],
+      ["wavv-conversations", "10"],
+      ["wavv-talk-time", "67 min"],
+      ["open-client-tasks", "4"],
+    ]);
+
+    // When clientDelivery/wavvDelivery objects exist with all-null metrics (e.g. non-admin viewer),
+    // cleanly fall back to the 4-card Paperclip Fulfillment summary instead of 7 "—" cards.
+    const gatedFulfillmentBoard = {
+      ...fulfillmentBoard,
+      clientDelivery: {
+        ...fulfillmentBoard.clientDelivery!,
+        adSpendUsd: null,
+        newLeads: null,
+        costPerLeadUsd: null,
+        ctrPercent: null,
+        accounts: [],
+      },
+      wavvDelivery: {
+        ...fulfillmentBoard.wavvDelivery!,
+        dials: null,
+        conversationsOver60s: null,
+        talkTimeMinutes: null,
+      },
+    } as unknown as DashboardFulfillmentBoard;
+    expect(selectFulfillmentKpis(gatedFulfillmentBoard).map((k) => [k.id, k.value])).toEqual([
+      ["open-client-tasks", "4"],
+      ["clients-with-open-work", "2"],
+      ["open-onboarding-steps", "2"],
+      ["unassigned-open-tasks", "1"],
     ]);
 
     const opsSummary = {

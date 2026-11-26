@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import express from "express";
 import request from "supertest";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   agents,
   approvals,
@@ -59,7 +59,7 @@ describePostgres("lane 3 dashboard board routes", () => {
   const savedEnv: Record<string, string | undefined> = {};
 
   beforeEach(() => {
-    for (const key of ["SALES_DASHBOARD_ADMIN_KEY", "GATEWAY_ADMIN_KEY"] as const) {
+    for (const key of ["SALES_DASHBOARD_ADMIN_KEY", "GATEWAY_ADMIN_KEY", "GATEWAY_PAPERCLIP_KEY", "GATEWAY_WAVV_KEY"] as const) {
       savedEnv[key] = process.env[key];
       delete process.env[key];
     }
@@ -73,7 +73,7 @@ describePostgres("lane 3 dashboard board routes", () => {
   }, EMBEDDED_POSTGRES_TEST_TIMEOUT_MS);
 
   afterEach(async () => {
-    for (const key of ["SALES_DASHBOARD_ADMIN_KEY", "GATEWAY_ADMIN_KEY"] as const) {
+    for (const key of ["SALES_DASHBOARD_ADMIN_KEY", "GATEWAY_ADMIN_KEY", "GATEWAY_PAPERCLIP_KEY", "GATEWAY_WAVV_KEY"] as const) {
       if (savedEnv[key] === undefined) delete process.env[key];
       else process.env[key] = savedEnv[key];
     }
@@ -561,5 +561,220 @@ describePostgres("lane 3 dashboard board routes", () => {
       expiresAt: "2026-12-13T00:00:00.000Z",
     });
     expect(typeof metaRow.expiryDaysRemaining).toBe("number");
+  });
+
+  it("surfaces client portfolio ad metrics & WAVV delivery on Fulfillment for board admins (excluding __owner__), forwards period, and gates them away from agent keys and non-admin board sessions without invoking readers", async () => {
+    await seed();
+    const portfolioPeriods: string[] = [];
+    const wavvPeriods: string[] = [];
+    const portfolioReader = vi.fn(async (period: string) => {
+      portfolioPeriods.push(period);
+      return {
+        capital: null,
+        snapshots: null,
+        neonAccounts: null,
+        neonPipeline: null,
+        observedAt: "2026-11-26T05:00:00.000Z",
+        clients: [
+          {
+            slug: "__owner__",
+            displayName: "HTL",
+            observedAt: "2026-11-26T05:00:00.000Z",
+            newLeads: 18,
+            booked: 0,
+            showed: 0,
+            pitched: 0,
+            wonDeals: 0,
+            showRate: null,
+            closeRate: null,
+            pipelineRevenueUsd: null,
+            cashCollectedUsd: 0,
+            speedToLeadSeconds: null,
+            spend: 999,
+            impressions: 1000,
+            clicks: 50,
+            cpl: 55.5,
+            cac: null,
+            roas: null,
+            costPerHeldAppointment: null,
+            zeroLeadDays: 0,
+          },
+          {
+            slug: "client-a",
+            displayName: "Client A",
+            observedAt: "2026-11-26T05:00:00.000Z",
+            newLeads: 50,
+            booked: 12,
+            showed: 9,
+            pitched: 8,
+            wonDeals: 3,
+            showRate: 75,
+            closeRate: 37.5,
+            pipelineRevenueUsd: 30000,
+            cashCollectedUsd: 15000,
+            speedToLeadSeconds: 40,
+            spend: 6650,
+            impressions: 200000,
+            clicks: 3000,
+            cpl: 133,
+            cac: 2216.67,
+            roas: 4.51,
+            costPerHeldAppointment: 738.89,
+            zeroLeadDays: 0,
+          },
+        ],
+      };
+    });
+    const wavvReader = vi.fn(async (period: string) => {
+      wavvPeriods.push(period);
+      return {
+        observedAt: "2026-11-26T05:00:00.000Z",
+        dials: 420,
+        conversationsOver60s: 19,
+        talkTimeMinutes: 94.5,
+        bySetter: [{ id: "u1", setter: "Marvin", dials: 420, talkTimeMinutes: 94.5, conversationsOver60s: 19 }],
+      };
+    });
+    const fulfillmentDeps = { portfolioReader, wavvReader };
+
+    const makeActorApp = (actor: Express.Request["actor"]) => {
+      const server = express();
+      server.use(express.json());
+      server.use((req, _res, next) => {
+        req.actor = actor;
+        next();
+      });
+      server.use("/api", dashboardBoardRoutes(db, { fulfillmentDeps }));
+      return server;
+    };
+
+    const adminApp = makeActorApp({
+      type: "board",
+      userId: "admin-1",
+      source: "session",
+      isInstanceAdmin: true,
+      companyIds: [companyId],
+    } as Express.Request["actor"]);
+
+    const adminRes = await request(adminApp).get(`/api/companies/${companyId}/dashboards/fulfillment?period=7d`).expect(200);
+    // __owner__ ($999 spend, 18 leads) MUST be excluded; only Client A is summed!
+    expect(adminRes.body.period).toBe("7d");
+    expect(adminRes.body.clientDelivery.adSpendUsd).toBe(6650);
+    expect(adminRes.body.clientDelivery.newLeads).toBe(50);
+    expect(adminRes.body.clientDelivery.costPerLeadUsd).toBe(133);
+    expect(adminRes.body.clientDelivery.ctrPercent).toBe(1.5);
+    expect(adminRes.body.clientDelivery.accounts.map((a: { slug: string }) => a.slug)).toEqual(["client-a"]);
+    expect(adminRes.body.wavvDelivery.dials).toBe(420);
+    expect(adminRes.body.wavvDelivery.conversationsOver60s).toBe(19);
+    expect(adminRes.body.wavvDelivery.talkTimeMinutes).toBe(94.5);
+
+    const monthRes = await request(adminApp).get(`/api/companies/${companyId}/dashboards/fulfillment?period=month`).expect(200);
+    expect(monthRes.body.period).toBe("month");
+
+    const bogusRes = await request(adminApp).get(`/api/companies/${companyId}/dashboards/fulfillment?period=bogus`).expect(200);
+    expect(bogusRes.body.period).toBe("30d");
+
+    expect(portfolioPeriods).toEqual(["7d", "month", "30d"]);
+    expect(wavvPeriods).toEqual(["7d", "month", "30d"]);
+
+    portfolioReader.mockClear();
+    wavvReader.mockClear();
+
+    const agentApp = makeActorApp({
+      type: "agent",
+      agentId: randomUUID(),
+      companyId,
+      source: "agent_key",
+    } as Express.Request["actor"]);
+    const nonAdminApp = makeActorApp({
+      type: "board",
+      userId: "member-1",
+      source: "session",
+      isInstanceAdmin: false,
+      companyIds: [companyId],
+    } as Express.Request["actor"]);
+
+    for (const gatedApp of [agentApp, nonAdminApp]) {
+      const res = await request(gatedApp).get(`/api/companies/${companyId}/dashboards/fulfillment?period=30d`).expect(200);
+      expect(res.body.clientDelivery.adSpendUsd).toBeNull();
+      expect(res.body.clientDelivery.accounts).toEqual([]);
+      expect(res.body.wavvDelivery.dials).toBeNull();
+    }
+    expect(portfolioReader).not.toHaveBeenCalled();
+    expect(wavvReader).not.toHaveBeenCalled();
+
+    // Multi-client portfolio with missing counts must NOT substitute client #1's showRate/closeRate
+    const multiClientApp = express();
+    multiClientApp.use(express.json());
+    multiClientApp.use((req, _res, next) => {
+      req.actor = { type: "board", userId: "admin-1", source: "session", isInstanceAdmin: true, companyIds: [companyId] } as Express.Request["actor"];
+      next();
+    });
+    multiClientApp.use(
+      "/api",
+      dashboardBoardRoutes(db, {
+        fulfillmentDeps: {
+          portfolioReader: async () => ({
+            capital: null,
+            snapshots: null,
+            neonAccounts: null,
+            neonPipeline: null,
+            observedAt: "2026-11-26T05:00:00.000Z",
+            clients: [
+              {
+                slug: "client-a",
+                displayName: "Client A",
+                observedAt: "2026-11-26T05:00:00.000Z",
+                newLeads: 20,
+                booked: null,
+                showed: null,
+                pitched: null,
+                wonDeals: null,
+                showRate: 88,
+                closeRate: 45,
+                pipelineRevenueUsd: null,
+                cashCollectedUsd: null,
+                speedToLeadSeconds: null,
+                spend: 1000,
+                impressions: 10000,
+                clicks: 200,
+                cpl: 50,
+                cac: null,
+                roas: null,
+                costPerHeldAppointment: null,
+                zeroLeadDays: 0,
+              },
+              {
+                slug: "client-b",
+                displayName: "Client B",
+                observedAt: "2026-11-26T05:00:00.000Z",
+                newLeads: 10,
+                booked: null,
+                showed: null,
+                pitched: null,
+                wonDeals: null,
+                showRate: 30,
+                closeRate: 10,
+                pipelineRevenueUsd: null,
+                cashCollectedUsd: null,
+                speedToLeadSeconds: null,
+                spend: 500,
+                impressions: 5000,
+                clicks: 100,
+                cpl: 50,
+                cac: null,
+                roas: null,
+                costPerHeldAppointment: null,
+                zeroLeadDays: 0,
+              },
+            ],
+          }),
+          wavvReader: async () => null,
+        },
+      }),
+    );
+    const multiRes = await request(multiClientApp).get(`/api/companies/${companyId}/dashboards/fulfillment?period=30d`).expect(200);
+    expect(multiRes.body.clientDelivery.showRatePercent).toBeNull();
+    expect(multiRes.body.clientDelivery.closeRatePercent).toBeNull();
   });
 });

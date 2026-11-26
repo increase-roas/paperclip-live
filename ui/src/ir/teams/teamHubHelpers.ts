@@ -13,6 +13,13 @@ import { formatCents } from "@/lib/utils";
 
 export type TeamHubKey = "marketing" | "sales" | "fulfillment" | "operations";
 
+export const TEAM_HUB_ORDER: readonly TeamHubKey[] = [
+  "marketing",
+  "sales",
+  "fulfillment",
+  "operations",
+] as const;
+
 export const OPEN_TASK_STATUS_FILTER = "backlog,todo,in_progress,in_review,blocked";
 
 export interface TeamHubConfig {
@@ -46,21 +53,24 @@ export const TEAM_HUB_CONFIGS: readonly TeamHubConfig[] = [
   {
     key: "marketing",
     label: "Marketing",
-    description: "Ad spend, lead flow, creative production, and campaign audits across client accounts.",
+    description:
+      "Increase ROAS agency acquisition — B2B Meta ad spend, leads, CPL, CTR, and creative across our 3 agency ad accounts.",
     dashboardHref: "/dashboard/marketing",
     dashboardLabel: "Open full Marketing Dashboard",
   },
   {
     key: "sales",
     label: "Sales",
-    description: "Outbound dialing, appointment setting, call follow-ups, and pipeline conversion.",
+    description:
+      "Increase ROAS agency sales pipeline across Increase ROAS Main, Hot Tub Launch B2B, and Alex Bloomfield.",
     dashboardHref: "/dashboard/sales",
     dashboardLabel: "Open full Sales Dashboard",
   },
   {
     key: "fulfillment",
     label: "Fulfillment",
-    description: "Client onboarding, account delivery, retention, websites, funnels, and client support.",
+    description:
+      "Client delivery — all client ad accounts, client leads & appointments, WAVV outbound setting, onboarding, retention, and support.",
     dashboardHref: "/dashboard/fulfillment",
     dashboardLabel: "Open full Fulfillment Dashboard",
   },
@@ -105,6 +115,8 @@ const AGENT_SALES_RE =
   /\b(sales|setter|closer|outbound|outreach|pipeline|dialer|wavv|sdr|bdr)\b/i;
 const AGENT_FULFILLMENT_RE =
   /\b(fulfillment|client[\s-]+success|customer[\s-]+success|client[\s-]+support|support[\s-]+desk|csm|onboarding|web[\s-]+builder|website[\s-]+builder|funnel[\s-]+builder|funnel|account[\s-]+manager|retention)\b/i;
+const AGENT_SHARED_MARKETING_FULFILLMENT_RE =
+  /\b(ads?[\s-]+auditor|ads?[\s-]+checker|video[\s-]+editor|research[\s-]+analyst|media[\s-]+buy\w*|paid[\s-]+media|ad[\s-]+ops|meta[\s-]+ads?(?:[\s-]+manager)?|google[\s-]+ads?(?:[\s-]+manager)?|ad[\s-]+creative|copywriter|creative)\b/i;
 const AGENT_MARKETING_RE =
   /\b(marketing|media[\s-]+buy\w*|paid[\s-]+media|ad[\s-]+ops|meta[\s-]+ads?(?:[\s-]+manager)?|google[\s-]+ads?(?:[\s-]+manager)?|ads?[\s-]+auditor|ads?[\s-]+checker|ad[\s-]+creative|video[\s-]+editor|copywriter|creative|seo|social[\s-]+media|content|growth(?:[\s-]+lead)?|research[\s-]+analyst|researcher|cmo)\b/i;
 const AGENT_OPS_RE =
@@ -179,46 +191,77 @@ export function normalizeTeamAlias(raw: string | null | undefined): TeamHubKey |
   return TEAM_ALIAS_MAP[cleaned] ?? null;
 }
 
-function collectMetadataTeamKeys(metadata: Record<string, unknown> | null | undefined): TeamHubKey[] {
-  if (!metadata) return [];
+function sortCanonicalTeams(teams: Iterable<TeamHubKey>): TeamHubKey[] {
+  const unique = new Set(teams);
+  return TEAM_HUB_ORDER.filter((key) => unique.has(key));
+}
+
+function addAliasTokens(found: Set<TeamHubKey>, raw: string): void {
+  for (const part of raw.split(/[,;]+/)) {
+    const normalized = normalizeTeamAlias(part);
+    if (normalized) found.add(normalized);
+  }
+}
+
+function extractCanonicalFromValue(item: unknown): TeamHubKey[] {
   const found = new Set<TeamHubKey>();
-  const candidates: unknown[] = [
-    metadata.department,
-    metadata.team,
-    metadata.departments,
-    metadata.teams,
-    metadata.tags,
-  ];
-  for (const item of candidates) {
-    if (typeof item === "string") {
-      const normalized = normalizeTeamAlias(item);
-      if (normalized) found.add(normalized);
-    } else if (Array.isArray(item)) {
-      for (const entry of item) {
-        if (typeof entry !== "string") continue;
-        const normalized = normalizeTeamAlias(entry);
-        if (normalized) found.add(normalized);
-      }
+  if (typeof item === "string") {
+    addAliasTokens(found, item);
+  } else if (Array.isArray(item)) {
+    for (const entry of item) {
+      if (typeof entry !== "string") continue;
+      addAliasTokens(found, entry);
     }
   }
-  return [...found];
+  return sortCanonicalTeams(found);
 }
 
-function classifyAgentText(text: string): TeamHubKey | null {
-  if (!text.trim()) return null;
-  if (AGENT_SALES_RE.test(text)) return "sales";
-  if (AGENT_FULFILLMENT_RE.test(text)) return "fulfillment";
-  if (AGENT_MARKETING_RE.test(text)) return "marketing";
-  if (AGENT_OPS_RE.test(text)) return "operations";
-  return null;
+function collectMetadataTeamKeys(metadata: Record<string, unknown> | null | undefined): TeamHubKey[] {
+  if (!metadata) return [];
+  // Canonical `metadata.departments` takes strict precedence when populated so
+  // removing a team via the popover is never undone by sticky legacy `tags`.
+  if (metadata.departments !== undefined) {
+    const explicitDepartments = extractCanonicalFromValue(metadata.departments);
+    if (explicitDepartments.length > 0) return explicitDepartments;
+  }
+  const found = new Set<TeamHubKey>();
+  const legacyCandidates: unknown[] = [
+    metadata.department,
+    metadata.teams,
+    metadata.team,
+    metadata.tags,
+  ];
+  for (const item of legacyCandidates) {
+    for (const teamKey of extractCanonicalFromValue(item)) {
+      found.add(teamKey);
+    }
+  }
+  return sortCanonicalTeams(found);
 }
 
-function classifyAgentRole(role: string): TeamHubKey | null {
+function classifyAgentTeams(text: string): TeamHubKey[] {
+  if (!text.trim()) return [];
+  const found = new Set<TeamHubKey>();
+  if (AGENT_SHARED_MARKETING_FULFILLMENT_RE.test(text)) {
+    found.add("marketing");
+    found.add("fulfillment");
+  }
+  if (AGENT_SALES_RE.test(text)) found.add("sales");
+  if (AGENT_FULFILLMENT_RE.test(text)) found.add("fulfillment");
+  if (AGENT_MARKETING_RE.test(text)) found.add("marketing");
+  // Operations is only added when no customer/revenue department matched (so e.g.
+  // "Sales Operations Desk" stays in Sales, and "Web Builder" stays in Fulfillment).
+  if (found.size === 0 && AGENT_OPS_RE.test(text)) found.add("operations");
+  return sortCanonicalTeams(found);
+}
+
+function classifyAgentRole(role: string): TeamHubKey[] {
   switch (role) {
-    case "cmo":
     case "researcher":
     case "designer":
-      return "marketing";
+      return ["marketing", "fulfillment"];
+    case "cmo":
+      return ["marketing"];
     case "ceo":
     case "cto":
     case "cfo":
@@ -227,9 +270,9 @@ function classifyAgentRole(role: string): TeamHubKey | null {
     case "devops":
     case "security":
     case "pm":
-      return "operations";
+      return ["operations"];
     default:
-      return null;
+      return [];
   }
 }
 
@@ -238,14 +281,41 @@ export function matchAgentTeams(agent: Agent): TeamHubKey[] {
   if (explicit.length > 0) return explicit;
 
   const identityText = [agent.name, agent.urlKey, agent.title ?? ""].join(" ");
-  const fromIdentity = classifyAgentText(identityText);
-  if (fromIdentity) return [fromIdentity];
+  const fromIdentity = classifyAgentTeams(identityText);
+  if (fromIdentity.length > 0) return fromIdentity;
 
   const fromRole = classifyAgentRole(agent.role);
-  if (fromRole) return [fromRole];
+  if (fromRole.length > 0) return fromRole;
 
-  const fromCapabilities = classifyAgentText(agent.capabilities ?? "");
-  return fromCapabilities ? [fromCapabilities] : [];
+  return classifyAgentTeams(agent.capabilities ?? "");
+}
+
+export function getSharedAgentDepartments(
+  agent: Agent,
+  currentTeamKey: TeamHubKey,
+): TeamHubKey[] {
+  return matchAgentTeams(agent).filter((dept) => dept !== currentTeamKey);
+}
+
+export function buildNextAgentDepartmentsMetadata(
+  agent: Agent,
+  nextDepartments: readonly TeamHubKey[],
+): Record<string, unknown> {
+  const canonical = sortCanonicalTeams(nextDepartments);
+  if (canonical.length === 0) {
+    throw new Error("At least one valid department is required.");
+  }
+  const existing =
+    agent.metadata && typeof agent.metadata === "object" && !Array.isArray(agent.metadata)
+      ? { ...agent.metadata }
+      : {};
+  delete existing.department;
+  delete existing.team;
+  delete existing.teams;
+  return {
+    ...existing,
+    departments: canonical,
+  };
 }
 
 export function filterAgentsForTeam(agents: readonly Agent[], teamKey: TeamHubKey): Agent[] {
@@ -512,26 +582,120 @@ function pickLane2Kpis(
   });
 }
 
+function formatUsdKpi(value: number): string {
+  return value.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function formatIntKpi(value: number): string {
+  return Math.round(value).toLocaleString("en-US");
+}
+
+function formatMinutesKpi(value: number): string {
+  return `${value.toLocaleString("en-US", { maximumFractionDigits: 1 })} min`;
+}
+
 export function selectMarketingKpis(board: DashboardBoard | undefined): HeadlineKpi[] {
   return pickLane2Kpis(board, [
-    { id: "ad-spend", label: "Ad spend", detail: "Last 30 days · Meta portfolio" },
-    { id: "new-leads", label: "New leads", detail: "Last 30 days · GHL portfolio" },
-    { id: "cost-per-lead", label: "Cost per lead", detail: "Reference only · last 30 days" },
-    { id: "ctr", label: "CTR", detail: "Link clicks ÷ impressions" },
+    { id: "ad-spend", label: "Ad spend", detail: "Last 30 days · 3 agency ad accounts" },
+    { id: "new-leads", label: "New leads", detail: "Last 30 days · Agency Meta" },
+    { id: "cost-per-lead", label: "Cost per lead", detail: "Reference only · Agency Meta" },
+    { id: "ctr", label: "CTR", detail: "Link clicks ÷ impressions · Agency Meta" },
   ]);
 }
 
 export function selectSalesKpis(board: DashboardBoard | undefined): HeadlineKpi[] {
   return pickLane2Kpis(board, [
-    { id: "dials", label: "Dials", detail: "Last 30 days · WAVV outbound" },
-    { id: "conversations-over-60s", label: "Conversations > 60 s", detail: "Connected calls over 60 s" },
-    { id: "talk-time", label: "Talk time", detail: "Connected talk time · 30d" },
-    { id: "units-sold", label: "Units sold", detail: "Closed jobs · last 30 days" },
+    { id: "new-leads", label: "Agency new leads", detail: "Last 30 days · 3 agency GHL sub-accounts" },
+    { id: "active-opportunities", label: "Active opportunities", detail: "Sales pipelines · recruiting excluded" },
+    { id: "show-rate", label: "Show rate", detail: "Appointments held ÷ booked · Agency GHL" },
+    { id: "units-sold", label: "Deals won", detail: "Closed agency clients · last 30 days" },
   ]);
 }
 
 export function selectFulfillmentKpis(board: DashboardFulfillmentBoard | undefined): HeadlineKpi[] {
   if (!board) return [];
+
+  const cd = board.clientDelivery;
+  const wv = board.wavvDelivery;
+  const hasSpend = typeof cd?.adSpendUsd === "number" && Number.isFinite(cd.adSpendUsd);
+  const hasLeads = typeof cd?.newLeads === "number" && Number.isFinite(cd.newLeads);
+  const hasCpl = typeof cd?.costPerLeadUsd === "number" && Number.isFinite(cd.costPerLeadUsd);
+  const hasCtr = typeof cd?.ctrPercent === "number" && Number.isFinite(cd.ctrPercent);
+  const hasDials = typeof wv?.dials === "number" && Number.isFinite(wv.dials);
+  const hasConvs =
+    typeof wv?.conversationsOver60s === "number" && Number.isFinite(wv.conversationsOver60s);
+  const hasTalk = typeof wv?.talkTimeMinutes === "number" && Number.isFinite(wv.talkTimeMinutes);
+
+  if (hasSpend || hasLeads || hasCpl || hasCtr || hasDials || hasConvs || hasTalk) {
+    const acctCount = cd?.accounts.length ?? 0;
+
+    return [
+      {
+        id: "client-ad-spend",
+        label: "Client ad spend",
+        value: hasSpend ? formatUsdKpi(cd!.adSpendUsd!) : "—",
+        detail: hasSpend
+          ? `Last 30 days · ${acctCount} client ${acctCount === 1 ? "account" : "accounts"}`
+          : "Awaiting live client portfolio",
+        tone: hasSpend ? "default" : "muted",
+      },
+      {
+        id: "client-new-leads",
+        label: "Client new leads",
+        value: hasLeads ? formatIntKpi(cd!.newLeads!) : "—",
+        detail: hasLeads ? "Last 30 days · Client GHL & Meta" : "Awaiting live client portfolio",
+        tone: hasLeads ? "default" : "muted",
+      },
+      {
+        id: "client-cost-per-lead",
+        label: "Client cost per lead",
+        value: hasCpl ? formatUsdKpi(cd!.costPerLeadUsd!) : "—",
+        detail: hasCpl ? "Reference only · client portfolio" : "Awaiting live client portfolio",
+        tone: hasCpl ? "default" : "muted",
+      },
+      {
+        id: "client-ctr",
+        label: "Client CTR",
+        value: hasCtr ? `${cd!.ctrPercent!}%` : "—",
+        detail: hasCtr ? "Link clicks ÷ impressions · client Meta" : "Awaiting live client portfolio",
+        tone: hasCtr ? "default" : "muted",
+      },
+      {
+        id: "wavv-dials",
+        label: "WAVV dials",
+        value: hasDials ? formatIntKpi(wv!.dials!) : "—",
+        detail: hasDials ? "Last 30 days · Client outbound" : "Awaiting live WAVV feed",
+        tone: hasDials ? "default" : "muted",
+      },
+      {
+        id: "wavv-conversations",
+        label: "Conversations > 60 s",
+        value: hasConvs ? formatIntKpi(wv!.conversationsOver60s!) : "—",
+        detail: hasConvs ? "Connected setter calls > 60 s" : "Awaiting live WAVV feed",
+        tone: hasConvs ? "default" : "muted",
+      },
+      {
+        id: "wavv-talk-time",
+        label: "Talk time",
+        value: hasTalk ? formatMinutesKpi(wv!.talkTimeMinutes!) : "—",
+        detail: hasTalk ? "Connected talk time · 30d" : "Awaiting live WAVV feed",
+        tone: hasTalk ? "default" : "muted",
+      },
+      {
+        id: "open-client-tasks",
+        label: "Open client tasks",
+        value: String(board.openClientTasks.total),
+        detail: `${board.clientsWithOpenWork ?? board.clients.length} ${(board.clientsWithOpenWork ?? board.clients.length) === 1 ? "client" : "clients"} · ${board.onboarding.openSteps} onboarding`,
+        tone: "default",
+      },
+    ];
+  }
+
   const churn = board.retention.churnMonthly;
   const fourthCard: HeadlineKpi =
     typeof churn.value === "number" && Number.isFinite(churn.value)

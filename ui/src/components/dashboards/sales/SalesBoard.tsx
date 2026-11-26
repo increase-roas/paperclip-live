@@ -5,7 +5,7 @@ import { BoardSections } from "../lane2-shared/BoardSections";
 import { DashboardBoardShell } from "../lane2-shared/DashboardBoardShell";
 
 const SUBTITLE =
-  "Hormozi's five numbers in the order he reads them: show rate, offer rate, close rate, cash collected up front, units sold. Speed to lead: call within 60 seconds; after 5 minutes, close likelihood drops 80%.";
+  "Increase ROAS agency sales only — Increase ROAS Main, Hot Tub Launch B2B, and Alex Bloomfield. Hormozi's five numbers in order: show rate, offer rate, close rate, cash collected up front, units sold. Speed to lead: call within 60 seconds; after 5 minutes, close likelihood drops 80%. Client appointments and WAVV calls live on Fulfillment.";
 
 /** Pure view. Renders only the payload it is given. */
 export function SalesBoardView({ data }: { data: DashboardBoard }) {

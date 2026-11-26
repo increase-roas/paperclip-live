@@ -8,7 +8,15 @@ import { dashboardLane2BoardRoutes } from "./dashboard-lane2-boards.js";
 
 const companyId = "11111111-1111-4111-8111-111111111111";
 const otherCompanyId = "22222222-2222-4222-8222-222222222222";
-const ENV_KEYS = ["SALES_DASHBOARD_ADMIN_KEY", "GATEWAY_PAPERCLIP_KEY", "GATEWAY_WAVV_KEY"] as const;
+const ENV_KEYS = [
+  "SALES_DASHBOARD_ADMIN_KEY",
+  "GATEWAY_PAPERCLIP_KEY",
+  "GATEWAY_WAVV_KEY",
+  "GATEWAY_META_KEY",
+  "GATEWAY_GHL_KEY",
+  "GHL_ALEX_BLOOMFIELD_PIT_KEY",
+  "GHL_ALEX_BLOOMFIELD_LOCATION_ID",
+] as const;
 
 function app(actor: Express.Request["actor"] = {
   type: "board",
@@ -99,79 +107,94 @@ describe("dashboard board routes", () => {
       .expect(403);
   });
 
-  it("gates instance-global payroll, agency QBO, and portfolio reads away from agent keys and non-admin company members", async () => {
+  it("gates instance-global payroll, agency QBO, agency Marketing/Sales, and portfolio reads away from agent keys and non-admin company members", async () => {
+    const prevGwKey = process.env.GATEWAY_PAPERCLIP_KEY;
+    const prevAlexPit = process.env.GHL_ALEX_BLOOMFIELD_PIT_KEY;
     process.env.SALES_DASHBOARD_ADMIN_KEY = "live-secret-key";
-    const fetchMock = vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          ok: true,
-          generatedAt: "2026-11-23T12:00:00.000Z",
-          view: "30d",
-          owner: {
-            slug: "__owner__",
-            displayName: "Agency",
-            syncedAt: "2026-11-23T12:00:00.000Z",
-            syncStatus: "success",
-            marketing: { cashCollectedUsd: 90000, evidence: { financial: true } },
-            financialMonth: null,
-          },
-          clients: [],
-        }),
-        { status: 200, headers: { "content-type": "application/json" } },
-      ),
-    );
-    const makeServer = (actor: Express.Request["actor"]) => {
-      const server = express();
-      server.use(express.json());
-      server.use((req, _res, next) => {
-        req.actor = actor;
-        next();
-      });
-      server.use(
-        "/api",
-        dashboardLane2BoardRoutes(
-          dashboardBoardService(undefined, { fetchImpl: fetchMock as unknown as typeof fetch }),
-          ceoBoardService(undefined, { fetchImpl: fetchMock as unknown as typeof fetch }),
+    process.env.GATEWAY_PAPERCLIP_KEY = "live-gateway-key";
+    process.env.GHL_ALEX_BLOOMFIELD_PIT_KEY = "pit-live-alex-key";
+    try {
+      const fetchMock = vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            ok: true,
+            generatedAt: "2026-11-23T12:00:00.000Z",
+            view: "30d",
+            owner: {
+              slug: "__owner__",
+              displayName: "Agency",
+              syncedAt: "2026-11-23T12:00:00.000Z",
+              syncStatus: "success",
+              marketing: { cashCollectedUsd: 90000, evidence: { financial: true } },
+              financialMonth: null,
+            },
+            clients: [],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
         ),
       );
-      server.use(errorHandler);
-      return server;
-    };
+      const makeServer = (actor: Express.Request["actor"]) => {
+        const server = express();
+        server.use(express.json());
+        server.use((req, _res, next) => {
+          req.actor = actor;
+          next();
+        });
+        server.use(
+          "/api",
+          dashboardLane2BoardRoutes(
+            dashboardBoardService(undefined, { fetchImpl: fetchMock as unknown as typeof fetch }),
+            ceoBoardService(undefined, { fetchImpl: fetchMock as unknown as typeof fetch }),
+          ),
+        );
+        server.use(errorHandler);
+        return server;
+      };
 
-    const agentServer = makeServer({
-      type: "agent",
-      agentId: "agent-1",
-      companyId,
-      source: "agent_key",
-    });
-    const nonAdminServer = makeServer({
-      type: "board",
-      source: "session",
-      userId: "member-1",
-      isInstanceAdmin: false,
-      companyIds: [companyId],
-    });
-    const adminServer = makeServer({
-      type: "board",
-      source: "session",
-      userId: "admin-1",
-      isInstanceAdmin: true,
-      companyIds: [companyId],
-    });
+      const agentServer = makeServer({
+        type: "agent",
+        agentId: "agent-1",
+        companyId,
+        source: "agent_key",
+      });
+      const nonAdminServer = makeServer({
+        type: "board",
+        source: "session",
+        userId: "member-1",
+        isInstanceAdmin: false,
+        companyIds: [companyId],
+      });
+      const adminServer = makeServer({
+        type: "board",
+        source: "session",
+        userId: "admin-1",
+        isInstanceAdmin: true,
+        companyIds: [companyId],
+      });
 
-    for (const server of [agentServer, nonAdminServer]) {
-      const ceoRes = await request(server).get(`/api/companies/${companyId}/dashboards/ceo`).expect(200);
-      expect(ceoRes.body.moneyTiles.every((t: { value: { kind: string } }) => t.value.kind === "not_connected")).toBe(true);
-      const humanRes = await request(server).get(`/api/companies/${companyId}/dashboards/human-employees`).expect(200);
-      expect(humanRes.body.tiles.every((t: { value: { kind: string } }) => t.value.kind === "not_connected")).toBe(true);
+      for (const server of [agentServer, nonAdminServer]) {
+        const ceoRes = await request(server).get(`/api/companies/${companyId}/dashboards/ceo`).expect(200);
+        expect(ceoRes.body.moneyTiles.every((t: { value: { kind: string } }) => t.value.kind === "not_connected")).toBe(true);
+        const humanRes = await request(server).get(`/api/companies/${companyId}/dashboards/human-employees`).expect(200);
+        expect(humanRes.body.tiles.every((t: { value: { kind: string } }) => t.value.kind === "not_connected")).toBe(true);
+        const mktRes = await request(server).get(`/api/companies/${companyId}/dashboards/marketing`).expect(200);
+        expect(mktRes.body.tiles.every((t: { value: { kind: string } }) => t.value.kind === "not_connected")).toBe(true);
+        const salesRes = await request(server).get(`/api/companies/${companyId}/dashboards/sales`).expect(200);
+        expect(salesRes.body.tiles.every((t: { value: { kind: string } }) => t.value.kind === "not_connected")).toBe(true);
+      }
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      const adminCeo = await request(adminServer).get(`/api/companies/${companyId}/dashboards/ceo`).expect(200);
+      expect(adminCeo.body.moneyTiles.find((t: { id: string }) => t.id === "cash-collected")?.value).toMatchObject({
+        kind: "live",
+        value: 90000,
+      });
+      expect(fetchMock).toHaveBeenCalled();
+    } finally {
+      if (prevGwKey === undefined) delete process.env.GATEWAY_PAPERCLIP_KEY;
+      else process.env.GATEWAY_PAPERCLIP_KEY = prevGwKey;
+      if (prevAlexPit === undefined) delete process.env.GHL_ALEX_BLOOMFIELD_PIT_KEY;
+      else process.env.GHL_ALEX_BLOOMFIELD_PIT_KEY = prevAlexPit;
     }
-    expect(fetchMock).not.toHaveBeenCalled();
-
-    const adminCeo = await request(adminServer).get(`/api/companies/${companyId}/dashboards/ceo`).expect(200);
-    expect(adminCeo.body.moneyTiles.find((t: { id: string }) => t.id === "cash-collected")?.value).toMatchObject({
-      kind: "live",
-      value: 90000,
-    });
-    expect(fetchMock).toHaveBeenCalled();
   });
 });

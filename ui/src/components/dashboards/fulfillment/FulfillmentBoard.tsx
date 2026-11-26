@@ -1,6 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Users } from "lucide-react";
-import type { DashboardFulfillmentBoard } from "@paperclipai/shared";
+import type {
+  DashboardFulfillmentBoard,
+  DashboardFulfillmentClientDelivery,
+  DashboardFulfillmentWavvDelivery,
+  DashboardPeriod,
+} from "@paperclipai/shared";
 import { dashboardBoardsApi } from "@/api/dashboardBoards";
 import { QueryView } from "@/components/QueryView";
 import { Badge } from "@/components/ui/badge";
@@ -14,15 +19,234 @@ import {
   NotConnectedNote,
   StatusBadge,
   formatHoursOrDash,
+  formatPercentOrDash,
 } from "@/components/dashboards/lane3-shared/BoardPrimitives";
 
-export function FulfillmentBoard({ companyId: companyIdProp }: { companyId?: string } = {}) {
+function formatUsdOrDash(amount: number | null | undefined): string {
+  if (amount === null || amount === undefined || !Number.isFinite(amount)) return "—";
+  return amount.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function formatIntOrDash(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
+  return Math.round(value).toLocaleString("en-US");
+}
+
+function formatMinutesOrDash(minutes: number | null | undefined): string {
+  if (minutes === null || minutes === undefined || !Number.isFinite(minutes)) return "—";
+  return `${minutes.toLocaleString("en-US", { maximumFractionDigits: 1 })} min`;
+}
+
+function ClientDeliverySection({ delivery }: { delivery: DashboardFulfillmentClientDelivery }) {
+  const missing = delivery.notConnected ?? undefined;
+
+  return (
+    <BoardSection
+      title="Client ad & lead delivery"
+      description="All client ad accounts and client GHL sub-accounts only. Increase ROAS's own acquisition accounts live on Marketing."
+    >
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <BoardTile
+          label="Client ad spend"
+          notConnected={delivery.adSpendUsd === null ? missing : undefined}
+          value={formatUsdOrDash(delivery.adSpendUsd)}
+          detail={`${delivery.accounts.length} active client ${delivery.accounts.length === 1 ? "account" : "accounts"}`}
+          testId="fulfillment-client-ad-spend"
+        />
+        <BoardTile
+          label="Client new leads"
+          notConnected={delivery.newLeads === null ? missing : undefined}
+          value={formatIntOrDash(delivery.newLeads)}
+          detail="Client portfolio GHL + Meta leads"
+          testId="fulfillment-client-new-leads"
+        />
+        <BoardTile
+          label="Client cost per lead"
+          notConnected={delivery.costPerLeadUsd === null ? missing : undefined}
+          value={formatUsdOrDash(delivery.costPerLeadUsd)}
+          detail="Reference only · client spend ÷ leads"
+          testId="fulfillment-client-cpl"
+        />
+        <BoardTile
+          label="Client CTR"
+          notConnected={delivery.ctrPercent === null ? missing : undefined}
+          value={formatPercentOrDash(delivery.ctrPercent)}
+          detail="Link clicks ÷ impressions · client Meta"
+          testId="fulfillment-client-ctr"
+        />
+      </div>
+
+      {delivery.accounts.length > 0 ? (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <BoardTile
+            label="Client appointments booked"
+            value={formatIntOrDash(delivery.appointmentsBooked)}
+            detail="Client GHL calendars & snapshots"
+            testId="fulfillment-client-booked"
+          />
+          <BoardTile
+            label="Client appointments held"
+            value={formatIntOrDash(delivery.appointmentsShowed)}
+            detail={
+              delivery.showRatePercent !== null
+                ? `Show rate ${formatPercentOrDash(delivery.showRatePercent)}`
+                : "Held appointments across clients"
+            }
+            testId="fulfillment-client-held"
+          />
+          <BoardTile
+            label="Client jobs sold"
+            value={formatIntOrDash(delivery.wonDeals)}
+            detail={
+              delivery.closeRatePercent !== null
+                ? `Close rate ${formatPercentOrDash(delivery.closeRatePercent)}`
+                : "Closed client deals in period"
+            }
+            testId="fulfillment-client-won"
+          />
+          <BoardTile
+            label="Zero-lead client-days"
+            value={formatIntOrDash(delivery.zeroLeadDays)}
+            detail="Last 7d with >$100 spend & 0 leads"
+            tone={
+              delivery.zeroLeadDays === null
+                ? "default"
+                : delivery.zeroLeadDays > 0
+                  ? "warning"
+                  : "good"
+            }
+            testId="fulfillment-client-zero-lead-days"
+          />
+        </div>
+      ) : null}
+
+      {delivery.accounts.length > 0 ? (
+        <Card elevation="low" className="gap-0 overflow-x-auto p-0" data-testid="fulfillment-client-delivery-table">
+          <table className="w-full min-w-max text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <th scope="col" className="px-4 py-3 font-medium">Client</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium">Ad spend</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium">New leads</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium">CPL</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium">CTR</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium">Booked</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium">Held</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium">Show rate</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium">Jobs sold</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium">Zero-lead days</th>
+              </tr>
+            </thead>
+            <tbody>
+              {delivery.accounts.map((row) => (
+                <tr key={row.slug} className="border-b border-border/60 last:border-0">
+                  <td className="px-4 py-3 font-medium">{row.displayName}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{formatUsdOrDash(row.spend)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{formatIntOrDash(row.newLeads)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{formatUsdOrDash(row.cpl)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{formatPercentOrDash(row.ctr)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{formatIntOrDash(row.booked)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{formatIntOrDash(row.showed)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{formatPercentOrDash(row.showRate)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{formatIntOrDash(row.wonDeals)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">
+                    {row.zeroLeadDays !== null && row.zeroLeadDays > 0 ? (
+                      <Badge variant="destructive">{row.zeroLeadDays}</Badge>
+                    ) : (
+                      formatIntOrDash(row.zeroLeadDays)
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      ) : null}
+    </BoardSection>
+  );
+}
+
+function ClientWavvSection({ wavv }: { wavv: DashboardFulfillmentWavvDelivery }) {
+  const missing = wavv.notConnected ?? undefined;
+
+  return (
+    <BoardSection
+      title="Client appointment setting (WAVV)"
+      description="Outbound setter dialer activity supporting client lead follow-up and appointment booking."
+    >
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <BoardTile
+          label="WAVV dials"
+          notConnected={wavv.dials === null ? missing : undefined}
+          value={formatIntOrDash(wavv.dials)}
+          detail="Outbound call attempts in period"
+          testId="fulfillment-wavv-dials"
+        />
+        <BoardTile
+          label="Conversations > 60 s"
+          notConnected={wavv.conversationsOver60s === null ? missing : undefined}
+          value={formatIntOrDash(wavv.conversationsOver60s)}
+          detail="Connected calls longer than 60 s"
+          testId="fulfillment-wavv-conversations"
+        />
+        <BoardTile
+          label="Talk time"
+          notConnected={wavv.talkTimeMinutes === null ? missing : undefined}
+          value={formatMinutesOrDash(wavv.talkTimeMinutes)}
+          detail="Total connected setter talk time"
+          testId="fulfillment-wavv-talk-time"
+        />
+      </div>
+
+      {wavv.bySetter.length > 0 ? (
+        <Card elevation="low" className="gap-0 overflow-x-auto p-0" data-testid="fulfillment-wavv-scoreboard">
+          <table className="w-full min-w-max text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <th scope="col" className="px-4 py-3 font-medium">Setter</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium">Dials</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium">Conversations &gt; 60 s</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium">Talk time (min)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {wavv.bySetter.map((setter) => (
+                <tr key={setter.id} className="border-b border-border/60 last:border-0">
+                  <td className="px-4 py-3 font-medium">{setter.setter}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{formatIntOrDash(setter.dials)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">
+                    {formatIntOrDash(setter.conversationsOver60s)}
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums">
+                    {Number.isFinite(setter.talkTimeMinutes)
+                      ? setter.talkTimeMinutes.toLocaleString("en-US", { maximumFractionDigits: 1 })
+                      : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      ) : null}
+    </BoardSection>
+  );
+}
+
+export function FulfillmentBoard({
+  companyId: companyIdProp,
+  period = "30d",
+}: { companyId?: string; period?: DashboardPeriod } = {}) {
   const { selectedCompanyId } = useCompany();
   const companyId = companyIdProp ?? selectedCompanyId;
 
   const query = useQuery({
-    queryKey: ["dashboard-boards", companyId, "fulfillment"],
-    queryFn: () => dashboardBoardsApi.fulfillment(companyId!),
+    queryKey: ["dashboard-boards", companyId, "fulfillment", period],
+    queryFn: () => dashboardBoardsApi.fulfillment(companyId!, period),
     enabled: Boolean(companyId),
   });
 
@@ -36,9 +260,12 @@ export function FulfillmentBoard({ companyId: companyIdProp }: { companyId?: str
         <div className="space-y-8">
           <BoardHeader
             title="Fulfillment"
-            description="Hormozi's retention questions first (spec v2), then the v1 operating detail: open client work, onboarding and support requests from Paperclip tasks. A client is a Paperclip project; anything without a project is counted as unassigned."
+            description="Client delivery across all client ad accounts, client GHL sub-accounts, WAVV outbound setting, Hormozi's retention questions, and Paperclip client tasks. Increase ROAS's own acquisition and sales live on Marketing and Sales."
             generatedAt={board.generatedAt}
           />
+
+          {board.clientDelivery ? <ClientDeliverySection delivery={board.clientDelivery} /> : null}
+          {board.wavvDelivery ? <ClientWavvSection wavv={board.wavvDelivery} /> : null}
 
           <BoardSection
             title="Retention (Hormozi)"

@@ -12,13 +12,17 @@ import type {
   DashboardUnit,
 } from "@paperclipai/shared";
 import {
+  readAgencyMarketingSummary,
+  type AgencyMarketingSummary,
+} from "../ir/agency-marketing-client.js";
+import {
+  readAgencySalesSummary,
+  type AgencySalesSummary,
+} from "../ir/agency-sales-client.js";
+import {
   fetchSalesCapital,
-  readPortfolioSnapshotBundle,
   type CapitalApiPayload,
-  type MergedClientMetrics,
-  type PortfolioSnapshotBundle,
 } from "../ir/sales-dashboard-client.js";
-import { readWavvSummary, type WavvSummary } from "../ir/wavv-client.js";
 import {
   readAgencyQuickBooksFinancials,
   type AgencyQuickBooksFinancials,
@@ -30,12 +34,13 @@ import {
 } from "./dashboard-team-roster.js";
 
 /**
- * Sales, Marketing and Human employees boards.
+ * Agency operating boards: Sales, Marketing, and Human employees.
  *
- * Every source on this page is read-only data the company already owns. None
- * of those reads exists inside Paperclip yet, so every tile is built with a
- * `not_connected` value and every table has no rows. When a read lands, only
- * the adapter below changes: the payload shape and the UI stay the same.
+ * Strict Agency vs. Client separation (brain/ops/agency-vs-client-accounts.md):
+ * - Marketing tracks ONLY Increase ROAS's 3 B2B acquisition Meta ad accounts.
+ * - Sales tracks ONLY Increase ROAS's 3 agency GHL sub-accounts.
+ * - Client ad accounts, client GHL sub-accounts, and client WAVV delivery live
+ *   exclusively on the Fulfillment dashboard (`/dashboards/fulfillment`).
  *
  * There is deliberately no fallback data here. A number without a source is
  * worse than a blank tile.
@@ -47,9 +52,9 @@ const SOURCES: Record<DashboardSourceId, DashboardSource> = {
     name: "GoHighLevel (GHL)",
     status: "not_connected",
     detail:
-      "Paperclip has no GHL client. The agency's GHL tool connection lives outside this repo, and the last recorded read (INC-109, 22 Nov 2026) was rejected upstream because GHL_MCP_INTERNAL_API_KEY was missing.",
+      "Agency Sales reads Increase ROAS's 3 own GHL sub-accounts (Increase ROAS Main, Hot Tub Launch B2B via OAuth Gateway, plus Alex Bloomfield via optional GHL_ALEX_BLOOMFIELD_PIT_KEY + GHL_ALEX_BLOOMFIELD_LOCATION_ID).",
     needed:
-      "A GHL private-integration token, location-scoped and read-only (contacts, calendars, opportunities, payments), stored as a Paperclip secret, plus each client's location id.",
+      "GATEWAY_PAPERCLIP_KEY with read-only GHL access for primary agency locations, plus optional GHL_ALEX_BLOOMFIELD_PIT_KEY and GHL_ALEX_BLOOMFIELD_LOCATION_ID for Alex Bloomfield's separate GHL agency.",
     lastSuccessfulSync: null,
   },
   wavv: {
@@ -57,9 +62,9 @@ const SOURCES: Record<DashboardSourceId, DashboardSource> = {
     name: "WAVV",
     status: "not_connected",
     detail:
-      "No WAVV ingestion exists in Paperclip. Dials, connected calls over 60 seconds, talk time and dispositions only exist in WAVV's Reports tab today.",
+      "Client WAVV outbound setter calls live on the Fulfillment dashboard.",
     needed:
-      "A WAVV API key or a scheduled Reports export covering calls, conversations over 60 seconds, talk time and dispositions, with WAVV seat ids mapped to setters.",
+      "GATEWAY_PAPERCLIP_KEY or GATEWAY_WAVV_KEY with read-only WAVV access.",
     lastSuccessfulSync: null,
   },
   meta_ads: {
@@ -67,9 +72,9 @@ const SOURCES: Record<DashboardSourceId, DashboardSource> = {
     name: "Meta Marketing API",
     status: "not_connected",
     detail:
-      "Paperclip has no server-side Meta Ads read connector, and Meta is never read through a browser. The agency's Meta system-user token expires 2026-12-13 and nothing in Paperclip watches it.",
+      "Agency Marketing reads Increase ROAS's 3 own B2B acquisition Meta ad accounts (Increase ROAS B2B, Alex Bloomfield / Start Scale Automate, Hot Tub Launch) via OAuth Gateway.",
     needed:
-      "A Meta system-user token with ads_read on the agency ad account (read-only), stored as a Paperclip secret, plus the ad-account id for each client and an expiry reminder on the Tools board.",
+      "GATEWAY_PAPERCLIP_KEY with read-only `meta` provider access on OAuth Gateway and valid agency Meta ad account IDs.",
     lastSuccessfulSync: null,
   },
   team_capital: {
@@ -92,9 +97,7 @@ function sourcesFor(ids: DashboardSourceId[]): DashboardSource[] {
   return ids.map((id) => ({ ...SOURCES[id] }));
 }
 
-function tile(
-  input: Omit<DashboardTile, "value">,
-): DashboardTile {
+function tile(input: Omit<DashboardTile, "value">): DashboardTile {
   return { ...input, value: notConnected() };
 }
 
@@ -106,7 +109,7 @@ const SALES_TILES: DashboardTile[] = [
   tile({
     id: "show-rate",
     label: "Show rate",
-    definition: "Appointments held ÷ appointments booked.",
+    definition: "Agency sales appointments held ÷ appointments booked across Increase ROAS GHL sub-accounts.",
     owner: "Setters",
     target: "≥ 70% (Hormozi benchmark); < 60% red",
     sourceIds: ["ghl"],
@@ -115,16 +118,16 @@ const SALES_TILES: DashboardTile[] = [
     id: "speed-to-lead",
     label: "Speed to lead",
     definition:
-      "Median seconds from a new lead (GHL) to the first outbound call attempt (WAVV).",
+      "Median seconds from a new agency B2B lead (GHL) to the first outbound call attempt.",
     owner: "Sales manager",
     target:
       "< 60 s (Hormozi's 60-second rule); > 5 min costs you 80% of closes",
-    sourceIds: ["ghl", "wavv"],
+    sourceIds: ["ghl"],
   }),
   tile({
     id: "offer-rate",
     label: "Offer rate",
-    definition: "Offers made ÷ appointments held.",
+    definition: "Agency B2B offers/proposals made ÷ appointments held.",
     owner: "Closers",
     target:
       "Track it; no fixed target. A low offer rate means the lead flow is wrong, not the rep",
@@ -133,7 +136,7 @@ const SALES_TILES: DashboardTile[] = [
   tile({
     id: "close-rate",
     label: "Close rate",
-    definition: "Jobs sold ÷ offers made, and ÷ appointments held — track both.",
+    definition: "Agency deals won ÷ closed opportunities (or offers made / appointments held).",
     owner: "Closers",
     target: "40% (Hormozi); < 30% is a sales-motion problem",
     sourceIds: ["ghl"],
@@ -142,7 +145,7 @@ const SALES_TILES: DashboardTile[] = [
     id: "cash-collected-up-front",
     label: "Cash collected up front",
     definition:
-      "Cash at close ÷ contract value. Cash means money received via GHL payments + Authorize.net.",
+      "Agency cash received at close ÷ contract value via GHL payments.",
     owner: "Sales manager",
     target:
       "Rising; a high close rate with low cash up front means you are buying yeses",
@@ -151,15 +154,31 @@ const SALES_TILES: DashboardTile[] = [
   tile({
     id: "units-sold",
     label: "Units sold",
-    definition: "Booked × show × offer × close; the output of the four above.",
+    definition: "Booked × show × offer × close; new agency clients won in the period.",
     owner: "Sales manager",
     target: "The output; the only result here, not a lever",
     sourceIds: ["ghl"],
   }),
   tile({
+    id: "new-leads",
+    label: "Agency new leads",
+    definition: "New B2B leads created across Increase ROAS Main, Hot Tub Launch B2B, and Alex Bloomfield GHL sub-accounts.",
+    owner: "Sales manager",
+    target: "v1 source, not Hormozi — agency acquisition leads only (client leads live on Fulfillment)",
+    sourceIds: ["ghl"],
+  }),
+  tile({
+    id: "active-opportunities",
+    label: "Active opportunities",
+    definition: "Agency B2B sales-pipeline opportunities created or updated in the period (recruiting pipelines excluded).",
+    owner: "Sales manager",
+    target: "v1 source, not Hormozi — healthy B2B deal flow across agency pipelines",
+    sourceIds: ["ghl"],
+  }),
+  tile({
     id: "set-rate",
     label: "Set rate",
-    definition: "Appointments booked ÷ new leads.",
+    definition: "Agency appointments booked ÷ agency new leads.",
     owner: "Setters",
     target: "v1 source, not Hormozi — 20–30% good, 35–40% elite; < 10% red",
     sourceIds: ["ghl"],
@@ -167,80 +186,33 @@ const SALES_TILES: DashboardTile[] = [
   tile({
     id: "lead-to-customer",
     label: "Lead → customer",
-    definition: "Customers ÷ raw leads.",
+    definition: "New agency clients won ÷ agency B2B leads.",
     owner: "Sales manager",
     target:
-      "v1 source, not Hormozi — about 10% for Meta leads into an in-person service business",
+      "v1 source, not Hormozi — agency B2B conversion rate across Increase ROAS sub-accounts",
     sourceIds: ["ghl"],
-  }),
-  tile({
-    id: "appointments-per-setter-day",
-    label: "Appointments per setter per day",
-    definition: "Held appointments ÷ setter-days.",
-    owner: "Sales manager",
-    target:
-      "v1 source, not Hormozi — set from the top quartile per seat, not an industry average",
-    sourceIds: ["ghl", "wavv"],
-  }),
-  tile({
-    id: "dials",
-    label: "Dials",
-    definition: "Outbound call attempts in the period.",
-    owner: "Setters",
-    target:
-      "v1 source, not Hormozi — red when conversations per day fall 20% week over week",
-    sourceIds: ["wavv"],
-  }),
-  tile({
-    id: "conversations-over-60s",
-    label: "Conversations over 60 s",
-    definition: "Connected calls longer than 60 seconds.",
-    owner: "Setters",
-    target:
-      "v1 source, not Hormozi — red when conversations per day fall 20% week over week",
-    sourceIds: ["wavv"],
-  }),
-  tile({
-    id: "talk-time",
-    label: "Talk time",
-    definition: "Total connected talk time per setter.",
-    owner: "Setters",
-    target: "v1 source, not Hormozi — trend, not an absolute",
-    sourceIds: ["wavv"],
   }),
 ];
 
 const SALES_TABLES: DashboardTable[] = [
   table({
     id: "sales-by-business",
-    title: "Appointments set per business",
+    title: "Agency sales by GHL sub-account",
     description:
-      "One row per client. Every row is keyed by client id, so one client's numbers never mix with another's.",
+      "Increase ROAS's own 3 agency GHL sub-accounts only (Increase ROAS Main, Hot Tub Launch B2B, Alex Bloomfield). Client appointments and WAVV outbound delivery live on the Fulfillment dashboard.",
     scope: "client",
     sourceIds: ["ghl"],
     columns: [
-      { key: "client", label: "Client" },
-      { key: "appointmentsSet", label: "Appointments set" },
+      { key: "account", label: "Sub-account" },
+      { key: "locationId", label: "Location ID" },
+      { key: "status", label: "Status" },
+      { key: "newLeads", label: "New leads" },
+      { key: "opportunities", label: "Opportunities" },
       { key: "booked", label: "Booked" },
       { key: "held", label: "Held" },
       { key: "showRate", label: "Show rate" },
-      { key: "jobsSold", label: "Jobs sold" },
+      { key: "jobsSold", label: "Deals won" },
       { key: "closeRate", label: "Close rate" },
-    ],
-  }),
-  table({
-    id: "setter-scoreboard",
-    title: "Setter scoreboard",
-    description: "One row per setter: activity in front of the result.",
-    scope: "member",
-    sourceIds: ["wavv", "ghl"],
-    columns: [
-      { key: "setter", label: "Setter" },
-      { key: "dials", label: "Dials" },
-      { key: "talkTimeMinutes", label: "Talk time (min)" },
-      { key: "conversations", label: "Conversations > 60 s" },
-      { key: "sets", label: "Sets" },
-      { key: "showRate", label: "Show rate" },
     ],
   }),
 ];
@@ -250,7 +222,7 @@ const MARKETING_TILES: DashboardTile[] = [
     id: "cac-per-client",
     label: "CAC per client",
     definition:
-      "All-in cost to win one customer: (media + sales + software) ÷ new customers.",
+      "Agency acquisition cost to win one agency client: agency ad spend ÷ new agency clients won.",
     owner: "Media buyer",
     target: "Judge against LTGP, never against CPL",
     sourceIds: ["meta_ads", "ghl"],
@@ -259,7 +231,7 @@ const MARKETING_TILES: DashboardTile[] = [
     id: "creative-budget-split",
     label: "Creative budget split",
     definition:
-      "Share of ad budget split between the proven core ad, adjacent variations and new ideas.",
+      "Share of agency ad budget split between the proven core ad, adjacent variations and new ideas.",
     owner: "Media buyer",
     target: "70 / 20 / 10 (core / adjacent / new)",
     sourceIds: ["meta_ads"],
@@ -267,7 +239,7 @@ const MARKETING_TILES: DashboardTile[] = [
   tile({
     id: "ad-spend",
     label: "Ad spend",
-    definition: "Spend in the period, per client.",
+    definition: "Spend in the period across Increase ROAS's 3 agency acquisition Meta ad accounts only.",
     owner: "Media buyer",
     target: "v1 source, not Hormozi — 0.95–1.05 of planned pacing green; > 1.15 red",
     sourceIds: ["meta_ads"],
@@ -275,46 +247,46 @@ const MARKETING_TILES: DashboardTile[] = [
   tile({
     id: "new-leads",
     label: "New leads",
-    definition: "Leads created in the period.",
+    definition: "B2B leads generated across Increase ROAS's 3 agency acquisition Meta ad accounts.",
     owner: "Media buyer",
     target:
-      "v1 source, not Hormozi — measured against the client's own 7- and 14-day baseline",
-    sourceIds: ["ghl"],
+      "v1 source, not Hormozi — measured against Increase ROAS's own 7- and 14-day baseline",
+    sourceIds: ["meta_ads"],
   }),
   tile({
     id: "cost-per-held-appointment",
     label: "Cost per held appointment",
-    definition: "Spend ÷ appointments held.",
+    definition: "Agency ad spend ÷ agency sales appointments held.",
     owner: "Media buyer",
     target:
-      "v1 source, not Hormozi — under (job value × close rate × margin) ÷ 3",
+      "v1 source, not Hormozi — under (agency deal value × close rate × margin) ÷ 3",
     sourceIds: ["meta_ads", "ghl"],
   }),
   tile({
     id: "ctr",
     label: "CTR",
-    definition: "Link clicks ÷ impressions.",
+    definition: "Link clicks ÷ impressions across Increase ROAS agency Meta ad accounts.",
     owner: "Media buyer",
     target:
-      "1% → 4% is a 4× front-end gain; judge against the client's own baseline",
+      "1% → 4% is a 4× front-end gain; judge against Increase ROAS's own baseline",
     sourceIds: ["meta_ads"],
   }),
   tile({
     id: "cost-per-lead",
     label: "Cost per lead",
-    definition: "Spend ÷ new leads.",
+    definition: "Agency ad spend ÷ agency Meta leads.",
     owner: "Media buyer",
     target: "Reference only, never a target",
-    sourceIds: ["meta_ads", "ghl"],
+    sourceIds: ["meta_ads"],
   }),
   tile({
     id: "spend-with-zero-leads",
     label: "Spend with zero leads",
     definition:
-      "Client-days in the last 7 with spend over $100 and no new lead. This is an alarm, not a scorecard row.",
+      "Agency account-days in the last 7 with spend over $100 and no new lead. This is an alarm, not a scorecard row.",
     owner: "Media buyer",
-    target: "v1 source, not Hormozi — zero client-days",
-    sourceIds: ["meta_ads", "ghl"],
+    target: "v1 source, not Hormozi — zero account-days",
+    sourceIds: ["meta_ads"],
   }),
   tile({
     id: "spend-pacing",
@@ -329,21 +301,23 @@ const MARKETING_TILES: DashboardTile[] = [
 const MARKETING_TABLES: DashboardTable[] = [
   table({
     id: "marketing-by-client",
-    title: "Marketing per client",
+    title: "Agency acquisition ad accounts",
     description:
-      "One row per client, keyed by client id. ROAS is the drill-down under CAC, never a headline tile.",
+      "Increase ROAS's own 3 B2B acquisition Meta ad accounts only (Increase ROAS B2B, Alex Bloomfield / Start Scale Automate, Hot Tub Launch). Client ad accounts live on Fulfillment. ROAS is the drill-down under CAC, never a headline tile.",
     scope: "client",
-    sourceIds: ["meta_ads", "ghl"],
+    sourceIds: ["meta_ads"],
     columns: [
-      { key: "client", label: "Client" },
+      { key: "account", label: "Ad account" },
+      { key: "accountId", label: "Meta account ID" },
+      { key: "status", label: "Status" },
       { key: "spend", label: "Spend" },
       { key: "leads", label: "Leads" },
-      { key: "newCustomers", label: "New customers" },
+      { key: "impressions", label: "Impressions" },
+      { key: "clicks", label: "Link clicks" },
+      { key: "ctr", label: "CTR" },
+      { key: "costPerLead", label: "Cost per lead" },
       { key: "cac", label: "CAC" },
       { key: "roas", label: "ROAS (drill-down)" },
-      { key: "costPerLead", label: "Cost per lead" },
-      { key: "appointmentsHeld", label: "Appointments held" },
-      { key: "costPerHeldAppointment", label: "Cost per held appointment" },
       { key: "zeroLeadDays", label: "Zero-lead days" },
     ],
   }),
@@ -445,12 +419,6 @@ const BOARD_DEFINITIONS: Record<
   },
 };
 
-/**
- * Builds one board payload. `now` is injectable so tests can pin the
- * generated-at timestamp; nothing else about a payload depends on the clock.
- * `adapters` lets a test supply a roster reader, fetch implementation, or WAVV
- * reader without a network.
- */
 function liveVal(
   value: number | null | undefined,
   unit: DashboardUnit,
@@ -468,161 +436,21 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+function formatUsdCell(value: number | null): string | null {
+  if (value === null || !Number.isFinite(value)) return null;
+  return `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function formatIntCell(value: number | null): string | null {
+  if (value === null || !Number.isFinite(value)) return null;
+  return Math.round(value).toLocaleString("en-US");
+}
+
 function isMissingJudgedOn(value: string | null | undefined): boolean {
   if (!value) return true;
   const trimmed = value.trim();
   if (!trimmed) return true;
   return /^NOT SET\b/i.test(trimmed);
-}
-
-interface AggregatedPortfolio {
-  observedAt: string;
-  hasGhl: boolean;
-  hasMeta: boolean;
-  newLeads: number;
-  hasNewLeads: boolean;
-  booked: number;
-  hasBooked: boolean;
-  showed: number;
-  hasShowed: boolean;
-  pitched: number;
-  hasPitched: boolean;
-  wonDeals: number;
-  hasWonDeals: boolean;
-  cashCollectedUsd: number;
-  hasCashCollected: boolean;
-  pipelineRevenueUsd: number;
-  hasPipelineRevenue: boolean;
-  fallbackShowRate: number | null;
-  fallbackCloseRate: number | null;
-  speedToLeadSeconds: number | null;
-  spend: number;
-  hasSpend: boolean;
-  impressions: number;
-  hasImpressions: boolean;
-  clicks: number;
-  hasClicks: boolean;
-  zeroLeadDays: number;
-  hasZeroLeadDays: boolean;
-}
-
-function aggregatePortfolio(bundle: PortfolioSnapshotBundle): AggregatedPortfolio | null {
-  if (bundle.clients.length === 0 || !bundle.observedAt) return null;
-
-  let newLeads = 0;
-  let hasNewLeads = false;
-  let booked = 0;
-  let hasBooked = false;
-  let showed = 0;
-  let hasShowed = false;
-  let pitched = 0;
-  let hasPitched = false;
-  let wonDeals = 0;
-  let hasWonDeals = false;
-  let cashCollectedUsd = 0;
-  let hasCashCollected = false;
-  let pipelineRevenueUsd = 0;
-  let hasPipelineRevenue = false;
-  let fallbackShowRate: number | null = null;
-  let fallbackCloseRate: number | null = null;
-  let speedSum = 0;
-  let speedCount = 0;
-  let spend = 0;
-  let hasSpend = false;
-  let impressions = 0;
-  let hasImpressions = false;
-  let clicks = 0;
-  let hasClicks = false;
-  let zeroLeadDays = 0;
-  let hasZeroLeadDays = false;
-
-  for (const c of bundle.clients) {
-    if (c.newLeads !== null) {
-      newLeads += c.newLeads;
-      hasNewLeads = true;
-    }
-    if (c.booked !== null) {
-      booked += c.booked;
-      hasBooked = true;
-    }
-    if (c.showed !== null) {
-      showed += c.showed;
-      hasShowed = true;
-    }
-    if (c.pitched !== null) {
-      pitched += c.pitched;
-      hasPitched = true;
-    }
-    if (c.wonDeals !== null) {
-      wonDeals += c.wonDeals;
-      hasWonDeals = true;
-    }
-    if (c.cashCollectedUsd !== null && c.cashCollectedUsd > 0) {
-      cashCollectedUsd += c.cashCollectedUsd;
-      hasCashCollected = true;
-    }
-    if (c.pipelineRevenueUsd !== null && c.pipelineRevenueUsd > 0) {
-      pipelineRevenueUsd += c.pipelineRevenueUsd;
-      hasPipelineRevenue = true;
-    }
-    if (fallbackShowRate === null && c.showRate !== null) {
-      fallbackShowRate = c.showRate;
-    }
-    if (fallbackCloseRate === null && c.closeRate !== null) {
-      fallbackCloseRate = c.closeRate;
-    }
-    if (c.speedToLeadSeconds !== null && c.speedToLeadSeconds >= 0) {
-      speedSum += c.speedToLeadSeconds;
-      speedCount += 1;
-    }
-    if (c.spend !== null) {
-      spend += c.spend;
-      hasSpend = true;
-    }
-    if (c.impressions !== null) {
-      impressions += c.impressions;
-      hasImpressions = true;
-    }
-    if (c.clicks !== null) {
-      clicks += c.clicks;
-      hasClicks = true;
-    }
-    if (c.zeroLeadDays !== null) {
-      zeroLeadDays += c.zeroLeadDays;
-      hasZeroLeadDays = true;
-    }
-  }
-
-  return {
-    observedAt: bundle.observedAt,
-    hasGhl: hasNewLeads || hasBooked || hasShowed || hasWonDeals || fallbackShowRate !== null,
-    hasMeta: hasSpend || hasImpressions || hasClicks,
-    newLeads,
-    hasNewLeads,
-    booked,
-    hasBooked,
-    showed,
-    hasShowed,
-    pitched,
-    hasPitched,
-    wonDeals,
-    hasWonDeals,
-    cashCollectedUsd: round2(cashCollectedUsd),
-    hasCashCollected,
-    pipelineRevenueUsd: round2(pipelineRevenueUsd),
-    hasPipelineRevenue,
-    fallbackShowRate,
-    fallbackCloseRate,
-    speedToLeadSeconds: speedCount > 0 ? Math.round(speedSum / speedCount) : null,
-    spend: round2(spend),
-    hasSpend,
-    impressions,
-    hasImpressions,
-    clicks,
-    hasClicks,
-    zeroLeadDays,
-    hasZeroLeadDays,
-  };
 }
 
 function extractRevenueUsd(
@@ -646,72 +474,44 @@ function extractRevenueUsd(
   return null;
 }
 
-function salesByBusinessRows(clients: MergedClientMetrics[]): DashboardTableRow[] {
-  return clients
-    .filter(
-      (c) =>
-        c.booked !== null ||
-        c.showed !== null ||
-        c.wonDeals !== null ||
-        c.newLeads !== null ||
-        c.showRate !== null ||
-        c.closeRate !== null,
-    )
-    .map((c) => ({
-      id: c.slug,
-      cells: {
-        client: c.displayName,
-        appointmentsSet: c.booked,
-        booked: c.booked,
-        held: c.showed,
-        showRate: c.showRate !== null ? `${c.showRate}%` : null,
-        jobsSold: c.wonDeals,
-        closeRate: c.closeRate !== null ? `${c.closeRate}%` : null,
-      },
-    }));
-}
-
-function setterScoreboardRows(wavv: WavvSummary | null): DashboardTableRow[] {
-  if (!wavv || wavv.bySetter.length === 0) return [];
-  return wavv.bySetter.map((s) => ({
-    id: s.id,
+function agencySalesAccountRows(sales: AgencySalesSummary | null): DashboardTableRow[] {
+  if (!sales) return [];
+  return sales.accounts.map((acct) => ({
+    id: acct.id,
     cells: {
-      setter: s.setter,
-      dials: s.dials,
-      talkTimeMinutes: s.talkTimeMinutes,
-      conversations: s.conversationsOver60s,
-      sets: null,
-      showRate: null,
+      account: acct.displayName,
+      locationId: acct.locationId ?? "Not set",
+      status: acct.statusLabel,
+      newLeads: acct.newLeads,
+      opportunities: acct.activeOpportunities,
+      booked: acct.booked,
+      held: acct.showed,
+      showRate: acct.showRate !== null ? `${acct.showRate}%` : null,
+      jobsSold: acct.wonDeals,
+      closeRate: acct.closeRate !== null ? `${acct.closeRate}%` : null,
     },
   }));
 }
 
-function marketingByClientRows(clients: MergedClientMetrics[]): DashboardTableRow[] {
-  return clients
-    .filter(
-      (c) =>
-        c.spend !== null ||
-        c.newLeads !== null ||
-        c.wonDeals !== null ||
-        c.showed !== null ||
-        c.cpl !== null ||
-        c.cac !== null,
-    )
-    .map((c) => ({
-      id: c.slug,
-      cells: {
-        client: c.displayName,
-        spend: c.spend,
-        leads: c.newLeads,
-        newCustomers: c.wonDeals,
-        cac: c.cac,
-        roas: c.roas,
-        costPerLead: c.cpl,
-        appointmentsHeld: c.showed,
-        costPerHeldAppointment: c.costPerHeldAppointment,
-        zeroLeadDays: c.zeroLeadDays,
-      },
-    }));
+function agencyMarketingAccountRows(marketing: AgencyMarketingSummary | null): DashboardTableRow[] {
+  if (!marketing) return [];
+  return marketing.accounts.map((acct) => ({
+    id: acct.id,
+    cells: {
+      account: acct.displayName,
+      accountId: acct.adAccountId ?? "Not set",
+      status: acct.statusLabel,
+      spend: formatUsdCell(acct.spend),
+      leads: acct.leads,
+      impressions: formatIntCell(acct.impressions),
+      clicks: formatIntCell(acct.linkClicks),
+      ctr: acct.ctr !== null ? `${acct.ctr}%` : null,
+      costPerLead: formatUsdCell(acct.cpl),
+      cac: null,
+      roas: null,
+      zeroLeadDays: acct.zeroLeadDays,
+    },
+  }));
 }
 
 function resolveHumanEmployeesTile(
@@ -747,95 +547,126 @@ function resolveHumanEmployeesTile(
   return null;
 }
 
-function resolveTileValue(
-  tileId: string,
-  period: DashboardPeriod,
-  agg: AggregatedPortfolio | null,
-  wavv: WavvSummary | null,
-  roster: Awaited<ReturnType<TeamRosterAdapter["read"]>>,
-  capital: CapitalApiPayload | null,
-  qbo: AgencyQuickBooksFinancials | null = null,
-): DashboardTileValue {
-  const hasSalesDashKey = Boolean((process.env.SALES_DASHBOARD_ADMIN_KEY ?? "").trim());
-
-  if (roster && (hasSalesDashKey || capital || qbo)) {
-    const teamTile = resolveHumanEmployeesTile(tileId, period, roster, capital, qbo);
-    if (teamTile) return teamTile;
-  }
-
-  // WAVV dialer tiles: NEVER invent Dials: 0 when WAVV is not connected
-  if (tileId === "dials") {
-    return wavv ? liveVal(wavv.dials, "count", wavv.observedAt) : notConnected();
-  }
-  if (tileId === "conversations-over-60s") {
-    return wavv ? liveVal(wavv.conversationsOver60s, "count", wavv.observedAt) : notConnected();
-  }
-  if (tileId === "talk-time") {
-    return wavv ? liveVal(wavv.talkTimeMinutes, "minutes", wavv.observedAt) : notConnected();
-  }
-
-  if (!agg) return notConnected();
-  const ts = agg.observedAt;
-
+function resolveAgencySalesTile(tileId: string, sales: AgencySalesSummary | null): DashboardTileValue {
+  if (!sales || !sales.hasGhl) return notConnected();
+  const ts = sales.observedAt;
   switch (tileId) {
     case "show-rate":
-      if (agg.hasBooked && agg.booked > 0 && agg.hasShowed) {
-        return liveVal(round1((agg.showed / agg.booked) * 100), "percent", ts);
-      }
-      return liveVal(agg.fallbackShowRate, "percent", ts);
-    case "speed-to-lead":
-      return liveVal(agg.speedToLeadSeconds, "seconds", ts);
+      return liveVal(sales.showRate, "percent", ts);
     case "offer-rate":
-      return agg.hasShowed && agg.showed > 0 && agg.hasPitched
-        ? liveVal(round1((agg.pitched / agg.showed) * 100), "percent", ts)
-        : notConnected();
+      return liveVal(sales.offerRate, "percent", ts);
     case "close-rate":
-      if (agg.hasPitched && agg.pitched > 0 && agg.hasWonDeals) {
-        return liveVal(round1((agg.wonDeals / agg.pitched) * 100), "percent", ts);
-      }
-      if (agg.hasShowed && agg.showed > 0 && agg.hasWonDeals) {
-        return liveVal(round1((agg.wonDeals / agg.showed) * 100), "percent", ts);
-      }
-      return liveVal(agg.fallbackCloseRate, "percent", ts);
+      return liveVal(sales.closeRate, "percent", ts);
     case "cash-collected-up-front":
-      return agg.hasPipelineRevenue && agg.pipelineRevenueUsd > 0 && agg.hasCashCollected
-        ? liveVal(round1((agg.cashCollectedUsd / agg.pipelineRevenueUsd) * 100), "percent", ts)
-        : notConnected();
+      if (sales.pipelineWonUsd !== null && sales.pipelineWonUsd > 0 && sales.cashCollectedUsd !== null) {
+        return liveVal(round1((sales.cashCollectedUsd / sales.pipelineWonUsd) * 100), "percent", ts);
+      }
+      return notConnected();
     case "units-sold":
-      return agg.hasWonDeals ? liveVal(agg.wonDeals, "count", ts) : notConnected();
-    case "set-rate":
-      return agg.hasNewLeads && agg.newLeads > 0 && agg.hasBooked
-        ? liveVal(round1((agg.booked / agg.newLeads) * 100), "percent", ts)
-        : notConnected();
-    case "lead-to-customer":
-      return agg.hasNewLeads && agg.newLeads > 0 && agg.hasWonDeals
-        ? liveVal(round1((agg.wonDeals / agg.newLeads) * 100), "percent", ts)
-        : notConnected();
-    case "cac-per-client":
-      return agg.hasSpend && agg.hasWonDeals && agg.wonDeals > 0
-        ? liveVal(round2(agg.spend / agg.wonDeals), "usd", ts)
-        : notConnected();
-    case "ad-spend":
-      return agg.hasSpend ? liveVal(agg.spend, "usd", ts) : notConnected();
+      return liveVal(sales.wonDeals, "count", ts);
     case "new-leads":
-      return agg.hasNewLeads ? liveVal(agg.newLeads, "count", ts) : notConnected();
-    case "ctr":
-      return agg.hasImpressions && agg.impressions > 0 && agg.hasClicks
-        ? liveVal(round2((agg.clicks / agg.impressions) * 100), "percent", ts)
-        : notConnected();
-    case "cost-per-lead":
-      return agg.hasNewLeads && agg.newLeads > 0 && agg.hasSpend
-        ? liveVal(round2(agg.spend / agg.newLeads), "usd", ts)
-        : notConnected();
-    case "cost-per-held-appointment":
-      return agg.hasShowed && agg.showed > 0 && agg.hasSpend
-        ? liveVal(round2(agg.spend / agg.showed), "usd", ts)
-        : notConnected();
-    case "spend-with-zero-leads":
-      return agg.hasZeroLeadDays ? liveVal(agg.zeroLeadDays, "count", ts) : notConnected();
+      return liveVal(sales.newLeads, "count", ts);
+    case "active-opportunities":
+      return liveVal(sales.activeOpportunities, "count", ts);
+    case "set-rate":
+      return liveVal(sales.setRate, "percent", ts);
+    case "lead-to-customer":
+      return liveVal(sales.leadToCustomerRate, "percent", ts);
     default:
       return notConnected();
   }
+}
+
+function resolveAgencyMarketingTile(
+  tileId: string,
+  marketing: AgencyMarketingSummary | null,
+  sales: AgencySalesSummary | null,
+): DashboardTileValue {
+  if (!marketing || !marketing.hasMeta) return notConnected();
+  const ts = marketing.observedAt;
+  switch (tileId) {
+    case "cac-per-client":
+      if (marketing.spend !== null && sales?.hasGhl && sales.wonDeals !== null && sales.wonDeals > 0) {
+        return liveVal(round2(marketing.spend / sales.wonDeals), "usd", ts);
+      }
+      return notConnected();
+    case "ad-spend":
+      return liveVal(marketing.spend, "usd", ts);
+    case "new-leads":
+      return liveVal(marketing.leads, "count", ts);
+    case "cost-per-held-appointment":
+      if (marketing.spend !== null && sales?.hasGhl && sales.showed !== null && sales.showed > 0) {
+        return liveVal(round2(marketing.spend / sales.showed), "usd", ts);
+      }
+      return notConnected();
+    case "ctr":
+      return liveVal(marketing.ctr, "percent", ts);
+    case "cost-per-lead":
+      return liveVal(marketing.cpl, "usd", ts);
+    case "spend-with-zero-leads":
+      return liveVal(marketing.zeroLeadDays, "count", ts);
+    default:
+      return notConnected();
+  }
+}
+
+function buildHumanEmployeesMeta(
+  roster: Awaited<ReturnType<TeamRosterAdapter["read"]>>,
+  capital: CapitalApiPayload | null,
+): DashboardBoardMeta | undefined {
+  if (!capital && !(roster && (process.env.SALES_DASHBOARD_ADMIN_KEY ?? "").trim())) {
+    return undefined;
+  }
+  const activeFromRoster = roster
+    ? roster.members.filter((m) => m.status.toLowerCase() === "active").length
+    : undefined;
+  const totalFromRoster = roster ? roster.members.length : undefined;
+  const activeFromCapital =
+    capital && capital.members.length > 0
+      ? capital.members.filter((m) => (m.status ?? "").toLowerCase() === "active").length
+      : undefined;
+  const totalFromCapital =
+    capital && capital.members.length > 0 ? capital.members.length : undefined;
+
+  const cashOnHandUsd =
+    typeof capital?.operating?.cashOnHandUsd === "number" &&
+    Number.isFinite(capital.operating.cashOnHandUsd)
+      ? capital.operating.cashOnHandUsd
+      : typeof capital?.settings?.cashOnHandUsd === "number" &&
+          Number.isFinite(capital.settings.cashOnHandUsd)
+        ? capital.settings.cashOnHandUsd
+        : undefined;
+
+  return {
+    ...(capital?.operating
+      ? {
+          monthlyLaborUsd: capital.operating.monthlyLaborUsd,
+          monthlyOverheadUsd: capital.operating.monthlyOverheadUsd,
+          monthlyBurnUsd: capital.operating.monthlyBurnUsd,
+          runwayMonths: capital.operating.runwayMonths,
+        }
+      : {}),
+    ...(cashOnHandUsd !== undefined ? { cashOnHandUsd } : {}),
+    ...(activeFromRoster !== undefined || activeFromCapital !== undefined
+      ? { activeHeadcount: activeFromRoster ?? activeFromCapital }
+      : {}),
+    ...(totalFromRoster !== undefined || totalFromCapital !== undefined
+      ? { totalHeadcount: totalFromRoster ?? totalFromCapital }
+      : {}),
+  };
+}
+
+function formatGhlSourceDetail(sales: AgencySalesSummary): string {
+  const alex = sales.accounts.find((a) => a.id === "alex-bloomfield-ssa");
+  const base = `Connected to ${sales.liveAccountCount}/${sales.totalAccountCount} Increase ROAS agency GHL sub-accounts.`;
+  if (alex && alex.status !== "live") {
+    return `${base} Alex Bloomfield awaits GHL_ALEX_BLOOMFIELD_PIT_KEY + GHL_ALEX_BLOOMFIELD_LOCATION_ID.`;
+  }
+  return base;
+}
+
+function formatMetaSourceDetail(marketing: AgencyMarketingSummary): string {
+  return `Connected to ${marketing.liveAccountCount}/${marketing.totalAccountCount} Increase ROAS agency Meta acquisition ad accounts via OAuth Gateway.`;
 }
 
 export function dashboardBoardService(
@@ -843,7 +674,8 @@ export function dashboardBoardService(
   adapters: {
     teamRoster?: TeamRosterAdapter;
     fetchImpl?: typeof fetch;
-    wavvReader?: (period: DashboardPeriod) => Promise<WavvSummary | null>;
+    agencyMarketingReader?: (period: DashboardPeriod) => Promise<AgencyMarketingSummary | null>;
+    agencySalesReader?: (period: DashboardPeriod) => Promise<AgencySalesSummary | null>;
     quickbooksReader?: (period: DashboardPeriod) => Promise<AgencyQuickBooksFinancials | null>;
   } = {},
 ) {
@@ -860,19 +692,21 @@ export function dashboardBoardService(
       if (!definition) throw new Error(`Unknown dashboard board: ${board}`);
       const allowInstanceData = boardOptions.boardViewer ?? true;
 
-      const [roster, capital, bundle, wavv, qbo] = allowInstanceData
+      const [roster, capital, agencyMarketing, agencySales, qbo] = allowInstanceData
         ? await Promise.all([
             board === "human-employees" ? teamRoster.read(companyId) : Promise.resolve(null),
             board === "human-employees"
               ? fetchSalesCapital(period, { fetchImpl: adapters.fetchImpl })
               : Promise.resolve(null),
-            board === "sales" || board === "marketing"
-              ? readPortfolioSnapshotBundle(period, { fetchImpl: adapters.fetchImpl })
+            board === "marketing"
+              ? (adapters.agencyMarketingReader
+                  ? adapters.agencyMarketingReader(period)
+                  : readAgencyMarketingSummary(period, { fetchImpl: adapters.fetchImpl, now }))
               : Promise.resolve(null),
-            board === "sales"
-              ? (adapters.wavvReader
-                  ? adapters.wavvReader(period)
-                  : readWavvSummary(period, { fetchImpl: adapters.fetchImpl, now }))
+            board === "sales" || board === "marketing"
+              ? (adapters.agencySalesReader
+                  ? adapters.agencySalesReader(period)
+                  : readAgencySalesSummary(period, { fetchImpl: adapters.fetchImpl, now }))
               : Promise.resolve(null),
             board === "human-employees"
               ? (adapters.quickbooksReader
@@ -881,8 +715,6 @@ export function dashboardBoardService(
               : Promise.resolve(null),
           ])
         : [null, null, null, null, null];
-
-      const agg = bundle ? aggregatePortfolio(bundle) : null;
 
       const sourceIds = new Set<DashboardSourceId>();
       for (const item of [...definition.tiles, ...definition.tables]) {
@@ -898,81 +730,43 @@ export function dashboardBoardService(
             lastSuccessfulSync: roster?.observedAt ?? capital?.generatedAt ?? null,
           };
         }
-        if (src.id === "ghl" && agg?.hasGhl) {
+        if (src.id === "ghl" && agencySales?.hasGhl) {
           return {
             ...src,
             status: "connected" as const,
-            detail: "Connected to live multi-client Sales Dashboard GHL snapshots.",
-            lastSuccessfulSync: agg.observedAt,
+            detail: formatGhlSourceDetail(agencySales),
+            lastSuccessfulSync: agencySales.observedAt,
           };
         }
-        if (src.id === "meta_ads" && agg?.hasMeta) {
+        if (src.id === "meta_ads" && agencyMarketing?.hasMeta) {
           return {
             ...src,
             status: "connected" as const,
-            detail: "Connected to live multi-client Meta & Neon Ads portfolio data.",
-            lastSuccessfulSync: agg.observedAt,
-          };
-        }
-        if (src.id === "wavv" && wavv) {
-          return {
-            ...src,
-            status: "connected" as const,
-            detail: "Connected to live WAVV call feed via OAuth Gateway.",
-            lastSuccessfulSync: wavv.observedAt,
+            detail: formatMetaSourceDetail(agencyMarketing),
+            lastSuccessfulSync: agencyMarketing.observedAt,
           };
         }
         return src;
       });
 
-      let meta: DashboardBoardMeta | undefined;
-      if (board === "human-employees" && (capital || (roster && (process.env.SALES_DASHBOARD_ADMIN_KEY ?? "").trim()))) {
-        const activeFromRoster = roster
-          ? roster.members.filter((m) => m.status.toLowerCase() === "active").length
-          : undefined;
-        const totalFromRoster = roster ? roster.members.length : undefined;
-        const activeFromCapital =
-          capital && capital.members.length > 0
-            ? capital.members.filter((m) => (m.status ?? "").toLowerCase() === "active").length
-            : undefined;
-        const totalFromCapital =
-          capital && capital.members.length > 0 ? capital.members.length : undefined;
+      const meta = board === "human-employees" ? buildHumanEmployeesMeta(roster, capital) : undefined;
+      const hasSalesDashKey = Boolean((process.env.SALES_DASHBOARD_ADMIN_KEY ?? "").trim());
 
-        const cashOnHandUsd =
-          typeof capital?.operating?.cashOnHandUsd === "number" &&
-          Number.isFinite(capital.operating.cashOnHandUsd)
-            ? capital.operating.cashOnHandUsd
-            : typeof capital?.settings?.cashOnHandUsd === "number" &&
-                Number.isFinite(capital.settings.cashOnHandUsd)
-              ? capital.settings.cashOnHandUsd
-              : undefined;
-
-        meta = {
-          ...(capital?.operating
-            ? {
-                monthlyLaborUsd: capital.operating.monthlyLaborUsd,
-                monthlyOverheadUsd: capital.operating.monthlyOverheadUsd,
-                monthlyBurnUsd: capital.operating.monthlyBurnUsd,
-                runwayMonths: capital.operating.runwayMonths,
-              }
-            : {}),
-          ...(cashOnHandUsd !== undefined ? { cashOnHandUsd } : {}),
-          ...(activeFromRoster !== undefined || activeFromCapital !== undefined
-            ? { activeHeadcount: activeFromRoster ?? activeFromCapital }
-            : {}),
-          ...(totalFromRoster !== undefined || totalFromCapital !== undefined
-            ? { totalHeadcount: totalFromRoster ?? totalFromCapital }
-            : {}),
-        };
-      }
+      const resolveTile = (tileId: string): DashboardTileValue => {
+        if (board === "human-employees") {
+          if (roster && (hasSalesDashKey || capital || qbo)) {
+            return resolveHumanEmployeesTile(tileId, period, roster, capital, qbo) ?? notConnected();
+          }
+          return notConnected();
+        }
+        if (board === "sales") return resolveAgencySalesTile(tileId, agencySales);
+        return resolveAgencyMarketingTile(tileId, agencyMarketing, agencySales);
+      };
 
       const resolveTableRows = (tableId: string): DashboardTableRow[] => {
         if (tableId === "team-roster" && roster) return teamRosterRows(roster.members);
-        if (tableId === "sales-by-business" && bundle) return salesByBusinessRows(bundle.clients);
-        if (tableId === "setter-scoreboard") return setterScoreboardRows(wavv);
-        if (tableId === "marketing-by-client" && bundle) {
-          return marketingByClientRows(bundle.clients);
-        }
+        if (tableId === "sales-by-business") return agencySalesAccountRows(agencySales);
+        if (tableId === "marketing-by-client") return agencyMarketingAccountRows(agencyMarketing);
         return [];
       };
 
@@ -984,7 +778,7 @@ export function dashboardBoardService(
         tiles: definition.tiles.map((item) => ({
           ...item,
           sourceIds: [...item.sourceIds],
-          value: resolveTileValue(item.id, period, agg, wavv, roster, capital, qbo),
+          value: resolveTile(item.id),
         })),
         tables: definition.tables.map((item) => ({
           ...item,

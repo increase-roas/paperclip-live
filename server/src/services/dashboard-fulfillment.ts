@@ -4,18 +4,43 @@ import { issueLabels, issues, labels, projects } from "@paperclipai/db";
 import type {
   DashboardFulfillmentBoard,
   DashboardFulfillmentClient,
+  DashboardFulfillmentClientDelivery,
+  DashboardFulfillmentClientDeliveryRow,
   DashboardFulfillmentRetention,
   DashboardFulfillmentTask,
+  DashboardFulfillmentWavvDelivery,
   DashboardNotConnectedTile,
+  DashboardPeriod,
 } from "@paperclipai/shared";
 import { executionIssueCondition } from "./issue-visibility.js";
 import { retryIdempotentDatabaseOperation } from "../database-retry.js";
+import {
+  filterClientOnlyPortfolio,
+  readPortfolioSnapshotBundle,
+  type MergedClientMetrics,
+  type PortfolioSnapshotBundle,
+} from "../ir/sales-dashboard-client.js";
+import { readWavvSummary, type WavvSummary } from "../ir/wavv-client.js";
 
 const HOUR_MS = 60 * 60 * 1000;
 const ITEM_LIMIT = 10;
 
 const ONBOARDING_LABEL = /onboard/i;
 const SUPPORT_LABEL = /support|customer.?service|client.?request|^cs$/i;
+
+export interface DashboardFulfillmentDeps {
+  fetchImpl?: typeof fetch;
+  portfolioReader?: (period: DashboardPeriod) => Promise<PortfolioSnapshotBundle>;
+  wavvReader?: (period: DashboardPeriod) => Promise<WavvSummary | null>;
+}
+
+function round1(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
 
 function taskAgeHours(createdAt: Date, now: Date): number {
   return Math.max(0, Number(((now.getTime() - createdAt.getTime()) / HOUR_MS).toFixed(2)));
@@ -88,41 +113,243 @@ function retentionWithoutSources(): DashboardFulfillmentRetention {
   };
 }
 
-export function dashboardFulfillmentService(db: Db) {
+function buildClientDeliveryRow(client: MergedClientMetrics): DashboardFulfillmentClientDeliveryRow {
+  const ctr =
+    client.impressions !== null && client.impressions > 0 && client.clicks !== null
+      ? round2((client.clicks / client.impressions) * 100)
+      : null;
   return {
-    async board(companyId: string, now = new Date()): Promise<DashboardFulfillmentBoard> {
-      const companyLabels = await retryIdempotentDatabaseOperation(() =>
-        db
-          .select({ id: labels.id, name: labels.name })
-          .from(labels)
-          .where(eq(labels.companyId, companyId))
-          .orderBy(labels.name),
-      );
+    slug: client.slug,
+    displayName: client.displayName,
+    spend: client.spend,
+    newLeads: client.newLeads,
+    cpl: client.cpl,
+    ctr,
+    booked: client.booked,
+    showed: client.showed,
+    showRate: client.showRate,
+    wonDeals: client.wonDeals,
+    closeRate: client.closeRate,
+    costPerHeldAppointment: client.costPerHeldAppointment,
+    zeroLeadDays: client.zeroLeadDays,
+  };
+}
+
+function buildClientDelivery(
+  period: DashboardPeriod,
+  bundle: PortfolioSnapshotBundle | null,
+): DashboardFulfillmentClientDelivery {
+  const clientOnly = bundle ? filterClientOnlyPortfolio(bundle.clients) : [];
+  if (!bundle || clientOnly.length === 0 || !bundle.observedAt) {
+    return {
+      period,
+      observedAt: null,
+      adSpendUsd: null,
+      newLeads: null,
+      costPerLeadUsd: null,
+      ctrPercent: null,
+      appointmentsBooked: null,
+      appointmentsShowed: null,
+      showRatePercent: null,
+      wonDeals: null,
+      closeRatePercent: null,
+      zeroLeadDays: null,
+      accounts: [],
+      notConnected: {
+        tile: "client-portfolio-delivery",
+        source: "Client Meta & GHL portfolio (Sales Dashboard)",
+        reason:
+          "No live client portfolio snapshot is available for this period (or viewer lacks instance-admin access).",
+        needed: "SALES_DASHBOARD_ADMIN_KEY configured on the server for live client Meta + GHL delivery reads.",
+      },
+    };
+  }
+
+  let spend = 0;
+  let hasSpend = false;
+  let newLeads = 0;
+  let hasLeads = false;
+  let impressions = 0;
+  let hasImpressions = false;
+  let clicks = 0;
+  let hasClicks = false;
+  let booked = 0;
+  let hasBooked = false;
+  let showed = 0;
+  let hasShowed = false;
+  let pitched = 0;
+  let hasPitched = false;
+  let wonDeals = 0;
+  let hasWon = false;
+  let zeroLeadDays = 0;
+  let hasZeroLeadDays = false;
+  let fallbackShowRate: number | null = null;
+  let fallbackCloseRate: number | null = null;
+
+  for (const c of clientOnly) {
+    if (c.spend !== null) {
+      spend += c.spend;
+      hasSpend = true;
+    }
+    if (c.newLeads !== null) {
+      newLeads += c.newLeads;
+      hasLeads = true;
+    }
+    if (c.impressions !== null) {
+      impressions += c.impressions;
+      hasImpressions = true;
+    }
+    if (c.clicks !== null) {
+      clicks += c.clicks;
+      hasClicks = true;
+    }
+    if (c.booked !== null) {
+      booked += c.booked;
+      hasBooked = true;
+    }
+    if (c.showed !== null) {
+      showed += c.showed;
+      hasShowed = true;
+    }
+    if (c.pitched !== null) {
+      pitched += c.pitched;
+      hasPitched = true;
+    }
+    if (c.wonDeals !== null) {
+      wonDeals += c.wonDeals;
+      hasWon = true;
+    }
+    if (c.zeroLeadDays !== null) {
+      zeroLeadDays += c.zeroLeadDays;
+      hasZeroLeadDays = true;
+    }
+    if (fallbackShowRate === null && c.showRate !== null) fallbackShowRate = c.showRate;
+    if (fallbackCloseRate === null && c.closeRate !== null) fallbackCloseRate = c.closeRate;
+  }
+
+  const roundedSpend = hasSpend ? round2(spend) : null;
+  const costPerLeadUsd = hasSpend && hasLeads && newLeads > 0 ? round2(spend / newLeads) : null;
+  const ctrPercent =
+    hasImpressions && impressions > 0 && hasClicks ? round2((clicks / impressions) * 100) : null;
+  const isSingleClient = clientOnly.length === 1;
+  const showRatePercent =
+    hasBooked && booked > 0 && hasShowed
+      ? round1((showed / booked) * 100)
+      : isSingleClient
+        ? fallbackShowRate
+        : null;
+  const closeRatePercent =
+    hasPitched && pitched > 0 && hasWon
+      ? round1((wonDeals / pitched) * 100)
+      : hasShowed && showed > 0 && hasWon
+        ? round1((wonDeals / showed) * 100)
+        : isSingleClient
+          ? fallbackCloseRate
+          : null;
+
+  return {
+    period,
+    observedAt: bundle.observedAt,
+    adSpendUsd: roundedSpend,
+    newLeads: hasLeads ? newLeads : null,
+    costPerLeadUsd,
+    ctrPercent,
+    appointmentsBooked: hasBooked ? booked : null,
+    appointmentsShowed: hasShowed ? showed : null,
+    showRatePercent,
+    wonDeals: hasWon ? wonDeals : null,
+    closeRatePercent,
+    zeroLeadDays: hasZeroLeadDays ? zeroLeadDays : null,
+    accounts: clientOnly.map(buildClientDeliveryRow),
+    notConnected: null,
+  };
+}
+
+function buildWavvDelivery(
+  period: DashboardPeriod,
+  wavv: WavvSummary | null,
+): DashboardFulfillmentWavvDelivery {
+  if (!wavv) {
+    return {
+      period,
+      observedAt: null,
+      dials: null,
+      conversationsOver60s: null,
+      talkTimeMinutes: null,
+      bySetter: [],
+      notConnected: {
+        tile: "client-wavv",
+        source: "WAVV outbound dialer (via OAuth Gateway)",
+        reason: "No live WAVV outbound call activity is available for this period.",
+        needed: "GATEWAY_PAPERCLIP_KEY (or GATEWAY_WAVV_KEY) with read-only WAVV scope.",
+      },
+    };
+  }
+  return {
+    period,
+    observedAt: wavv.observedAt,
+    dials: wavv.dials,
+    conversationsOver60s: wavv.conversationsOver60s,
+    talkTimeMinutes: wavv.talkTimeMinutes,
+    bySetter: wavv.bySetter,
+    notConnected: null,
+  };
+}
+
+export function dashboardFulfillmentService(db: Db, deps: DashboardFulfillmentDeps = {}) {
+  return {
+    async board(
+      companyId: string,
+      now = new Date(),
+      options: { period?: DashboardPeriod; boardViewer?: boolean } = {},
+    ): Promise<DashboardFulfillmentBoard> {
+      const period: DashboardPeriod = options.period ?? "30d";
+      const allowInstanceData = options.boardViewer ?? false;
+
+      const [companyLabels, openIssueRows, portfolioBundle, wavvSummary] = await Promise.all([
+        retryIdempotentDatabaseOperation(() =>
+          db
+            .select({ id: labels.id, name: labels.name })
+            .from(labels)
+            .where(eq(labels.companyId, companyId))
+            .orderBy(labels.name),
+        ),
+        retryIdempotentDatabaseOperation(() =>
+          db
+            .select({
+              id: issues.id,
+              identifier: issues.identifier,
+              title: issues.title,
+              status: issues.status,
+              projectId: issues.projectId,
+              projectName: projects.name,
+              createdAt: issues.createdAt,
+            })
+            .from(issues)
+            .leftJoin(projects, eq(issues.projectId, projects.id))
+            .where(
+              and(
+                eq(issues.companyId, companyId),
+                notInArray(issues.status, ["done", "cancelled"]),
+                executionIssueCondition(),
+              ),
+            )
+            .orderBy(sql`${issues.createdAt} asc`),
+        ),
+        allowInstanceData
+          ? (deps.portfolioReader
+              ? deps.portfolioReader(period)
+              : readPortfolioSnapshotBundle(period, { fetchImpl: deps.fetchImpl }))
+          : Promise.resolve(null),
+        allowInstanceData
+          ? (deps.wavvReader
+              ? deps.wavvReader(period)
+              : readWavvSummary(period, { fetchImpl: deps.fetchImpl, now: () => now }))
+          : Promise.resolve(null),
+      ]);
+
       const onboardingLabelIds = companyLabels.filter((label) => ONBOARDING_LABEL.test(label.name)).map((label) => label.id);
       const supportLabels = companyLabels.filter((label) => SUPPORT_LABEL.test(label.name));
-
-      const openIssueRows = await retryIdempotentDatabaseOperation(() =>
-        db
-          .select({
-            id: issues.id,
-            identifier: issues.identifier,
-            title: issues.title,
-            status: issues.status,
-            projectId: issues.projectId,
-            projectName: projects.name,
-            createdAt: issues.createdAt,
-          })
-          .from(issues)
-          .leftJoin(projects, eq(issues.projectId, projects.id))
-          .where(
-            and(
-              eq(issues.companyId, companyId),
-              notInArray(issues.status, ["done", "cancelled"]),
-              executionIssueCondition(),
-            ),
-          )
-          .orderBy(sql`${issues.createdAt} asc`),
-      );
 
       const issueIds = openIssueRows.map((row) => row.id);
       const labelRows = issueIds.length > 0
@@ -234,6 +461,9 @@ export function dashboardFulfillmentService(db: Db) {
       return {
         companyId,
         generatedAt: now.toISOString(),
+        period,
+        clientDelivery: buildClientDelivery(period, portfolioBundle),
+        wavvDelivery: buildWavvDelivery(period, wavvSummary),
         retention: retentionWithoutSources(),
         clientsWithOpenWork: clientById.size,
         clients: clients.slice(0, ITEM_LIMIT),
