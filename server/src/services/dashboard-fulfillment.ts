@@ -172,8 +172,6 @@ function buildClientDelivery(
   let hasCompleteBooked = true;
   let showed = 0;
   let hasCompleteShowed = true;
-  let pitched = 0;
-  let hasCompletePitched = true;
   let wonDeals = 0;
   let hasCompleteWon = true;
   let zeroLeadDays = 0;
@@ -211,11 +209,6 @@ function buildClientDelivery(
       showed += c.showed;
     } else {
       hasCompleteShowed = false;
-    }
-    if (c.pitched !== null) {
-      pitched += c.pitched;
-    } else {
-      hasCompletePitched = false;
     }
     if (c.wonDeals !== null) {
       wonDeals += c.wonDeals;
