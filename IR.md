@@ -22,7 +22,7 @@ Private copy of [paperclipai/paperclip](https://github.com/paperclipai/paperclip
 | `packages/shared/src/ir-metrics.ts` | The one metric library (show, offer, close, set rate, CPL, CTR, CAC, agency vs client ROAS, MRR, active/paused/cancelled). GBrain `definitions/` pages point here with `calculation: ir-metrics#<fn>` |
 | `packages/shared/src/ir-system-map.ts` + `server/src/ir/system-map.ts` + `ui/src/ir/pages/SystemMapPage.tsx` | Native System Map (`/INC/system-map`): live topology, health checks, data age and the GBrain skeleton, read from the brain-vps `ir-system-feed` (company-ops `tools/ir-system-feed`). Instance admins only |
 | `server/src/ir/proof-gate.ts` | Proof-gated closure: an issue with a `proof:<check>` label (for example `proof:gateway`) cannot move to `done` until that ir-doctor check passes (422 `ir_proof_check_not_passing`) |
-| `scripts/ir/check-ir-metrics.mjs` | CI guard in the IR files job: no inline metric formulas, static client counts or hardcoded GHL/Meta IDs in `ui/src/ir` and `server/src/ir` |
+| `scripts/ir/ir-metric-guard.mjs` | CI guard in the IR files job: no inline metric formulas, static client counts or hardcoded GHL/Meta IDs in `ui/src/ir` and `server/src/ir` |
 
 Removed from upstream: `.github/dependabot.yml` (dependency updates arrive through upstream-sync PRs).
 

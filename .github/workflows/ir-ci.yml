@@ -208,8 +208,8 @@ jobs:
           PYTHONPATH="$tools_dir" python3 -m yamllint -d '{extends: relaxed, rules: {line-length: disable}}' .github/workflows/ir-*.yml .github/actions/ir-setup/action.yml
       - name: IR metric guard (no inline metric formulas or hardcoded GHL/Meta IDs)
         run: |
-          node --test scripts/ir/check-ir-metrics.test.mjs
-          node scripts/ir/check-ir-metrics.mjs
+          node --test scripts/ir/ir-metric-guard.test.mjs
+          node scripts/ir/ir-metric-guard.mjs
       - name: Upstream sync dry run
         env:
           GH_TOKEN: ${{ github.token }}
