@@ -120,6 +120,11 @@ The server writes sanitized HTTP 5xx failures and browser crashes to
 retains three older files. Keep this directory on the instance's persistent
 volume. Run one server writer per log directory.
 
+Before storage, reports drop route queries and fragments and replace invitation
+and board-claim tokens with route placeholders. Messages, stacks and nested
+metadata redact credential fields, including private keys and session IDs.
+Webhook summaries use the same sanitized records. Existing log files are not rewritten.
+
 Board instance admins can search retained records with `GET /api/ir/errors`.
 Use `q`, `source` (`server` or `client`), `severity` (`error` or `fatal`),
 `since` (ISO timestamp), and `limit` (100 by default, up to 500). The
