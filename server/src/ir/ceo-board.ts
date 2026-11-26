@@ -374,7 +374,7 @@ export function buildCeoAndReadingOrder(
   const fallbackShowRate = bundle.clients.find((c) => c.showRate !== null)?.showRate ?? null;
   const portfolioShowRate =
     portfolio.hasBooked && portfolio.hasShowed
-      ? showRate({ booked: portfolio.totalBooked, showed: portfolio.totalShowed })
+      ? showRate({ pastDatedBooked: portfolio.totalBooked, showed: portfolio.totalShowed })
       : null;
   const showRatePct = portfolioShowRate ?? fallbackShowRate;
   const showRateState: ReadingOrderState =

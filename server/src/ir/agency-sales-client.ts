@@ -656,11 +656,12 @@ function computeRates(m: {
   wonDeals: number | null;
   lostDeals: number | null;
 }) {
-  // One canonical formula for per-account and aggregate totals (ir-metrics).
+  // Certified formulas (ir-metrics). `booked` here counts only non-cancelled
+  // events scheduled inside [period start, now], i.e. past-dated booked.
   return {
-    showRate: showRate(m),
+    showRate: showRate({ pastDatedBooked: m.booked, showed: m.showed }),
     offerRate: offerRate(m),
-    closeRate: closeRate(m),
+    closeRate: closeRate({ wonDeals: m.wonDeals, showed: m.showed }),
   };
 }
 

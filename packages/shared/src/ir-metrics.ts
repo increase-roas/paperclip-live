@@ -1,5 +1,6 @@
 /**
- * The one canonical Increase ROAS metric library.
+ * The one canonical Increase ROAS metric library. Formulas follow the GBrain
+ * definitions certified by Alex on 2026-11-26 (brain `definitions/*.md`).
  *
  * Every dashboard, report and agent computes these numbers through the
  * functions below, never inline. GBrain `definitions/<slug>.md` pages point at
@@ -71,32 +72,23 @@ function perUnit(total: Count, units: Count): number | null {
   return round2(total / units);
 }
 
-/** Appointments held ÷ appointments booked, as a percent (capped at 100). */
-export function showRate(input: { booked: Count; showed: Count }): number | null {
-  return percent(input.showed, input.booked);
-}
-
-/** Offers or proposals made ÷ appointments held, as a percent (capped at 100). */
-export function offerRate(input: { showed: Count; pitched: Count }): number | null {
-  return percent(input.pitched, input.showed);
-}
-
 /**
- * Deals won ÷ decided deals, as a percent. Uses the best denominator the
- * source has: won + lost, then offers made, then appointments held.
+ * Show rate: showed ÷ past-dated booked (scheduled time has passed, not
+ * cancelled). Upcoming appointments are not in the denominator. Null when
+ * past-dated booked is 0.
  */
-export function closeRate(input: {
-  wonDeals: Count;
-  lostDeals?: Count;
-  pitched?: Count;
-  showed?: Count;
-}): number | null {
-  const { wonDeals, lostDeals, pitched, showed } = input;
-  if (!known(wonDeals)) return null;
-  if (known(lostDeals) && wonDeals + lostDeals > 0) return percent(wonDeals, wonDeals + lostDeals);
-  if (known(pitched) && pitched > 0) return percent(wonDeals, pitched);
-  if (known(showed) && showed > 0) return percent(wonDeals, showed);
-  return null;
+export function showRate(input: { pastDatedBooked: Count; showed: Count }): number | null {
+  return percent(input.showed, input.pastDatedBooked, false);
+}
+
+/** Offer rate (diagnostic): offers made ÷ showed calls, as a percent. */
+export function offerRate(input: { showed: Count; pitched: Count }): number | null {
+  return percent(input.pitched, input.showed, false);
+}
+
+/** Close rate: sales ÷ showed calls in the period, as a percent. */
+export function closeRate(input: { wonDeals: Count; showed: Count }): number | null {
+  return percent(input.wonDeals, input.showed, false);
 }
 
 /** Appointments booked ÷ new leads, as a percent (not capped). */
@@ -126,28 +118,33 @@ export function costPerAcquisition(input: { spend: Count; acquisitions: Count })
 }
 
 /**
- * Agency ROAS: agency revenue ÷ agency acquisition ad spend. Only agency-scope
- * inputs are accepted, so client revenue can never inflate the agency number.
+ * Agency ROAS: cash collected in the first 30 days from clients won through
+ * the 3 agency Meta acquisition accounts ÷ spend on those accounts. Only
+ * agency-scope inputs are accepted, so client revenue can never inflate it.
  */
 export function agencyRoas(input: {
   scope: AgencyAccountScope;
-  revenueUsd: Count;
-  adSpendUsd: Count;
+  first30DayCashUsd: Count;
+  agencyAdSpendUsd: Count;
 }): number | null {
   if (!isAgencyScope(input.scope)) throw new MetricScopeError("agencyRoas", "agency_*", input.scope);
-  return perUnit(input.revenueUsd, input.adSpendUsd);
+  return perUnit(input.first30DayCashUsd, input.agencyAdSpendUsd);
 }
 
-/** Client ROAS: client revenue ÷ client ad spend. Only client-fulfillment inputs are accepted. */
+/**
+ * Client ROAS: the client's CRM won deals (GHL or Koi, including client-reported
+ * jobs only when logged and labeled in the CRM) ÷ that client's ad spend.
+ * Fulfillment only.
+ */
 export function clientRoas(input: {
   scope: "client_fulfillment";
-  revenueUsd: Count;
+  crmWonRevenueUsd: Count;
   adSpendUsd: Count;
 }): number | null {
   if (input.scope !== "client_fulfillment") {
     throw new MetricScopeError("clientRoas", "client_fulfillment", input.scope);
   }
-  return perUnit(input.revenueUsd, input.adSpendUsd);
+  return perUnit(input.crmWonRevenueUsd, input.adSpendUsd);
 }
 
 export type ClientLifecycleStatus = "active" | "paused" | "cancelled" | "other";
@@ -156,8 +153,17 @@ const ACTIVE_STATUSES = new Set(["active", "live", "healthy", "onboarding"]);
 const PAUSED_STATUSES = new Set(["paused", "on_hold", "on hold", "hold"]);
 const CANCELLED_STATUSES = new Set(["cancelled", "canceled", "churned", "inactive", "archived"]);
 
-/** Maps a raw client status string onto active / paused / cancelled. */
-export function clientLifecycleStatus(raw: unknown): ClientLifecycleStatus {
+/**
+ * Maps a raw client status onto active / paused / cancelled. Failed-payment
+ * rule: days 1 to 14 unresolved = Active (Past Due); day 15 = Paused; day 30 =
+ * Cancelled.
+ */
+export function clientLifecycleStatus(raw: unknown, failedPaymentDays?: Count): ClientLifecycleStatus {
+  if (known(failedPaymentDays) && failedPaymentDays >= 1) {
+    if (failedPaymentDays >= 30) return "cancelled";
+    if (failedPaymentDays >= 15) return "paused";
+    return "active";
+  }
   const value = typeof raw === "string" ? raw.trim().toLowerCase() : "";
   if (ACTIVE_STATUSES.has(value)) return "active";
   if (PAUSED_STATUSES.has(value)) return "paused";
@@ -167,6 +173,8 @@ export function clientLifecycleStatus(raw: unknown): ClientLifecycleStatus {
 
 export interface ClientStatusCounts {
   active: number;
+  /** Active clients inside the 14-day failed-payment window (also counted in `active`). */
+  pastDue: number;
   paused: number;
   cancelled: number;
   other: number;
@@ -174,25 +182,45 @@ export interface ClientStatusCounts {
 }
 
 /** Active / paused / cancelled client counts from live client records. */
-export function clientStatusCounts(clients: ReadonlyArray<{ status: unknown }>): ClientStatusCounts {
-  const counts: ClientStatusCounts = { active: 0, paused: 0, cancelled: 0, other: 0, total: 0 };
+export function clientStatusCounts(
+  clients: ReadonlyArray<{ status: unknown; failedPaymentDays?: Count }>,
+): ClientStatusCounts {
+  const counts: ClientStatusCounts = { active: 0, pastDue: 0, paused: 0, cancelled: 0, other: 0, total: 0 };
   for (const client of clients) {
-    counts[clientLifecycleStatus(client.status)] += 1;
+    const status = clientLifecycleStatus(client.status, client.failedPaymentDays);
+    counts[status] += 1;
+    if (status === "active" && known(client.failedPaymentDays) && client.failedPaymentDays >= 1) counts.pastDue += 1;
     counts.total += 1;
   }
   return counts;
 }
 
+export interface MrrClient {
+  status: unknown;
+  failedPaymentDays?: Count;
+  /** Recurring monthly fee only: never setup or build fees, one-off sales or client ad spend. */
+  monthlyFeeUsd?: Count;
+  /** A paid-in-full term (for example 3 months): counts as total ÷ term months in each active month. */
+  paidInFull?: { totalUsd: Count; termMonths: Count } | null;
+}
+
 /**
- * Monthly recurring revenue: the sum of monthly retainers of active clients.
- * Returns null when no active client has a known retainer.
+ * MRR: the sum of the monthly recurring fees of active clients. A paid-in-full
+ * term counts as total ÷ months in each active month; paused clients count $0.
+ * Returns null when no active client has a known fee.
  */
-export function mrr(clients: ReadonlyArray<{ status: unknown; monthlyRetainerUsd: Count }>): number | null {
+export function mrr(clients: ReadonlyArray<MrrClient>): number | null {
   let total = 0;
   let anyKnown = false;
   for (const client of clients) {
-    if (clientLifecycleStatus(client.status) !== "active" || !known(client.monthlyRetainerUsd)) continue;
-    total += client.monthlyRetainerUsd;
+    if (clientLifecycleStatus(client.status, client.failedPaymentDays) !== "active") continue;
+    const term = client.paidInFull;
+    const monthly =
+      term && known(term.totalUsd) && known(term.termMonths) && term.termMonths > 0
+        ? term.totalUsd / term.termMonths
+        : client.monthlyFeeUsd;
+    if (!known(monthly)) continue;
+    total += monthly;
     anyKnown = true;
   }
   return anyKnown ? round2(total) : null;
@@ -226,21 +254,21 @@ export const IR_METRIC_DEFINITIONS: Record<IrMetricName, IrMetricDefinition> = {
     name: "showRate",
     term: "Show rate",
     definitionSlug: "definitions/show-rate",
-    formula: "appointments held ÷ appointments booked × 100 (capped at 100)",
+    formula: "showed ÷ past-dated booked × 100 (upcoming excluded)",
     unit: "percent",
   },
   offerRate: {
     name: "offerRate",
     term: "Offer rate",
     definitionSlug: "definitions/offer-rate",
-    formula: "offers made ÷ appointments held × 100 (capped at 100)",
+    formula: "offers made ÷ showed calls × 100 (diagnostic)",
     unit: "percent",
   },
   closeRate: {
     name: "closeRate",
     term: "Close rate",
     definitionSlug: "definitions/close-rate",
-    formula: "deals won ÷ (won + lost); else ÷ offers made; else ÷ appointments held; × 100",
+    formula: "sales ÷ showed calls × 100",
     unit: "percent",
   },
   setRate: {
@@ -281,29 +309,29 @@ export const IR_METRIC_DEFINITIONS: Record<IrMetricName, IrMetricDefinition> = {
   agencyRoas: {
     name: "agencyRoas",
     term: "Agency ROAS",
-    definitionSlug: "definitions/agency-vs-client-roas",
-    formula: "agency revenue ÷ agency acquisition ad spend (agency_* scope only)",
+    definitionSlug: "definitions/agency-roas",
+    formula: "first-30-day cash from clients won via the 3 agency Meta accounts ÷ their spend",
     unit: "ratio",
   },
   clientRoas: {
     name: "clientRoas",
     term: "Client ROAS",
-    definitionSlug: "definitions/agency-vs-client-roas",
-    formula: "client revenue ÷ client ad spend (client_fulfillment scope only)",
+    definitionSlug: "definitions/client-roas",
+    formula: "CRM won deals (GHL/Koi) ÷ client ad spend (fulfillment only)",
     unit: "ratio",
   },
   mrr: {
     name: "mrr",
     term: "Monthly recurring revenue (MRR)",
     definitionSlug: "definitions/mrr",
-    formula: "sum of monthly retainers of active clients",
+    formula: "sum of active monthly fees; paid-in-full = total ÷ term months; paused = $0",
     unit: "usd",
   },
   clientStatusCounts: {
     name: "clientStatusCounts",
     term: "Active / paused / cancelled clients",
-    definitionSlug: "definitions/active-paused-cancelled",
-    formula: "count of live client records by lifecycle status",
+    definitionSlug: "definitions/client-status",
+    formula: "active / paused / cancelled; failed payment: days 1-14 active (past due), 15 paused, 30 cancelled",
     unit: "count",
   },
 };

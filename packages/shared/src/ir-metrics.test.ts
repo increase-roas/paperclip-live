@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   agencyRoas,
   clientRoas,
+  clientLifecycleStatus,
   clientStatusCounts,
   closeRate,
   costPerAcquisition,
@@ -20,28 +21,63 @@ import {
   type AgencyAccountScope,
 } from "./ir-metrics.js";
 
+// Worked examples and checked answers from the GBrain definitions certified by
+// Alex on 2026-11-26 (brain definitions/*.md). These numbers must not drift.
+describe("certified worked examples", () => {
+  it("show rate: 20 past-dated booked, 6 showed, 6 upcoming = 30.0%", () => {
+    expect(showRate({ pastDatedBooked: 20, showed: 6 })).toBe(30);
+  });
+
+  it("close rate: 6 showed, 4 offers, 2 sales = 33.3%; offer rate = 66.7%", () => {
+    expect(closeRate({ wonDeals: 2, showed: 6 })).toBe(33.3);
+    expect(offerRate({ showed: 6, pitched: 4 })).toBe(66.7);
+  });
+
+  it("agency ROAS: $6,000 first-30-day cash on $1,200 agency spend = 5.0x (day-45 cash excluded)", () => {
+    expect(agencyRoas({ scope: "agency_marketing", first30DayCashUsd: 6000, agencyAdSpendUsd: 1200 })).toBe(5);
+  });
+
+  it("client ROAS: ($7,500 CRM won + $1,500 logged client-reported) / $2,000 = 4.5x", () => {
+    expect(clientRoas({ scope: "client_fulfillment", crmWonRevenueUsd: 7500 + 1500, adSpendUsd: 2000 })).toBe(4.5);
+  });
+
+  it("MRR: $1,500 + $2,000 + $4,500 paid in full over 3 months = $5,000 (paused and setup excluded)", () => {
+    expect(
+      mrr([
+        { status: "active", monthlyFeeUsd: 1500 },
+        { status: "active", monthlyFeeUsd: 2000 },
+        { status: "active", paidInFull: { totalUsd: 4500, termMonths: 3 } },
+        { status: "paused", monthlyFeeUsd: 750 },
+      ]),
+    ).toBe(5000);
+  });
+
+  it("client status failed-payment rule: days 1-14 active (past due), 15 paused, 30 cancelled", () => {
+    expect(clientLifecycleStatus("active", 3)).toBe("active");
+    expect(clientLifecycleStatus("active", 15)).toBe("paused");
+    expect(clientLifecycleStatus("active", 30)).toBe("cancelled");
+    expect(clientStatusCounts([{ status: "active", failedPaymentDays: 3 }, { status: "active" }])).toMatchObject({
+      active: 2,
+      pastDue: 1,
+    });
+  });
+});
+
 describe("ir-metrics rates", () => {
-  it("computes show rate as held ÷ booked, capped at 100, and null without data", () => {
-    expect(showRate({ booked: 40, showed: 29 })).toBe(72.5);
-    expect(showRate({ booked: 3, showed: 5 })).toBe(100);
-    expect(showRate({ booked: 0, showed: 0 })).toBeNull();
-    expect(showRate({ booked: 10, showed: null })).toBeNull();
+  it("returns null instead of a confident zero when the denominator is missing or zero", () => {
+    expect(showRate({ pastDatedBooked: 0, showed: 0 })).toBeNull();
+    expect(showRate({ pastDatedBooked: 10, showed: null })).toBeNull();
+    expect(closeRate({ wonDeals: 3, showed: 0 })).toBeNull();
+    expect(closeRate({ wonDeals: null, showed: 4 })).toBeNull();
   });
 
   it("keeps a real zero as zero", () => {
-    expect(showRate({ booked: 10, showed: 0 })).toBe(0);
+    expect(showRate({ pastDatedBooked: 10, showed: 0 })).toBe(0);
     expect(offerRate({ showed: 4, pitched: 0 })).toBe(0);
   });
 
-  it("uses won + lost first, then offers, then appointments held for close rate", () => {
-    expect(closeRate({ wonDeals: 3, lostDeals: 1, pitched: 10, showed: 20 })).toBe(75);
-    expect(closeRate({ wonDeals: 3, lostDeals: null, pitched: 10, showed: 20 })).toBe(30);
-    expect(closeRate({ wonDeals: 3, pitched: 0, showed: 20 })).toBe(15);
-    expect(closeRate({ wonDeals: 3 })).toBeNull();
-    expect(closeRate({ wonDeals: null, lostDeals: 2 })).toBeNull();
-  });
-
-  it("does not cap funnel conversion rates", () => {
+  it("does not cap rates, so a data problem stays visible", () => {
+    expect(closeRate({ wonDeals: 3, showed: 2 })).toBe(150);
     expect(setRate({ newLeads: 10, booked: 12 })).toBe(120);
     expect(leadToCustomerRate({ newLeads: 200, wonDeals: 3 })).toBe(1.5);
   });
@@ -52,41 +88,21 @@ describe("ir-metrics rates", () => {
     expect(ctrPercent({ clicks: 136, impressions: 3785 })).toBe(3.59);
     expect(costPerAcquisition({ spend: 4500, acquisitions: 2 })).toBe(2250);
   });
-});
-
-describe("ir-metrics agency vs client boundary", () => {
-  it("computes ROAS only for the matching scope", () => {
-    expect(agencyRoas({ scope: "agency_marketing", revenueUsd: 12000, adSpendUsd: 3000 })).toBe(4);
-    expect(clientRoas({ scope: "client_fulfillment", revenueUsd: 5000, adSpendUsd: 2000 })).toBe(2.5);
-  });
 
   it("refuses client inputs for agency ROAS and agency inputs for client ROAS", () => {
     expect(() =>
-      agencyRoas({ scope: "client_fulfillment" as unknown as AgencyAccountScope, revenueUsd: 1, adSpendUsd: 1 }),
+      agencyRoas({ scope: "client_fulfillment" as unknown as AgencyAccountScope, first30DayCashUsd: 1, agencyAdSpendUsd: 1 }),
     ).toThrow(MetricScopeError);
     expect(() =>
-      clientRoas({ scope: "agency_sales" as unknown as "client_fulfillment", revenueUsd: 1, adSpendUsd: 1 }),
+      clientRoas({ scope: "agency_sales" as unknown as "client_fulfillment", crmWonRevenueUsd: 1, adSpendUsd: 1 }),
     ).toThrow(MetricScopeError);
   });
-});
 
-describe("ir-metrics client portfolio", () => {
-  const clients = [
-    { status: "active", monthlyRetainerUsd: 2500 },
-    { status: "Live", monthlyRetainerUsd: 1500 },
-    { status: "paused", monthlyRetainerUsd: 999 },
-    { status: "canceled", monthlyRetainerUsd: 3000 },
-    { status: "prospect", monthlyRetainerUsd: null },
-  ];
-
-  it("counts active, paused and cancelled clients from live records", () => {
-    expect(clientStatusCounts(clients)).toEqual({ active: 2, paused: 1, cancelled: 1, other: 1, total: 5 });
-    expect(clientStatusCounts([])).toEqual({ active: 0, paused: 0, cancelled: 0, other: 0, total: 0 });
-  });
-
-  it("sums MRR from active clients only, and is null when none is known", () => {
-    expect(mrr(clients)).toBe(4000);
-    expect(mrr([{ status: "paused", monthlyRetainerUsd: 100 }])).toBeNull();
+  it("counts lifecycle from raw statuses", () => {
+    expect(
+      clientStatusCounts([{ status: "active" }, { status: "Live" }, { status: "paused" }, { status: "canceled" }, { status: "prospect" }]),
+    ).toEqual({ active: 2, pastDue: 0, paused: 1, cancelled: 1, other: 1, total: 5 });
+    expect(mrr([{ status: "paused", monthlyFeeUsd: 100 }])).toBeNull();
   });
 });
 

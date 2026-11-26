@@ -112,7 +112,7 @@ describe("partitionClientPortfolio", () => {
     expect(result.byBrand.find((row) => row.code === "HTL")?.count).toBe(1);
     expect(result.byBrand.map((row) => row.code)).toEqual(["IR", "HTL", "SSA", "PSL", "NS", "DYNAMITE"]);
     expect(result.unclassified).toBe(2);
-    expect(result.lifecycle).toEqual({ active: 1, paused: 1, cancelled: 0, other: 2, total: 4 });
+    expect(result.lifecycle).toEqual({ active: 1, pastDue: 0, paused: 1, cancelled: 0, other: 2, total: 4 });
   });
 
   it("matches tenants by slug, title or alias", () => {

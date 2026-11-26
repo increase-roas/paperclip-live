@@ -235,16 +235,14 @@ function buildClientDelivery(
   const costPerLeadUsd = hasCompleteSpend && hasCompleteLeads ? costPerLead({ spend, leads: newLeads }) : null;
   const portfolioCtrPercent = hasCompleteImpressions && hasCompleteClicks ? ctrPercent({ clicks, impressions }) : null;
   const isSingleClient = clientOnly.length === 1;
-  const portfolioShowRate = hasCompleteBooked && hasCompleteShowed ? showRate({ booked, showed }) : null;
+  const portfolioShowRate = hasCompleteBooked && hasCompleteShowed ? showRate({ pastDatedBooked: booked, showed }) : null;
   const showRatePercent =
     portfolioShowRate !== null
       ? portfolioShowRate
       : isSingleClient
         ? fallbackShowRate
         : null;
-  const portfolioCloseRate = hasCompleteWon
-    ? closeRate({ wonDeals, pitched: hasCompletePitched ? pitched : null, showed: hasCompleteShowed ? showed : null })
-    : null;
+  const portfolioCloseRate = hasCompleteWon && hasCompleteShowed ? closeRate({ wonDeals, showed }) : null;
   const closeRatePercent = portfolioCloseRate !== null ? portfolioCloseRate : isSingleClient ? fallbackCloseRate : null;
 
   return {

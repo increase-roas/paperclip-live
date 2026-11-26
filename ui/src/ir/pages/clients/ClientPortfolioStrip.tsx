@@ -49,6 +49,7 @@ export function ClientPortfolioStrip({ tenants, loading }: { tenants: TenantProf
       <span className="flex flex-wrap items-center gap-1.5">
         <span>Status</span>
         <HealthChip tone="ok">Active {lifecycle.active}</HealthChip>
+        {lifecycle.pastDue > 0 ? <HealthChip tone="warn">Past due {lifecycle.pastDue}</HealthChip> : null}
         <HealthChip tone="muted">Paused {lifecycle.paused}</HealthChip>
         <HealthChip tone="muted">Cancelled {lifecycle.cancelled}</HealthChip>
         {lifecycle.other > 0 ? <HealthChip tone="warn">Not recorded {lifecycle.other}</HealthChip> : null}

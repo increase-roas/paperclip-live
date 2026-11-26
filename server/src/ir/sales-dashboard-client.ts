@@ -1,5 +1,4 @@
 import {
-  agencyRoas,
   clientRoas,
   closeRate,
   costPerAcquisition,
@@ -665,13 +664,16 @@ function mergeNeonPipeline(
 }
 
 function deriveClientRatios(entry: MergedClientMetrics): void {
-  entry.showRate ??= showRate(entry);
-  entry.closeRate ??= closeRate(entry);
+  // Upstream `booked` must be past-dated (definitions/booked).
+  entry.showRate ??= showRate({ pastDatedBooked: entry.booked, showed: entry.showed });
+  entry.closeRate ??= closeRate({ wonDeals: entry.wonDeals, showed: entry.showed });
   entry.cpl ??= costPerLead({ spend: entry.spend, leads: entry.newLeads });
   entry.cac ??= costPerAcquisition({ spend: entry.spend, acquisitions: entry.wonDeals });
-  entry.roas ??= entry.slug === "__owner__"
-    ? agencyRoas({ scope: "agency_finance", revenueUsd: entry.pipelineRevenueUsd, adSpendUsd: entry.spend })
-    : clientRoas({ scope: "client_fulfillment", revenueUsd: entry.pipelineRevenueUsd, adSpendUsd: entry.spend });
+  // Agency ROAS needs first-30-day cash per client won through agency ads,
+  // which the snapshot does not carry, so the owner row is never derived here.
+  if (entry.slug !== "__owner__") {
+    entry.roas ??= clientRoas({ scope: "client_fulfillment", crmWonRevenueUsd: entry.pipelineRevenueUsd, adSpendUsd: entry.spend });
+  }
   entry.costPerHeldAppointment ??= costPerAcquisition({ spend: entry.spend, acquisitions: entry.showed });
 }
 
