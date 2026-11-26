@@ -11,6 +11,21 @@ import { filterClientOnlyPortfolio, type MergedClientMetrics } from "../sales-da
 
 const PINNED_NOW = new Date("2026-11-26T06:00:00.000Z");
 
+// Agency account IDs are configuration (never code defaults); tests supply them the same way.
+const AGENCY_ACCOUNT_ENV = {
+  META_AGENCY_INCREASE_ROAS_ACCOUNT_ID: "act_1751702711685898",
+  META_AGENCY_ALEX_BLOOMFIELD_ACCOUNT_ID: "act_735997837915750",
+  META_AGENCY_HOT_TUB_LAUNCH_ACCOUNT_ID: "act_931652032962948",
+  GHL_AGENCY_COMPANY_ID: "uVK13CFqZs9TOBENvXSH",
+  GHL_AGENCY_INCREASE_ROAS_LOCATION_ID: "Sr90yJUmFoBTgBQuejtU",
+  GHL_AGENCY_HOT_TUB_LAUNCH_LOCATION_ID: "AG47jEV5rVUrGLt5FlKO",
+  GHL_ALEX_BLOOMFIELD_LOCATION_ID: "3uSZwndvL6yEo5syDV5m",
+};
+
+function stubAgencyAccountEnv() {
+  for (const [name, value] of Object.entries(AGENCY_ACCOUNT_ENV)) vi.stubEnv(name, value);
+}
+
 function jsonRes(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -21,10 +36,27 @@ function jsonRes(body: unknown, status = 200): Response {
 describe("readAgencyMarketingSummary", () => {
   beforeEach(() => {
     resetAgencyMarketingCache();
+    stubAgencyAccountEnv();
   });
 
   afterEach(() => {
     resetAgencyMarketingCache();
+    vi.unstubAllEnvs();
+  });
+
+  it("marks an account needs-config when its ad account ID is not configured", async () => {
+    vi.stubEnv("META_AGENCY_HOT_TUB_LAUNCH_ACCOUNT_ID", "");
+    const fetchMock = vi.fn<typeof fetch>(async () => jsonRes({ data: [] }));
+    const summary = await readAgencyMarketingSummary("30d", {
+      baseUrl: "https://gw.example",
+      token: "agency-config-test",
+      fetchImpl: fetchMock,
+      now: () => PINNED_NOW,
+      bypassCache: true,
+    });
+    const htl = summary?.accounts.find((account) => account.id === "hot-tub-launch");
+    expect(htl?.status).toBe("needs_config");
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("931652032962948"))).toBe(false);
   });
 
   it("fails closed to null when no Gateway token is configured", async () => {
@@ -228,6 +260,7 @@ describe("readAgencyMarketingSummary", () => {
 describe("readAgencySalesSummary", () => {
   beforeEach(() => {
     resetAgencySalesCache();
+    stubAgencyAccountEnv();
   });
 
   it.each([
@@ -269,6 +302,23 @@ describe("readAgencySalesSummary", () => {
 
   afterEach(() => {
     resetAgencySalesCache();
+    vi.unstubAllEnvs();
+  });
+
+  it("marks primary accounts needs-config when the agency company ID is not configured", async () => {
+    vi.stubEnv("GHL_AGENCY_COMPANY_ID", "");
+    const fetchMock = vi.fn<typeof fetch>(async () => jsonRes({}));
+    const summary = await readAgencySalesSummary("30d", {
+      gatewayBaseUrl: "https://gw.example",
+      gatewayToken: "agency-config-test",
+      alexBloomfieldPitKey: "",
+      fetchImpl: fetchMock,
+      now: () => PINNED_NOW,
+      bypassCache: true,
+    });
+    const irMain = summary?.accounts.find((account) => account.id === "increase-roas-main");
+    expect(irMain).toMatchObject({ status: "needs_config", statusLabel: "Needs agency company ID" });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("fails closed to null when neither Gateway token nor Alex Bloomfield PIT key is configured", async () => {

@@ -1,3 +1,9 @@
+import {
+  clientStatusCounts,
+  OWN_BRANDS,
+  type ClientStatusCounts,
+} from "@paperclipai/shared/ir-metrics";
+import type { SkeletonClient } from "@paperclipai/shared/ir-system-map";
 import type {
   ConnectionStatus,
   SourceKey,
@@ -200,4 +206,53 @@ export function statusBadgeTone(status: ConnectionStatus | string): "ok" | "warn
   if (upper === "NOT APPLICABLE") return "muted";
   if (upper === "NO RECENT DATA" || upper === "STALE" || upper === "REFRESHING") return "warn";
   return "error";
+}
+
+function normalizeName(value: string): string {
+  return value.toLowerCase().replace(/^companies\//, "").replace(/[^a-z0-9]+/g, "");
+}
+
+/** Finds the GBrain client page for a dashboard tenant by slug, title or alias. */
+export function matchGbrainClient(
+  tenant: Pick<TenantProfile, "slug" | "displayName">,
+  clients: readonly SkeletonClient[],
+): SkeletonClient | null {
+  const keys = new Set([normalizeName(tenant.slug), normalizeName(tenant.displayName)].filter(Boolean));
+  return (
+    clients.find((client) =>
+      [client.slug, client.title, ...client.aliases].some((name) => keys.has(normalizeName(name))),
+    ) ?? null
+  );
+}
+
+export interface ClientPortfolioPartition {
+  byBrand: Array<{ code: string; name: string; count: number }>;
+  unclassified: number;
+  lifecycle: ClientStatusCounts;
+}
+
+/**
+ * Live tenants split by own brand and lifecycle, using GBrain client pages as
+ * the source of truth. A tenant with no GBrain page or no brand counts as
+ * unclassified; a missing `client_status` counts as "other" (not recorded).
+ */
+export function partitionClientPortfolio(
+  tenants: ReadonlyArray<Pick<TenantProfile, "slug" | "displayName">>,
+  clients: readonly SkeletonClient[],
+): ClientPortfolioPartition {
+  const counts = new Map<string, number>();
+  let unclassified = 0;
+  const lifecycleRows: Array<{ status: unknown }> = [];
+  for (const tenant of tenants) {
+    const page = matchGbrainClient(tenant, clients);
+    const brands = (page?.brands ?? []).filter((code) => OWN_BRANDS.some((brand) => brand.code === code));
+    if (brands.length === 0) unclassified += 1;
+    for (const code of brands) counts.set(code, (counts.get(code) ?? 0) + 1);
+    lifecycleRows.push({ status: page?.lifecycle ?? null });
+  }
+  return {
+    byBrand: OWN_BRANDS.map((brand) => ({ code: brand.code, name: brand.name, count: counts.get(brand.code) ?? 0 })),
+    unclassified,
+    lifecycle: clientStatusCounts(lifecycleRows),
+  };
 }

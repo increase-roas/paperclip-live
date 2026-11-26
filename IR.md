@@ -19,6 +19,10 @@ Private copy of [paperclipai/paperclip](https://github.com/paperclipai/paperclip
 | `.github/workflows/ir-guard.yml` | Switches off upstream's workflows in repo settings (they need Paperclip's own runners and secrets) |
 | `.github/actions/ir-setup/` | Shared Node/pnpm/Rust setup for IR CI |
 | `docker/increase-roas/` | Our image: upstream `production` target + the live server's Python/Playwright toolbox |
+| `packages/shared/src/ir-metrics.ts` | The one metric library (show, offer, close, set rate, CPL, CTR, CAC, agency vs client ROAS, MRR, active/paused/cancelled). GBrain `definitions/` pages point here with `calculation: ir-metrics#<fn>` |
+| `packages/shared/src/ir-system-map.ts` + `server/src/ir/system-map.ts` + `ui/src/ir/pages/SystemMapPage.tsx` | Native System Map (`/INC/system-map`): live topology, health checks, data age and the GBrain skeleton, read from the brain-vps `ir-system-feed` (company-ops `tools/ir-system-feed`). Instance admins only |
+| `server/src/ir/proof-gate.ts` | Proof-gated closure: an issue with a `proof:<check>` label (for example `proof:gateway`) cannot move to `done` until that ir-doctor check passes (422 `ir_proof_check_not_passing`) |
+| `scripts/ir/check-ir-metrics.mjs` | CI guard in the IR files job: no inline metric formulas, static client counts or hardcoded GHL/Meta IDs in `ui/src/ir` and `server/src/ir` |
 
 Removed from upstream: `.github/dependabot.yml` (dependency updates arrive through upstream-sync PRs).
 
@@ -30,3 +34,5 @@ Removed from upstream: `.github/dependabot.yml` (dependency updates arrive throu
 - Keep open agent PRs to a small number at a time, or batch work into one PR. Every PR push starts CI.
 - Merging to `master` publishes a new image. It does **not** change the server. Switching the server follows `SWAP.md` in [increase-roas/paperclip-server](https://github.com/increase-roas/paperclip-server), only with Alex's yes.
 - No keys in this repo. Repo secret `IR_SYNC_TOKEN` (fine-grained, this repo only) is used by upstream sync.
+- No account IDs in code. The server reads them from env: `META_AGENCY_INCREASE_ROAS_ACCOUNT_ID`, `META_AGENCY_ALEX_BLOOMFIELD_ACCOUNT_ID`, `META_AGENCY_HOT_TUB_LAUNCH_ACCOUNT_ID`, `GHL_AGENCY_COMPANY_ID`, `GHL_AGENCY_INCREASE_ROAS_LOCATION_ID`, `GHL_AGENCY_HOT_TUB_LAUNCH_LOCATION_ID`, `GHL_ALEX_BLOOMFIELD_LOCATION_ID` (register: brain `ops/agency-vs-client-accounts.md`). An unset ID shows that account as needs-config.
+- The System Map and proof checks read `IR_SYSTEM_FEED_URL` + `IR_SYSTEM_FEED_KEY` (key also in `/root/.config/ir-system-feed/feed.key` on brain-vps). Unset means the page says "not configured" and proof-labelled issues cannot close.

@@ -1,3 +1,4 @@
+import { costPerAcquisition, type OwnBrandCode } from "@paperclipai/shared/ir-metrics";
 import type {
   DashboardBoard,
   DashboardBoardId,
@@ -204,6 +205,8 @@ const SALES_TABLES: DashboardTable[] = [
     sourceIds: ["ghl"],
     columns: [
       { key: "account", label: "Sub-account" },
+      { key: "brand", label: "Brand" },
+      { key: "accountScope", label: "Scope" },
       { key: "locationId", label: "Location ID" },
       { key: "status", label: "Status" },
       { key: "newLeads", label: "New leads" },
@@ -308,6 +311,8 @@ const MARKETING_TABLES: DashboardTable[] = [
     sourceIds: ["meta_ads"],
     columns: [
       { key: "account", label: "Ad account" },
+      { key: "brand", label: "Brand" },
+      { key: "accountScope", label: "Scope" },
       { key: "accountId", label: "Meta account ID" },
       { key: "status", label: "Status" },
       { key: "spend", label: "Spend" },
@@ -474,12 +479,23 @@ function extractRevenueUsd(
   return null;
 }
 
+/** Which own brand each agency acquisition / sales account belongs to (brain/ops/agency-vs-client-accounts.md). */
+const AGENCY_ACCOUNT_BRANDS: Record<string, OwnBrandCode> = {
+  "increase-roas-b2b": "IR",
+  "alex-bloomfield-ssa": "SSA",
+  "hot-tub-launch": "HTL",
+  "increase-roas-main": "IR",
+  "hot-tub-launch-b2b": "HTL",
+};
+
 function agencySalesAccountRows(sales: AgencySalesSummary | null): DashboardTableRow[] {
   if (!sales) return [];
   return sales.accounts.map((acct) => ({
     id: acct.id,
     cells: {
       account: acct.displayName,
+      brand: AGENCY_ACCOUNT_BRANDS[acct.id] ?? "Unassigned",
+      accountScope: "agency_sales",
       locationId: acct.locationId ?? "Not set",
       status: acct.statusLabel,
       newLeads: acct.newLeads,
@@ -499,6 +515,8 @@ function agencyMarketingAccountRows(marketing: AgencyMarketingSummary | null): D
     id: acct.id,
     cells: {
       account: acct.displayName,
+      brand: AGENCY_ACCOUNT_BRANDS[acct.id] ?? "Unassigned",
+      accountScope: "agency_marketing",
       accountId: acct.adAccountId ?? "Not set",
       status: acct.statusLabel,
       spend: formatUsdCell(acct.spend),
@@ -586,8 +604,9 @@ function resolveAgencyMarketingTile(
   const ts = marketing.observedAt;
   switch (tileId) {
     case "cac-per-client":
-      if (marketing.spend !== null && sales?.hasGhl && sales.wonDeals !== null && sales.wonDeals > 0) {
-        return liveVal(round2(marketing.spend / sales.wonDeals), "usd", ts);
+      if (sales?.hasGhl) {
+        const cac = costPerAcquisition({ spend: marketing.spend, acquisitions: sales.wonDeals });
+        if (cac !== null) return liveVal(cac, "usd", ts);
       }
       return notConnected();
     case "ad-spend":
@@ -595,8 +614,9 @@ function resolveAgencyMarketingTile(
     case "new-leads":
       return liveVal(marketing.leads, "count", ts);
     case "cost-per-held-appointment":
-      if (marketing.spend !== null && sales?.hasGhl && sales.showed !== null && sales.showed > 0) {
-        return liveVal(round2(marketing.spend / sales.showed), "usd", ts);
+      if (sales?.hasGhl) {
+        const costPerHeld = costPerAcquisition({ spend: marketing.spend, acquisitions: sales.showed });
+        if (costPerHeld !== null) return liveVal(costPerHeld, "usd", ts);
       }
       return notConnected();
     case "ctr":

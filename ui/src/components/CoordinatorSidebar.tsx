@@ -17,6 +17,7 @@ import {
   SlidersHorizontal,
   TrendingUp,
   Users,
+  Network,
   type LucideIcon,
 } from "lucide-react";
 import type { Agent, Project } from "@paperclipai/shared";
@@ -146,6 +147,7 @@ export function CoordinatorSidebar({ children }: { children?: ReactNode }) {
   );
   const clientsTo = companyPrefix ? `/${companyPrefix}/clients` : "/clients";
   const workflowsTo = companyPrefix ? `/${companyPrefix}/workflows` : "/workflows";
+  const systemMapTo = companyPrefix ? `/${companyPrefix}/system-map` : "/system-map";
   const pluginContext = useMemo(() => ({
     companyId: companyId ?? null,
     companyPrefix: selectedCompany?.issuePrefix ?? null,
@@ -316,6 +318,12 @@ export function CoordinatorSidebar({ children }: { children?: ReactNode }) {
                 to={workflowsTo}
                 label="Workflows"
                 icon={BookOpen}
+              />
+              <SidebarNavItem
+                className="design-sidebar-item"
+                to={systemMapTo}
+                label="System Map"
+                icon={Network}
               />
               <SidebarNavItem
                 className="design-sidebar-item"

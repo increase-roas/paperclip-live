@@ -1,3 +1,4 @@
+import { costPerAcquisition, showRate } from "@paperclipai/shared/ir-metrics";
 import { Router, type Request, type Response } from "express";
 import {
   isDashboardPeriod,
@@ -317,8 +318,8 @@ export function buildCeoAndReadingOrder(
 
   // Client portfolio CPA is strictly for Marketing / Reading Order step #8 (never mixed into agency LTGP:CAC).
   const portfolioCacUsd =
-    portfolio.hasAdSpend && portfolio.hasWon && portfolio.totalWon > 0
-      ? round2(portfolio.totalAdSpend / portfolio.totalWon)
+    portfolio.hasAdSpend && portfolio.hasWon
+      ? costPerAcquisition({ spend: portfolio.totalAdSpend, acquisitions: portfolio.totalWon })
       : null;
 
   // 1. Cash collected
@@ -371,10 +372,11 @@ export function buildCeoAndReadingOrder(
 
   // 7. Show rate (for reading order)
   const fallbackShowRate = bundle.clients.find((c) => c.showRate !== null)?.showRate ?? null;
-  const showRatePct =
-    portfolio.hasBooked && portfolio.totalBooked > 0 && portfolio.hasShowed
-      ? round1((portfolio.totalShowed / portfolio.totalBooked) * 100)
-      : fallbackShowRate;
+  const portfolioShowRate =
+    portfolio.hasBooked && portfolio.hasShowed
+      ? showRate({ booked: portfolio.totalBooked, showed: portfolio.totalShowed })
+      : null;
+  const showRatePct = portfolioShowRate ?? fallbackShowRate;
   const showRateState: ReadingOrderState =
     showRatePct === null ? "unknown" : showRatePct >= 70 ? "ok" : showRatePct < 60 ? "red" : "ok";
 

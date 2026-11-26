@@ -3,7 +3,9 @@ import {
   buildTenantRequestBody,
   formatClientReportUrl,
   getTenantConnectionBadges,
+  matchGbrainClient,
   normalizeMetaAccountId,
+  partitionClientPortfolio,
   summarizeStoredHealth,
 } from "./clientHelpers";
 
@@ -86,5 +88,36 @@ describe("clientHelpers", () => {
     expect(payload.metaAdAccountId).toBe("act_123456");
     expect(payload.ga4PropertyId).toBe("");
     expect(payload.websiteTracking).toBe("not_applicable");
+  });
+});
+
+describe("partitionClientPortfolio", () => {
+  const gbrain = [
+    { slug: "companies/revstead-systems", title: "Revstead Systems", aliases: ["Revstead"], brands: ["SSA"], lifecycle: "active" },
+    { slug: "companies/paradise-spas", title: "Paradise Spas", aliases: [], brands: ["HTL"], lifecycle: "paused" },
+    { slug: "companies/odd", title: "Odd Co", aliases: [], brands: ["REVSTEAD"], lifecycle: null },
+  ];
+
+  it("splits live tenants by own brand and lifecycle from GBrain pages", () => {
+    const result = partitionClientPortfolio(
+      [
+        { slug: "revstead", displayName: "Revstead" },
+        { slug: "paradise-spas", displayName: "Paradise Spas" },
+        { slug: "odd-co", displayName: "Odd Co" },
+        { slug: "sun-pool", displayName: "Sun Pool" },
+      ],
+      gbrain,
+    );
+    expect(result.byBrand.find((row) => row.code === "SSA")?.count).toBe(1);
+    expect(result.byBrand.find((row) => row.code === "HTL")?.count).toBe(1);
+    expect(result.byBrand.map((row) => row.code)).toEqual(["IR", "HTL", "SSA", "PSL", "NS", "DL"]);
+    expect(result.unclassified).toBe(2);
+    expect(result.lifecycle).toEqual({ active: 1, paused: 1, cancelled: 0, other: 2, total: 4 });
+  });
+
+  it("matches tenants by slug, title or alias", () => {
+    expect(matchGbrainClient({ slug: "x", displayName: "Revstead" }, gbrain)?.slug).toBe("companies/revstead-systems");
+    expect(matchGbrainClient({ slug: "revstead-systems", displayName: "?" }, gbrain)?.slug).toBe("companies/revstead-systems");
+    expect(matchGbrainClient({ slug: "nope", displayName: "Nope" }, gbrain)).toBeNull();
   });
 });

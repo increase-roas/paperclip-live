@@ -190,6 +190,7 @@ describe("CEO-grade CoordinatorSidebar navigation", () => {
       "/INC/teams/operations",
       "/INC/clients",
       "/INC/workflows",
+      "/INC/system-map",
       "/agents/all",
       "/routines",
       "/company/settings",

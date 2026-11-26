@@ -2,6 +2,12 @@
 // Talks strictly to Paperclip's server-side authenticated proxies (/api/sales-dashboard/*,
 // /api/gateway/*, /api/voice/hermes-talk/*). Zero raw keys or browser-side key prompts.
 
+import type {
+  GbrainSkeletonResponse,
+  ProofChecksResponse,
+  SystemMapResponse,
+} from "@paperclipai/shared/ir-system-map";
+
 export class IrApiError extends Error {
   status: number;
   code?: string;
@@ -96,6 +102,14 @@ async function irFetch<T>(
     externalSignal?.removeEventListener("abort", onExternalAbort);
   }
 }
+
+// ── System Map (brain-vps live feed through /api/ir/*, instance admins only) ──
+
+export const irSystemMapApi = {
+  systemMap: () => irFetch<SystemMapResponse>("/api/ir/system-map"),
+  gbrainSkeleton: () => irFetch<GbrainSkeletonResponse>("/api/ir/system-map/gbrain-skeleton", { timeoutMs: 30_000 }),
+  proofChecks: () => irFetch<ProofChecksResponse>("/api/ir/proof-checks"),
+};
 
 // ── Sales Dashboard Types ───────────────────────────────────────────────────
 

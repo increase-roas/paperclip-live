@@ -1,3 +1,11 @@
+import {
+  agencyRoas,
+  clientRoas,
+  closeRate,
+  costPerAcquisition,
+  costPerLead,
+  showRate,
+} from "@paperclipai/shared/ir-metrics";
 import { isDashboardPeriod, type DashboardPeriod } from "@paperclipai/shared";
 
 const DEFAULT_SALES_DASHBOARD_URL = "https://dashboard.increaseai.tech";
@@ -196,9 +204,6 @@ function round1(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
 
 function resolveAdminKey(opts?: SalesDashboardClientOptions): string {
   return (
@@ -659,45 +664,15 @@ function mergeNeonPipeline(
   }
 }
 
-function deriveCloseRate(entry: MergedClientMetrics): number | null {
-  if (entry.wonDeals === null) return null;
-  if (entry.pitched !== null && entry.pitched > 0) {
-    return round1((entry.wonDeals / entry.pitched) * 100);
-  }
-  if (entry.showed !== null && entry.showed > 0) {
-    return round1((entry.wonDeals / entry.showed) * 100);
-  }
-  return null;
-}
-
-/** Ratio of two optional metrics, or null when either is missing or the denominator is not positive. */
-function ratioOf(numerator: number | null, denominator: number | null): number | null {
-  if (numerator === null || denominator === null || denominator <= 0) return null;
-  return numerator / denominator;
-}
-
 function deriveClientRatios(entry: MergedClientMetrics): void {
-  if (entry.showRate === null) {
-    const showRatio = ratioOf(entry.showed, entry.booked);
-    if (showRatio !== null) entry.showRate = round1(showRatio * 100);
-  }
-  if (entry.closeRate === null) entry.closeRate = deriveCloseRate(entry);
-  if (entry.cpl === null) {
-    const cpl = ratioOf(entry.spend, entry.newLeads);
-    if (cpl !== null) entry.cpl = round2(cpl);
-  }
-  if (entry.cac === null) {
-    const cac = ratioOf(entry.spend, entry.wonDeals);
-    if (cac !== null) entry.cac = round2(cac);
-  }
-  if (entry.roas === null) {
-    const roas = ratioOf(entry.pipelineRevenueUsd, entry.spend);
-    if (roas !== null) entry.roas = round2(roas);
-  }
-  if (entry.costPerHeldAppointment === null) {
-    const costPerHeld = ratioOf(entry.spend, entry.showed);
-    if (costPerHeld !== null) entry.costPerHeldAppointment = round2(costPerHeld);
-  }
+  entry.showRate ??= showRate(entry);
+  entry.closeRate ??= closeRate(entry);
+  entry.cpl ??= costPerLead({ spend: entry.spend, leads: entry.newLeads });
+  entry.cac ??= costPerAcquisition({ spend: entry.spend, acquisitions: entry.wonDeals });
+  entry.roas ??= entry.slug === "__owner__"
+    ? agencyRoas({ scope: "agency_finance", revenueUsd: entry.pipelineRevenueUsd, adSpendUsd: entry.spend })
+    : clientRoas({ scope: "client_fulfillment", revenueUsd: entry.pipelineRevenueUsd, adSpendUsd: entry.spend });
+  entry.costPerHeldAppointment ??= costPerAcquisition({ spend: entry.spend, acquisitions: entry.showed });
 }
 
 /** Named clients sorted by spend desc then display name; `__owner__` always last. */

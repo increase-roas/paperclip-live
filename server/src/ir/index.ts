@@ -43,3 +43,12 @@ export {
   ceoBoardRoutes,
   ceoBoardService,
 } from "./ceo-board.js";
+export {
+  readProofCheckSnapshot,
+  readSystemFeed,
+  resetProofCheckCache,
+  systemMapRoutes,
+  type ProofCheckSnapshot,
+  type SystemFeedOptions,
+} from "./system-map.js";
+export { assertIrProofGateAllowsTransition, setProofSnapshotReaderForTests } from "./proof-gate.js";
