@@ -380,15 +380,16 @@ function summarizeAgencyMeta(
   accounts: AgencyMetaAccountMetrics[],
 ): AgencyMarketingSummary {
   const liveAccounts = accounts.filter((a) => a.status === "live");
-  if (liveAccounts.length === 0) {
+  const hasDegraded = accounts.some((a) => a.status === "error" || a.statusLabel === "Live (partial)");
+  if (liveAccounts.length === 0 || hasDegraded) {
     return {
       period,
       since: range.since,
       until: range.until,
       observedAt,
-      liveAccountCount: 0,
+      liveAccountCount: liveAccounts.length,
       totalAccountCount: accounts.length,
-      hasMeta: false,
+      hasMeta: liveAccounts.length > 0,
       spend: null,
       impressions: null,
       clicks: null,
@@ -481,9 +482,11 @@ export async function readAgencyMarketingSummary(
   );
   const summary = summarizeAgencyMeta(period, range, observedAt, accounts);
 
-  // Never negative-cache when 0 accounts succeeded or any account hit a transient error.
-  const hasTransientError = summary.accounts.some((a) => a.status === "error");
-  if (summary.liveAccountCount > 0 && !hasTransientError && !opts.bypassCache) {
+  // Never negative-cache when 0 accounts succeeded or any account hit a transient error or truncation.
+  const hasDegradedAccount = summary.accounts.some(
+    (a) => a.status === "error" || a.statusLabel === "Live (partial)",
+  );
+  if (summary.liveAccountCount > 0 && !hasDegradedAccount && !opts.bypassCache) {
     writeMarketingCache(cacheKey, now.getTime(), summary);
   }
   return summary;

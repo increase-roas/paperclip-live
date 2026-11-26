@@ -181,9 +181,12 @@ describe("readAgencyMarketingSummary", () => {
     });
     expect(first?.liveAccountCount).toBe(2);
     expect(first?.accounts.find((a) => a.id === "increase-roas-b2b")?.status).toBe("error");
-    // 0 link clicks on page 1 + 20 on page 2 = 20 / 2000 = 1% CTR
-    expect(first?.linkClicks).toBe(20);
-    expect(first?.ctr).toBe(1);
+    // Individual healthy account still reports exact linkClicks/CTR (0 on page 1 + 20 on page 2 = 20 / 2000 = 1%),
+    // while headline totals stay null while increase-roas-b2b is in transient error!
+    expect(first?.accounts.find((a) => a.id === "alex-bloomfield-ssa")?.linkClicks).toBe(20);
+    expect(first?.accounts.find((a) => a.id === "alex-bloomfield-ssa")?.ctr).toBe(1);
+    expect(first?.linkClicks).toBeNull();
+    expect(first?.ctr).toBeNull();
     const callsAfterFirst = callCount;
 
     // Because one account had transient status "error", result MUST NOT have been cached
@@ -196,6 +199,9 @@ describe("readAgencyMarketingSummary", () => {
     });
     expect(callCount).toBeGreaterThan(callsAfterFirst);
     expect(second?.liveAccountCount).toBe(3);
+    // 20 link clicks from alex-bloomfield-ssa + 5 fallback clicks (no actions array) from increase-roas-b2b = 25 / 2100 = 1.19%
+    expect(second?.linkClicks).toBe(25);
+    expect(second?.ctr).toBe(1.19);
     const callsAfterSecond = callCount;
 
     // Now all 3 succeeded with zero transient errors -> cached within 5m TTL
@@ -515,6 +521,20 @@ describe("readAgencySalesSummary", () => {
     expect(alex?.noShows).toBe(1);
     expect(alex?.showRate).toBe(50);
 
+    // Strict headline completeness: metrics missing on IR Main MUST stay null at headline
+    // (never presenting Alex's partial numbers as the agency total or mixing subsets in rates),
+    // while booked/showed/noShows/showRate are complete across BOTH live accounts!
+    expect(summary?.newLeads).toBeNull();
+    expect(summary?.activeOpportunities).toBeNull();
+    expect(summary?.wonDeals).toBeNull();
+    expect(summary?.cashCollectedUsd).toBeNull();
+    expect(summary?.setRate).toBeNull();
+    expect(summary?.leadToCustomerRate).toBeNull();
+    expect(summary?.booked).toBe(13);
+    expect(summary?.showed).toBe(3);
+    expect(summary?.noShows).toBe(1);
+    expect(summary?.showRate).toBe(75);
+
     expect(requestedUrls.some((u) => u.includes("cal-hire") || u.includes("cal-careers"))).toBe(false);
   });
 
@@ -778,6 +798,84 @@ describe("readAgencySalesSummary", () => {
     // Hitting 10-page contact cap (1,000 contacts) marks account "Live (partial)" instead of "Live"
     expect(htl?.newLeads).toBe(1000);
     expect(htl?.statusLabel).toBe("Live (partial)");
+  });
+
+  it("paginates /payments/transactions via offset with deduplication and marks full 10-page transaction cap as 'Live (partial)'", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      const ghlPath = new URL(url).searchParams.get("path") ?? "";
+      if (ghlPath === "/opportunities/pipelines") return jsonRes({ pipelines: [] });
+      if (ghlPath.startsWith("/opportunities/search")) return jsonRes({ opportunities: [] });
+      if (ghlPath.startsWith("/contacts/")) return jsonRes({ contacts: [] });
+      if (ghlPath === "/calendars/") return jsonRes({ calendars: [] });
+
+      if (url.includes("/Sr90yJUmFoBTgBQuejtU/") && ghlPath.startsWith("/payments/transactions")) {
+        const parsed = new URL(ghlPath, "https://ghl.local");
+        const offset = Number(parsed.searchParams.get("offset") ?? "0");
+        if (offset === 0) {
+          // 50 live USD payments of $100 each ($5,000)
+          return jsonRes({
+            totalCount: 52,
+            data: Array.from({ length: 50 }, (_, i) => ({
+              id: `tx-${i + 1}`,
+              amount: 100,
+              currency: "USD",
+              status: "succeeded",
+              createdAt: "2026-11-24T00:00:00Z",
+              liveMode: true,
+            })),
+          });
+        }
+        // Page 2: duplicate tx-50 (must be deduped!) + 2 new payments ($250 + $150 = $400) -> total $5,400
+        return jsonRes({
+          totalCount: 52,
+          data: [
+            { id: "tx-50", amount: 100, currency: "USD", status: "succeeded", createdAt: "2026-11-24T00:00:00Z", liveMode: true },
+            { id: "tx-51", amount: 250, currency: "USD", status: "succeeded", createdAt: "2026-11-25T00:00:00Z", liveMode: true },
+            { id: "tx-52", amount: 150, currency: "USD", status: "succeeded", createdAt: "2026-11-25T00:00:00Z", liveMode: true },
+          ],
+        });
+      }
+
+      if (url.includes("/AG47jEV5rVUrGLt5FlKO/") && ghlPath.startsWith("/payments/transactions")) {
+        const parsed = new URL(ghlPath, "https://ghl.local");
+        const offset = Number(parsed.searchParams.get("offset") ?? "0");
+        // Always returns 50 rows with totalCount=600 -> hits 10-page cap (500 rows) -> truncated!
+        return jsonRes({
+          totalCount: 600,
+          data: Array.from({ length: 50 }, (_, i) => ({
+            id: `htl-tx-${offset + i}`,
+            amount: 10,
+            currency: "USD",
+            status: "succeeded",
+            createdAt: "2026-11-24T00:00:00Z",
+            liveMode: true,
+          })),
+        });
+      }
+      return jsonRes({}, 404);
+    });
+
+    const summary = await readAgencySalesSummary("30d", {
+      gatewayBaseUrl: "https://gw.example",
+      gatewayToken: "gw-tx-pagination-test",
+      alexBloomfieldPitKey: "",
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => PINNED_NOW,
+      bypassCache: true,
+    });
+
+    const irMain = summary?.accounts.find((a) => a.id === "increase-roas-main");
+    expect(irMain?.cashCollectedUsd).toBe(5400);
+    expect(irMain?.statusLabel).toBe("Live");
+
+    const htl = summary?.accounts.find((a) => a.id === "hot-tub-launch-b2b");
+    expect(htl?.cashCollectedUsd).toBe(5000);
+    expect(htl?.statusLabel).toBe("Live (partial)");
+
+    // HTL hit the 10-page transaction cap -> account row shows 5000 + "Live (partial)",
+    // while headline cashCollectedUsd stays null so truncated totals never masquerade as full!
+    expect(summary?.cashCollectedUsd).toBeNull();
   });
 });
 

@@ -133,6 +133,8 @@ const MAX_CACHE_ENTRIES = 64;
 const MAX_CALENDARS_PER_LOCATION = 10;
 const MAX_CONTACT_PAGES = 10;
 const MAX_OPP_PAGES = 10;
+const MAX_TX_PAGES = 10;
+const TX_PAGE_LIMIT = 50;
 const USER_AGENT = "paperclip-server/1.0";
 const LOCATION_ID_RE = /^[A-Za-z0-9_-]{6,128}$/;
 const UNSET_SENTINELS = new Set(["none", "unset", "unconfigured", "null"]);
@@ -369,7 +371,7 @@ async function countRecentContacts(
     const res = await fetcher(`/contacts/?${qs.toString()}`);
     if (page === 0) firstStatus = res.status;
     if (res.status !== 200 || !res.body) {
-      return { ok: false, status: page === 0 ? res.status : firstStatus, count: 0, truncated: false };
+      return { ok: false, status: res.status, count: 0, truncated: false };
     }
     const contacts = Array.isArray(res.body.contacts) ? (res.body.contacts as RawGhlContact[]) : [];
     if (contacts.length === 0) break;
@@ -415,7 +417,7 @@ async function fetchOpportunityPages(
     const res = await fetcher(`/opportunities/search?${qs.toString()}`);
     if (page === 0) firstStatus = res.status;
     if (res.status !== 200 || !res.body) {
-      return { ok: false, status: page === 0 ? res.status : firstStatus, pages: [], truncated: false };
+      return { ok: false, status: res.status, pages: [], truncated: false };
     }
     pages.push(res.body);
     const list = Array.isArray(res.body.opportunities) ? res.body.opportunities : [];
@@ -591,23 +593,62 @@ function summarizeSalesOpportunities(
   };
 }
 
-function sumWindowTransactions(body: Record<string, unknown> | null, win: PeriodWindow): number | null {
-  if (!body || !Array.isArray(body.data)) return null;
+async function fetchWindowTransactions(
+  fetcher: LocationFetcher,
+  win: PeriodWindow,
+): Promise<{ ok: boolean; status: number; totalUsd: number | null; truncated: boolean }> {
+  const seenIds = new Set<string>();
   let total = 0;
-  for (const rawTx of body.data as RawGhlTransaction[]) {
-    if (rawTx.liveMode === false || String(rawTx.liveMode ?? "").trim().toLowerCase() === "false") {
-      continue;
+  let firstStatus = 0;
+  let truncated = false;
+
+  for (let page = 0; page < MAX_TX_PAGES; page += 1) {
+    const offset = page * TX_PAGE_LIMIT;
+    const qs = new URLSearchParams({
+      limit: String(TX_PAGE_LIMIT),
+      paymentMode: "live",
+      startAt: win.startDay,
+      endAt: win.endDay,
+    });
+    if (offset > 0) qs.set("offset", String(offset));
+    const res = await fetcher(`/payments/transactions?${qs.toString()}`);
+    if (page === 0) firstStatus = res.status;
+    if (res.status !== 200 || !res.body || !Array.isArray(res.body.data)) {
+      return { ok: false, status: res.status, totalUsd: null, truncated: false };
     }
-    const currency = typeof rawTx.currency === "string" ? rawTx.currency.trim().toUpperCase() : "USD";
-    if (currency && currency !== "USD") continue;
-    const st = String(rawTx.status ?? "").trim().toLowerCase();
-    if (st && st !== "succeeded" && st !== "completed" && st !== "paid") continue;
-    if (!isTimestampInWindow(rawTx.createdAt, win)) continue;
-    const amount = parseMoney(rawTx.amount);
-    const refunded = parseMoney(rawTx.amountRefunded);
-    total += Math.max(0, amount - refunded);
+
+    const pageRows = res.body.data as RawGhlTransaction[];
+    for (const rawTx of pageRows) {
+      if (typeof rawTx.id === "string" && rawTx.id) {
+        if (seenIds.has(rawTx.id)) continue;
+        seenIds.add(rawTx.id);
+      }
+      if (rawTx.liveMode === false || String(rawTx.liveMode ?? "").trim().toLowerCase() === "false") {
+        continue;
+      }
+      const currency = typeof rawTx.currency === "string" ? rawTx.currency.trim().toUpperCase() : "USD";
+      if (currency && currency !== "USD") continue;
+      const st = String(rawTx.status ?? "").trim().toLowerCase();
+      if (st && st !== "succeeded" && st !== "completed" && st !== "paid") continue;
+      if (!isTimestampInWindow(rawTx.createdAt, win)) continue;
+      const amount = parseMoney(rawTx.amount);
+      const refunded = parseMoney(rawTx.amountRefunded);
+      total += Math.max(0, amount - refunded);
+    }
+
+    if (pageRows.length < TX_PAGE_LIMIT) break;
+    const totalCount =
+      typeof res.body.totalCount === "number" && Number.isFinite(res.body.totalCount)
+        ? res.body.totalCount
+        : null;
+    if (totalCount !== null && offset + pageRows.length >= totalCount) break;
+    if (page === MAX_TX_PAGES - 1) {
+      truncated = true;
+      break;
+    }
   }
-  return round2(total);
+
+  return { ok: firstStatus === 200, status: firstStatus, totalUsd: round2(total), truncated };
 }
 
 function computeRates(m: {
@@ -641,12 +682,35 @@ function computeRates(m: {
   return { showRate, offerRate, closeRate };
 }
 
+interface AccountTruncationFlags {
+  contacts: boolean;
+  oppsAll: boolean;
+  oppsWon: boolean;
+  oppsLost: boolean;
+  outcomes: boolean;
+  transactions: boolean;
+}
+
+interface SingleAccountRead {
+  metrics: AgencySalesAccountMetrics;
+  truncated: AccountTruncationFlags;
+}
+
+const NO_TRUNCATION: AccountTruncationFlags = {
+  contacts: false,
+  oppsAll: false,
+  oppsWon: false,
+  oppsLost: false,
+  outcomes: false,
+  transactions: false,
+};
+
 async function readSingleGhlAccount(
   spec: { id: string; displayName: string; locationId: string; authMode: "gateway" | "pit" },
   fetcher: LocationFetcher,
   win: PeriodWindow,
   observedAt: string,
-): Promise<AgencySalesAccountMetrics> {
+): Promise<SingleAccountRead> {
   const [pipelinesRes, oppsAllRes, oppsWonRes, oppsLostRes, contactsRes, calRes, txRes] = await Promise.all([
     fetcher("/opportunities/pipelines"),
     fetchOpportunityPages(fetcher, "all"),
@@ -654,27 +718,37 @@ async function readSingleGhlAccount(
     fetchOpportunityPages(fetcher, "lost"),
     countRecentContacts(fetcher, win),
     readCalendarOutcomes(fetcher, win),
-    fetcher(`/payments/transactions?limit=50&paymentMode=live&startAt=${win.startDay}&endAt=${win.endDay}`),
+    fetchWindowTransactions(fetcher, win),
   ]);
 
   const pipelinesOk =
     pipelinesRes.status === 200 && pipelinesRes.body !== null && Array.isArray(pipelinesRes.body.pipelines);
   const anyUsable = pipelinesOk || contactsRes.ok || calRes.ok;
   if (!anyUsable) {
-    const statuses = [pipelinesRes.status, oppsAllRes.status, oppsWonRes.status, oppsLostRes.status, contactsRes.status];
+    const statuses = [
+      pipelinesRes.status,
+      oppsAllRes.status,
+      oppsWonRes.status,
+      oppsLostRes.status,
+      contactsRes.status,
+      txRes.status,
+    ];
     const authFailed = statuses.some((s) => s === 400 || s === 401 || s === 403 || s === 404);
-    return emptyAccount(
-      spec.id,
-      spec.displayName,
-      spec.locationId,
-      spec.authMode,
-      authFailed ? "needs_config" : "error",
-      authFailed
-        ? spec.authMode === "pit"
-          ? "Needs PIT key / location ID"
-          : "Needs gateway GHL access"
-        : "Temporarily unreachable",
-    );
+    return {
+      metrics: emptyAccount(
+        spec.id,
+        spec.displayName,
+        spec.locationId,
+        spec.authMode,
+        authFailed ? "needs_config" : "error",
+        authFailed
+          ? spec.authMode === "pit"
+            ? "Needs PIT key / location ID"
+            : "Needs gateway GHL access"
+          : "Temporarily unreachable",
+      ),
+      truncated: NO_TRUNCATION,
+    };
   }
 
   // Fail closed on recruiting pipeline exclusion: only read opportunities when
@@ -696,18 +770,22 @@ async function readSingleGhlAccount(
   let booked: number | null = null;
   let showed: number | null = null;
   let noShows: number | null = null;
+  let outcomesTruncated = false;
   if (calRes.ok && calRes.booked > 0) {
     booked = calRes.booked;
     showed = calRes.showed;
     noShows = calRes.noShows;
+    outcomesTruncated = calRes.truncated;
   } else if (opps && opps.stageBooked !== null) {
     booked = opps.stageBooked;
     showed = opps.stageShowed;
     noShows = opps.stageNoShows;
+    outcomesTruncated = oppsAllRes.truncated || oppsWonRes.truncated;
   } else if (calRes.ok) {
     booked = 0;
     showed = 0;
     noShows = 0;
+    outcomesTruncated = calRes.truncated;
   }
 
   const pitched = opps ? opps.stagePitched : null;
@@ -715,7 +793,7 @@ async function readSingleGhlAccount(
   const lostDeals = opps ? opps.lostDeals : null;
   const pipelineWonUsd = opps ? opps.pipelineWonUsd : null;
   const activeOpportunities = opps ? opps.activeOpportunities : null;
-  const cashCollectedUsd = txRes.status === 200 ? sumWindowTransactions(txRes.body, win) : null;
+  const cashCollectedUsd = txRes.ok ? txRes.totalUsd : null;
   const rates = computeRates({
     booked,
     showed,
@@ -731,51 +809,79 @@ async function readSingleGhlAccount(
     oppsWonRes.truncated ||
     oppsLostRes.truncated ||
     calRes.truncated ||
+    txRes.truncated ||
     !pipelinesOk ||
     !oppsAllRes.ok ||
     !oppsWonRes.ok ||
     !oppsLostRes.ok ||
     !contactsRes.ok ||
     !calRes.ok ||
-    txRes.status !== 200;
+    !txRes.ok;
 
   return {
-    id: spec.id,
-    displayName: spec.displayName,
-    locationId: spec.locationId,
-    authMode: spec.authMode,
-    status: "live",
-    statusLabel: isPartial ? "Live (partial)" : "Live",
-    observedAt,
-    newLeads: contactsRes.ok ? contactsRes.count : null,
-    activeOpportunities,
-    booked,
-    showed,
-    noShows,
-    pitched,
-    wonDeals,
-    lostDeals,
-    pipelineWonUsd,
-    cashCollectedUsd,
-    showRate: rates.showRate,
-    offerRate: rates.offerRate,
-    closeRate: rates.closeRate,
+    metrics: {
+      id: spec.id,
+      displayName: spec.displayName,
+      locationId: spec.locationId,
+      authMode: spec.authMode,
+      status: "live",
+      statusLabel: isPartial ? "Live (partial)" : "Live",
+      observedAt,
+      newLeads: contactsRes.ok ? contactsRes.count : null,
+      activeOpportunities,
+      booked,
+      showed,
+      noShows,
+      pitched,
+      wonDeals,
+      lostDeals,
+      pipelineWonUsd,
+      cashCollectedUsd,
+      showRate: rates.showRate,
+      offerRate: rates.offerRate,
+      closeRate: rates.closeRate,
+    },
+    truncated: {
+      contacts: contactsRes.truncated,
+      oppsAll: oppsAllRes.truncated,
+      oppsWon: oppsWonRes.truncated,
+      oppsLost: oppsLostRes.truncated,
+      outcomes: outcomesTruncated,
+      transactions: txRes.truncated,
+    },
   };
+}
+
+function sumCompleteLiveMetric(
+  live: readonly SingleAccountRead[],
+  pick: (account: AgencySalesAccountMetrics) => number | null,
+  isTruncated: (flags: AccountTruncationFlags) => boolean,
+): number | null {
+  let total = 0;
+  for (const entry of live) {
+    if (isTruncated(entry.truncated)) return null;
+    const val = pick(entry.metrics);
+    if (val === null) return null;
+    total += val;
+  }
+  return total;
 }
 
 function summarizeAgencySales(
   period: DashboardPeriod,
   observedAt: string,
-  accounts: AgencySalesAccountMetrics[],
+  reads: readonly SingleAccountRead[],
 ): AgencySalesSummary {
-  const live = accounts.filter((a) => a.status === "live");
-  if (live.length === 0) {
+  const accounts = reads.map((r) => r.metrics);
+  const live = reads.filter((r) => r.metrics.status === "live");
+  const hasTransientError = reads.some((r) => r.metrics.status === "error");
+  if (live.length === 0 || hasTransientError) {
     return {
       period,
       observedAt,
-      liveAccountCount: 0,
+      liveAccountCount: live.length,
       totalAccountCount: accounts.length,
-      hasGhl: false,
+      hasGhl: live.length > 0,
       newLeads: null,
       activeOpportunities: null,
       booked: null,
@@ -795,83 +901,27 @@ function summarizeAgencySales(
     };
   }
 
-  let newLeads = 0;
-  let hasNewLeads = false;
-  let activeOpportunities = 0;
-  let hasActiveOpportunities = false;
-  let booked = 0;
-  let hasBooked = false;
-  let showed = 0;
-  let hasShowed = false;
-  let noShows = 0;
-  let hasNoShows = false;
-  let pitched = 0;
-  let hasPitched = false;
-  let wonDeals = 0;
-  let hasWonDeals = false;
-  let lostDeals = 0;
-  let hasLostDeals = false;
-  let pipelineWonUsd = 0;
-  let hasPipelineWonUsd = false;
-  let cashCollectedUsd = 0;
-  let hasCashCollectedUsd = false;
-
-  for (const a of live) {
-    if (a.newLeads !== null) {
-      newLeads += a.newLeads;
-      hasNewLeads = true;
-    }
-    if (a.activeOpportunities !== null) {
-      activeOpportunities += a.activeOpportunities;
-      hasActiveOpportunities = true;
-    }
-    if (a.booked !== null) {
-      booked += a.booked;
-      hasBooked = true;
-    }
-    if (a.showed !== null) {
-      showed += a.showed;
-      hasShowed = true;
-    }
-    if (a.noShows !== null) {
-      noShows += a.noShows;
-      hasNoShows = true;
-    }
-    if (a.pitched !== null) {
-      pitched += a.pitched;
-      hasPitched = true;
-    }
-    if (a.wonDeals !== null) {
-      wonDeals += a.wonDeals;
-      hasWonDeals = true;
-    }
-    if (a.lostDeals !== null) {
-      lostDeals += a.lostDeals;
-      hasLostDeals = true;
-    }
-    if (a.pipelineWonUsd !== null) {
-      pipelineWonUsd += a.pipelineWonUsd;
-      hasPipelineWonUsd = true;
-    }
-    if (a.cashCollectedUsd !== null) {
-      cashCollectedUsd += a.cashCollectedUsd;
-      hasCashCollectedUsd = true;
-    }
-  }
-
-  const finalBooked = hasBooked ? booked : null;
-  const finalShowed = hasShowed ? showed : null;
-  const finalNoShows = hasNoShows ? noShows : null;
-  const finalPitched = hasPitched ? pitched : null;
-  const finalWonDeals = hasWonDeals ? wonDeals : null;
-  const finalLostDeals = hasLostDeals ? lostDeals : null;
+  // Require every live account to supply an untruncated metric before publishing
+  // a headline total or derived rate — partial/truncated totals never masquerade
+  // as full agency sums, and numerators/denominators always share the exact same
+  // complete account set.
+  const newLeads = sumCompleteLiveMetric(live, (a) => a.newLeads, (t) => t.contacts);
+  const activeOpportunities = sumCompleteLiveMetric(live, (a) => a.activeOpportunities, (t) => t.oppsAll);
+  const booked = sumCompleteLiveMetric(live, (a) => a.booked, (t) => t.outcomes);
+  const showed = sumCompleteLiveMetric(live, (a) => a.showed, (t) => t.outcomes);
+  const noShows = sumCompleteLiveMetric(live, (a) => a.noShows, (t) => t.outcomes);
+  const pitched = sumCompleteLiveMetric(live, (a) => a.pitched, (t) => t.oppsAll || t.oppsWon);
+  const wonDeals = sumCompleteLiveMetric(live, (a) => a.wonDeals, (t) => t.oppsWon);
+  const lostDeals = sumCompleteLiveMetric(live, (a) => a.lostDeals, (t) => t.oppsLost);
+  const rawPipelineWonUsd = sumCompleteLiveMetric(live, (a) => a.pipelineWonUsd, (t) => t.oppsWon);
+  const rawCashCollectedUsd = sumCompleteLiveMetric(live, (a) => a.cashCollectedUsd, (t) => t.transactions);
   const rates = computeRates({
-    booked: finalBooked,
-    showed: finalShowed,
-    noShows: finalNoShows,
-    pitched: finalPitched,
-    wonDeals: finalWonDeals,
-    lostDeals: finalLostDeals,
+    booked,
+    showed,
+    noShows,
+    pitched,
+    wonDeals,
+    lostDeals,
   });
 
   return {
@@ -880,21 +930,22 @@ function summarizeAgencySales(
     liveAccountCount: live.length,
     totalAccountCount: accounts.length,
     hasGhl: true,
-    newLeads: hasNewLeads ? newLeads : null,
-    activeOpportunities: hasActiveOpportunities ? activeOpportunities : null,
-    booked: finalBooked,
-    showed: finalShowed,
-    noShows: finalNoShows,
-    pitched: finalPitched,
-    wonDeals: finalWonDeals,
-    lostDeals: finalLostDeals,
-    pipelineWonUsd: hasPipelineWonUsd ? round2(pipelineWonUsd) : null,
-    cashCollectedUsd: hasCashCollectedUsd ? round2(cashCollectedUsd) : null,
+    newLeads,
+    activeOpportunities,
+    booked,
+    showed,
+    noShows,
+    pitched,
+    wonDeals,
+    lostDeals,
+    pipelineWonUsd: rawPipelineWonUsd !== null ? round2(rawPipelineWonUsd) : null,
+    cashCollectedUsd: rawCashCollectedUsd !== null ? round2(rawCashCollectedUsd) : null,
     showRate: rates.showRate,
     offerRate: rates.offerRate,
     closeRate: rates.closeRate,
-    setRate: hasNewLeads && newLeads > 0 && hasBooked ? round1((booked / newLeads) * 100) : null,
-    leadToCustomerRate: hasNewLeads && newLeads > 0 && hasWonDeals ? round1((wonDeals / newLeads) * 100) : null,
+    setRate: newLeads !== null && newLeads > 0 && booked !== null ? round1((booked / newLeads) * 100) : null,
+    leadToCustomerRate:
+      newLeads !== null && newLeads > 0 && wonDeals !== null ? round1((wonDeals / newLeads) * 100) : null,
     accounts,
   };
 }
@@ -986,7 +1037,7 @@ export async function readAgencySalesSummary(
   const win = buildPeriodWindow(period, now);
   const observedAt = now.toISOString();
 
-  const tasks: Array<Promise<AgencySalesAccountMetrics>> = [
+  const tasks: Array<Promise<SingleAccountRead>> = [
     gatewayToken && irMainLoc
       ? readSingleGhlAccount(
           { id: "increase-roas-main", displayName: "Increase ROAS Main", locationId: irMainLoc, authMode: "gateway" },
@@ -994,8 +1045,8 @@ export async function readAgencySalesSummary(
           win,
           observedAt,
         )
-      : Promise.resolve(
-          emptyAccount(
+      : Promise.resolve({
+          metrics: emptyAccount(
             "increase-roas-main",
             "Increase ROAS Main",
             irMainLoc,
@@ -1003,7 +1054,8 @@ export async function readAgencySalesSummary(
             "needs_config",
             irMainLoc ? "Needs gateway token" : "Needs location ID",
           ),
-        ),
+          truncated: NO_TRUNCATION,
+        }),
     gatewayToken && htlLoc
       ? readSingleGhlAccount(
           { id: "hot-tub-launch-b2b", displayName: "Hot Tub Launch B2B", locationId: htlLoc, authMode: "gateway" },
@@ -1011,8 +1063,8 @@ export async function readAgencySalesSummary(
           win,
           observedAt,
         )
-      : Promise.resolve(
-          emptyAccount(
+      : Promise.resolve({
+          metrics: emptyAccount(
             "hot-tub-launch-b2b",
             "Hot Tub Launch B2B",
             htlLoc,
@@ -1020,7 +1072,8 @@ export async function readAgencySalesSummary(
             "needs_config",
             htlLoc ? "Needs gateway token" : "Needs location ID",
           ),
-        ),
+          truncated: NO_TRUNCATION,
+        }),
     alexPitKey && alexLocationId
       ? readSingleGhlAccount(
           {
@@ -1033,8 +1086,8 @@ export async function readAgencySalesSummary(
           win,
           observedAt,
         )
-      : Promise.resolve(
-          emptyAccount(
+      : Promise.resolve({
+          metrics: emptyAccount(
             "alex-bloomfield-ssa",
             "Alex Bloomfield (Start Scale Automate)",
             alexLocationId,
@@ -1046,14 +1099,17 @@ export async function readAgencySalesSummary(
                 ? "Needs GHL_ALEX_BLOOMFIELD_PIT_KEY"
                 : "Needs PIT key / location ID",
           ),
-        ),
+          truncated: NO_TRUNCATION,
+        }),
   ];
 
-  const accounts = await Promise.all(tasks);
-  const summary = summarizeAgencySales(period, observedAt, accounts);
+  const reads = await Promise.all(tasks);
+  const summary = summarizeAgencySales(period, observedAt, reads);
 
-  const hasTransientError = summary.accounts.some((a) => a.status === "error");
-  if (summary.liveAccountCount > 0 && !hasTransientError && !opts.bypassCache) {
+  const hasDegradedAccount = summary.accounts.some(
+    (a) => a.status === "error" || a.statusLabel === "Live (partial)",
+  );
+  if (summary.liveAccountCount > 0 && !hasDegradedAccount && !opts.bypassCache) {
     setCachedSummary(cacheKey, now.getTime(), summary);
   }
   return summary;
