@@ -1,14 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { IR_METRIC_DEFINITIONS } from "@paperclipai/shared/ir-metrics";
 import { IrApiError, irSystemMapApi, type TenantProfile } from "../../api/irOps";
 import { HealthChip } from "../system-map/HealthChip";
 import { partitionClientPortfolio } from "./clientHelpers";
 
 /**
  * Live client counts by own brand, read from the GBrain customer list (the
- * same feed as the System Map). Active / paused / cancelled needs live billing
- * state from the payment system and stays "not connected" until that reader
- * exists; it is never copied into GBrain. Nothing is assumed.
+ * same feed as the System Map). Active / paused / cancelled is not shown until
+ * a payment-source reader supplies live billing state; it is never copied into
+ * GBrain and never shown as a dead tile.
  */
 export function ClientPortfolioStrip({ tenants, loading }: { tenants: TenantProfile[]; loading: boolean }) {
   const registry = useQuery({
@@ -30,10 +29,9 @@ export function ClientPortfolioStrip({ tenants, loading }: { tenants: TenantProf
   const partition = partitionClientPortfolio(tenants, registry.data?.skeleton.clients ?? []);
   return (
     <section
-      aria-label="Clients by brand and status"
+      aria-label="Clients by brand"
       className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground"
       data-testid="client-portfolio-strip"
-      title={IR_METRIC_DEFINITIONS.clientStatusCounts.formula}
     >
       <span className="flex flex-wrap items-center gap-1.5">
         <span>By brand</span>
@@ -45,10 +43,6 @@ export function ClientPortfolioStrip({ tenants, loading }: { tenants: TenantProf
         <HealthChip tone={partition.unclassified > 0 ? "warn" : "muted"}>
           Not classified in GBrain {partition.unclassified}
         </HealthChip>
-      </span>
-      <span className="flex flex-wrap items-center gap-1.5">
-        <span>Active / paused / cancelled</span>
-        <HealthChip tone="muted">Not connected: needs a payment source (GHL payments or QuickBooks)</HealthChip>
       </span>
     </section>
   );
