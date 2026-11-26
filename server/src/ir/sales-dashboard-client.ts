@@ -709,6 +709,13 @@ function compareMergedClients(a: MergedClientMetrics, b: MergedClientMetrics): n
   return a.displayName.localeCompare(b.displayName);
 }
 
+/** Excludes the agency `__owner__` entry so Fulfillment strictly owns client accounts only. */
+export function filterClientOnlyPortfolio(
+  clients: readonly MergedClientMetrics[],
+): MergedClientMetrics[] {
+  return clients.filter((client) => client.slug.trim().toLowerCase() !== "__owner__");
+}
+
 /**
  * Fetches and merges multi-client portfolio metrics across `/api/pilot/admin/capital`,
  * `/api/pilot/admin/snapshots` (falling back to `/api/pilot/dashboard`), and

@@ -5,7 +5,7 @@ import { BoardSections } from "../lane2-shared/BoardSections";
 import { DashboardBoardShell } from "../lane2-shared/DashboardBoardShell";
 
 const SUBTITLE =
-  "Cost to win a customer, judged against LTGP. CPL is a reference, never a target; the zero-lead alarm is the one that costs money today.";
+  "Increase ROAS agency acquisition only — Increase ROAS B2B, Alex Bloomfield (Start Scale Automate), and Hot Tub Launch. Cost to win an agency client, judged against LTGP. CPL is a reference, never a target; client ad accounts live on Fulfillment.";
 
 /** Pure view. Renders only the payload it is given. */
 export function MarketingBoardView({ data }: { data: DashboardBoard }) {

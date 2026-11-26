@@ -161,8 +161,10 @@ export const dashboardBoardsApi = {
     api.get<DashboardAutomationHealthBoard>(`/companies/${companyId}/dashboards/automation-health`),
   toolsConnectors: (companyId: string) =>
     api.get<DashboardToolsConnectorsBoard>(`/companies/${companyId}/dashboards/tools-connectors`),
-  fulfillment: (companyId: string) =>
-    api.get<DashboardFulfillmentBoard>(`/companies/${companyId}/dashboards/fulfillment`),
+  fulfillment: (companyId: string, period: DashboardPeriod = "30d") =>
+    api.get<DashboardFulfillmentBoard>(
+      `/companies/${companyId}/dashboards/fulfillment?period=${encodeURIComponent(period)}`,
+    ),
   getTeamAdmin: () =>
     api.get<TeamAdminSnapshotResponse>("/sales-dashboard/team"),
   getTeamSettings: () =>

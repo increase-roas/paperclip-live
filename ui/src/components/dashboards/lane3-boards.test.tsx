@@ -554,4 +554,62 @@ describe("lane 3 dashboard boards", () => {
     expect(container.textContent).toContain("Hormozi");
     expect(container.textContent).toContain("v1 source, not Hormozi");
   });
+
+  it("Fulfillment renders live client portfolio ad metrics and WAVV delivery when present", async () => {
+    apiMocks.fulfillment.mockResolvedValue({
+      ...fulfillmentFixture,
+      period: "30d",
+      clientDelivery: {
+        period: "30d",
+        observedAt: NOW,
+        adSpendUsd: 6650.77,
+        newLeads: 55,
+        costPerLeadUsd: 120.92,
+        ctrPercent: 1.59,
+        appointmentsBooked: 12,
+        appointmentsShowed: 9,
+        showRatePercent: 75,
+        wonDeals: 3,
+        closeRatePercent: 33.3,
+        zeroLeadDays: 0,
+        accounts: [
+          {
+            slug: "paradise-spas",
+            displayName: "Paradise Spas",
+            spend: 6650.77,
+            newLeads: 55,
+            cpl: 120.92,
+            ctr: 1.59,
+            booked: 12,
+            showed: 9,
+            showRate: 75,
+            wonDeals: 3,
+            closeRate: 33.3,
+            costPerHeldAppointment: 738.97,
+            zeroLeadDays: 0,
+          },
+        ],
+        notConnected: null,
+      },
+      wavvDelivery: {
+        period: "30d",
+        observedAt: NOW,
+        dials: 420,
+        conversationsOver60s: 19,
+        talkTimeMinutes: 94.5,
+        bySetter: [
+          { id: "s1", setter: "Marvin", dials: 420, talkTimeMinutes: 94.5, conversationsOver60s: 19 },
+        ],
+        notConnected: null,
+      },
+    });
+    await render(<FulfillmentBoard period="30d" />);
+    await vi.waitFor(() => expect(container.textContent).toContain("Paradise Spas"));
+    expect(container.querySelector('[data-testid="fulfillment-client-ad-spend"]')?.textContent).toContain("$6,650.77");
+    expect(container.querySelector('[data-testid="fulfillment-client-new-leads"]')?.textContent).toContain("55");
+    expect(container.querySelector('[data-testid="fulfillment-client-cpl"]')?.textContent).toContain("$120.92");
+    expect(container.querySelector('[data-testid="fulfillment-client-ctr"]')?.textContent).toContain("1.6%");
+    expect(container.querySelector('[data-testid="fulfillment-wavv-dials"]')?.textContent).toContain("420");
+    expect(container.querySelector('[data-testid="fulfillment-wavv-scoreboard"]')?.textContent).toContain("Marvin");
+  });
 });

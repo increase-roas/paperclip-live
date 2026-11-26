@@ -1,10 +1,12 @@
+import type { DashboardPeriod } from "../dashboards.js";
+
 /**
  * Contracts for the Lane 3 operating dashboards:
  * AI cost, Automation health, Tools/connectors and Fulfillment.
  *
- * Every field is computed from a Paperclip table. Nothing here is a fixture or
- * an estimate: a tile that has no source uses `DashboardNotConnectedTile`
- * instead of a number.
+ * Every field is computed from a Paperclip table or a verified read-only
+ * client-delivery feed. Nothing here is a fixture or an estimate: a tile that
+ * has no source uses `DashboardNotConnectedTile` instead of a number.
  */
 
 /** A tile that has no real source yet. Never replace this with a zero. */
@@ -303,9 +305,65 @@ export interface DashboardFulfillmentRetention {
   reviewByDay30: DashboardFulfillmentRetentionNumber;
 }
 
+export interface DashboardFulfillmentClientDeliveryRow {
+  slug: string;
+  displayName: string;
+  spend: number | null;
+  newLeads: number | null;
+  cpl: number | null;
+  ctr: number | null;
+  booked: number | null;
+  showed: number | null;
+  showRate: number | null;
+  wonDeals: number | null;
+  closeRate: number | null;
+  costPerHeldAppointment: number | null;
+  zeroLeadDays: number | null;
+}
+
+export interface DashboardFulfillmentSetterRow {
+  id: string;
+  setter: string;
+  dials: number;
+  talkTimeMinutes: number;
+  conversationsOver60s: number;
+}
+
+export interface DashboardFulfillmentClientDelivery {
+  period: DashboardPeriod;
+  observedAt: string | null;
+  adSpendUsd: number | null;
+  newLeads: number | null;
+  costPerLeadUsd: number | null;
+  ctrPercent: number | null;
+  appointmentsBooked: number | null;
+  appointmentsShowed: number | null;
+  showRatePercent: number | null;
+  wonDeals: number | null;
+  closeRatePercent: number | null;
+  zeroLeadDays: number | null;
+  accounts: DashboardFulfillmentClientDeliveryRow[];
+  notConnected: DashboardNotConnectedTile | null;
+}
+
+export interface DashboardFulfillmentWavvDelivery {
+  period: DashboardPeriod;
+  observedAt: string | null;
+  dials: number | null;
+  conversationsOver60s: number | null;
+  talkTimeMinutes: number | null;
+  bySetter: DashboardFulfillmentSetterRow[];
+  notConnected: DashboardNotConnectedTile | null;
+}
+
 export interface DashboardFulfillmentBoard {
   companyId: string;
   generatedAt: string;
+  period?: DashboardPeriod;
+  /** Client portfolio ad & GHL lead/appointment delivery (strictly client accounts, never agency). */
+  clientDelivery?: DashboardFulfillmentClientDelivery;
+  /** Client outbound appointment setting via WAVV (strictly client fulfillment delivery). */
+  wavvDelivery?: DashboardFulfillmentWavvDelivery;
   /** Hormozi's four retention questions, read first. */
   retention: DashboardFulfillmentRetention;
   clients: DashboardFulfillmentClient[];

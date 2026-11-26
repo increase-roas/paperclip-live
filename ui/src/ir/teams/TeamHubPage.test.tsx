@@ -71,6 +71,7 @@ vi.mock("@/api/agents", () => ({
       if (fixture.failAgents) throw new Error("agents 500");
       return fixture.agents;
     },
+    update: vi.fn(async (_id: string, data: Record<string, unknown>) => ({ ...fixture.agents[0], ...data })),
   },
 }));
 
@@ -206,14 +207,40 @@ beforeEach(() => {
     sources: [],
     tables: [],
     tiles: [
-      { id: "dials", label: "Dials", definition: "", owner: "", target: "", sourceIds: ["wavv"], value: { kind: "live", value: 982, unit: "count", observedAt: "2026-11-25T20:00:00Z" } },
-      { id: "conversations-over-60s", label: "Conversations over 60 s", definition: "", owner: "", target: "", sourceIds: ["wavv"], value: { kind: "live", value: 10, unit: "count", observedAt: "2026-11-25T20:00:00Z" } },
-      { id: "talk-time", label: "Talk time", definition: "", owner: "", target: "", sourceIds: ["wavv"], value: { kind: "live", value: 67, unit: "minutes", observedAt: "2026-11-25T20:00:00Z" } },
+      { id: "new-leads", label: "Agency new leads", definition: "", owner: "", target: "", sourceIds: ["ghl"], value: { kind: "live", value: 33, unit: "count", observedAt: "2026-11-25T20:00:00Z" } },
+      { id: "active-opportunities", label: "Active opportunities", definition: "", owner: "", target: "", sourceIds: ["ghl"], value: { kind: "live", value: 16, unit: "count", observedAt: "2026-11-25T20:00:00Z" } },
+      { id: "show-rate", label: "Show rate", definition: "", owner: "", target: "", sourceIds: ["ghl"], value: { kind: "live", value: 75, unit: "percent", observedAt: "2026-11-25T20:00:00Z" } },
       { id: "units-sold", label: "Units sold", definition: "", owner: "", target: "", sourceIds: ["ghl"], value: { kind: "live", value: 3, unit: "count", observedAt: "2026-11-25T20:00:00Z" } },
     ],
   } as DashboardBoardWithMeta;
   fixture.fulfillmentBoard = {
     generatedAt: "2026-11-25T20:00:00Z",
+    period: "30d",
+    clientDelivery: {
+      period: "30d",
+      observedAt: "2026-11-25T20:00:00Z",
+      adSpendUsd: 6807,
+      newLeads: 55,
+      costPerLeadUsd: 123.76,
+      ctrPercent: 1.59,
+      appointmentsBooked: 10,
+      appointmentsShowed: 7,
+      showRatePercent: 70,
+      wonDeals: 2,
+      closeRatePercent: 28.6,
+      zeroLeadDays: 0,
+      accounts: [{ slug: "paradise-spas", displayName: "Paradise Spas" }],
+      notConnected: null,
+    },
+    wavvDelivery: {
+      period: "30d",
+      observedAt: "2026-11-25T20:00:00Z",
+      dials: 982,
+      conversationsOver60s: 10,
+      talkTimeMinutes: 67,
+      bySetter: [],
+      notConnected: null,
+    },
     openClientTasks: { total: 2, unassigned: 1 },
     clients: [{ clientKey: "p1", clientName: "Sun Pool", openTasks: 2, blockedTasks: 0, oldestOpenAgeHours: 4 }],
     onboarding: { openSteps: 1, items: [], overdue: null },
@@ -304,6 +331,7 @@ describe("TeamHubPage", () => {
 
     const agentRow = container.querySelector('[data-testid="team-agent-row-ads-auditor"]');
     expect(agentRow?.textContent).toContain("Ads Auditor");
+    expect(agentRow?.textContent).toContain("Also in Fulfillment");
     expect(agentRow?.textContent).toContain("INC-111");
     expect(agentRow?.querySelector('a[href="/chats/ads-auditor"]')?.getAttribute("aria-label")).toBe("Chat with Ads Auditor");
     expect(agentRow?.querySelector('a[href="/agents/ads-auditor"][aria-label="Inspect Ads Auditor"]')).not.toBeNull();
@@ -321,7 +349,7 @@ describe("TeamHubPage", () => {
     expect(fixture.openNewIssue).toHaveBeenCalledWith({ title: "[Marketing] " });
   });
 
-  it("renders Sales Team Hub with live WAVV/GHL KPIs, Sales agent, Sales tasks, and setters", async () => {
+  it("renders Sales Team Hub with agency GHL KPIs, Sales agent, Sales tasks, and setters", async () => {
     fixture.teamKey = "sales";
     await renderPage();
 
@@ -329,13 +357,14 @@ describe("TeamHubPage", () => {
     expect(container.querySelector('[data-testid="team-hub-open-dashboard"]')?.getAttribute("href")).toBe(
       "/dashboard/sales",
     );
-    expect(container.querySelector('[data-testid="team-hub-kpi-strip"]')?.textContent).toContain("982");
+    expect(container.querySelector('[data-testid="team-hub-kpi-strip"]')?.textContent).toContain("33");
+    expect(container.querySelector('[data-testid="team-hub-kpi-strip"]')?.textContent).toContain("16");
     expect(container.querySelector('[data-testid="team-agent-row-ir-sales-desk"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="team-task-row-INC-110"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="team-hub-humans"]')?.textContent).toContain("12 sets / wk");
   });
 
-  it("renders Fulfillment empty-agent CTA cleanly when no Fulfillment agents are assigned", async () => {
+  it("renders Fulfillment Team Hub with client ad & WAVV KPIs, shared multi-team agents, and empty-agent CTA when none match", async () => {
     fixture.teamKey = "fulfillment";
     await renderPage();
 
@@ -343,10 +372,21 @@ describe("TeamHubPage", () => {
     expect(container.querySelector('[data-testid="team-hub-open-dashboard"]')?.getAttribute("href")).toBe(
       "/dashboard/fulfillment",
     );
+    const kpiText = container.querySelector('[data-testid="team-hub-kpi-strip"]')?.textContent ?? "";
+    expect(kpiText).toContain("$6,807.00");
+    expect(kpiText).toContain("982");
+    expect(container.querySelector('[data-testid="team-agent-row-ads-auditor"]')?.textContent).toContain(
+      "Also in Marketing",
+    );
+    expect(container.querySelector('[data-testid="team-hub-humans"]')?.textContent).toContain("Kat");
+
+    // Empty-agent CTA still renders cleanly when no agents belong to Fulfillment
+    fixture.agents = [fixture.agents[1]!];
+    client.clear();
+    await renderPage();
     const agentsSection = container.querySelector('[data-testid="team-hub-agents"]');
     expect(agentsSection?.textContent).toContain("No AI agents assigned to Fulfillment yet");
     expect(agentsSection?.querySelector('a[href="/agents/new"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="team-hub-humans"]')?.textContent).toContain("Kat");
   });
 
   it("renders Operations Team Hub with summary KPIs and redirects unknown team keys", async () => {

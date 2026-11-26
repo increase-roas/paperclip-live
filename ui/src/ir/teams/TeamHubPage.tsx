@@ -45,6 +45,7 @@ import {
   filterTeamActiveTasks,
   findMatchingTeamProject,
   formatTeamAgentSubtitle,
+  getSharedAgentDepartments,
   getTeamHubConfig,
   isTeamCapitalDisconnected,
   OPEN_TASK_STATUS_FILTER,
@@ -57,6 +58,7 @@ import {
   type HumanTeamMemberRow,
   type TeamHubKey,
 } from "./teamHubHelpers";
+import { AgentDepartmentsPopover } from "./AgentDepartmentsPopover";
 
 const TEAM_ICONS: Record<TeamHubKey, LucideIcon> = {
   marketing: Megaphone,
@@ -171,6 +173,8 @@ function HeadlineKpiStrip({
 }
 
 function TeamAgentsPanel({
+  companyId,
+  teamKey,
   teamLabel,
   agents,
   currentTaskByAgentId,
@@ -179,6 +183,8 @@ function TeamAgentsPanel({
   retrying,
   onRetry,
 }: {
+  companyId: string;
+  teamKey: TeamHubKey;
   teamLabel: string;
   agents: readonly Agent[];
   currentTaskByAgentId: ReadonlyMap<string, Issue>;
@@ -233,9 +239,9 @@ function TeamAgentsPanel({
           <p className="text-xs text-muted-foreground">
             Create a specialist agent with a {teamLabel.toLowerCase()} role or title, or set{" "}
             <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
-              metadata.department = &quot;{teamLabel.toLowerCase()}&quot;
+              metadata.departments = [&quot;{teamLabel.toLowerCase()}&quot;]
             </code>{" "}
-            via the API to route them into this hub.
+            via the API or the Teams menu on any agent to route them into this hub.
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" asChild>
@@ -254,6 +260,7 @@ function TeamAgentsPanel({
           {agents.map((agent) => {
             const currentTask = currentTaskByAgentId.get(agent.id) ?? null;
             const subtitle = formatTeamAgentSubtitle(agent.role, agent.title);
+            const sharedDepartments = getSharedAgentDepartments(agent, teamKey);
             return (
               <div
                 key={agent.id}
@@ -275,6 +282,25 @@ function TeamAgentsPanel({
                         {agent.name}
                       </Link>
                       <AgentStatusBadge status={agent.status} />
+                      {sharedDepartments.map((deptKey) => {
+                        const deptCfg = getTeamHubConfig(deptKey);
+                        if (!deptCfg) return null;
+                        return (
+                          <Link
+                            key={deptKey}
+                            to={`/teams/${deptKey}`}
+                            data-testid={`team-agent-shared-dept-${agent.urlKey}-${deptKey}`}
+                            className="no-underline"
+                          >
+                            <Badge
+                              variant="outline"
+                              className="border-border/80 bg-muted/40 font-normal text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                            >
+                              Also in {deptCfg.label}
+                            </Badge>
+                          </Link>
+                        );
+                      })}
                     </div>
                     <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
                     {currentTask ? (
@@ -296,6 +322,7 @@ function TeamAgentsPanel({
                 </div>
 
                 <div className="flex shrink-0 items-center gap-1.5 self-end sm:self-center">
+                  <AgentDepartmentsPopover agent={agent} companyId={companyId} />
                   <Button variant="ghost" size="xs" asChild>
                     <Link
                       to={`/chats/${encodeURIComponent(agentRouteRef(agent))}`}
@@ -631,8 +658,8 @@ function useDepartmentKpis(companyId: string | null, teamKey: TeamHubKey) {
   });
 
   const fulfillmentQuery = useQuery({
-    queryKey: ["dashboard-boards", companyId, "fulfillment"],
-    queryFn: () => dashboardBoardsApi.fulfillment(companyId!),
+    queryKey: ["dashboard-boards", companyId, "fulfillment", "30d"],
+    queryFn: () => dashboardBoardsApi.fulfillment(companyId!, "30d"),
     enabled: Boolean(companyId) && teamKey === "fulfillment",
     staleTime: BOARD_STALE_TIME_MS,
   });
@@ -798,6 +825,8 @@ export function TeamHubPage() {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
         <TeamAgentsPanel
+          companyId={selectedCompanyId}
+          teamKey={team.key}
           teamLabel={team.label}
           agents={teamAgents}
           currentTaskByAgentId={currentTaskByAgentId}

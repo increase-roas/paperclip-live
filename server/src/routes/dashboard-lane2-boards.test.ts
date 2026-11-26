@@ -8,7 +8,15 @@ import { dashboardLane2BoardRoutes } from "./dashboard-lane2-boards.js";
 
 const companyId = "11111111-1111-4111-8111-111111111111";
 const otherCompanyId = "22222222-2222-4222-8222-222222222222";
-const ENV_KEYS = ["SALES_DASHBOARD_ADMIN_KEY", "GATEWAY_PAPERCLIP_KEY", "GATEWAY_WAVV_KEY"] as const;
+const ENV_KEYS = [
+  "SALES_DASHBOARD_ADMIN_KEY",
+  "GATEWAY_PAPERCLIP_KEY",
+  "GATEWAY_WAVV_KEY",
+  "GATEWAY_META_KEY",
+  "GATEWAY_GHL_KEY",
+  "GHL_ALEX_BLOOMFIELD_PIT_KEY",
+  "GHL_ALEX_BLOOMFIELD_LOCATION_ID",
+] as const;
 
 function app(actor: Express.Request["actor"] = {
   type: "board",
