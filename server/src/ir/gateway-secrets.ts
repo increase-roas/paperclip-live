@@ -194,7 +194,9 @@ export function validateProviderSecretsPayload(
   provider: string,
   rawSecrets: unknown,
 ): { ok: true; entries: Array<[string, string]> } | { ok: false; error: string } {
-  const spec = GATEWAY_PROVIDER_SECRETS[provider];
+  const spec = Object.hasOwn(GATEWAY_PROVIDER_SECRETS, provider)
+    ? GATEWAY_PROVIDER_SECRETS[provider]
+    : undefined;
   if (!spec) {
     return { ok: false, error: `Provider "${provider}" does not support direct secret binding.` };
   }
@@ -280,7 +282,8 @@ export async function putCloudflareWorkerSecrets(
         }
         return {
           ok: false,
-          status: response.status >= 400 && response.status < 600 ? response.status : 502,
+          // Don't pass Cloudflare's 401/403 through as Paperclip's own auth status.
+          status: 502,
           error: cfMessage,
         };
       }

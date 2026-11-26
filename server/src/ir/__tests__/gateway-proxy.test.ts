@@ -349,6 +349,10 @@ describe("gatewayProxyRoutes", () => {
       .put("/api/gateway/admin/secrets/fireflies")
       .send({ secrets: { FIREFLIES_API_KEY: "bad\nvalue" } })
       .expect(400);
+    await request(adminApp)
+      .put("/api/gateway/admin/secrets/constructor")
+      .send({ secrets: { FOO: "bar" } })
+      .expect(400);
 
     // Valid PUT binds both QuickBooks secrets and never echoes raw values
     const okRes = await request(adminApp)
