@@ -15,7 +15,7 @@ on:
 
 concurrency:
   group: ir-image-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -58,8 +58,8 @@ jobs:
           targets: ir
           push: true
           set: |
-            *.cache-from=type=gha,scope=ir-image
-            *.cache-to=type=gha,scope=ir-image,mode=min
+            *.cache-from=type=registry,ref=ghcr.io/increase-roas/paperclip:buildcache
+            *.cache-to=type=registry,ref=ghcr.io/increase-roas/paperclip:buildcache,mode=max
         env:
           PAPERCLIP_BUILD_COMMIT: ${{ steps.v.outputs.commit }}
           PAPERCLIP_BUILD_VERSION: ${{ steps.v.outputs.version }}

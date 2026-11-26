@@ -20,7 +20,7 @@ on:
 
 concurrency:
   group: ir-ci-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -99,16 +99,14 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true' && needs.changes.outputs.full == 'true'
     runs-on: ${{ fromJSON(github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && '["self-hosted", "brain-vps"]' || '"ubuntu-latest"') }}
-    # Passing serialized shards take 10 to 13 minutes. The old single general
-    # job hit the 90 minute limit 76 of 92 times in Nov 2026 and never passed,
-    # so a hang now costs 20 to 40 minutes, not 90. A leg can set its own
-    # `timeout` in the matrix (the native-runner leg compiles Rust first).
-    timeout-minutes: ${{ matrix.timeout || (matrix.mode == 'general' && 40 || 20) }}
+    # Passing serialized shards take 10 to 13 minutes on GitHub-hosted runners and
+    # ~15 to 22 minutes on brain-vps, so serialized gets a 30-minute cap and general
+    # gets 40. A leg can set its own `timeout` in the matrix (native-runner compiles Rust).
+    timeout-minutes: ${{ matrix.timeout || (matrix.mode == 'general' && 40 || 30) }}
     env:
       # Keep the general-server shard worker count stable across hosts.
       PAPERCLIP_GENERAL_SERVER_SHARD_WORKERS: "1"
     strategy:
-      max-parallel: 1
       fail-fast: false
       matrix:
         include:
