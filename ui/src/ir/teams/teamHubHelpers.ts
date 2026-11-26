@@ -271,7 +271,9 @@ function classifyAgentRole(role: string): TeamHubKey[] {
   }
 }
 
-export function matchAgentTeams(agent: Agent): TeamHubKey[] {
+export function matchAgentTeams(
+  agent: Pick<Agent, "name" | "title" | "capabilities" | "metadata"> & { role: string; urlKey?: string },
+): TeamHubKey[] {
   const explicit = collectMetadataTeamKeys(agent.metadata);
   if (explicit.length > 0) return explicit;
 

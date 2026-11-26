@@ -29,7 +29,7 @@ export function AgentDepartmentsPopover({
   const mutation = useMutation({
     mutationFn: async ({ teamKey, include }: { teamKey: TeamHubKey; include: boolean }) => {
       const current = await agentsApi.getConfiguration(agent.id, companyId);
-      const latestTeams = matchAgentTeams({ ...agent, metadata: current.metadata });
+      const latestTeams = matchAgentTeams({ ...current, urlKey: agent.urlKey });
       const nextDepartments = include
         ? [...latestTeams, teamKey]
         : latestTeams.filter((entry) => entry !== teamKey);
