@@ -44,6 +44,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check paid eval entrypoint safety
+        run: node --test scripts/__tests__/runner-live-eval-safety.test.mjs
+
       - name: Run static readiness checks
         run: pnpm check:readiness
 
