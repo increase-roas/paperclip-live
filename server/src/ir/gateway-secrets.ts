@@ -7,7 +7,8 @@ export interface ProviderSecretField {
 export interface ProviderSecretSpec {
   provider: string;
   label: string;
-  redirectUri?: string;
+  /** OAuth callback path on the Gateway; the route prefixes the Gateway URL. */
+  redirectPath?: string;
   fields: ProviderSecretField[];
 }
 
@@ -23,7 +24,6 @@ const DEFAULT_CF_ACCOUNT_ID = "a3f549867f040e13df33e5bd18f785f4";
 const DEFAULT_CF_WORKER_NAME = "increase-roas-oauth-gateway";
 const DEFAULT_CF_API_BASE = "https://api.cloudflare.com/client/v4";
 const DEFAULT_TIMEOUT_MS = 20_000;
-const GATEWAY_ORIGIN = "https://increase-roas-oauth-gateway.increase-roas.workers.dev";
 
 // Strict allowlist of provider -> Cloudflare Worker encrypted secret bindings.
 // Arbitrary secret names are rejected so Paperclip can only write known provider keys.
@@ -38,16 +38,16 @@ export const GATEWAY_PROVIDER_SECRETS: Record<string, ProviderSecretSpec> = {
   quickbooks: {
     provider: "quickbooks",
     label: "QuickBooks Online",
-    redirectUri: `${GATEWAY_ORIGIN}/oauth/quickbooks/callback`,
+    redirectPath: "/oauth/quickbooks/callback",
     fields: [
-      { key: "QUICKBOOKS_CLIENT_ID", label: "QuickBooks Client ID", placeholder: "AB..." },
-      { key: "QUICKBOOKS_CLIENT_SECRET", label: "QuickBooks Client Secret", placeholder: "Paste Client Secret" },
+      { key: "QBO_CLIENT_ID", label: "QuickBooks Client ID", placeholder: "AB..." },
+      { key: "QBO_CLIENT_SECRET", label: "QuickBooks Client Secret", placeholder: "Paste Client Secret" },
     ],
   },
   gmail: {
     provider: "gmail",
     label: "Gmail",
-    redirectUri: `${GATEWAY_ORIGIN}/oauth/gmail/callback`,
+    redirectPath: "/oauth/gmail/callback",
     fields: [
       { key: "GOOGLE_OAUTH_CLIENT_ID", label: "Google OAuth Client ID", placeholder: "...apps.googleusercontent.com" },
       { key: "GOOGLE_OAUTH_CLIENT_SECRET", label: "Google OAuth Client Secret", placeholder: "GOCSPX-..." },
@@ -56,7 +56,7 @@ export const GATEWAY_PROVIDER_SECRETS: Record<string, ProviderSecretSpec> = {
   zoom: {
     provider: "zoom",
     label: "Zoom",
-    redirectUri: `${GATEWAY_ORIGIN}/oauth/zoom/callback`,
+    redirectPath: "/oauth/zoom/callback",
     fields: [
       { key: "ZOOM_CLIENT_ID", label: "Zoom Client ID", placeholder: "Paste Zoom Client ID" },
       { key: "ZOOM_CLIENT_SECRET", label: "Zoom Client Secret", placeholder: "Paste Zoom Client Secret" },
@@ -76,20 +76,6 @@ export const GATEWAY_PROVIDER_SECRETS: Record<string, ProviderSecretSpec> = {
       { key: "BRAINTRUST_API_KEY", label: "Braintrust API Key", placeholder: "sk-..." },
     ],
   },
-  openai: {
-    provider: "openai",
-    label: "OpenAI",
-    fields: [
-      { key: "OPENAI_API_KEY", label: "OpenAI API Key", placeholder: "sk-..." },
-    ],
-  },
-  anthropic: {
-    provider: "anthropic",
-    label: "Anthropic",
-    fields: [
-      { key: "ANTHROPIC_API_KEY", label: "Anthropic API Key", placeholder: "sk-ant-..." },
-    ],
-  },
   slack: {
     provider: "slack",
     label: "Slack",
@@ -102,41 +88,6 @@ export const GATEWAY_PROVIDER_SECRETS: Record<string, ProviderSecretSpec> = {
     label: "GitHub",
     fields: [
       { key: "GITHUB_TOKEN", label: "GitHub Token", placeholder: "ghp_... or github_pat_..." },
-    ],
-  },
-  stripe: {
-    provider: "stripe",
-    label: "Stripe",
-    fields: [
-      { key: "STRIPE_SECRET_KEY", label: "Stripe Secret Key", placeholder: "sk_live_..." },
-    ],
-  },
-  airtable: {
-    provider: "airtable",
-    label: "Airtable",
-    fields: [
-      { key: "AIRTABLE_API_KEY", label: "Airtable Personal Access Token", placeholder: "pat..." },
-    ],
-  },
-  notion: {
-    provider: "notion",
-    label: "Notion",
-    fields: [
-      { key: "NOTION_API_KEY", label: "Notion Integration Token", placeholder: "ntn_... or secret_..." },
-    ],
-  },
-  linear: {
-    provider: "linear",
-    label: "Linear",
-    fields: [
-      { key: "LINEAR_API_KEY", label: "Linear API Key", placeholder: "lin_api_..." },
-    ],
-  },
-  perplexity: {
-    provider: "perplexity",
-    label: "Perplexity",
-    fields: [
-      { key: "PERPLEXITY_API_KEY", label: "Perplexity API Key", placeholder: "pplx-..." },
     ],
   },
   elevenlabs: {
@@ -237,13 +188,17 @@ export function validateProviderSecretsPayload(
 export async function putCloudflareWorkerSecrets(
   entries: Array<[string, string]>,
   opts?: CloudflareSecretWriterOptions,
-): Promise<{ ok: true; updatedKeys: string[] } | { ok: false; status: number; error: string }> {
+): Promise<
+  | { ok: true; updatedKeys: string[] }
+  | { ok: false; status: number; error: string; updatedKeys: string[] }
+> {
   const cfg = resolveCloudflareSecretConfig(opts);
   if (!cfg.configured) {
     return {
       ok: false,
       status: 503,
       error: "CLOUDFLARE_API_TOKEN is not configured on this Paperclip server.",
+      updatedKeys: [],
     };
   }
 
@@ -285,14 +240,20 @@ export async function putCloudflareWorkerSecrets(
           // Don't pass Cloudflare's 401/403 through as Paperclip's own auth status.
           status: 502,
           error: cfMessage,
+          updatedKeys,
         };
       }
       updatedKeys.push(name);
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") {
-        return { ok: false, status: 504, error: `Timed out binding ${name} on Cloudflare.` };
+        return { ok: false, status: 504, error: `Timed out binding ${name} on Cloudflare.`, updatedKeys };
       }
-      return { ok: false, status: 502, error: `Could not reach Cloudflare API while binding ${name}.` };
+      return {
+        ok: false,
+        status: 502,
+        error: `Could not reach Cloudflare API while binding ${name}.`,
+        updatedKeys,
+      };
     } finally {
       clearTimeout(timer);
     }

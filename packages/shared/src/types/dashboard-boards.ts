@@ -366,6 +366,8 @@ export interface DashboardFulfillmentBoard {
   wavvDelivery?: DashboardFulfillmentWavvDelivery;
   /** Hormozi's four retention questions, read first. */
   retention: DashboardFulfillmentRetention;
+  /** Total distinct client projects with open work, before truncating clients. */
+  clientsWithOpenWork?: number;
   clients: DashboardFulfillmentClient[];
   openClientTasks: {
     total: number;

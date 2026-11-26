@@ -465,6 +465,7 @@ export function dashboardFulfillmentService(db: Db, deps: DashboardFulfillmentDe
         clientDelivery: buildClientDelivery(period, portfolioBundle),
         wavvDelivery: buildWavvDelivery(period, wavvSummary),
         retention: retentionWithoutSources(),
+        clientsWithOpenWork: clientById.size,
         clients: clients.slice(0, ITEM_LIMIT),
         openClientTasks: {
           total: openIssueRows.length - unassigned,

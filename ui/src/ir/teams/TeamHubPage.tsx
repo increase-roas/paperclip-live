@@ -732,7 +732,7 @@ export function TeamHubPage() {
 
   const issuesQuery = useQuery({
     queryKey: [...queryKeys.issues.list(selectedCompanyId ?? ""), "open"],
-    queryFn: () => issuesApi.list(selectedCompanyId!, { status: OPEN_TASK_STATUS_FILTER }),
+    queryFn: () => issuesApi.listAll(selectedCompanyId!, { status: OPEN_TASK_STATUS_FILTER }),
     enabled: Boolean(selectedCompanyId && team),
   });
 

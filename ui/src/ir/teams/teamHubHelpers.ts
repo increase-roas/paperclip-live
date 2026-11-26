@@ -690,7 +690,7 @@ export function selectFulfillmentKpis(board: DashboardFulfillmentBoard | undefin
         id: "open-client-tasks",
         label: "Open client tasks",
         value: String(board.openClientTasks.total),
-        detail: `${board.clients.length} ${board.clients.length === 1 ? "client" : "clients"} · ${board.onboarding.openSteps} onboarding`,
+        detail: `${board.clientsWithOpenWork ?? board.clients.length} ${(board.clientsWithOpenWork ?? board.clients.length) === 1 ? "client" : "clients"} · ${board.onboarding.openSteps} onboarding`,
         tone: "default",
       },
     ];
@@ -725,9 +725,11 @@ export function selectFulfillmentKpis(board: DashboardFulfillmentBoard | undefin
     {
       id: "clients-with-open-work",
       label: "Clients with open work",
-      value: String(board.clients.length),
-      detail: "Active client projects with open tasks",
-      tone: "default",
+      value: board.clientsWithOpenWork === undefined ? "—" : String(board.clientsWithOpenWork),
+      detail: board.clientsWithOpenWork === undefined
+        ? "Awaiting total count"
+        : "Client projects with open tasks",
+      tone: board.clientsWithOpenWork === undefined ? "muted" : "default",
     },
     {
       id: "open-onboarding-steps",
@@ -747,7 +749,7 @@ export function selectOperationsKpis(summary: DashboardSummary | undefined): Hea
     summary.agents.running +
     summary.agents.paused +
     summary.agents.error;
-  const pendingApprovals = summary.pendingApprovals + summary.budgets.pendingApprovals;
+  const pendingApprovals = summary.pendingApprovals;
 
   return [
     {

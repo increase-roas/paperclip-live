@@ -6,13 +6,22 @@ export class IrApiError extends Error {
   status: number;
   code?: string;
   hint?: string;
+  /** Parsed JSON error body, for endpoints that return extra fields on failure. */
+  body?: Record<string, unknown>;
 
-  constructor(message: string, status: number, code?: string, hint?: string) {
+  constructor(
+    message: string,
+    status: number,
+    code?: string,
+    hint?: string,
+    body?: Record<string, unknown>,
+  ) {
     super(message);
     this.name = "IrApiError";
     this.status = status;
     this.code = code;
     this.hint = hint;
+    this.body = body;
   }
 }
 
@@ -65,6 +74,7 @@ async function irFetch<T>(
         res.status,
         typeof data.error === "string" ? data.error : undefined,
         typeof data.hint === "string" ? data.hint : undefined,
+        data,
       );
     }
     return data as T;
@@ -642,7 +652,8 @@ export const irOpsApi = {
     saveProviderSecrets: (provider: string, secrets: Record<string, string>) =>
       irFetch<{ ok: boolean; provider: string; updatedKeys: string[] }>(
         `/api/gateway/admin/secrets/${encodeURIComponent(provider)}`,
-        { method: "PUT", body: JSON.stringify({ secrets }) },
+        // The server writes one Cloudflare secret at a time, 20s timeout each.
+        { method: "PUT", body: JSON.stringify({ secrets }), timeoutMs: 45_000 },
       ),
   },
 

@@ -99,11 +99,17 @@ function sanitizeSecretSensitiveResponse(
 /** Report a server-side crash to every error sink. */
 function reportCrash(error: Error, req: Request, statusCode: number, reportToSentry = true): void {
   try {
+    const pattern = req.route?.path;
+    const secretRoute = typeof pattern === "string" && /^\/(?:api\/)?(?:invites|board-claim)\//i.test(pattern);
+    // Express restores baseUrl when an error leaves the mounted API router.
+    const mount = secretRoute && /^\/api\//i.test(req.originalUrl) && !/^\/api\//i.test(pattern)
+      ? "/api"
+      : req.baseUrl;
     recordServerError({
       severity: "error",
       message: error.message,
       stack: error.stack,
-      route: req.originalUrl.split("?", 1)[0],
+      route: secretRoute ? `${mount}${pattern}` : req.originalUrl,
       method: req.method,
       statusCode,
       release: parseBuildCommit(process.env.PAPERCLIP_BUILD_COMMIT) ?? undefined,

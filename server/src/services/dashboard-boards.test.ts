@@ -647,7 +647,12 @@ describe("dashboardBoardService", () => {
     }
   });
 
-  it("populates agency Revenue per FTE from QuickBooks via Gateway", async () => {
+  it.each([
+    { revenue: 75000, perFte: 25000 },
+    { revenue: 0, perFte: 0 },
+    { revenue: -300, perFte: -100 },
+  ])("uses QuickBooks revenue $revenue for Revenue per FTE over legacy revenue", async ({ revenue, perFte }) => {
+    process.env.SALES_DASHBOARD_ADMIN_KEY = "test-key";
     const fakeRoster = {
       sourceId: "team_capital" as const,
       read: async () => ({
@@ -661,6 +666,12 @@ describe("dashboardBoardService", () => {
     };
     const svc = dashboardBoardService(pinnedNow, {
       teamRoster: fakeRoster,
+      fetchImpl: async () => new Response(JSON.stringify({
+        ok: true,
+        view: "30d",
+        generatedAt: "2026-11-23T11:00:00.000Z",
+        owner: { marketing: { salesUsd: 90000 } },
+      }), { status: 200 }),
       quickbooksReader: async () => ({
         period: "30d",
         startDate: "2026-10-26",
@@ -668,7 +679,7 @@ describe("dashboardBoardService", () => {
         observedAt: "2026-11-25T18:00:00.000Z",
         source: "quickbooks_gateway",
         cashCollectedUsd: 60000,
-        accrualRevenueUsd: 75000,
+        accrualRevenueUsd: revenue,
         cogsUsd: 15000,
         grossProfitUsd: 60000,
         grossMarginPercent: 80,
@@ -681,8 +692,12 @@ describe("dashboardBoardService", () => {
     });
     const humans = await svc.board("human-employees", companyId, "30d");
     const byId = new Map(humans.tiles.map((t) => [t.id, t.value]));
-    // $75,000 agency accrual revenue / 3 active FTEs = $25,000 per FTE
-    expect(byId.get("revenue-per-fte")).toMatchObject({ kind: "live", value: 25000, unit: "usd" });
+    expect(byId.get("revenue-per-fte")).toEqual({
+      kind: "live",
+      value: perFte,
+      unit: "usd",
+      observedAt: "2026-11-25T18:00:00.000Z",
+    });
   });
 
   it("returns not_connected on month-to-date agency sales and marketing boards when agency sources return null", async () => {

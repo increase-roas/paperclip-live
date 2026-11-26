@@ -76,15 +76,18 @@ vi.mock("@/api/agents", () => ({
   },
 }));
 
-vi.mock("@/api/issues", () => ({
-  issuesApi: {
-    list: async (companyId: string, filters?: unknown) => {
-      fixture.issuesListSpy(companyId, filters);
-      if (fixture.failIssues) throw new Error("issues 500");
-      return fixture.issues;
-    },
-  },
-}));
+vi.mock("@/api/issues", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/api/issues")>();
+  vi.spyOn(actual.issuesApi, "list").mockImplementation(async (companyId, filters) => {
+    fixture.issuesListSpy(companyId, filters);
+    if (fixture.failIssues) throw new Error("issues 500");
+    const start = filters?.afterId
+      ? fixture.issues.findIndex((issue) => issue.id === filters.afterId) + 1
+      : 0;
+    return fixture.issues.slice(start, start + (filters?.limit ?? 500));
+  });
+  return actual;
+});
 
 vi.mock("@/api/projects", () => ({
   projectsApi: { list: async () => fixture.projects },
@@ -322,7 +325,7 @@ describe("TeamHubPage", () => {
     // Verifies cache key parity with useDashboardBoard and open-only issue query
     expect(client.getQueryData([...queryKeys.dashboardBoard("company-1", "marketing"), "30d"])).toBeDefined();
     expect(client.getQueryData([...queryKeys.dashboardBoard("company-1", "human-employees"), "30d"])).toBeDefined();
-    expect(fixture.issuesListSpy).toHaveBeenCalledWith("company-1", { status: OPEN_TASK_STATUS_FILTER });
+    expect(fixture.issuesListSpy).toHaveBeenCalledWith("company-1", expect.objectContaining({ status: OPEN_TASK_STATUS_FILTER }));
 
     const kpiText = container.querySelector('[data-testid="team-hub-kpi-strip"]')?.textContent ?? "";
     expect(kpiText).toContain("$37,081.02");
@@ -348,6 +351,33 @@ describe("TeamHubPage", () => {
     const newTaskBtn = container.querySelector<HTMLButtonElement>('[data-testid="team-hub-new-task"]');
     await act(async () => newTaskBtn!.click());
     expect(fixture.openNewIssue).toHaveBeenCalledWith({ title: "[Marketing] " });
+  });
+
+  it("loads tasks beyond the first API page and preserves department filtering and agent assignments", async () => {
+    const task = fixture.issues[0]!;
+    fixture.issues = Array.from({ length: 501 }, (_, index) => ({
+      ...task,
+      id: `task-${String(index).padStart(4, "0")}`,
+      identifier: `INC-${1000 + index}`,
+      title: index === 500 ? "[Marketing] Second-page campaign" : `[Sales] Task ${index}`,
+      projectId: null,
+      labels: [],
+      assigneeAgentId: index === 500 ? "a-ads" : "a-sales",
+    }));
+
+    await renderPage();
+
+    const tasks = container.querySelector('[data-testid="team-hub-tasks"]');
+    expect(tasks?.querySelector('[data-testid="team-task-row-INC-1500"]')).not.toBeNull();
+    expect(tasks?.textContent).toContain("Ads Auditor");
+    expect(tasks?.textContent).not.toContain("[Sales]");
+    expect(container.querySelector('[data-testid="team-agent-row-ads-auditor"]')?.textContent)
+      .toContain("Second-page campaign");
+    expect(fixture.issuesListSpy).toHaveBeenCalledTimes(2);
+    expect(fixture.issuesListSpy).toHaveBeenLastCalledWith("company-1", expect.objectContaining({
+      status: OPEN_TASK_STATUS_FILTER,
+      afterId: "task-0499",
+    }));
   });
 
   it("renders Sales Team Hub with agency GHL KPIs, Sales agent, Sales tasks, and setters", async () => {
