@@ -580,7 +580,14 @@ export async function readAgencyQuickBooksFinancials(
       accountsRes.ok && isRecord(accountsRes.body?.data) && Array.isArray(accountsRes.body.data.items)
         ? accountsRes.body.data.items
         : [];
-    const firstActive = items.find((item) => isRecord(item) && typeof item.id === "string");
+    // Check toolkit and status here too, in case the gateway drops the query filter.
+    const firstActive = items.find(
+      (item) =>
+        isRecord(item) &&
+        typeof item.id === "string" &&
+        String(item.status ?? "").toUpperCase() === "ACTIVE" &&
+        (isRecord(item.toolkit) ? item.toolkit.slug : item.toolkit_slug) === "quickbooks",
+    );
     if (isRecord(firstActive)) {
       composioAccountId = typeof firstActive.id === "string" ? firstActive.id.trim() : "";
       if (!composioUserId && typeof firstActive.user_id === "string") {

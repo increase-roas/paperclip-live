@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   parseQuickBooksProfitAndLoss,
   quickBooksPeriodRange,
@@ -213,6 +213,95 @@ describe("quickbooks-client", () => {
       source: "quickbooks_composio",
       cashCollectedUsd: 60000,
       grossMarginPercent: 75,
+    });
+  });
+
+  describe("composio connected account discovery", () => {
+    type Call = { path: string; body: Record<string, unknown> };
+
+    function composioMock(accounts: Response | null): { fetchImpl: typeof fetch; calls: Call[] } {
+      const calls: Call[] = [];
+      const fetchImpl = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+        const target = String(url);
+        if (target.includes("/api/providers/quickbooks/call")) {
+          return new Response(JSON.stringify({ error: "provider_not_connected" }), { status: 503 });
+        }
+        const payload = init?.body ? JSON.parse(String(init.body)) : {};
+        calls.push({ path: payload.path, body: payload.body ?? {} });
+        if (payload.path === "/connected_accounts") {
+          return accounts ?? new Response("{}", { status: 404 });
+        }
+        return new Response(JSON.stringify({ ok: true, data: { response_data: SAMPLE_PNL_CASH } }), {
+          status: 200,
+        });
+      });
+      return { fetchImpl: fetchImpl as unknown as typeof fetch, calls };
+    }
+
+    const accountsResponse = (items: unknown[]) =>
+      new Response(JSON.stringify({ ok: true, data: { items } }), { status: 200 });
+    const read = (fetchImpl: typeof fetch) =>
+      readAgencyQuickBooksFinancials("30d", {
+        baseUrl: "https://gw.example",
+        token: "paperclip-gw-key",
+        fetchImpl,
+        now: () => pinnedNow,
+        bypassCache: true,
+      });
+    const executeBodies = (calls: Call[]) =>
+      calls.filter((c) => c.path === "/tools/execute/QUICKBOOKS_GET_PROFIT_AND_LOSS_REPORT").map((c) => c.body);
+
+    beforeEach(() => {
+      vi.stubEnv("COMPOSIO_QUICKBOOKS_ACCOUNT_ID", "");
+      vi.stubEnv("COMPOSIO_QUICKBOOKS_USER_ID", "");
+    });
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it("sends the discovered QuickBooks account and user to both report calls", async () => {
+      const { fetchImpl, calls } = composioMock(
+        accountsResponse([{ id: "ca_x", user_id: "u_x", status: "ACTIVE", toolkit: { slug: "quickbooks" } }]),
+      );
+      expect(await read(fetchImpl)).toMatchObject({ source: "quickbooks_composio", cashCollectedUsd: 60000 });
+      const bodies = executeBodies(calls);
+      expect(bodies).toHaveLength(2);
+      for (const body of bodies) {
+        expect(body).toMatchObject({ connected_account_id: "ca_x", user_id: "u_x" });
+      }
+    });
+
+    it("skips discovery when COMPOSIO_QUICKBOOKS_ACCOUNT_ID is set", async () => {
+      vi.stubEnv("COMPOSIO_QUICKBOOKS_ACCOUNT_ID", "ca_env");
+      const { fetchImpl, calls } = composioMock(null);
+      await read(fetchImpl);
+      expect(calls.some((c) => c.path === "/connected_accounts")).toBe(false);
+      for (const body of executeBodies(calls)) {
+        expect(body.connected_account_id).toBe("ca_env");
+      }
+    });
+
+    it("still returns the fallback without account ids when discovery fails", async () => {
+      const { fetchImpl, calls } = composioMock(new Response("{}", { status: 503 }));
+      expect(await read(fetchImpl)).toMatchObject({ source: "quickbooks_composio", cashCollectedUsd: 60000 });
+      for (const body of executeBodies(calls)) {
+        expect(body).not.toHaveProperty("connected_account_id");
+        expect(body).not.toHaveProperty("user_id");
+      }
+    });
+
+    it("ignores accounts that are not active QuickBooks accounts", async () => {
+      const { fetchImpl, calls } = composioMock(
+        accountsResponse([
+          { id: "ca_gmail", user_id: "u_g", status: "ACTIVE", toolkit: { slug: "gmail" } },
+          { id: "ca_qb_old", user_id: "u_o", status: "EXPIRED", toolkit: { slug: "quickbooks" } },
+          { id: "ca_qb", user_id: "u_q", status: "ACTIVE", toolkit: { slug: "quickbooks" } },
+        ]),
+      );
+      await read(fetchImpl);
+      for (const body of executeBodies(calls)) {
+        expect(body).toMatchObject({ connected_account_id: "ca_qb", user_id: "u_q" });
+      }
     });
   });
 
