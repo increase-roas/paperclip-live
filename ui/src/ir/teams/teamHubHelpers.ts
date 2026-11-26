@@ -203,24 +203,37 @@ function addAliasTokens(found: Set<TeamHubKey>, raw: string): void {
   }
 }
 
+function extractCanonicalFromValue(item: unknown): TeamHubKey[] {
+  const found = new Set<TeamHubKey>();
+  if (typeof item === "string") {
+    addAliasTokens(found, item);
+  } else if (Array.isArray(item)) {
+    for (const entry of item) {
+      if (typeof entry !== "string") continue;
+      addAliasTokens(found, entry);
+    }
+  }
+  return sortCanonicalTeams(found);
+}
+
 function collectMetadataTeamKeys(metadata: Record<string, unknown> | null | undefined): TeamHubKey[] {
   if (!metadata) return [];
+  // Canonical `metadata.departments` takes strict precedence when populated so
+  // removing a team via the popover is never undone by sticky legacy `tags`.
+  if (metadata.departments !== undefined) {
+    const explicitDepartments = extractCanonicalFromValue(metadata.departments);
+    if (explicitDepartments.length > 0) return explicitDepartments;
+  }
   const found = new Set<TeamHubKey>();
-  const candidates: unknown[] = [
-    metadata.departments,
+  const legacyCandidates: unknown[] = [
     metadata.department,
     metadata.teams,
     metadata.team,
     metadata.tags,
   ];
-  for (const item of candidates) {
-    if (typeof item === "string") {
-      addAliasTokens(found, item);
-    } else if (Array.isArray(item)) {
-      for (const entry of item) {
-        if (typeof entry !== "string") continue;
-        addAliasTokens(found, entry);
-      }
+  for (const item of legacyCandidates) {
+    for (const teamKey of extractCanonicalFromValue(item)) {
+      found.add(teamKey);
     }
   }
   return sortCanonicalTeams(found);
@@ -288,6 +301,10 @@ export function buildNextAgentDepartmentsMetadata(
   agent: Agent,
   nextDepartments: readonly TeamHubKey[],
 ): Record<string, unknown> {
+  const canonical = sortCanonicalTeams(nextDepartments);
+  if (canonical.length === 0) {
+    throw new Error("At least one valid department is required.");
+  }
   const existing =
     agent.metadata && typeof agent.metadata === "object" && !Array.isArray(agent.metadata)
       ? { ...agent.metadata }
@@ -297,7 +314,7 @@ export function buildNextAgentDepartmentsMetadata(
   delete existing.teams;
   return {
     ...existing,
-    departments: sortCanonicalTeams(nextDepartments),
+    departments: canonical,
   };
 }
 
@@ -603,16 +620,18 @@ export function selectSalesKpis(board: DashboardBoard | undefined): HeadlineKpi[
 export function selectFulfillmentKpis(board: DashboardFulfillmentBoard | undefined): HeadlineKpi[] {
   if (!board) return [];
 
-  if (board.clientDelivery || board.wavvDelivery) {
-    const cd = board.clientDelivery;
-    const wv = board.wavvDelivery;
-    const hasSpend = typeof cd?.adSpendUsd === "number";
-    const hasLeads = typeof cd?.newLeads === "number";
-    const hasCpl = typeof cd?.costPerLeadUsd === "number";
-    const hasCtr = typeof cd?.ctrPercent === "number";
-    const hasDials = typeof wv?.dials === "number";
-    const hasConvs = typeof wv?.conversationsOver60s === "number";
-    const hasTalk = typeof wv?.talkTimeMinutes === "number";
+  const cd = board.clientDelivery;
+  const wv = board.wavvDelivery;
+  const hasSpend = typeof cd?.adSpendUsd === "number" && Number.isFinite(cd.adSpendUsd);
+  const hasLeads = typeof cd?.newLeads === "number" && Number.isFinite(cd.newLeads);
+  const hasCpl = typeof cd?.costPerLeadUsd === "number" && Number.isFinite(cd.costPerLeadUsd);
+  const hasCtr = typeof cd?.ctrPercent === "number" && Number.isFinite(cd.ctrPercent);
+  const hasDials = typeof wv?.dials === "number" && Number.isFinite(wv.dials);
+  const hasConvs =
+    typeof wv?.conversationsOver60s === "number" && Number.isFinite(wv.conversationsOver60s);
+  const hasTalk = typeof wv?.talkTimeMinutes === "number" && Number.isFinite(wv.talkTimeMinutes);
+
+  if (hasSpend || hasLeads || hasCpl || hasCtr || hasDials || hasConvs || hasTalk) {
     const acctCount = cd?.accounts.length ?? 0;
 
     return [

@@ -231,14 +231,21 @@ function buildClientDelivery(
   const costPerLeadUsd = hasSpend && hasLeads && newLeads > 0 ? round2(spend / newLeads) : null;
   const ctrPercent =
     hasImpressions && impressions > 0 && hasClicks ? round2((clicks / impressions) * 100) : null;
+  const isSingleClient = clientOnly.length === 1;
   const showRatePercent =
-    hasBooked && booked > 0 && hasShowed ? round1((showed / booked) * 100) : fallbackShowRate;
+    hasBooked && booked > 0 && hasShowed
+      ? round1((showed / booked) * 100)
+      : isSingleClient
+        ? fallbackShowRate
+        : null;
   const closeRatePercent =
     hasPitched && pitched > 0 && hasWon
       ? round1((wonDeals / pitched) * 100)
       : hasShowed && showed > 0 && hasWon
         ? round1((wonDeals / showed) * 100)
-        : fallbackCloseRate;
+        : isSingleClient
+          ? fallbackCloseRate
+          : null;
 
   return {
     period,

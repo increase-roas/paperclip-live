@@ -574,8 +574,8 @@ describe("lane 3 dashboard boards", () => {
         zeroLeadDays: 0,
         accounts: [
           {
-            slug: "paradise-spas",
-            displayName: "Paradise Spas",
+            slug: "client-a",
+            displayName: "Client A",
             spend: 6650.77,
             newLeads: 55,
             cpl: 120.92,
@@ -604,7 +604,7 @@ describe("lane 3 dashboard boards", () => {
       },
     });
     await render(<FulfillmentBoard period="30d" />);
-    await vi.waitFor(() => expect(container.textContent).toContain("Paradise Spas"));
+    await vi.waitFor(() => expect(container.textContent).toContain("Client A"));
     expect(container.querySelector('[data-testid="fulfillment-client-ad-spend"]')?.textContent).toContain("$6,650.77");
     expect(container.querySelector('[data-testid="fulfillment-client-new-leads"]')?.textContent).toContain("55");
     expect(container.querySelector('[data-testid="fulfillment-client-cpl"]')?.textContent).toContain("$120.92");

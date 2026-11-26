@@ -105,10 +105,11 @@ interface RawGhlCalendarEvent {
 interface RawGhlTransaction {
   id?: string;
   amount?: number | string;
+  amountRefunded?: number | string;
   currency?: string;
   status?: string;
   createdAt?: string;
-  liveMode?: boolean;
+  liveMode?: boolean | string;
 }
 
 interface PeriodWindow {
@@ -118,23 +119,26 @@ interface PeriodWindow {
   endDay: string;
 }
 
-type LocationFetcher = (ghlPath: string, apiVersion?: string) => Promise<{ status: number; body: Record<string, unknown> | null }>;
+type LocationFetcher = (ghlPath: string) => Promise<{ status: number; body: Record<string, unknown> | null }>;
 
 const DEFAULT_GATEWAY_URL = "https://increase-roas-oauth-gateway.increase-roas.workers.dev";
 const DEFAULT_GHL_ORIGIN = "https://services.leadconnectorhq.com";
 const DEFAULT_AGENCY_COMPANY_ID = "uVK13CFqZs9TOBENvXSH";
 const DEFAULT_INCREASE_ROAS_MAIN_LOCATION_ID = "Sr90yJUmFoBTgBQuejtU";
 const DEFAULT_HOT_TUB_LAUNCH_B2B_LOCATION_ID = "AG47jEV5rVUrGLt5FlKO";
+const DEFAULT_ALEX_BLOOMFIELD_LOCATION_ID = "3uSZwndvL6yEo5syDV5m";
 const DEFAULT_TIMEOUT_MS = 8_000;
 const CACHE_TTL_MS = 5 * 60 * 1_000;
+const MAX_CACHE_ENTRIES = 64;
 const MAX_CALENDARS_PER_LOCATION = 10;
-const MAX_CONTACT_PAGES = 3;
+const MAX_CONTACT_PAGES = 10;
+const MAX_OPP_PAGES = 10;
 const USER_AGENT = "paperclip-server/1.0";
 const LOCATION_ID_RE = /^[A-Za-z0-9_-]{6,128}$/;
 const UNSET_SENTINELS = new Set(["none", "unset", "unconfigured", "null"]);
 
 /** Exclude recruiting/hiring pipelines and interview calendars from B2B sales metrics. */
-const RECRUITING_RE = /\b(applicant|applicants|hiring|recruit(?:ing|ment)?|candidate|interview|career|job\s+application)\b/i;
+const RECRUITING_RE = /\b(applicant|applicants|hiring|recruit(?:ing|ment)?|candidate|interview|careers?|job\s+application)\b/i;
 const NO_SHOW_STAGE_RE = /\b(no[\s-]*show|n\/s)\b/i;
 const NO_PITCH_STAGE_RE = /\bno[\s-]*pitch\b/i;
 const LOST_STAGE_RE = /\b(lost|dq|disqualified|not\s+interested|bad\s+number|bad\s+fit)\b/i;
@@ -146,6 +150,22 @@ const cache = new Map<string, { at: number; value: AgencySalesSummary }>();
 
 export function resetAgencySalesCache(): void {
   cache.clear();
+}
+
+function setCachedSummary(key: string, at: number, value: AgencySalesSummary): void {
+  for (const [entryKey, entry] of cache.entries()) {
+    const age = at - entry.at;
+    if (age < 0 || age >= CACHE_TTL_MS) {
+      cache.delete(entryKey);
+    }
+  }
+  cache.delete(key);
+  cache.set(key, { at, value });
+  while (cache.size > MAX_CACHE_ENTRIES) {
+    const oldestKey = cache.keys().next().value;
+    if (oldestKey === undefined) break;
+    cache.delete(oldestKey);
+  }
 }
 
 function round1(value: number): number {
@@ -306,59 +326,129 @@ function emptyAccount(
   };
 }
 
+function extractGhlNextCursor(body: Record<string, unknown>): {
+  nextId: string | null;
+  nextAfter: string | null;
+} {
+  const meta = isRecord(body.meta) ? body.meta : null;
+  let nextId = typeof meta?.startAfterId === "string" && meta.startAfterId ? meta.startAfterId : null;
+  let nextAfter =
+    meta?.startAfter !== null && meta?.startAfter !== undefined && String(meta.startAfter) !== ""
+      ? String(meta.startAfter)
+      : null;
+
+  if (!nextId && typeof meta?.nextPageUrl === "string" && meta.nextPageUrl) {
+    try {
+      const parsed = new URL(meta.nextPageUrl);
+      const urlId = parsed.searchParams.get("startAfterId");
+      const urlAfter = parsed.searchParams.get("startAfter");
+      if (urlId) nextId = urlId;
+      if (urlAfter) nextAfter = urlAfter;
+    } catch {
+      // Ignore malformed nextPageUrl values.
+    }
+  }
+  return { nextId, nextAfter };
+}
+
 async function countRecentContacts(
   fetcher: LocationFetcher,
   win: PeriodWindow,
-): Promise<{ status: number; count: number }> {
-  let count = 0;
+): Promise<{ ok: boolean; status: number; count: number; truncated: boolean }> {
+  const seenIds = new Set<string>();
+  let anonymousCount = 0;
   let startAfterId: string | null = null;
   let startAfter: string | null = null;
   let firstStatus = 0;
+  let truncated = false;
 
   for (let page = 0; page < MAX_CONTACT_PAGES; page += 1) {
     const qs = new URLSearchParams({ limit: "100" });
     if (startAfterId) qs.set("startAfterId", startAfterId);
     if (startAfter) qs.set("startAfter", startAfter);
-    const res = await fetcher(`/contacts/?${qs.toString()}`, "2021-07-28");
+    const res = await fetcher(`/contacts/?${qs.toString()}`);
     if (page === 0) firstStatus = res.status;
-    if (res.status !== 200 || !res.body) break;
+    if (res.status !== 200 || !res.body) {
+      return { ok: false, status: page === 0 ? res.status : firstStatus, count: 0, truncated: false };
+    }
     const contacts = Array.isArray(res.body.contacts) ? (res.body.contacts as RawGhlContact[]) : [];
     if (contacts.length === 0) break;
 
-    let oldestInPageMs = Infinity;
     for (const c of contacts) {
-      if (isTimestampInWindow(c.dateAdded, win)) count += 1;
-      const ms = c.dateAdded ? Date.parse(c.dateAdded) : NaN;
-      if (Number.isFinite(ms) && ms < oldestInPageMs) oldestInPageMs = ms;
+      if (isTimestampInWindow(c.dateAdded, win)) {
+        if (typeof c.id === "string" && c.id) {
+          seenIds.add(c.id);
+        } else {
+          anonymousCount += 1;
+        }
+      }
     }
 
-    if (contacts.length < 100 || oldestInPageMs < win.startMs) break;
-    const meta = isRecord(res.body.meta) ? res.body.meta : null;
-    const nextId = typeof meta?.startAfterId === "string" ? meta.startAfterId : null;
-    const nextCursor =
-      meta?.startAfter !== null && meta?.startAfter !== undefined ? String(meta.startAfter) : null;
+    if (contacts.length < 100) break;
+    const { nextId, nextAfter } = extractGhlNextCursor(res.body);
     if (!nextId || nextId === startAfterId) break;
+    if (page === MAX_CONTACT_PAGES - 1) {
+      truncated = true;
+      break;
+    }
     startAfterId = nextId;
-    startAfter = nextCursor;
+    startAfter = nextAfter;
   }
 
-  return { status: firstStatus, count };
+  return { ok: firstStatus === 200, status: firstStatus, count: seenIds.size + anonymousCount, truncated };
+}
+
+async function fetchOpportunityPages(
+  fetcher: LocationFetcher,
+  statusFilter: "all" | "won" | "lost",
+): Promise<{ ok: boolean; status: number; pages: Record<string, unknown>[]; truncated: boolean }> {
+  const pages: Record<string, unknown>[] = [];
+  let startAfterId: string | null = null;
+  let startAfter: string | null = null;
+  let firstStatus = 0;
+  let truncated = false;
+
+  for (let page = 0; page < MAX_OPP_PAGES; page += 1) {
+    const qs = new URLSearchParams({ limit: "100", status: statusFilter });
+    if (startAfterId) qs.set("startAfterId", startAfterId);
+    if (startAfter) qs.set("startAfter", startAfter);
+    const res = await fetcher(`/opportunities/search?${qs.toString()}`);
+    if (page === 0) firstStatus = res.status;
+    if (res.status !== 200 || !res.body) {
+      return { ok: false, status: page === 0 ? res.status : firstStatus, pages: [], truncated: false };
+    }
+    pages.push(res.body);
+    const list = Array.isArray(res.body.opportunities) ? res.body.opportunities : [];
+    if (list.length < 100) break;
+    const { nextId, nextAfter } = extractGhlNextCursor(res.body);
+    if (!nextId || nextId === startAfterId) break;
+    if (page === MAX_OPP_PAGES - 1) {
+      truncated = true;
+      break;
+    }
+    startAfterId = nextId;
+    startAfter = nextAfter;
+  }
+
+  return { ok: firstStatus === 200, status: firstStatus, pages, truncated };
 }
 
 async function readCalendarOutcomes(
   fetcher: LocationFetcher,
   win: PeriodWindow,
-): Promise<{ booked: number; showed: number; noShows: number; hasCalendarData: boolean }> {
-  const listRes = await fetcher("/calendars/", "v3");
+): Promise<{ ok: boolean; booked: number; showed: number; noShows: number; truncated: boolean }> {
+  const listRes = await fetcher("/calendars/");
   if (listRes.status !== 200 || !listRes.body) {
-    return { booked: 0, showed: 0, noShows: 0, hasCalendarData: false };
+    return { ok: false, booked: 0, showed: 0, noShows: 0, truncated: false };
   }
-  const calendars = (Array.isArray(listRes.body.calendars) ? (listRes.body.calendars as RawGhlCalendar[]) : [])
-    .filter((cal) => typeof cal.id === "string" && cal.id && !RECRUITING_RE.test(cal.name ?? ""))
-    .slice(0, MAX_CALENDARS_PER_LOCATION);
+  const eligibleCalendars = (
+    Array.isArray(listRes.body.calendars) ? (listRes.body.calendars as RawGhlCalendar[]) : []
+  ).filter((cal) => typeof cal.id === "string" && cal.id && !RECRUITING_RE.test(cal.name ?? ""));
+  const truncated = eligibleCalendars.length > MAX_CALENDARS_PER_LOCATION;
+  const calendars = eligibleCalendars.slice(0, MAX_CALENDARS_PER_LOCATION);
 
   if (calendars.length === 0) {
-    return { booked: 0, showed: 0, noShows: 0, hasCalendarData: true };
+    return { ok: true, booked: 0, showed: 0, noShows: 0, truncated: false };
   }
 
   let booked = 0;
@@ -371,12 +461,13 @@ async function readCalendarOutcomes(
       batch.map((cal) =>
         fetcher(
           `/calendars/events?calendarId=${encodeURIComponent(cal.id!)}&startTime=${win.startMs}&endTime=${win.endMs}`,
-          "v3",
         ),
       ),
     );
     for (const res of results) {
-      if (res.status !== 200 || !res.body || !Array.isArray(res.body.events)) continue;
+      if (res.status !== 200 || !res.body || !Array.isArray(res.body.events)) {
+        return { ok: false, booked: 0, showed: 0, noShows: 0, truncated: false };
+      }
       for (const rawEv of res.body.events as RawGhlCalendarEvent[]) {
         const st = String(rawEv.appointmentStatus ?? rawEv.status ?? "").trim().toLowerCase();
         if (st === "cancelled" || st === "canceled" || st === "invalid") continue;
@@ -387,14 +478,29 @@ async function readCalendarOutcomes(
     }
   }
 
-  return { booked, showed, noShows, hasCalendarData: true };
+  return { ok: true, booked, showed, noShows, truncated };
+}
+
+interface SummarizedSalesOpportunities {
+  activeOpportunities: number | null;
+  wonDeals: number | null;
+  lostDeals: number | null;
+  pipelineWonUsd: number | null;
+  stageBooked: number | null;
+  stageShowed: number | null;
+  stageNoShows: number | null;
+  stagePitched: number | null;
 }
 
 function summarizeSalesOpportunities(
   pipelines: readonly RawGhlPipeline[],
-  oppPages: ReadonlyArray<Record<string, unknown> | null>,
+  pages: {
+    allPages: readonly Record<string, unknown>[] | null;
+    wonPages: readonly Record<string, unknown>[] | null;
+    lostPages: readonly Record<string, unknown>[] | null;
+  },
   win: PeriodWindow,
-) {
+): SummarizedSalesOpportunities {
   const excludedPipelineIds = new Set<string>();
   const stageNameById = new Map<string, string>();
   for (const pipe of pipelines) {
@@ -406,11 +512,18 @@ function summarizeSalesOpportunities(
     }
   }
 
+  const hasAll = pages.allPages !== null;
+  const hasWon = pages.wonPages !== null;
+  const hasLost = pages.lostPages !== null;
+
   const deduped = new Map<string, RawGhlOpportunity>();
-  for (const body of oppPages) {
-    const list = body && Array.isArray(body.opportunities) ? (body.opportunities as RawGhlOpportunity[]) : [];
-    for (const opp of list) {
-      if (opp.id) deduped.set(opp.id, opp);
+  for (const group of [pages.allPages, pages.wonPages, pages.lostPages]) {
+    if (!group) continue;
+    for (const body of group) {
+      const list = Array.isArray(body.opportunities) ? (body.opportunities as RawGhlOpportunity[]) : [];
+      for (const opp of list) {
+        if (opp.id) deduped.set(opp.id, opp);
+      }
     }
   }
 
@@ -420,6 +533,7 @@ function summarizeSalesOpportunities(
   let pipelineWonUsd = 0;
   let stageBooked = 0;
   let stageShowed = 0;
+  let stageNoShows = 0;
   let stagePitched = 0;
 
   for (const opp of deduped.values()) {
@@ -428,76 +542,101 @@ function summarizeSalesOpportunities(
     const statusTs = opp.lastStatusChangeAt ?? opp.updatedAt ?? opp.createdAt;
     const inPeriodActivity = isTimestampInWindow(opp.createdAt, win) || isTimestampInWindow(opp.updatedAt, win);
     const inPeriodStatus = isTimestampInWindow(statusTs, win);
+    const isWonInPeriod = status === "won" && inPeriodStatus;
 
-    if (inPeriodActivity) {
+    if (hasAll && inPeriodActivity) {
       activeOpportunities += 1;
       const stageName = opp.pipelineStageId ? (stageNameById.get(opp.pipelineStageId) ?? "") : "";
       const isNoShow = NO_SHOW_STAGE_RE.test(stageName);
       const isLostStage = LOST_STAGE_RE.test(stageName);
-      if (!isNoShow && BOOKED_STAGE_RE.test(stageName)) stageBooked += 1;
-      if (!isNoShow && !isLostStage && SHOWED_STAGE_RE.test(stageName)) stageShowed += 1;
-      if (!NO_PITCH_STAGE_RE.test(stageName) && !isLostStage && PITCHED_STAGE_RE.test(stageName)) {
-        stagePitched += 1;
-      }
+      const oppShowed = !isNoShow && !isLostStage && (SHOWED_STAGE_RE.test(stageName) || isWonInPeriod);
+      const oppPitched =
+        !isNoShow &&
+        !NO_PITCH_STAGE_RE.test(stageName) &&
+        !isLostStage &&
+        (PITCHED_STAGE_RE.test(stageName) || isWonInPeriod);
+      const oppBooked = BOOKED_STAGE_RE.test(stageName) || oppShowed || oppPitched || isNoShow;
+
+      if (oppBooked) stageBooked += 1;
+      if (oppShowed) stageShowed += 1;
+      if (isNoShow) stageNoShows += 1;
+      if (oppPitched) stagePitched += 1;
     }
 
-    if (status === "won" && inPeriodStatus) {
+    if (hasWon && isWonInPeriod) {
       wonDeals += 1;
       pipelineWonUsd += parseMoney(opp.monetaryValue);
-    } else if (status === "lost" && inPeriodStatus) {
+    } else if (hasLost && status === "lost" && inPeriodStatus) {
       lostDeals += 1;
     }
   }
 
+  const finalStagePitched = hasAll ? (hasWon ? Math.max(stagePitched, wonDeals) : stagePitched) : null;
+  const finalStageShowed = hasAll ? (hasWon ? Math.max(stageShowed, wonDeals) : stageShowed) : null;
+  const finalStageNoShows = hasAll ? stageNoShows : null;
+  const finalStageBooked =
+    hasAll && finalStageShowed !== null && finalStageNoShows !== null
+      ? Math.max(stageBooked, finalStageShowed + finalStageNoShows)
+      : null;
+
   return {
-    activeOpportunities,
-    wonDeals,
-    lostDeals,
-    pipelineWonUsd: round2(pipelineWonUsd),
-    stageBooked,
-    stageShowed,
-    stagePitched: Math.max(stagePitched, wonDeals),
+    activeOpportunities: hasAll ? activeOpportunities : null,
+    wonDeals: hasWon ? wonDeals : null,
+    lostDeals: hasLost ? lostDeals : null,
+    pipelineWonUsd: hasWon ? round2(pipelineWonUsd) : null,
+    stageBooked: finalStageBooked,
+    stageShowed: finalStageShowed,
+    stageNoShows: finalStageNoShows,
+    stagePitched: finalStagePitched,
   };
 }
 
-function sumWindowTransactions(body: Record<string, unknown> | null, win: PeriodWindow): number {
-  if (!body || !Array.isArray(body.data)) return 0;
+function sumWindowTransactions(body: Record<string, unknown> | null, win: PeriodWindow): number | null {
+  if (!body || !Array.isArray(body.data)) return null;
   let total = 0;
   for (const rawTx of body.data as RawGhlTransaction[]) {
-    if (rawTx.liveMode === false) continue;
+    if (rawTx.liveMode === false || String(rawTx.liveMode ?? "").trim().toLowerCase() === "false") {
+      continue;
+    }
     const currency = typeof rawTx.currency === "string" ? rawTx.currency.trim().toUpperCase() : "USD";
     if (currency && currency !== "USD") continue;
     const st = String(rawTx.status ?? "").trim().toLowerCase();
     if (st && st !== "succeeded" && st !== "completed" && st !== "paid") continue;
     if (!isTimestampInWindow(rawTx.createdAt, win)) continue;
-    total += parseMoney(rawTx.amount);
+    const amount = parseMoney(rawTx.amount);
+    const refunded = parseMoney(rawTx.amountRefunded);
+    total += Math.max(0, amount - refunded);
   }
   return round2(total);
 }
 
 function computeRates(m: {
-  booked: number;
-  showed: number;
-  noShows: number;
-  pitched: number;
-  wonDeals: number;
-  lostDeals: number;
+  booked: number | null;
+  showed: number | null;
+  noShows: number | null;
+  pitched: number | null;
+  wonDeals: number | null;
+  lostDeals: number | null;
 }) {
   const showRate =
-    m.showed + m.noShows > 0
-      ? round1((m.showed / (m.showed + m.noShows)) * 100)
-      : m.booked > 0
-        ? round1((m.showed / m.booked) * 100)
-        : null;
+    m.showed !== null
+      ? m.noShows !== null && m.noShows > 0
+        ? round1(Math.min(100, (m.showed / (m.showed + m.noShows)) * 100))
+        : m.booked !== null && m.booked > 0
+          ? round1(Math.min(100, (m.showed / m.booked) * 100))
+          : null
+      : null;
   const offerRate =
-    m.showed > 0 && m.pitched > 0 ? round1(Math.min(100, (m.pitched / m.showed) * 100)) : null;
+    m.showed !== null && m.showed > 0 && m.pitched !== null && m.pitched > 0
+      ? round1(Math.min(100, (m.pitched / m.showed) * 100))
+      : null;
   const closeRate =
-    m.wonDeals + m.lostDeals > 0
+    m.wonDeals !== null && m.lostDeals !== null && m.wonDeals + m.lostDeals > 0
       ? round1((m.wonDeals / (m.wonDeals + m.lostDeals)) * 100)
-      : m.pitched > 0 && m.wonDeals > 0
-        ? round1((m.wonDeals / m.pitched) * 100)
-        : m.showed > 0 && m.wonDeals > 0
-          ? round1((m.wonDeals / m.showed) * 100)
+      : m.pitched !== null && m.pitched > 0 && m.wonDeals !== null && m.wonDeals > 0
+        ? round1(Math.min(100, (m.wonDeals / m.pitched) * 100))
+        : m.showed !== null && m.showed > 0 && m.wonDeals !== null && m.wonDeals > 0
+          ? round1(Math.min(100, (m.wonDeals / m.showed) * 100))
           : null;
   return { showRate, offerRate, closeRate };
 }
@@ -509,18 +648,20 @@ async function readSingleGhlAccount(
   observedAt: string,
 ): Promise<AgencySalesAccountMetrics> {
   const [pipelinesRes, oppsAllRes, oppsWonRes, oppsLostRes, contactsRes, calRes, txRes] = await Promise.all([
-    fetcher("/opportunities/pipelines", "v3"),
-    fetcher("/opportunities/search?limit=100&status=all", "v3"),
-    fetcher("/opportunities/search?limit=100&status=won", "v3"),
-    fetcher("/opportunities/search?limit=100&status=lost", "v3"),
+    fetcher("/opportunities/pipelines"),
+    fetchOpportunityPages(fetcher, "all"),
+    fetchOpportunityPages(fetcher, "won"),
+    fetchOpportunityPages(fetcher, "lost"),
     countRecentContacts(fetcher, win),
     readCalendarOutcomes(fetcher, win),
-    fetcher(`/payments/transactions?limit=50&paymentMode=live&startAt=${win.startDay}&endAt=${win.endDay}`, "v3"),
+    fetcher(`/payments/transactions?limit=50&paymentMode=live&startAt=${win.startDay}&endAt=${win.endDay}`),
   ]);
 
-  const statuses = [pipelinesRes.status, oppsAllRes.status, contactsRes.status];
-  const anyOk = statuses.some((s) => s === 200);
-  if (!anyOk) {
+  const pipelinesOk =
+    pipelinesRes.status === 200 && pipelinesRes.body !== null && Array.isArray(pipelinesRes.body.pipelines);
+  const anyUsable = pipelinesOk || contactsRes.ok || calRes.ok;
+  if (!anyUsable) {
+    const statuses = [pipelinesRes.status, oppsAllRes.status, oppsWonRes.status, oppsLostRes.status, contactsRes.status];
     const authFailed = statuses.some((s) => s === 400 || s === 401 || s === 403 || s === 404);
     return emptyAccount(
       spec.id,
@@ -536,29 +677,67 @@ async function readSingleGhlAccount(
     );
   }
 
-  const pipelines =
-    pipelinesRes.status === 200 && pipelinesRes.body && Array.isArray(pipelinesRes.body.pipelines)
-      ? (pipelinesRes.body.pipelines as RawGhlPipeline[])
-      : [];
-  const opps = summarizeSalesOpportunities(
-    pipelines,
-    [oppsAllRes.body, oppsWonRes.body, oppsLostRes.body],
-    win,
-  );
+  // Fail closed on recruiting pipeline exclusion: only read opportunities when
+  // /opportunities/pipelines succeeded so recruiting pipelines can never leak in.
+  const opps: SummarizedSalesOpportunities | null = pipelinesOk
+    ? summarizeSalesOpportunities(
+        pipelinesRes.body!.pipelines as RawGhlPipeline[],
+        {
+          allPages: oppsAllRes.ok ? oppsAllRes.pages : null,
+          wonPages: oppsWonRes.ok ? oppsWonRes.pages : null,
+          lostPages: oppsLostRes.ok ? oppsLostRes.pages : null,
+        },
+        win,
+      )
+    : null;
 
-  const booked = calRes.booked > 0 ? calRes.booked : opps.stageBooked;
-  const showed = calRes.showed > 0 ? calRes.showed : opps.stageShowed;
-  const noShows = calRes.noShows;
-  const pitched = opps.stagePitched;
-  const cashCollectedUsd = sumWindowTransactions(txRes.body, win);
+  // Keep booked, showed, and noShows sourced consistently from either calendars
+  // or opportunity stages — never mix calendar booked with stage showed.
+  let booked: number | null = null;
+  let showed: number | null = null;
+  let noShows: number | null = null;
+  if (calRes.ok && calRes.booked > 0) {
+    booked = calRes.booked;
+    showed = calRes.showed;
+    noShows = calRes.noShows;
+  } else if (opps && opps.stageBooked !== null) {
+    booked = opps.stageBooked;
+    showed = opps.stageShowed;
+    noShows = opps.stageNoShows;
+  } else if (calRes.ok) {
+    booked = 0;
+    showed = 0;
+    noShows = 0;
+  }
+
+  const pitched = opps ? opps.stagePitched : null;
+  const wonDeals = opps ? opps.wonDeals : null;
+  const lostDeals = opps ? opps.lostDeals : null;
+  const pipelineWonUsd = opps ? opps.pipelineWonUsd : null;
+  const activeOpportunities = opps ? opps.activeOpportunities : null;
+  const cashCollectedUsd = txRes.status === 200 ? sumWindowTransactions(txRes.body, win) : null;
   const rates = computeRates({
     booked,
     showed,
     noShows,
     pitched,
-    wonDeals: opps.wonDeals,
-    lostDeals: opps.lostDeals,
+    wonDeals,
+    lostDeals,
   });
+
+  const isPartial =
+    contactsRes.truncated ||
+    oppsAllRes.truncated ||
+    oppsWonRes.truncated ||
+    oppsLostRes.truncated ||
+    calRes.truncated ||
+    !pipelinesOk ||
+    !oppsAllRes.ok ||
+    !oppsWonRes.ok ||
+    !oppsLostRes.ok ||
+    !contactsRes.ok ||
+    !calRes.ok ||
+    txRes.status !== 200;
 
   return {
     id: spec.id,
@@ -566,17 +745,17 @@ async function readSingleGhlAccount(
     locationId: spec.locationId,
     authMode: spec.authMode,
     status: "live",
-    statusLabel: "Live",
+    statusLabel: isPartial ? "Live (partial)" : "Live",
     observedAt,
-    newLeads: contactsRes.status === 200 ? contactsRes.count : 0,
-    activeOpportunities: opps.activeOpportunities,
+    newLeads: contactsRes.ok ? contactsRes.count : null,
+    activeOpportunities,
     booked,
     showed,
     noShows,
     pitched,
-    wonDeals: opps.wonDeals,
-    lostDeals: opps.lostDeals,
-    pipelineWonUsd: opps.pipelineWonUsd,
+    wonDeals,
+    lostDeals,
+    pipelineWonUsd,
     cashCollectedUsd,
     showRate: rates.showRate,
     offerRate: rates.offerRate,
@@ -617,51 +796,105 @@ function summarizeAgencySales(
   }
 
   let newLeads = 0;
+  let hasNewLeads = false;
   let activeOpportunities = 0;
+  let hasActiveOpportunities = false;
   let booked = 0;
+  let hasBooked = false;
   let showed = 0;
+  let hasShowed = false;
   let noShows = 0;
+  let hasNoShows = false;
   let pitched = 0;
+  let hasPitched = false;
   let wonDeals = 0;
+  let hasWonDeals = false;
   let lostDeals = 0;
+  let hasLostDeals = false;
   let pipelineWonUsd = 0;
+  let hasPipelineWonUsd = false;
   let cashCollectedUsd = 0;
+  let hasCashCollectedUsd = false;
 
   for (const a of live) {
-    newLeads += a.newLeads ?? 0;
-    activeOpportunities += a.activeOpportunities ?? 0;
-    booked += a.booked ?? 0;
-    showed += a.showed ?? 0;
-    noShows += a.noShows ?? 0;
-    pitched += a.pitched ?? 0;
-    wonDeals += a.wonDeals ?? 0;
-    lostDeals += a.lostDeals ?? 0;
-    pipelineWonUsd += a.pipelineWonUsd ?? 0;
-    cashCollectedUsd += a.cashCollectedUsd ?? 0;
+    if (a.newLeads !== null) {
+      newLeads += a.newLeads;
+      hasNewLeads = true;
+    }
+    if (a.activeOpportunities !== null) {
+      activeOpportunities += a.activeOpportunities;
+      hasActiveOpportunities = true;
+    }
+    if (a.booked !== null) {
+      booked += a.booked;
+      hasBooked = true;
+    }
+    if (a.showed !== null) {
+      showed += a.showed;
+      hasShowed = true;
+    }
+    if (a.noShows !== null) {
+      noShows += a.noShows;
+      hasNoShows = true;
+    }
+    if (a.pitched !== null) {
+      pitched += a.pitched;
+      hasPitched = true;
+    }
+    if (a.wonDeals !== null) {
+      wonDeals += a.wonDeals;
+      hasWonDeals = true;
+    }
+    if (a.lostDeals !== null) {
+      lostDeals += a.lostDeals;
+      hasLostDeals = true;
+    }
+    if (a.pipelineWonUsd !== null) {
+      pipelineWonUsd += a.pipelineWonUsd;
+      hasPipelineWonUsd = true;
+    }
+    if (a.cashCollectedUsd !== null) {
+      cashCollectedUsd += a.cashCollectedUsd;
+      hasCashCollectedUsd = true;
+    }
   }
 
-  const rates = computeRates({ booked, showed, noShows, pitched, wonDeals, lostDeals });
+  const finalBooked = hasBooked ? booked : null;
+  const finalShowed = hasShowed ? showed : null;
+  const finalNoShows = hasNoShows ? noShows : null;
+  const finalPitched = hasPitched ? pitched : null;
+  const finalWonDeals = hasWonDeals ? wonDeals : null;
+  const finalLostDeals = hasLostDeals ? lostDeals : null;
+  const rates = computeRates({
+    booked: finalBooked,
+    showed: finalShowed,
+    noShows: finalNoShows,
+    pitched: finalPitched,
+    wonDeals: finalWonDeals,
+    lostDeals: finalLostDeals,
+  });
+
   return {
     period,
     observedAt,
     liveAccountCount: live.length,
     totalAccountCount: accounts.length,
     hasGhl: true,
-    newLeads,
-    activeOpportunities,
-    booked,
-    showed,
-    noShows,
-    pitched,
-    wonDeals,
-    lostDeals,
-    pipelineWonUsd: round2(pipelineWonUsd),
-    cashCollectedUsd: round2(cashCollectedUsd),
+    newLeads: hasNewLeads ? newLeads : null,
+    activeOpportunities: hasActiveOpportunities ? activeOpportunities : null,
+    booked: finalBooked,
+    showed: finalShowed,
+    noShows: finalNoShows,
+    pitched: finalPitched,
+    wonDeals: finalWonDeals,
+    lostDeals: finalLostDeals,
+    pipelineWonUsd: hasPipelineWonUsd ? round2(pipelineWonUsd) : null,
+    cashCollectedUsd: hasCashCollectedUsd ? round2(cashCollectedUsd) : null,
     showRate: rates.showRate,
     offerRate: rates.offerRate,
     closeRate: rates.closeRate,
-    setRate: newLeads > 0 ? round1((booked / newLeads) * 100) : null,
-    leadToCustomerRate: newLeads > 0 ? round1((wonDeals / newLeads) * 100) : null,
+    setRate: hasNewLeads && newLeads > 0 && hasBooked ? round1((booked / newLeads) * 100) : null,
+    leadToCustomerRate: hasNewLeads && newLeads > 0 && hasWonDeals ? round1((wonDeals / newLeads) * 100) : null,
     accounts,
   };
 }
@@ -704,11 +937,12 @@ export async function readAgencySalesSummary(
       ? opts.alexBloomfieldPitKey
       : (process.env.GHL_ALEX_BLOOMFIELD_PIT_KEY ?? "")
   ).trim();
-  const alexLocationId = normalizeLocationId(
+  const alexLocationId =
     opts.alexBloomfieldLocationId !== undefined
-      ? opts.alexBloomfieldLocationId
-      : process.env.GHL_ALEX_BLOOMFIELD_LOCATION_ID,
-  );
+      ? normalizeLocationId(opts.alexBloomfieldLocationId)
+      : process.env.GHL_ALEX_BLOOMFIELD_LOCATION_ID !== undefined
+        ? normalizeLocationId(process.env.GHL_ALEX_BLOOMFIELD_LOCATION_ID)
+        : DEFAULT_ALEX_BLOOMFIELD_LOCATION_ID;
 
   if (!gatewayToken && !alexPitKey) return null;
 
@@ -734,14 +968,19 @@ export async function readAgencySalesSummary(
   const now = (opts.now ?? (() => new Date()))();
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const fp = createHash("sha256")
-    .update(`${gatewayToken}|${alexPitKey}|${alexLocationId ?? ""}|${irMainLoc ?? ""}|${htlLoc ?? ""}`)
+    .update(
+      `${gatewayToken}|${companyId}|${ghlOrigin}|${alexPitKey}|${alexLocationId ?? ""}|${irMainLoc ?? ""}|${htlLoc ?? ""}`,
+    )
     .digest("hex")
     .slice(0, 16);
   const cacheKey = `${gatewayBaseUrl}|${period}|${fp}`;
 
   if (!opts.bypassCache) {
     const hit = cache.get(cacheKey);
-    if (hit && now.getTime() - hit.at < CACHE_TTL_MS) return hit.value;
+    if (hit) {
+      const age = now.getTime() - hit.at;
+      if (age >= 0 && age < CACHE_TTL_MS) return hit.value;
+    }
   }
 
   const win = buildPeriodWindow(period, now);
@@ -813,8 +1052,9 @@ export async function readAgencySalesSummary(
   const accounts = await Promise.all(tasks);
   const summary = summarizeAgencySales(period, observedAt, accounts);
 
-  if (summary.liveAccountCount > 0 && !opts.bypassCache) {
-    cache.set(cacheKey, { at: now.getTime(), value: summary });
+  const hasTransientError = summary.accounts.some((a) => a.status === "error");
+  if (summary.liveAccountCount > 0 && !hasTransientError && !opts.bypassCache) {
+    setCachedSummary(cacheKey, now.getTime(), summary);
   }
   return summary;
 }

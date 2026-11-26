@@ -159,6 +159,26 @@ describe("teamHubHelpers", () => {
       departments: ["marketing", "fulfillment"],
     });
 
+    // Canonical metadata.departments takes precedence over sticky legacy metadata.tags
+    expect(
+      matchAgentTeams(
+        makeAgent({
+          id: "sticky-1",
+          name: "Ads Auditor",
+          urlKey: "ads-auditor",
+          metadata: { departments: ["fulfillment"], tags: ["marketing", "ads"] },
+        }),
+      ),
+    ).toEqual(["fulfillment"]);
+
+    // Rejects writing empty or all-invalid departments
+    expect(() =>
+      buildNextAgentDepartmentsMetadata(
+        makeAgent({ id: "empty-1", name: "Ads Auditor", urlKey: "ads-auditor" }),
+        [],
+      ),
+    ).toThrow(/at least one valid department/i);
+
     // Scaling future roles, hyphenated urlKeys, and explicit metadata
     expect(matchAgentTeams(makeAgent({ id: "s1", name: "Ad Ops", urlKey: "ad-ops", title: "Ad Ops" }))).toEqual([
       "marketing",
@@ -365,7 +385,7 @@ describe("teamHubHelpers", () => {
         wonDeals: 2,
         closeRatePercent: 28.6,
         zeroLeadDays: 0,
-        accounts: [{ slug: "paradise-spas" }, { slug: "sun-pool" }],
+        accounts: [{ slug: "client-a" }, { slug: "client-b" }],
         notConnected: null,
       },
       wavvDelivery: {
@@ -387,6 +407,32 @@ describe("teamHubHelpers", () => {
       ["wavv-conversations", "10"],
       ["wavv-talk-time", "67 min"],
       ["open-client-tasks", "4"],
+    ]);
+
+    // When clientDelivery/wavvDelivery objects exist with all-null metrics (e.g. non-admin viewer),
+    // cleanly fall back to the 4-card Paperclip Fulfillment summary instead of 7 "—" cards.
+    const gatedFulfillmentBoard = {
+      ...fulfillmentBoard,
+      clientDelivery: {
+        ...fulfillmentBoard.clientDelivery!,
+        adSpendUsd: null,
+        newLeads: null,
+        costPerLeadUsd: null,
+        ctrPercent: null,
+        accounts: [],
+      },
+      wavvDelivery: {
+        ...fulfillmentBoard.wavvDelivery!,
+        dials: null,
+        conversationsOver60s: null,
+        talkTimeMinutes: null,
+      },
+    } as unknown as DashboardFulfillmentBoard;
+    expect(selectFulfillmentKpis(gatedFulfillmentBoard).map((k) => [k.id, k.value])).toEqual([
+      ["open-client-tasks", "4"],
+      ["clients-with-open-work", "2"],
+      ["open-onboarding-steps", "2"],
+      ["unassigned-open-tasks", "1"],
     ]);
 
     const opsSummary = {

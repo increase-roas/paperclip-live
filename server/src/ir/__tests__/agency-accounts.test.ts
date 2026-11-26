@@ -118,6 +118,105 @@ describe("readAgencyMarketingSummary", () => {
     expect(htl?.statusLabel).toBe("Live · $0 spend");
     expect(htl?.spend).toBe(0);
   });
+
+  it("handles Meta pagination, treats missing link_click in populated actions as 0, fails closed on mid-page 500, and skips caching partial transient errors", async () => {
+    let callCount = 0;
+    let transientFail = true;
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      callCount += 1;
+      const url = new URL(String(input));
+      const acct = url.searchParams.get("adAccountId") ?? "";
+      const after = url.searchParams.get("after");
+
+      if (acct === "act_735997837915750") {
+        if (!after) {
+          return jsonRes({
+            data: [
+              {
+                date_start: "2026-11-24",
+                spend: "50.00",
+                impressions: "1000",
+                clicks: "99",
+                // Populated actions array without link_click MUST yield 0 link clicks (not 99 all-clicks)
+                actions: [{ action_type: "post_reaction", value: "99" }],
+              },
+            ],
+            next: "cursor-2",
+          });
+        }
+        return jsonRes({
+          data: [
+            {
+              date_start: "2026-11-25",
+              spend: "50.00",
+              impressions: "1000",
+              clicks: "20",
+              actions: [
+                { action_type: "link_click", value: "20" },
+                { action_type: "lead", value: "2" },
+              ],
+            },
+          ],
+          next: null,
+        });
+      }
+      if (acct === "act_1751702711685898") {
+        // Mid-page 500 failure must fail closed to status: "error"
+        if (!after) {
+          return jsonRes({
+            data: [{ date_start: "2026-11-24", spend: "10", impressions: "100", clicks: "5" }],
+            next: "page-2",
+          });
+        }
+        return transientFail ? jsonRes({ error: "upstream_500" }, 500) : jsonRes({ data: [], next: null });
+      }
+      return jsonRes({ data: [], next: null });
+    });
+
+    const first = await readAgencyMarketingSummary("30d", {
+      baseUrl: "https://gw.example",
+      token: "gw-meta-cache-test",
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => PINNED_NOW,
+    });
+    expect(first?.liveAccountCount).toBe(2);
+    expect(first?.accounts.find((a) => a.id === "increase-roas-b2b")?.status).toBe("error");
+    // 0 link clicks on page 1 + 20 on page 2 = 20 / 2000 = 1% CTR
+    expect(first?.linkClicks).toBe(20);
+    expect(first?.ctr).toBe(1);
+    const callsAfterFirst = callCount;
+
+    // Because one account had transient status "error", result MUST NOT have been cached
+    transientFail = false;
+    const second = await readAgencyMarketingSummary("30d", {
+      baseUrl: "https://gw.example",
+      token: "gw-meta-cache-test",
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => PINNED_NOW,
+    });
+    expect(callCount).toBeGreaterThan(callsAfterFirst);
+    expect(second?.liveAccountCount).toBe(3);
+    const callsAfterSecond = callCount;
+
+    // Now all 3 succeeded with zero transient errors -> cached within 5m TTL
+    const third = await readAgencyMarketingSummary("30d", {
+      baseUrl: "https://gw.example",
+      token: "gw-meta-cache-test",
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => new Date(PINNED_NOW.getTime() + 60_000),
+    });
+    expect(third?.liveAccountCount).toBe(3);
+    expect(callCount).toBe(callsAfterSecond);
+
+    // Backward clock or expired TTL (>5m) MUST miss cache
+    await readAgencyMarketingSummary("30d", {
+      baseUrl: "https://gw.example",
+      token: "gw-meta-cache-test",
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => new Date(PINNED_NOW.getTime() + 6 * 60_000),
+    });
+    expect(callCount).toBeGreaterThan(callsAfterSecond);
+  });
 });
 
 describe("readAgencySalesSummary", () => {
@@ -249,13 +348,260 @@ describe("readAgencySalesSummary", () => {
     expect(summary?.pipelineWonUsd).toBe(6000);
     expect(summary?.cashCollectedUsd).toBe(3000);
     // 2 calendar events on HTL (1 showed, 1 noshow) + 1 won/booked on IR Main
-    expect(summary?.booked).toBe(2);
+    expect(summary?.booked).toBe(3);
     expect(summary?.showed).toBe(2);
+    expect(summary?.noShows).toBe(1);
+    expect(summary?.showRate).toBe(66.7);
 
     const alex = summary?.accounts.find((a) => a.id === "alex-bloomfield-ssa");
     expect(alex?.status).toBe("needs_config");
     expect(alex?.statusLabel).toBe("Needs PIT key / location ID");
     expect(alex?.locationId).toBeNull();
+  });
+
+  it("defaults Alex Bloomfield locationId to 3uSZwndvL6yEo5syDV5m when only PIT key is set, excludes recruiting calendars, computes accurate showRate without 100% inflation, and fails closed on partial GHL errors", async () => {
+    const requestedUrls: string[] = [];
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      requestedUrls.push(url);
+
+      // 1. Increase ROAS Main: /opportunities/pipelines fails (500), /payments/transactions fails (403),
+      //    /contacts/ fails (500), but calendars succeed with 10 booked / 2 showed / 0 noShows + recruiting calendar!
+      if (url.includes("/Sr90yJUmFoBTgBQuejtU/")) {
+        const ghlPath = new URL(url).searchParams.get("path") ?? "";
+        if (ghlPath === "/opportunities/pipelines") return jsonRes({ error: "boom" }, 500);
+        if (ghlPath.startsWith("/opportunities/search")) {
+          // Recruiting opp MUST NOT leak when pipelines failed!
+          return jsonRes({
+            opportunities: [
+              { id: "rec-1", pipelineId: "p-hire", status: "won", monetaryValue: 99999, createdAt: "2026-11-24T00:00:00Z" },
+            ],
+          });
+        }
+        if (ghlPath.startsWith("/contacts/")) return jsonRes({ error: "contacts_500" }, 500);
+        if (ghlPath === "/calendars/") {
+          return jsonRes({
+            calendars: [
+              { id: "cal-sales", name: "B2B Strategy Call" },
+              { id: "cal-hire", name: "Director of Sales Interview Calendar" },
+              { id: "cal-careers", name: "Careers Screening" },
+            ],
+          });
+        }
+        if (ghlPath.includes("calendarId=cal-sales")) {
+          return jsonRes({
+            events: [
+              { id: "e1", appointmentStatus: "showed" },
+              { id: "e2", appointmentStatus: "showed" },
+              ...Array.from({ length: 8 }, (_, i) => ({ id: `b-${i}`, appointmentStatus: "confirmed" })),
+            ],
+          });
+        }
+        if (ghlPath.includes("calendarId=cal-hire") || ghlPath.includes("calendarId=cal-careers")) {
+          throw new Error("recruiting calendars must never be queried");
+        }
+        if (ghlPath.startsWith("/payments/transactions")) return jsonRes({ error: "forbidden" }, 403);
+        return jsonRes({}, 404);
+      }
+
+      // 2. Hot Tub Launch B2B: returns 401 auth failure -> needs_config
+      if (url.includes("/AG47jEV5rVUrGLt5FlKO/")) {
+        return jsonRes({ error: "unauthorized" }, 401);
+      }
+
+      // 3. Alex Bloomfield direct PIT: defaults to 3uSZwndvL6yEo5syDV5m, subtracts amountRefunded,
+      //    ignores string liveMode:"false", and deduplicates contacts across cursor pages.
+      if (url.startsWith("https://ghl-direct.example")) {
+        expect(url).toContain("3uSZwndvL6yEo5syDV5m");
+        if (url.includes("/opportunities/pipelines")) {
+          return jsonRes({
+            pipelines: [
+              {
+                id: "p-ssa",
+                name: "SSA Sales",
+                stages: [
+                  { id: "st-book", name: "Call Booked" },
+                  { id: "st-ns", name: "No Show" },
+                  { id: "st-won", name: "Closed Won" },
+                ],
+              },
+            ],
+          });
+        }
+        if (url.includes("/opportunities/search") && url.includes("status=all")) {
+          return jsonRes({
+            opportunities: [
+              { id: "o1", pipelineId: "p-ssa", pipelineStageId: "st-book", status: "open", createdAt: "2026-11-24T00:00:00Z" },
+              { id: "o2", pipelineId: "p-ssa", pipelineStageId: "st-ns", status: "open", createdAt: "2026-11-24T00:00:00Z" },
+              { id: "o3", pipelineId: "p-ssa", pipelineStageId: "st-won", status: "won", monetaryValue: 5000, createdAt: "2026-11-24T00:00:00Z", lastStatusChangeAt: "2026-11-25T00:00:00Z" },
+            ],
+          });
+        }
+        if (url.includes("/opportunities/search") && url.includes("status=won")) {
+          return jsonRes({
+            opportunities: [
+              { id: "o3", pipelineId: "p-ssa", pipelineStageId: "st-won", status: "won", monetaryValue: 5000, createdAt: "2026-11-24T00:00:00Z", lastStatusChangeAt: "2026-11-25T00:00:00Z" },
+            ],
+          });
+        }
+        if (url.includes("/opportunities/search") && url.includes("status=lost")) {
+          return jsonRes({ opportunities: [] });
+        }
+        if (url.includes("/contacts/")) {
+          if (!url.includes("startAfterId=c100")) {
+            return jsonRes({
+              contacts: Array.from({ length: 100 }, (_, i) => ({
+                id: `c${i + 1}`,
+                dateAdded: "2026-11-24T00:00:00Z",
+              })),
+              meta: { startAfterId: "c100", startAfter: 1763942400000 },
+            });
+          }
+          // Overlapping c100 MUST be deduplicated; only c101 adds +1 -> total 101
+          return jsonRes({
+            contacts: [
+              { id: "c100", dateAdded: "2026-11-24T00:00:00Z" },
+              { id: "c101", dateAdded: "2026-11-24T00:00:00Z" },
+            ],
+          });
+        }
+        if (url.includes("/calendars/")) return jsonRes({ calendars: [] });
+        if (url.includes("/payments/transactions")) {
+          return jsonRes({
+            data: [
+              { id: "t1", amount: 5000, amountRefunded: 1000, currency: "USD", status: "succeeded", createdAt: "2026-11-25T00:00:00Z", liveMode: true },
+              { id: "t2", amount: 9000, currency: "USD", status: "succeeded", createdAt: "2026-11-25T00:00:00Z", liveMode: "false" },
+            ],
+          });
+        }
+      }
+      return jsonRes({}, 404);
+    });
+
+    const summary = await readAgencySalesSummary("30d", {
+      gatewayBaseUrl: "https://gw.example",
+      gatewayToken: "gw-test",
+      ghlDirectOrigin: "https://ghl-direct.example",
+      alexBloomfieldPitKey: "pit-default-loc-test",
+      // alexBloomfieldLocationId intentionally omitted -> must default to 3uSZwndvL6yEo5syDV5m
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => PINNED_NOW,
+      bypassCache: true,
+    });
+
+    const irMain = summary?.accounts.find((a) => a.id === "increase-roas-main");
+    // Fail-closed: pipelines failed so opportunities & won deals MUST be null (recruiting $99,999 NOT leaked!)
+    expect(irMain?.status).toBe("live");
+    expect(irMain?.activeOpportunities).toBeNull();
+    expect(irMain?.wonDeals).toBeNull();
+    expect(irMain?.pipelineWonUsd).toBeNull();
+    // Contacts 500 & transactions 403 MUST be null (NOT fabricated 0)
+    expect(irMain?.newLeads).toBeNull();
+    expect(irMain?.cashCollectedUsd).toBeNull();
+    // 10 booked, 2 showed, 0 noShows -> 20% show rate (NEVER 100%!)
+    expect(irMain?.booked).toBe(10);
+    expect(irMain?.showed).toBe(2);
+    expect(irMain?.showRate).toBe(20);
+
+    const alex = summary?.accounts.find((a) => a.id === "alex-bloomfield-ssa");
+    expect(alex?.status).toBe("live");
+    expect(alex?.locationId).toBe("3uSZwndvL6yEo5syDV5m");
+    expect(alex?.newLeads).toBe(101);
+    // $5000 - $1000 refund = $4000 (string liveMode:"false" ignored)
+    expect(alex?.cashCollectedUsd).toBe(4000);
+    // Stage fallback invariant: booked (3) >= showed (1) + noShows (1)
+    expect(alex?.booked).toBe(3);
+    expect(alex?.showed).toBe(1);
+    expect(alex?.noShows).toBe(1);
+    expect(alex?.showRate).toBe(50);
+
+    expect(requestedUrls.some((u) => u.includes("cal-hire") || u.includes("cal-careers"))).toBe(false);
+  });
+
+  it("isolates cache keys by agencyCompanyId/ghlDirectOrigin, rejects direct PIT 403 as needs_config, and skips caching when any account has transient error", async () => {
+    let calls = 0;
+    let irMain500 = true;
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      calls += 1;
+      const url = String(input);
+      if (url.startsWith("https://direct-a.example") || url.startsWith("https://direct-b.example")) {
+        return jsonRes({ error: "forbidden" }, 403);
+      }
+      if (url.includes("/Sr90yJUmFoBTgBQuejtU/") && irMain500) {
+        return jsonRes({ error: "gateway_502" }, 502);
+      }
+      const ghlPath = new URL(url).searchParams.get("path") ?? "";
+      if (ghlPath === "/opportunities/pipelines") return jsonRes({ pipelines: [] });
+      if (ghlPath.startsWith("/opportunities/search")) return jsonRes({ opportunities: [] });
+      if (ghlPath.startsWith("/contacts/")) return jsonRes({ contacts: [] });
+      if (ghlPath === "/calendars/") return jsonRes({ calendars: [] });
+      if (ghlPath.startsWith("/payments/transactions")) return jsonRes({ data: [] });
+      return jsonRes({}, 404);
+    });
+
+    const first = await readAgencySalesSummary("30d", {
+      gatewayBaseUrl: "https://gw.example",
+      gatewayToken: "gw-cache-test",
+      agencyCompanyId: "company-A",
+      ghlDirectOrigin: "https://direct-a.example",
+      alexBloomfieldPitKey: "pit-bad-token",
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => PINNED_NOW,
+    });
+    expect(first?.accounts.find((a) => a.id === "increase-roas-main")?.status).toBe("error");
+    expect(first?.accounts.find((a) => a.id === "alex-bloomfield-ssa")?.status).toBe("needs_config");
+    const afterFirst = calls;
+
+    // Transient error on IR Main must NOT be cached
+    irMain500 = false;
+    await readAgencySalesSummary("30d", {
+      gatewayBaseUrl: "https://gw.example",
+      gatewayToken: "gw-cache-test",
+      agencyCompanyId: "company-A",
+      ghlDirectOrigin: "https://direct-a.example",
+      alexBloomfieldPitKey: "pit-bad-token",
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => PINNED_NOW,
+    });
+    expect(calls).toBeGreaterThan(afterFirst);
+    const afterSecond = calls;
+
+    // Steady-state needs_config (no "error") IS cached for identical companyId + origin
+    await readAgencySalesSummary("30d", {
+      gatewayBaseUrl: "https://gw.example",
+      gatewayToken: "gw-cache-test",
+      agencyCompanyId: "company-A",
+      ghlDirectOrigin: "https://direct-a.example",
+      alexBloomfieldPitKey: "pit-bad-token",
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => new Date(PINNED_NOW.getTime() + 30_000),
+    });
+    expect(calls).toBe(afterSecond);
+
+    // Changing agencyCompanyId MUST miss cache
+    await readAgencySalesSummary("30d", {
+      gatewayBaseUrl: "https://gw.example",
+      gatewayToken: "gw-cache-test",
+      agencyCompanyId: "company-B",
+      ghlDirectOrigin: "https://direct-a.example",
+      alexBloomfieldPitKey: "pit-bad-token",
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => new Date(PINNED_NOW.getTime() + 30_000),
+    });
+    expect(calls).toBeGreaterThan(afterSecond);
+    const afterThird = calls;
+
+    // Changing ghlDirectOrigin MUST miss cache
+    await readAgencySalesSummary("30d", {
+      gatewayBaseUrl: "https://gw.example",
+      gatewayToken: "gw-cache-test",
+      agencyCompanyId: "company-B",
+      ghlDirectOrigin: "https://direct-b.example",
+      alexBloomfieldPitKey: "pit-bad-token",
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => new Date(PINNED_NOW.getTime() + 30_000),
+    });
+    expect(calls).toBeGreaterThan(afterThird);
   });
 
   it("lights up Alex Bloomfield live via direct PIT key + location ID with zero code changes", async () => {
@@ -309,19 +655,143 @@ describe("readAgencySalesSummary", () => {
     expect(alex?.locationId).toBe("AlexLoc123456");
     expect(alex?.wonDeals).toBe(1);
   });
+  it("paginates multi-page opportunities and unordered contacts, fails closed on partial calendar failure, and marks truncated accounts as 'Live (partial)'", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes("/Sr90yJUmFoBTgBQuejtU/")) {
+        const ghlPath = new URL(url).searchParams.get("path") ?? "";
+        if (ghlPath === "/opportunities/pipelines") {
+          return jsonRes({
+            pipelines: [{ id: "p-sales", name: "B2B Sales", stages: [{ id: "s-won", name: "Closed Won" }] }],
+          });
+        }
+        if (ghlPath.startsWith("/opportunities/search")) {
+          const parsed = new URL(ghlPath, "https://ghl.local");
+          const st = parsed.searchParams.get("status");
+          const cursor = parsed.searchParams.get("startAfterId");
+          if (st === "all" || st === "won") {
+            if (!cursor) {
+              return jsonRes({
+                opportunities: Array.from({ length: 100 }, (_, i) => ({
+                  id: `opp-p1-${i}`,
+                  pipelineId: "p-sales",
+                  pipelineStageId: "s-won",
+                  status: i === 0 ? "won" : "open",
+                  monetaryValue: i === 0 ? 4000 : 0,
+                  createdAt: "2026-11-24T00:00:00Z",
+                  lastStatusChangeAt: "2026-11-24T00:00:00Z",
+                })),
+                meta: { startAfterId: "opp-p1-99", startAfter: 1763942400000 },
+              });
+            }
+            // Page 2 has a second won deal!
+            return jsonRes({
+              opportunities: [
+                {
+                  id: "opp-p2-won",
+                  pipelineId: "p-sales",
+                  pipelineStageId: "s-won",
+                  status: "won",
+                  monetaryValue: 6000,
+                  createdAt: "2026-11-25T00:00:00Z",
+                  lastStatusChangeAt: "2026-11-25T00:00:00Z",
+                },
+              ],
+            });
+          }
+          return jsonRes({ opportunities: [] });
+        }
+        if (ghlPath.startsWith("/contacts/")) {
+          // Page 1 has an OLD contact (must NOT prematurely stop pagination!) + page 2 has a recent contact
+          if (!ghlPath.includes("startAfterId=old-99")) {
+            return jsonRes({
+              contacts: Array.from({ length: 100 }, (_, i) => ({
+                id: `old-${i}`,
+                dateAdded: "2025-01-01T00:00:00Z",
+              })),
+              meta: { startAfterId: "old-99", startAfter: 1735689600000 },
+            });
+          }
+          return jsonRes({
+            contacts: [{ id: "recent-page2", dateAdded: "2026-11-25T00:00:00Z" }],
+          });
+        }
+        if (ghlPath === "/calendars/") {
+          return jsonRes({
+            calendars: [
+              { id: "cal-ok", name: "Sales Cal 1" },
+              { id: "cal-fail", name: "Sales Cal 2" },
+            ],
+          });
+        }
+        if (ghlPath.includes("calendarId=cal-ok")) {
+          return jsonRes({ events: [{ id: "e1", appointmentStatus: "showed" }] });
+        }
+        if (ghlPath.includes("calendarId=cal-fail")) {
+          return jsonRes({ error: "calendar_500" }, 500);
+        }
+        if (ghlPath.startsWith("/payments/transactions")) return jsonRes({ data: [] });
+      }
+      if (url.includes("/AG47jEV5rVUrGLt5FlKO/")) {
+        const ghlPath = new URL(url).searchParams.get("path") ?? "";
+        if (ghlPath === "/opportunities/pipelines") return jsonRes({ pipelines: [] });
+        if (ghlPath.startsWith("/opportunities/search")) return jsonRes({ opportunities: [] });
+        if (ghlPath === "/calendars/") return jsonRes({ calendars: [] });
+        if (ghlPath.startsWith("/payments/transactions")) return jsonRes({ data: [] });
+        if (ghlPath.startsWith("/contacts/")) {
+          // Always return 100 contacts with a fresh cursor -> hits MAX_CONTACT_PAGES cap!
+          const parsed = new URL(ghlPath, "https://ghl.local");
+          const prev = Number(parsed.searchParams.get("startAfterId") ?? "0");
+          const next = prev + 100;
+          return jsonRes({
+            contacts: Array.from({ length: 100 }, (_, i) => ({
+              id: `htl-${prev + i}`,
+              dateAdded: "2026-11-24T00:00:00Z",
+            })),
+            meta: { startAfterId: String(next), startAfter: 1763942400000 },
+          });
+        }
+      }
+      return jsonRes({}, 404);
+    });
+
+    const summary = await readAgencySalesSummary("30d", {
+      gatewayBaseUrl: "https://gw.example",
+      gatewayToken: "gw-pagination-test",
+      alexBloomfieldPitKey: "",
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => PINNED_NOW,
+      bypassCache: true,
+    });
+
+    const irMain = summary?.accounts.find((a) => a.id === "increase-roas-main");
+    // Multi-page opportunities captured BOTH won deals ($4,000 + $6,000 = $10,000) across 101 opps!
+    expect(irMain?.activeOpportunities).toBe(101);
+    expect(irMain?.wonDeals).toBe(2);
+    expect(irMain?.pipelineWonUsd).toBe(10000);
+    // Unordered contacts page 2 was NOT stopped early by page 1's old timestamps!
+    expect(irMain?.newLeads).toBe(1);
+    // Partial calendar failure (cal-fail 500) failed closed on calendar & marked account Live (partial)
+    expect(irMain?.statusLabel).toBe("Live (partial)");
+
+    const htl = summary?.accounts.find((a) => a.id === "hot-tub-launch-b2b");
+    // Hitting 10-page contact cap (1,000 contacts) marks account "Live (partial)" instead of "Live"
+    expect(htl?.newLeads).toBe(1000);
+    expect(htl?.statusLabel).toBe("Live (partial)");
+  });
 });
 
 describe("filterClientOnlyPortfolio", () => {
   it("excludes __owner__ so Fulfillment never mixes Increase ROAS agency metrics into client delivery", () => {
     const rows = [
       { slug: "__owner__", displayName: "HTL" },
-      { slug: "paradise-spas", displayName: "Paradise Spas" },
-      { slug: "sun-pool", displayName: "Sun Pool" },
+      { slug: "client-a", displayName: "Client A" },
+      { slug: "client-b", displayName: "Client B" },
     ] as MergedClientMetrics[];
 
     expect(filterClientOnlyPortfolio(rows).map((c) => c.slug)).toEqual([
-      "paradise-spas",
-      "sun-pool",
+      "client-a",
+      "client-b",
     ]);
   });
 });

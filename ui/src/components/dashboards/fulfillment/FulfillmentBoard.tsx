@@ -48,7 +48,7 @@ function ClientDeliverySection({ delivery }: { delivery: DashboardFulfillmentCli
   return (
     <BoardSection
       title="Client ad & lead delivery"
-      description="All client ad accounts and client GHL sub-accounts only (e.g. Paradise Spas, Sun Pool, The Hot Tub Store). Increase ROAS's own acquisition accounts live on Marketing."
+      description="All client ad accounts and client GHL sub-accounts only. Increase ROAS's own acquisition accounts live on Marketing."
     >
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <BoardTile
@@ -113,7 +113,13 @@ function ClientDeliverySection({ delivery }: { delivery: DashboardFulfillmentCli
             label="Zero-lead client-days"
             value={formatIntOrDash(delivery.zeroLeadDays)}
             detail="Last 7d with >$100 spend & 0 leads"
-            tone={(delivery.zeroLeadDays ?? 0) > 0 ? "warning" : "good"}
+            tone={
+              delivery.zeroLeadDays === null
+                ? "default"
+                : delivery.zeroLeadDays > 0
+                  ? "warning"
+                  : "good"
+            }
             testId="fulfillment-client-zero-lead-days"
           />
         </div>
@@ -216,7 +222,11 @@ function ClientWavvSection({ wavv }: { wavv: DashboardFulfillmentWavvDelivery })
                   <td className="px-4 py-3 text-right tabular-nums">
                     {formatIntOrDash(setter.conversationsOver60s)}
                   </td>
-                  <td className="px-4 py-3 text-right tabular-nums">{setter.talkTimeMinutes}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">
+                    {Number.isFinite(setter.talkTimeMinutes)
+                      ? setter.talkTimeMinutes.toLocaleString("en-US", { maximumFractionDigits: 1 })
+                      : "—"}
+                  </td>
                 </tr>
               ))}
             </tbody>

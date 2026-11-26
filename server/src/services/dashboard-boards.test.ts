@@ -538,7 +538,7 @@ describe("dashboardBoardService", () => {
     expect(salesTable?.rows.find((r) => r.id === "alex-bloomfield-ssa")?.cells.status).toBe(
       "Needs PIT key / location ID",
     );
-    expect(JSON.stringify(sales)).not.toContain("Paradise Spas");
+    expect(JSON.stringify(sales)).not.toContain("Client A");
 
     const marketing = await svc.board("marketing", companyId, "30d");
     const mktById = new Map(marketing.tiles.map((t) => [t.id, t.value]));
@@ -559,7 +559,7 @@ describe("dashboardBoardService", () => {
       "Needs account ID / key",
     );
     expect(mktTable?.rows.find((r) => r.id === "alex-bloomfield-ssa")?.cells.spend).toBe("$1,200.00");
-    expect(JSON.stringify(marketing)).not.toContain("Paradise Spas");
+    expect(JSON.stringify(marketing)).not.toContain("Client A");
   });
 
   it("never mixes client sales into agency Marketing, Sales, or Human employees Revenue per FTE when only SALES_DASHBOARD_ADMIN_KEY is set", async () => {
@@ -604,8 +604,8 @@ describe("dashboardBoardService", () => {
               owner: null,
               clients: [
                 {
-                  slug: "paradise-spas",
-                  displayName: "Paradise Spas",
+                  slug: "client-a",
+                  displayName: "Client A",
                   syncedAt: "2026-11-23T11:40:00.000Z",
                   syncStatus: "success",
                   marketing: { salesUsd: 250000, adSpendUsd: 6473.6 },
@@ -636,7 +636,7 @@ describe("dashboardBoardService", () => {
       expect(sales.tiles.every((t) => t.value.kind === "not_connected")).toBe(true);
       expect(sales.tables.find((t) => t.id === "sales-by-business")?.rows).toEqual([]);
 
-      // Human employees must NOT use Paradise Spas' $250,000 client sales for agency Revenue per FTE
+      // Human employees must NOT use Client A's $250,000 client sales for agency Revenue per FTE
       const humans = await svc.board("human-employees", companyId, "30d");
       const humanById = new Map(humans.tiles.map((t) => [t.id, t.value]));
       expect(humanById.get("revenue-per-fte")).toEqual({ kind: "not_connected" });
@@ -698,5 +698,38 @@ describe("dashboardBoardService", () => {
     const sales = await svc.board("sales", companyId, "month");
     expect(sales.tiles.every((t) => t.value.kind === "not_connected")).toBe(true);
     expect(sales.tables.find((t) => t.id === "sales-by-business")?.rows).toEqual([]);
+  });
+
+  it("renders cash-collected-up-front as not_connected (never 0%) when agency transactions failed (cashCollectedUsd: null)", async () => {
+    const svc = dashboardBoardService(pinnedNow, {
+      agencySalesReader: async () => ({
+        period: "30d",
+        observedAt: "2026-11-26T05:00:00.000Z",
+        liveAccountCount: 1,
+        totalAccountCount: 3,
+        hasGhl: true,
+        newLeads: 15,
+        activeOpportunities: 5,
+        booked: 4,
+        showed: 3,
+        noShows: 1,
+        pitched: 2,
+        wonDeals: 1,
+        lostDeals: 1,
+        pipelineWonUsd: 10000,
+        cashCollectedUsd: null,
+        showRate: 75,
+        offerRate: 66.7,
+        closeRate: 50,
+        setRate: 26.7,
+        leadToCustomerRate: 6.7,
+        accounts: [],
+      }),
+    });
+
+    const sales = await svc.board("sales", companyId, "30d");
+    const byId = new Map(sales.tiles.map((t) => [t.id, t.value]));
+    expect(byId.get("cash-collected-up-front")).toEqual({ kind: "not_connected" });
+    expect(byId.get("units-sold")).toMatchObject({ kind: "live", value: 1, unit: "count" });
   });
 });

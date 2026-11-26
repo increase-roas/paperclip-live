@@ -117,10 +117,21 @@ const LEAD_ACTION_PRIORITY = [
   "onsite_conversion.lead_grouped",
 ] as const;
 
+const MAX_MARKETING_CACHE_ENTRIES = 64;
 const cache = new Map<string, { at: number; value: AgencyMarketingSummary }>();
 
 export function resetAgencyMarketingCache(): void {
   cache.clear();
+}
+
+function writeMarketingCache(key: string, nowMs: number, value: AgencyMarketingSummary): void {
+  cache.delete(key);
+  cache.set(key, { at: nowMs, value });
+  for (const [k, entry] of cache) {
+    if (nowMs < entry.at || nowMs - entry.at >= CACHE_TTL_MS || cache.size > MAX_MARKETING_CACHE_ENTRIES) {
+      if (k !== key) cache.delete(k);
+    }
+  }
 }
 
 function round2(value: number): number {
@@ -282,6 +293,7 @@ async function readSingleAgencyMetaAccount(
 
   const rows: RawMetaInsightRow[] = [];
   let after: string | null = null;
+  let truncated = false;
   for (let page = 0; page < MAX_INSIGHT_PAGES; page += 1) {
     const qs = new URLSearchParams({
       adAccountId,
@@ -305,6 +317,10 @@ async function readSingleAgencyMetaAccount(
     }
     rows.push(...res.data);
     if (!res.next || res.next === after) break;
+    if (page === MAX_INSIGHT_PAGES - 1) {
+      truncated = true;
+      break;
+    }
     after = res.next;
   }
 
@@ -319,7 +335,9 @@ async function readSingleAgencyMetaAccount(
     const rowSpend = parseNonNegativeFloat(row.spend);
     const rowImpressions = parseNonNegativeInt(row.impressions);
     const rowClicks = parseNonNegativeInt(row.clicks);
-    const rowLinkClicks = extractActionValue(row.actions, "link_click") ?? rowClicks;
+    const rowLinkClicks = Array.isArray(row.actions)
+      ? (extractActionValue(row.actions, "link_click") ?? 0)
+      : rowClicks;
     const rowLeads = extractRowLeads(row.actions);
 
     spend += rowSpend;
@@ -342,7 +360,7 @@ async function readSingleAgencyMetaAccount(
     displayName: spec.displayName,
     adAccountId,
     status: "live",
-    statusLabel: roundedSpend > 0 || leads > 0 ? "Live" : "Live · $0 spend",
+    statusLabel: truncated ? "Live (partial)" : roundedSpend > 0 || leads > 0 ? "Live" : "Live · $0 spend",
     observedAt: ctx.observedAt,
     spend: roundedSpend,
     impressions,
@@ -446,8 +464,11 @@ export async function readAgencyMarketingSummary(
 
   if (!opts.bypassCache) {
     const hit = cache.get(cacheKey);
-    if (hit && now.getTime() - hit.at < CACHE_TTL_MS) {
-      return hit.value;
+    if (hit) {
+      const age = now.getTime() - hit.at;
+      if (age >= 0 && age < CACHE_TTL_MS) {
+        return hit.value;
+      }
     }
   }
 
@@ -460,9 +481,10 @@ export async function readAgencyMarketingSummary(
   );
   const summary = summarizeAgencyMeta(period, range, observedAt, accounts);
 
-  // Never negative-cache when 0 accounts succeeded so granting gateway access takes effect immediately.
-  if (summary.liveAccountCount > 0 && !opts.bypassCache) {
-    cache.set(cacheKey, { at: now.getTime(), value: summary });
+  // Never negative-cache when 0 accounts succeeded or any account hit a transient error.
+  const hasTransientError = summary.accounts.some((a) => a.status === "error");
+  if (summary.liveAccountCount > 0 && !hasTransientError && !opts.bypassCache) {
+    writeMarketingCache(cacheKey, now.getTime(), summary);
   }
   return summary;
 }

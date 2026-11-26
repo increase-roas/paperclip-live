@@ -33,16 +33,27 @@ export function AgentDepartmentsPopover({
         { metadata: buildNextAgentDepartmentsMetadata(agent, nextDepartments) },
         companyId,
       ),
-    onSuccess: () => {
+    onSuccess: (updatedAgent) => {
       setErrorMessage(null);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(companyId) });
+      queryClient.setQueryData<Agent[]>(queryKeys.agents.list(companyId), (prev) =>
+        Array.isArray(prev)
+          ? prev.map((item) => (item.id === agent.id ? { ...item, ...updatedAgent } : item))
+          : prev,
+      );
+      return queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(companyId) });
     },
     onError: (err) => {
       setErrorMessage(err instanceof Error ? err.message : "Could not update team membership.");
     },
   });
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    setErrorMessage(null);
+  };
+
   const toggleTeam = (teamKey: TeamHubKey) => {
+    if (mutation.isPending) return;
     const hasTeam = currentTeams.includes(teamKey);
     if (hasTeam && currentTeams.length <= 1) return;
     const next = hasTeam
@@ -52,7 +63,7 @@ export function AgentDepartmentsPopover({
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           type="button"
@@ -80,6 +91,7 @@ export function AgentDepartmentsPopover({
               <button
                 key={cfg.key}
                 type="button"
+                aria-pressed={active}
                 disabled={mutation.isPending || isLast}
                 onClick={() => toggleTeam(cfg.key)}
                 data-testid={`team-agent-dept-option-${agent.urlKey}-${cfg.key}`}

@@ -11,6 +11,7 @@ import type {
   Project,
 } from "@paperclipai/shared";
 import type { DashboardBoardWithMeta } from "@/api/dashboardBoards";
+import { agentsApi } from "@/api/agents";
 import { queryKeys } from "@/lib/queryKeys";
 import { OPEN_TASK_STATUS_FILTER } from "./teamHubHelpers";
 import { TeamHubPage } from "./TeamHubPage";
@@ -229,7 +230,7 @@ beforeEach(() => {
       wonDeals: 2,
       closeRatePercent: 28.6,
       zeroLeadDays: 0,
-      accounts: [{ slug: "paradise-spas", displayName: "Paradise Spas" }],
+      accounts: [{ slug: "client-a", displayName: "Client A" }],
       notConnected: null,
     },
     wavvDelivery: {
@@ -448,5 +449,103 @@ describe("TeamHubPage", () => {
     expect(container.querySelector('[data-testid="team-hub-tasks-truncated"]')?.textContent).toContain(
       "Showing 12 of 14 open tasks",
     );
+  });
+
+  it("interactively manages multi-team department membership via AgentDepartmentsPopover (aria-pressed, metadata preservation, last-department guard, error alert & clear on reopen)", async () => {
+    fixture.teamKey = "marketing";
+    fixture.agents = [
+      {
+        id: "a-ads",
+        companyId: "company-1",
+        name: "Ads Auditor",
+        urlKey: "ads-auditor",
+        role: "general",
+        title: "Ads Auditor",
+        status: "idle",
+        metadata: {
+          bot: { transport: "hermes_gateway" },
+          departments: ["marketing", "fulfillment"],
+          tags: ["marketing"],
+        },
+      } as unknown as Agent,
+      {
+        id: "a-single",
+        companyId: "company-1",
+        name: "Brand Copywriter",
+        urlKey: "brand-copywriter",
+        role: "cmo",
+        title: "Brand Copywriter",
+        status: "idle",
+        metadata: { departments: ["marketing"] },
+      } as unknown as Agent,
+    ];
+
+    const updateSpy = vi.mocked(agentsApi.update);
+    updateSpy.mockImplementation(async (id: string, data: Record<string, unknown>) => {
+      const idx = fixture.agents.findIndex((a) => a.id === id);
+      const updated = { ...fixture.agents[idx]!, ...data } as Agent;
+      fixture.agents[idx] = updated;
+      return updated as unknown as Awaited<ReturnType<typeof agentsApi.update>>;
+    });
+
+    await renderPage();
+
+    // 1. Open popover for Brand Copywriter (single team) and verify last-department button is disabled + aria-pressed
+    const singleTrigger = container.querySelector('[data-testid="team-agent-departments-btn-brand-copywriter"]') as HTMLButtonElement;
+    expect(singleTrigger).not.toBeNull();
+    await act(async () => {
+      singleTrigger.click();
+    });
+    const singleMktOpt = document.body.querySelector('[data-testid="team-agent-dept-option-brand-copywriter-marketing"]') as HTMLButtonElement;
+    const singleSalesOpt = document.body.querySelector('[data-testid="team-agent-dept-option-brand-copywriter-sales"]') as HTMLButtonElement;
+    expect(singleMktOpt?.getAttribute("aria-pressed")).toBe("true");
+    expect(singleMktOpt?.disabled).toBe(true);
+    expect(singleSalesOpt?.getAttribute("aria-pressed")).toBe("false");
+    expect(singleSalesOpt?.disabled).toBe(false);
+
+    // Close single popover
+    await act(async () => {
+      singleTrigger.click();
+    });
+
+    // 2. Open popover for Ads Auditor (marketing + fulfillment) and add sales while preserving metadata.bot
+    const adsTrigger = container.querySelector('[data-testid="team-agent-departments-btn-ads-auditor"]') as HTMLButtonElement;
+    await act(async () => {
+      adsTrigger.click();
+    });
+    const adsSalesOpt = document.body.querySelector('[data-testid="team-agent-dept-option-ads-auditor-sales"]') as HTMLButtonElement;
+    expect(adsSalesOpt).not.toBeNull();
+    await act(async () => {
+      adsSalesOpt.click();
+    });
+    expect(updateSpy).toHaveBeenCalledWith(
+      "a-ads",
+      {
+        metadata: {
+          bot: { transport: "hermes_gateway" },
+          tags: ["marketing"],
+          departments: ["marketing", "sales", "fulfillment"],
+        },
+      },
+      "company-1",
+    );
+
+    // 3. Failure renders role="alert" and clears when closing and reopening popover
+    updateSpy.mockRejectedValueOnce(new Error("PATCH failed: 500"));
+    const adsOpsOpt = document.body.querySelector('[data-testid="team-agent-dept-option-ads-auditor-operations"]') as HTMLButtonElement;
+    await act(async () => {
+      adsOpsOpt.click();
+    });
+    const alertEl = document.body.querySelector('[role="alert"]');
+    expect(alertEl?.textContent).toContain("PATCH failed: 500");
+
+    // Close and reopen -> stale error clears
+    await act(async () => {
+      adsTrigger.click();
+    });
+    await act(async () => {
+      adsTrigger.click();
+    });
+    expect(document.body.querySelector('[role="alert"]')).toBeNull();
   });
 });
