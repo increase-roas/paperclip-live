@@ -659,13 +659,12 @@ function computeRates(m: {
   wonDeals: number | null;
   lostDeals: number | null;
 }) {
+  // Always use one consistent formula (showed / booked) across both per-account
+  // and aggregate totals so an account that logs no-shows never drops another
+  // account's bookings from the aggregate denominator.
   const showRate =
-    m.showed !== null
-      ? m.noShows !== null && m.noShows > 0
-        ? round1(Math.min(100, (m.showed / (m.showed + m.noShows)) * 100))
-        : m.booked !== null && m.booked > 0
-          ? round1(Math.min(100, (m.showed / m.booked) * 100))
-          : null
+    m.showed !== null && m.booked !== null && m.booked > 0
+      ? round1(Math.min(100, (m.showed / m.booked) * 100))
       : null;
   const offerRate =
     m.showed !== null && m.showed > 0 && m.pitched !== null && m.pitched > 0

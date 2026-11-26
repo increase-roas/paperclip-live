@@ -515,15 +515,16 @@ describe("readAgencySalesSummary", () => {
     expect(alex?.newLeads).toBe(101);
     // $5000 - $1000 refund = $4000 (string liveMode:"false" ignored)
     expect(alex?.cashCollectedUsd).toBe(4000);
-    // Stage fallback invariant: booked (3) >= showed (1) + noShows (1)
+    // Stage fallback invariant: booked (3) >= showed (1) + noShows (1) -> 1/3 = 33.3%
     expect(alex?.booked).toBe(3);
     expect(alex?.showed).toBe(1);
     expect(alex?.noShows).toBe(1);
-    expect(alex?.showRate).toBe(50);
+    expect(alex?.showRate).toBe(33.3);
 
     // Strict headline completeness: metrics missing on IR Main MUST stay null at headline
     // (never presenting Alex's partial numbers as the agency total or mixing subsets in rates),
-    // while booked/showed/noShows/showRate are complete across BOTH live accounts!
+    // while booked/showed/noShows/showRate are complete across BOTH live accounts using ONE
+    // consistent showed / booked formula: 3 / 13 = 23.1% (never inflated to 75% by 3 / (3 + 1))!
     expect(summary?.newLeads).toBeNull();
     expect(summary?.activeOpportunities).toBeNull();
     expect(summary?.wonDeals).toBeNull();
@@ -533,7 +534,7 @@ describe("readAgencySalesSummary", () => {
     expect(summary?.booked).toBe(13);
     expect(summary?.showed).toBe(3);
     expect(summary?.noShows).toBe(1);
-    expect(summary?.showRate).toBe(75);
+    expect(summary?.showRate).toBe(23.1);
 
     expect(requestedUrls.some((u) => u.includes("cal-hire") || u.includes("cal-careers"))).toBe(false);
   });
