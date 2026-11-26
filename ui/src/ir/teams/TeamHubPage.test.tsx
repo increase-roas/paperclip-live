@@ -533,9 +533,13 @@ describe("TeamHubPage", () => {
     expect(singleSalesOpt?.getAttribute("aria-pressed")).toBe("false");
     expect(singleSalesOpt?.disabled).toBe(false);
 
-    // Close single popover
+    // Close single popover, then let Radix's deferred focus-return run so it
+    // cannot dismiss the next popover we open.
     await act(async () => {
       singleTrigger.click();
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
     });
 
     // 2. Open popover for Ads Auditor (marketing + fulfillment) and add sales while preserving metadata.bot
@@ -574,8 +578,12 @@ describe("TeamHubPage", () => {
       adsTrigger.click();
     });
     await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await act(async () => {
       adsTrigger.click();
     });
+    expect(adsTrigger.getAttribute("data-state")).toBe("open");
     expect(document.body.querySelector('[role="alert"]')).toBeNull();
   });
 });
