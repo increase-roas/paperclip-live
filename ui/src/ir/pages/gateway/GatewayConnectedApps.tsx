@@ -167,6 +167,9 @@ export function GatewayConnectedApps({
     providers: {},
   });
   const [configuringSchema, setConfiguringSchema] = useState<ProviderSecretSchema | null>(null);
+  // Own-property lookup so row ids like "constructor" never match Object.prototype.
+  const secretSchemaFor = (id: string): ProviderSecretSchema | undefined =>
+    Object.hasOwn(secretsMeta.providers, id) ? secretsMeta.providers[id] : undefined;
 
   useEffect(() => {
     let active = true;
@@ -593,12 +596,12 @@ export function GatewayConnectedApps({
 
                     <td className="px-4 py-3 text-right align-top">
                       <div className="inline-flex items-center justify-end gap-1.5">
-                        {!row.isGhl && secretsMeta.providers[row.id] ? (
+                        {!row.isGhl && secretSchemaFor(row.id) ? (
                           <Button
                             type="button"
                             size="xs"
                             variant={row.status === "not_configured" ? "default" : "ghost"}
-                            onClick={() => setConfiguringSchema(secretsMeta.providers[row.id])}
+                            onClick={() => setConfiguringSchema(secretSchemaFor(row.id) ?? null)}
                             title={
                               row.status === "live"
                                 ? `Rotate ${row.label} key on ${secretsMeta.workerName}`
@@ -662,7 +665,7 @@ export function GatewayConnectedApps({
                             <Shield className="size-3 text-emerald-400" />
                             Managed on Gateway
                           </span>
-                        ) : !secretsMeta.providers[row.id] ? (
+                        ) : !secretSchemaFor(row.id) ? (
                           <span className="text-xs text-muted-foreground">
                             Bind key on Gateway
                           </span>

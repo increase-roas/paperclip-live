@@ -318,11 +318,18 @@ export function gatewayProxyRoutes(opts?: GatewayProxyOptions) {
   router.get("/gateway/admin/secrets/schema", (req, res) => {
     assertInstanceAdmin(req);
     const cf = resolveCloudflareSecretConfig(opts?.cloudflare);
+    const baseUrl = resolveBaseUrl(opts);
+    const providers = Object.fromEntries(
+      Object.entries(GATEWAY_PROVIDER_SECRETS).map(([id, { redirectPath, ...spec }]) => [
+        id,
+        redirectPath ? { ...spec, redirectUri: `${baseUrl}${redirectPath}` } : spec,
+      ]),
+    );
     res.json({
       ok: true,
       configured: cf.configured,
       workerName: cf.workerName,
-      providers: GATEWAY_PROVIDER_SECRETS,
+      providers,
     });
   });
 
@@ -350,12 +357,15 @@ export function gatewayProxyRoutes(opts?: GatewayProxyOptions) {
       fetchImpl: opts?.cloudflare?.fetchImpl ?? fetchImpl,
       timeoutMs: opts?.cloudflare?.timeoutMs ?? timeoutMs,
     });
+    // A multi-key write can stop partway; reset the cache for whatever landed.
+    if (provider === "quickbooks" && result.updatedKeys.length > 0) resetQuickBooksCache();
     if (!result.ok) {
-      res.status(result.status).json({ ok: false, error: result.error });
+      res
+        .status(result.status)
+        .json({ ok: false, error: result.error, updatedKeys: result.updatedKeys });
       return;
     }
 
-    if (provider === "quickbooks") resetQuickBooksCache();
     res.json({
       ok: true,
       provider,

@@ -302,6 +302,7 @@ describe("gatewayProxyRoutes", () => {
 
     // Unconfigured token returns configured=false and 503 on PUT
     const unconfiguredApp = makeApp(ADMIN_ACTOR, {
+      baseUrl: "https://gw.example/",
       cloudflare: {
         apiToken: "",
         accountId: "acc-123",
@@ -314,9 +315,14 @@ describe("gatewayProxyRoutes", () => {
       .expect(200);
     expect(schemaUnconf.body.configured).toBe(false);
     expect(schemaUnconf.body.providers.quickbooks.fields.map((f: { key: string }) => f.key)).toEqual([
-      "QUICKBOOKS_CLIENT_ID",
-      "QUICKBOOKS_CLIENT_SECRET",
+      "QBO_CLIENT_ID",
+      "QBO_CLIENT_SECRET",
     ]);
+    expect(schemaUnconf.body.providers.quickbooks.redirectUri).toBe(
+      "https://gw.example/oauth/quickbooks/callback",
+    );
+    expect(schemaUnconf.body.providers.quickbooks.redirectPath).toBeUndefined();
+    expect(schemaUnconf.body.providers.stripe).toBeUndefined();
     await request(unconfiguredApp)
       .put("/api/gateway/admin/secrets/fireflies")
       .send({ secrets: { FIREFLIES_API_KEY: "ff-secret-123" } })
@@ -359,8 +365,8 @@ describe("gatewayProxyRoutes", () => {
       .put("/api/gateway/admin/secrets/quickbooks")
       .send({
         secrets: {
-          QUICKBOOKS_CLIENT_ID: "qb-id-supersecret",
-          QUICKBOOKS_CLIENT_SECRET: "qb-sec-supersecret",
+          QBO_CLIENT_ID: "qb-id-supersecret",
+          QBO_CLIENT_SECRET: "qb-sec-supersecret",
         },
       })
       .expect(200);
@@ -368,7 +374,7 @@ describe("gatewayProxyRoutes", () => {
     expect(okRes.body).toEqual({
       ok: true,
       provider: "quickbooks",
-      updatedKeys: ["QUICKBOOKS_CLIENT_ID", "QUICKBOOKS_CLIENT_SECRET"],
+      updatedKeys: ["QBO_CLIENT_ID", "QBO_CLIENT_SECRET"],
     });
     expect(JSON.stringify(okRes.body)).not.toContain("supersecret");
     expect(cfCalls).toEqual([
@@ -376,14 +382,44 @@ describe("gatewayProxyRoutes", () => {
         url: "https://api.cloudflare.com/client/v4/accounts/acc-123/workers/scripts/increase-roas-oauth-gateway/secrets",
         method: "PUT",
         auth: "Bearer cf-token",
-        body: { name: "QUICKBOOKS_CLIENT_ID", text: "qb-id-supersecret", type: "secret_text" },
+        body: { name: "QBO_CLIENT_ID", text: "qb-id-supersecret", type: "secret_text" },
       },
       {
         url: "https://api.cloudflare.com/client/v4/accounts/acc-123/workers/scripts/increase-roas-oauth-gateway/secrets",
         method: "PUT",
         auth: "Bearer cf-token",
-        body: { name: "QUICKBOOKS_CLIENT_SECRET", text: "qb-sec-supersecret", type: "secret_text" },
+        body: { name: "QBO_CLIENT_SECRET", text: "qb-sec-supersecret", type: "secret_text" },
       },
     ]);
+  });
+
+  it("reports keys already written when Cloudflare rejects a later key", async () => {
+    let calls = 0;
+    const fetchMock = vi.fn(async () => {
+      calls += 1;
+      return calls === 1
+        ? new Response(JSON.stringify({ success: true }), { status: 200 })
+        : new Response(JSON.stringify({ errors: [{ message: "Authentication error" }] }), {
+            status: 401,
+            headers: { "content-type": "application/json" },
+          });
+    });
+    const app = makeApp(ADMIN_ACTOR, {
+      cloudflare: {
+        apiToken: "cf-token",
+        accountId: "acc-123",
+        workerName: "increase-roas-oauth-gateway",
+        fetchImpl: fetchMock as unknown as typeof fetch,
+      },
+    });
+    const res = await request(app)
+      .put("/api/gateway/admin/secrets/quickbooks")
+      .send({ secrets: { QBO_CLIENT_ID: "id-value", QBO_CLIENT_SECRET: "secret-value" } })
+      .expect(502);
+    expect(res.body).toEqual({
+      ok: false,
+      error: "Cloudflare rejected QBO_CLIENT_SECRET: Authentication error",
+      updatedKeys: ["QBO_CLIENT_ID"],
+    });
   });
 });

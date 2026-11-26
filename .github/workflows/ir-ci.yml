@@ -41,6 +41,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       code: ${{ steps.filter.outputs.code }}
+      ir: ${{ steps.filter.outputs.ir }}
       # Pull requests get build + typecheck only. The test suites run on
       # master pushes, manual runs, and PRs with the full-ci label.
       full: ${{ github.event_name != 'pull_request' || inputs.full_suite == true }}
@@ -68,6 +69,11 @@ jobs:
             code=true
           fi
           echo "code=$code" >> "$GITHUB_OUTPUT"
+          ir=false
+          if printf '%s\n' "$files" | grep -qE '^(server|ui)/src/ir/'; then
+            ir=true
+          fi
+          echo "ir=$ir" >> "$GITHUB_OUTPUT"
 
   build:
     name: build + typecheck
@@ -161,6 +167,24 @@ jobs:
             pnpm test:run:general -- "$@"
           fi
 
+  # The IR suites take under a minute, so pull requests that touch IR code
+  # run them even without the full-ci label (the full suite covers them).
+  ir-tests:
+    name: IR tests
+    needs: changes
+    if: needs.changes.outputs.ir == 'true' && needs.changes.outputs.full != 'true'
+    runs-on: ${{ fromJSON(github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && '["self-hosted", "brain-vps"]' || '"ubuntu-latest"') }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/ir-setup
+      - name: Server IR tests
+        working-directory: server
+        run: pnpm exec vitest run src/ir
+      - name: UI IR tests
+        working-directory: ui
+        run: pnpm exec vitest run src/ir
+
   ir-scripts:
     name: IR files
     runs-on: ${{ fromJSON(github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && '["self-hosted", "brain-vps"]' || '"ubuntu-latest"') }}
@@ -193,7 +217,7 @@ jobs:
   ci-passed:
     name: IR CI passed
     if: always()
-    needs: [changes, build, test, ir-scripts]
+    needs: [changes, build, test, ir-tests, ir-scripts]
     runs-on: ${{ fromJSON(github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && '["self-hosted", "brain-vps"]' || '"ubuntu-latest"') }}
     steps:
       - name: Aggregate the required jobs
@@ -202,6 +226,11 @@ jobs:
           set -euo pipefail
           [ "${{ needs.changes.result }}" = "success" ]
           [ "${{ needs.ir-scripts.result }}" = "success" ]
+          if [ "${{ needs.changes.outputs.ir }}" = "true" ] && [ "${{ needs.changes.outputs.full }}" != "true" ]; then
+            [ "${{ needs.ir-tests.result }}" = "success" ]
+          else
+            [ "${{ needs.ir-tests.result }}" = "skipped" ]
+          fi
           if [ "${{ needs.changes.outputs.code }}" = "true" ]; then
             [ "${{ needs.build.result }}" = "success" ]
             if [ "${{ needs.changes.outputs.full }}" = "true" ]; then

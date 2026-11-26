@@ -642,7 +642,8 @@ export const irOpsApi = {
     saveProviderSecrets: (provider: string, secrets: Record<string, string>) =>
       irFetch<{ ok: boolean; provider: string; updatedKeys: string[] }>(
         `/api/gateway/admin/secrets/${encodeURIComponent(provider)}`,
-        { method: "PUT", body: JSON.stringify({ secrets }) },
+        // The server writes one Cloudflare secret at a time, 20s timeout each.
+        { method: "PUT", body: JSON.stringify({ secrets }), timeoutMs: 45_000 },
       ),
   },
 
