@@ -555,6 +555,44 @@ export async function readAgencyQuickBooksFinancials(
   }
 
   // 2. Graceful fallback: Gateway's Composio bridge until native QuickBooks is connected
+  // Auto-discover active QuickBooks connected_account_id + user_id from Composio v3 so
+  // project-scoped API keys execute against the connected QuickBooks account cleanly.
+  let composioAccountId = (process.env.COMPOSIO_QUICKBOOKS_ACCOUNT_ID ?? "").trim();
+  let composioUserId = (process.env.COMPOSIO_QUICKBOOKS_USER_ID ?? "").trim();
+  if (!composioAccountId) {
+    const accountsRes = await callGatewayProvider(
+      baseUrl,
+      token,
+      "composio",
+      {
+        method: "GET",
+        path: "/connected_accounts",
+        action: "accounts",
+        query: {
+          toolkit_slugs: "quickbooks",
+          statuses: "ACTIVE",
+        },
+      },
+      fetchImpl,
+      timeoutMs,
+    );
+    const items =
+      accountsRes.ok && isRecord(accountsRes.body?.data) && Array.isArray(accountsRes.body.data.items)
+        ? accountsRes.body.data.items
+        : [];
+    const firstActive = items.find((item) => isRecord(item) && typeof item.id === "string");
+    if (isRecord(firstActive)) {
+      composioAccountId = typeof firstActive.id === "string" ? firstActive.id.trim() : "";
+      if (!composioUserId && typeof firstActive.user_id === "string") {
+        composioUserId = firstActive.user_id.trim();
+      }
+    }
+  }
+
+  const composioAuthBody: Record<string, string> = {};
+  if (composioAccountId) composioAuthBody.connected_account_id = composioAccountId;
+  if (composioUserId) composioAuthBody.user_id = composioUserId;
+
   const [compCashRes, compAccrualRes] = await Promise.all([
     callGatewayProvider(
       baseUrl,
@@ -565,6 +603,7 @@ export async function readAgencyQuickBooksFinancials(
         path: "/tools/execute/QUICKBOOKS_GET_PROFIT_AND_LOSS_REPORT",
         action: "tools",
         body: {
+          ...composioAuthBody,
           arguments: {
             start_date: startDate,
             end_date: endDate,
@@ -584,6 +623,7 @@ export async function readAgencyQuickBooksFinancials(
         path: "/tools/execute/QUICKBOOKS_GET_PROFIT_AND_LOSS_REPORT",
         action: "tools",
         body: {
+          ...composioAuthBody,
           arguments: {
             start_date: startDate,
             end_date: endDate,
