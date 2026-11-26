@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { describeCron } from "./cron-readable";
 
 describe("describeCron", () => {
-  it("describes a daily time", () => {
-    expect(describeCron("0 14 * * *")).toBe("Every day at 14:00");
+  it.each(["*", "?"])("describes a daily time with %s as the day-of-week wildcard", (dow) => {
+    expect(describeCron(`0 14 * * ${dow}`)).toBe("Every day at 14:00");
   });
 
   it("describes every-weekday", () => {
