@@ -57,7 +57,7 @@ export function redactErrorRecord(record: ErrorRecordInput): ErrorRecordInput {
     severity: record.severity,
     message: redactIncidentText(record.message, 2048),
     stack: record.stack && redactIncidentText(record.stack, 8192),
-    route: record.route && redactIncidentText(record.route, 1024),
+    route: record.route && redactIncidentText(record.route.split(/[?#]/, 1)[0], 1024),
     method: record.method && redactIncidentText(record.method, 16),
     statusCode: record.statusCode,
     componentStack: record.componentStack && redactIncidentText(record.componentStack, 4096),

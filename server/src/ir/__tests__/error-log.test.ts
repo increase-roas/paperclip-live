@@ -30,6 +30,10 @@ function setup(actor: Express.Request["actor"] = admin) {
   app.use("/api", errorRoutes());
   app.get("/typed-error", () => { throw new HttpError(503, "Unreachable upstream"); });
   app.get("/unexpected-error", () => { throw new Error("Unexpected failure"); });
+  const failures = express.Router();
+  failures.get("/invites/:token/skills/:skillName", () => { throw new Error("Invite lookup failed"); });
+  failures.post("/board-claim/:token/claim", () => { throw new Error("Board claim failed"); });
+  app.use("/api", failures);
   app.get("/client-error", () => { throw new HttpError(409, "Conflict"); });
   app.use(errorHandler);
   return request(app);
@@ -73,8 +77,60 @@ describe("IR error storage", () => {
       expect(serialized.includes(secret)).toBe(false);
     }
     expect(record.meta?.nested).toEqual([{ secret: "[REDACTED]", open: "keep me" }]);
-    expect(record.route).toContain("mode=sample");
+    expect(record.route).toBe("/fail");
     expect(record.message).toContain("[REDACTED]");
+  });
+
+  it("removes path tokens from server and client records before every sink", async () => {
+    vi.stubEnv("IR_ERROR_INCIDENT_WEBHOOK_URL", "https://incidents.example.test/privacy-paths");
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(new Response(null));
+    vi.stubGlobal("fetch", fetch);
+    const paths = [
+      "/api/invites/fake-invite-token/logo",
+      "/invite/fake-browser-token",
+      "/api/board-claim/fake-claim-token/claim",
+      "/BOARD-CLAIM/fake-uppercase-token",
+      "/api/%69nvites/fake%2Fencoded-token/onboarding.txt",
+      "/api/%2569nvites/fake%252Fdouble-token/skills/index",
+      "/api%2Finvites%2Ffake-packed-token/logo",
+      "/api/%62oard-claim/fake%2Fencoded-claim/claim",
+      "/api/invites/fake-query-token?code=fake-query-code#fake-fragment",
+    ];
+    for (const [index, route] of paths.entries()) {
+      const input = { severity: "error" as const, message: `Privacy path regression ${index}`, route };
+      await recordClientError(input);
+      recordServerError(input);
+    }
+    const result = await queryErrorLog();
+    expect(result.total).toBe(paths.length * 2);
+    expect(fetch).toHaveBeenCalledTimes(paths.length * 2);
+    const disk = await readFile(join(resolveDefaultLogsDir(), "ir-errors.jsonl"), "utf8");
+    const webhook = JSON.stringify(fetch.mock.calls.map(([, options]) => JSON.parse(options!.body as string)));
+    for (const sink of [JSON.stringify(result), disk, webhook]) {
+      expect(sink).not.toMatch(/fake|encoded-token|double-token/);
+      expect(sink).toContain("/api/invites/:token/logo");
+      expect(sink).toContain("/api/board-claim/:token/claim");
+      expect(sink).toContain("/skills/index");
+    }
+    expect((await queryErrorLog({ q: "fake" })).total).toBe(0);
+    expect((await queryErrorLog({ q: "/api/invites/:token/logo" })).total).toBe(4);
+  });
+
+  it("scrubs structured private keys and session IDs before persistence", async () => {
+    const meta = {
+      private_key: "fake-private-key",
+      nested: [{ session_id: "fake-session-id", privateKey: "fake-camel-key", note: "Useful diagnostic" }],
+      "%73ession_id": "fake-encoded-key",
+    };
+    const record = await recordClientError({ severity: "error", message: "Metadata privacy regression", meta });
+    expect(record.meta).toEqual({
+      private_key: "[REDACTED]",
+      nested: [{ session_id: "[REDACTED]", privateKey: "[REDACTED]", note: "Useful diagnostic" }],
+      session_id: "[REDACTED]",
+    });
+    const disk = await readFile(join(resolveDefaultLogsDir(), "ir-errors.jsonl"), "utf8");
+    expect(disk).not.toContain("fake-");
+    expect(JSON.stringify(await queryErrorLog())).not.toContain("fake-");
   });
 
   it("persists entries and counts matches across the requested filters", async () => {
@@ -146,6 +202,20 @@ describe("IR error API", () => {
     expect(body.items).toMatchObject([
       { statusCode: 500, route: "/unexpected-error", method: "GET" },
       { statusCode: 503, route: "/typed-error", method: "GET" },
+    ]);
+  });
+
+  it("uses matched server route patterns and sanitizes browser reports", async () => {
+    const app = setup();
+    await app.get("/api/invites/fake%2Fapi-token/skills/readme").expect(500);
+    await app.post("/api/board-claim/fake-board-token/claim").send({}).expect(500);
+    await app.post(clientPath).set(browserHeaders).send({
+      message: "Browser route failed", route: "/invite/fake-browser-token?code=fake-query-code",
+    }).expect(202);
+    const { body } = await app.get("/api/ir/errors").expect(200);
+    expect(JSON.stringify(body)).not.toContain("fake-");
+    expect(body.items.map(({ route }: { route: string }) => route)).toEqual([
+      "/invite/:token", "/api/board-claim/:token/claim", "/api/invites/:token/skills/:skillName",
     ]);
   });
 

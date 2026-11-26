@@ -110,7 +110,6 @@ export function errorRoutes() {
     try {
       const { id } = await recordClientError({
         ...report.data,
-        route: report.data.route?.split(/[?#]/, 1)[0],
         userAgent: req.get("user-agent"),
       });
       res.status(202).json({ ok: true, id });
