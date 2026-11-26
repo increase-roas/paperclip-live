@@ -13,10 +13,7 @@ test("paid live evals have no implicit pre or post scripts", () => {
   assert.ok(scripts["report:runner-live-evals"].includes("run-runner-live-eval-schedule.mjs"));
 });
 
-test("the retired collector is absent or contains no executable code", () => {
-  if (!existsSync(retiredCollector)) return;
-  const source = readFileSync(retiredCollector, "utf8");
-  const statements = source.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, "").trim();
+test("the retired environment collector is absent", () => {
   // Report only the presence of code; a failing test must not print credentials.
-  assert.equal(statements.length === 0, true, "The retired collector must remain inert");
+  assert.equal(existsSync(retiredCollector), false, "The retired collector must not return");
 });
