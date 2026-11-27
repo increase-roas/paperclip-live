@@ -295,6 +295,13 @@ to existing answered threads without another model invocation. Slack identity,
 permissions, and the ability to execute work in the same thread are unchanged.
 Other providers keep their existing lifecycle.
 
+Conversation-resume activity commits with the human comment. Live and plugin
+events publish only after the outer transaction commits. Human-comment callers
+that own a transaction pass `options.postCommitActivityPublications` to
+`issueService.addComment` and publish that queue after commit. Savepoints use
+their own queue and transfer it to the outer queue only after success. A failed
+savepoint discards its events even when the outer transaction saves a rejection.
+
 Several chat conversations can share one task, such as the inline finding
 threads of a GitHub pull request review. A reviewed chat run attests exactly one
 conversation, so wake coalescing keeps each conversation in its own batch.

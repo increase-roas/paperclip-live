@@ -9,7 +9,7 @@ import type { ChatPublicationBatchStatus } from "@paperclipai/shared";
 import { isUuidLike } from "@paperclipai/shared";
 import { projectChatFileTransfer, projectChatPublicationBatch } from "../../chat-publication-batches.js";
 import { badRequest, HttpError, conflict, notFound } from "../../../errors.js";
-import { logActivity } from "../../activity-log.js";
+import { logActivity, publishActivity, type ActivityPublication } from "../../activity-log.js";
 import { issueService } from "../../issues.js";
 import { projectSafeChatPublication } from "../../chat-publication-projection.js";
 import type { EndpointRecord } from "../runtime-types.js";
@@ -204,6 +204,7 @@ export function createChatPublicationRequests(db: Db, options: RequestOptions) {
       value.every((id) => typeof id === "string" && isUuidLike(id)) &&
       new Set(value).size === value.length;
     if (attachmentIds.length > 0) { await prepareTeamsBoardSend(endpointId, conversationId, idempotencyKey, rejectionActionId); }
+    const commentActivityPublications: ActivityPublication[] = [];
     const publication = await db.transaction(async (tx) => {
       const conversation = await tx
         .select()
@@ -284,6 +285,7 @@ export function createChatPublicationRequests(db: Db, options: RequestOptions) {
         ReturnType<ReturnType<typeof issueService>["addComment"]>
       >;
       try {
+        const savepointPublications: ActivityPublication[] = [];
         // addComment inserts before binding attachments. Roll back that insert
         // in a savepoint, then commit only the exact terminal rejection below.
         comment = await tx.transaction((inner) =>
@@ -291,10 +293,11 @@ export function createChatPublicationRequests(db: Db, options: RequestOptions) {
             conversation.issueId,
             body,
             { userId },
-            { authorType: "user", attachmentIds },
+            { authorType: "user", attachmentIds, postCommitActivityPublications: savepointPublications },
             inner,
           ),
         );
+        commentActivityPublications.push(...savepointPublications);
       } catch (error) {
         const details =
           error instanceof HttpError &&
@@ -429,6 +432,7 @@ export function createChatPublicationRequests(db: Db, options: RequestOptions) {
       });
       return terminalPublication;
     });
+    for (const item of commentActivityPublications) publishActivity(item);
     if ("rejection" in publication) {
       throw conflict(
         "Selected attachments are already bound to another comment",

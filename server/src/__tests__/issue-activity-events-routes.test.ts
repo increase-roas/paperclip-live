@@ -6,6 +6,7 @@ import { buildIssueChanges } from "../services/issue-change-receipt.ts";
 import { normalizeIssueExecutionPolicy } from "../services/issue-execution-policy.ts";
 
 const mockIssueService = vi.hoisted(() => ({
+  assertProofGateAllowsTransition: vi.fn(async () => undefined),
   getById: vi.fn(),
   getByIdForUpdate: vi.fn(),
   assertCheckoutOwner: vi.fn(),

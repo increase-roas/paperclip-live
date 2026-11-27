@@ -1,3 +1,4 @@
+import { publishActivity, type ActivityPublication } from "./activity-log.js";
 import { notifyStatusCardIssueChange } from "./status-card-notifications.js";
 import { effectiveProjectWorkspacePolicy } from "./project-workspace-provider.js";
 import { readRemoteWorkspaceAuthority, readWorkspaceProviderBinding } from "@paperclipai/shared";
@@ -5203,7 +5204,8 @@ export function executionWorkspaceService(db: Db, opts: ExecutionWorkspaceServic
         input.actor.actorType === "system" &&
         input.actor.actorId === "workspace_runtime" &&
         Boolean(input.actor.runId);
-      return db.transaction(async (tx) => {
+      const commentActivityPublications: ActivityPublication[] = [];
+      const result = await db.transaction(async (tx) => {
         const txDb = tx as unknown as Db;
         // Runtime-service activation takes this same row lock before spawning
         // local services and persists a `starting` row before releasing it.
@@ -5450,6 +5452,7 @@ export function executionWorkspaceService(db: Db, opts: ExecutionWorkspaceServic
           {
             authorType: input.actor.actorType,
             authorizationReason: "execution_workspace_branch_reconcile",
+            postCommitActivityPublications: commentActivityPublications,
           },
           tx,
         );
@@ -5464,6 +5467,8 @@ export function executionWorkspaceService(db: Db, opts: ExecutionWorkspaceServic
           sourceIssueStatusChanged,
         };
       });
+      for (const publication of commentActivityPublications) publishActivity(publication);
+      return result;
     },
 
     clearEnvironmentSelection: async (companyId: string, environmentId: string) => {

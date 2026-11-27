@@ -69,7 +69,7 @@ export function stalledReviewDecisionService(db: Db) {
               lockedIssue.id,
               input.note,
               { userId: input.actor.userId, runId: input.actor.runId ?? null },
-              { authorType: "user" },
+              { authorType: "user", postCommitActivityPublications },
               tx,
             )
           : null;

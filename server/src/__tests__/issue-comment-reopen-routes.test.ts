@@ -15,6 +15,7 @@ vi.mock("../services/execution-blocker.js", () => ({
 }));
 
 const mockIssueService = vi.hoisted(() => ({
+  assertProofGateAllowsTransition: vi.fn(async () => undefined),
   getById: vi.fn(),
   getByIdForUpdate: vi.fn(),
   assertCheckoutOwner: vi.fn(),
@@ -1060,8 +1061,6 @@ describe("issue comment reopen routes", () => {
     },
   );
 
-  // POST self-comment from the assignee agent on a done issue with explicit
-  // reopen=true is the same log-class signal — the guard must suppress reopen.
   it("does not reopen via POST comment+reopen when the assignee agent is the actor on a done issue", async () => {
     const assigneeAgentId = "22222222-2222-4222-8222-222222222222";
     const issue = makeIssue("done");
@@ -1609,6 +1608,7 @@ describe("issue comment reopen routes", () => {
         authorizationReason: "allow_board_actor",
         clientRequestId: undefined,
         mirrorToSlack: true,
+        postCommitActivityPublications: [],
         presentation: {
           kind: "system_notice",
           tone: "warning",

@@ -14,6 +14,7 @@ const agentStatusById: Record<string, string> = {
 };
 
 const mockIssueService = vi.hoisted(() => ({
+  assertProofGateAllowsTransition: vi.fn(async () => undefined),
   getById: vi.fn(),
   findOpenAncestorCreatedByAgent: vi.fn(),
   update: vi.fn(),
