@@ -380,7 +380,7 @@ describe("dashboardBoardService", () => {
           {
             id: "increase-roas-b2b",
             displayName: "Increase ROAS B2B",
-            adAccountId: "act_1751702711685898",
+            adAccountId: "act_1000000000000011",
             status: "needs_config",
             statusLabel: "Needs account ID / key",
             observedAt: null,
@@ -396,7 +396,7 @@ describe("dashboardBoardService", () => {
           {
             id: "alex-bloomfield-ssa",
             displayName: "Alex Bloomfield (Start Scale Automate)",
-            adAccountId: "act_735997837915750",
+            adAccountId: "act_1000000000000012",
             status: "live",
             statusLabel: "Live",
             observedAt: "2026-11-23T11:45:00.000Z",
@@ -412,7 +412,7 @@ describe("dashboardBoardService", () => {
           {
             id: "hot-tub-launch",
             displayName: "Hot Tub Launch",
-            adAccountId: "act_931652032962948",
+            adAccountId: "act_1000000000000013",
             status: "live",
             statusLabel: "Live · $0 spend",
             observedAt: "2026-11-23T11:45:00.000Z",
@@ -452,7 +452,7 @@ describe("dashboardBoardService", () => {
           {
             id: "increase-roas-main",
             displayName: "Increase ROAS Main",
-            locationId: "Sr90yJUmFoBTgBQuejtU",
+            locationId: "LocFakeClientA000001",
             authMode: "gateway",
             status: "live",
             statusLabel: "Live",
@@ -474,7 +474,7 @@ describe("dashboardBoardService", () => {
           {
             id: "hot-tub-launch-b2b",
             displayName: "Hot Tub Launch B2B",
-            locationId: "AG47jEV5rVUrGLt5FlKO",
+            locationId: "LocFakeClientB000002",
             authMode: "gateway",
             status: "live",
             statusLabel: "Live",
