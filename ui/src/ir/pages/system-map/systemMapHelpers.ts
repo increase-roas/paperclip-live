@@ -86,14 +86,18 @@ export function displayDiagnostic(text: string): string {
 
 export type DefinitionState =
   | { kind: "linked"; formula: string; certified: boolean }
-  | { kind: "not_defined" }
+  | { kind: "term"; certified: boolean }
   | { kind: "broken"; pointer: string };
 
-/** How a GBrain definition maps onto the canonical metric library. */
+/**
+ * How a GBrain definition maps onto the canonical metric library. `calculation: none`
+ * is a term definition (lead, booked, approved...) with no formula: its owner
+ * certification alone decides the chip.
+ */
 export function definitionState(definition: SkeletonDefinition): DefinitionState {
   const resolved = resolveCalculationPointer(definition.calculation);
   if (resolved.kind === "missing") return { kind: "broken", pointer: resolved.pointer };
-  if (resolved.kind === "none") return { kind: "not_defined" };
+  if (resolved.kind === "none") return { kind: "term", certified: definition.certified };
   return { kind: "linked", formula: resolved.definition.formula, certified: definition.certified };
 }
 

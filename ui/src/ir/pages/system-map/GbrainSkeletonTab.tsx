@@ -243,8 +243,12 @@ export function GbrainSkeletonTab({ data }: { data: GbrainSkeletonResponse }) {
                       </span>
                       {state.kind === "broken" ? (
                         <HealthChip tone="bad">Broken pointer</HealthChip>
-                      ) : state.kind === "not_defined" ? (
-                        <HealthChip tone="muted">Not defined yet</HealthChip>
+                      ) : state.kind === "term" ? (
+                        state.certified ? (
+                          <HealthChip tone="ok">Certified</HealthChip>
+                        ) : (
+                          <HealthChip tone="muted">Not defined yet</HealthChip>
+                        )
                       ) : (
                         <HealthChip tone={state.certified ? "ok" : "warn"}>
                           {state.certified ? "Certified" : "Pending owner sign-off"}
@@ -252,7 +256,11 @@ export function GbrainSkeletonTab({ data }: { data: GbrainSkeletonResponse }) {
                       )}
                     </div>
                     <span className="font-mono text-xs text-muted-foreground">
-                      {state.kind === "linked" ? `${definition.calculation} = ${state.formula}` : definition.calculation}
+                      {state.kind === "linked"
+                        ? `${definition.calculation} = ${state.formula}`
+                        : state.kind === "term"
+                          ? "Term definition (no formula)"
+                          : definition.calculation}
                     </span>
                   </li>
                 );
