@@ -1061,8 +1061,6 @@ describe("issue comment reopen routes", () => {
     },
   );
 
-  // POST self-comment from the assignee agent on a done issue with explicit
-  // reopen=true is the same log-class signal — the guard must suppress reopen.
   it("does not reopen via POST comment+reopen when the assignee agent is the actor on a done issue", async () => {
     const assigneeAgentId = "22222222-2222-4222-8222-222222222222";
     const issue = makeIssue("done");

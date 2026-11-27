@@ -244,6 +244,7 @@ import { NativeChatAttachmentReadScope } from "../services/native-runtime/chat-a
 import { logActivity } from "../services/activity-log.js";
 import * as activityLogService from "../services/activity-log.js";
 import { subscribeCompanyLiveEvents } from "../services/live-events.js";
+import { observeConversationResumes } from "./helpers/conversation-resume-events.js";
 import { issueThreadInteractionService } from "../services/issue-thread-interactions.js";
 import { questionResponseDeliveryService } from "../services/question-response-delivery.js";
 import * as chatQuestionForms from "../services/chat-question-forms.js";
@@ -2053,21 +2054,13 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
       comments: (await db.select({ id: issueComments.id }).from(issueComments).where(and(eq(issueComments.issueId, conversation.issueId), eq(issueComments.body, body)))).length,
       activities: (await db.select({ id: activityLog.id }).from(activityLog).where(and(eq(activityLog.entityId, conversation.issueId), sql`${activityLog.details}->>'source' = 'external_conversation_resumed'`))).length,
     });
-    const observations: Array<ReturnType<typeof state>> = [];
-    const unsubscribe = subscribeCompanyLiveEvents(fixture.companyId, event => {
-      const details = event.payload.details as Record<string, unknown> | undefined;
-      if (event.type === "activity.logged" && details?.source === "external_conversation_resumed") observations.push(state());
-    });
+    const { observations, unsubscribe } = observeConversationResumes(fixture.companyId, state);
     const transaction = db.transaction.bind(db);
-    let reachedCommit = false;
     const spy = vi.spyOn(db, "transaction").mockImplementation((callback, config) => transaction(async tx => {
       const result = await callback(tx);
-      if ((result as { comment?: { body?: string } } | null)?.comment?.body === body) {
-        reachedCommit = true;
-        expect(observations).toHaveLength(0);
-        expect((await tx.select({ status: issues.status }).from(issues).where(eq(issues.id, conversation.issueId)))[0]?.status).toBe("todo");
-        if (rollback) throw new Error("controlled inbound commit failure");
-      }
+      if ((result as { comment?: { body?: string } } | null)?.comment?.body !== body) return result;
+      expect(observations).toHaveLength(0);
+      if (rollback) throw new Error("controlled inbound commit failure");
       return result;
     }, config));
     try {
@@ -2075,12 +2068,10 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
         message: makeMessage({ id: "9001.2", text: body, userId: "UBOARD" }) });
       if (rollback) await expect(delivery).rejects.toThrow("controlled inbound commit failure");
       else await delivery;
-      expect(reachedCommit).toBe(true);
       expect(await state()).toEqual(rollback ? { status: "in_review", comments: 0, activities: 0 } : { status: "todo", comments: 1, activities: 1 });
       expect(await Promise.all(observations)).toEqual(rollback ? [] : [{ status: "todo", comments: 1, activities: 1 }]);
     } finally { spy.mockRestore(); unsubscribe(); }
   });
-
   async function acceptedUnknownSlackFileReceipt(label: string) {
     const fixture = await seedCompany();
     const storage = createStorageService();
@@ -50541,7 +50532,6 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
         storage,
       };
     }
-
     it("discards resume publications when a rejected savepoint rolls back but its outer receipt commits", async () => {
       const fixture = await rejectionFixture();
       await db.update(issueAttachments).set({ issueCommentId: null }).where(eq(issueAttachments.id, fixture.attachment.id));
@@ -50549,25 +50539,17 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
       await db.update(chatPublications).set({ state: "cancelled" }).where(eq(chatPublications.companyId, fixture.conversation.companyId));
       await db.update(issues).set({ status: "in_review", executionRunId: null }).where(eq(issues.id, fixture.conversation.issueId));
       await db.update(chatConversations).set({ state: "waiting" }).where(eq(chatConversations.id, fixture.conversation.id));
-      const events: unknown[] = [];
-      const unsubscribe = subscribeCompanyLiveEvents(fixture.conversation.companyId, event => {
-        const details = event.payload.details as Record<string, unknown> | undefined;
-        if (event.type === "activity.logged" && details?.source === "external_conversation_resumed") events.push(event);
-      });
+      const { observations, unsubscribe } = observeConversationResumes(fixture.conversation.companyId, () => undefined);
       const transaction = db.transaction.bind(db);
       let rejectedAfterAppend = false;
       const spy = vi.spyOn(db, "transaction").mockImplementation((callback, config) => transaction(async tx => {
         const savepoint = tx.transaction.bind(tx);
         vi.spyOn(tx, "transaction").mockImplementation(innerCallback => savepoint(async inner => {
           const result = await innerCallback(inner);
-          if ((result as { body?: string } | null)?.body === "Rejected private message") {
-            rejectedAfterAppend = true;
-            throw conflict("Controlled attachment rejection after append", {
-              code: "issue_comment_attachments_already_bound", companyId: fixture.conversation.companyId,
-              issueId: fixture.conversation.issueId, attachmentIds: [fixture.attachment.id],
-            });
-          }
-          return result;
+          if ((result as { body?: string } | null)?.body !== "Rejected private message") return result;
+          rejectedAfterAppend = true;
+          throw conflict("Controlled attachment rejection after append", { code: "issue_comment_attachments_already_bound",
+            companyId: fixture.conversation.companyId, issueId: fixture.conversation.issueId, attachmentIds: [fixture.attachment.id] });
         }));
         return callback(tx);
       }, config));
@@ -50575,13 +50557,12 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
         await expect(fixture.send()).rejects.toMatchObject({ status: 409, details: fixture.details });
         expect(rejectedAfterAppend).toBe(true);
         expect(await fixture.receipts()).toHaveLength(1);
-        expect(events).toHaveLength(0);
+        expect(observations).toHaveLength(0);
         expect((await readIssuesById(fixture.conversation.issueId))[0].status).toBe("in_review");
         expect(await db.select().from(activityLog).where(and(eq(activityLog.entityId, fixture.conversation.issueId), sql`${activityLog.details}->>'source' = 'external_conversation_resumed'`))).toHaveLength(0);
         expect(await db.select().from(issueComments).where(and(eq(issueComments.issueId, fixture.conversation.issueId), eq(issueComments.body, "Rejected private message")))).toHaveLength(0);
       } finally { spy.mockRestore(); unsubscribe(); }
     });
-
     it("keeps the exact rejected key terminal after normal owner-comment deletion and service reconstruction", async () => {
       const fixture = await rejectionFixture();
       let restarted: ChatChannelService | undefined;

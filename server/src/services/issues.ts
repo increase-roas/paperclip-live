@@ -13181,7 +13181,6 @@ export function issueService(db: Db) {
         proactiveChatMessage?: { sourceTaskId: string; userId: string };
         /** Server-only: authenticated Paperclip messages also belong in the Slack thread. */
         mirrorToSlack?: boolean;
-        /** Caller-owned transactions publish these only after their outer commit. */
         postCommitActivityPublications?: ActivityPublication[];
       },
       dbOrTx: any = db,

@@ -8,7 +8,7 @@ import {
 import { publishActivity, type ActivityPublication } from "../services/activity-log.js";
 import { resumeExternalConversation } from "../services/slack-conversation-state.js";
 import { issueService } from "../services/issues.js";
-import { subscribeCompanyLiveEvents } from "../services/live-events.js";
+import { observeConversationResumes } from "./helpers/conversation-resume-events.js";
 import { getEmbeddedPostgresTestSupport, startEmbeddedPostgresTestDatabase } from "./helpers/embedded-postgres.js";
 
 const support = await getEmbeddedPostgresTestSupport();
@@ -40,11 +40,7 @@ const support = await getEmbeddedPostgresTestSupport();
       comments: (await db.select({ id: issueComments.id }).from(issueComments).where(eq(issueComments.issueId, issueId))).length,
       activities: (await db.select({ id: activityLog.id }).from(activityLog).where(and(eq(activityLog.entityId, issueId), eq(activityLog.action, "issue.updated")))).length,
     });
-    const observations: Array<ReturnType<typeof state>> = [];
-    const unsubscribe = subscribeCompanyLiveEvents(companyId, event => {
-      const details = event.payload.details as Record<string, unknown> | undefined;
-      if (event.type === "activity.logged" && details?.source === "external_conversation_resumed") observations.push(state());
-    });
+    const { observations, unsubscribe } = observeConversationResumes(companyId, state);
     return { companyId, issueId, state, observations, unsubscribe };
   }
 
@@ -58,7 +54,6 @@ const support = await getEmbeddedPostgresTestSupport();
         await db.transaction(async tx => {
           const svc = issueService(path === "scoped" ? tx as unknown as typeof db : db);
           await svc.addComment(f.issueId, "Continue", { userId: "local-board" }, { postCommitActivityPublications: publications }, tx);
-          // Linked-user inbound adds a human comment before its explicit resume.
           if (path === "linked inbound") await resumeExternalConversation(tx as unknown as typeof db, f.companyId, f.issueId, publications);
           expect(publications).toHaveLength(1);
           expect(f.observations).toHaveLength(0);
