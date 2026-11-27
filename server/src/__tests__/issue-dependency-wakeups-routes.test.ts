@@ -19,6 +19,7 @@ vi.setConfig({ testTimeout: 30000 });
 const mockWakeup = vi.hoisted(() => vi.fn(async () => undefined));
 const mockFindExistingIssueBlockersResolvedWakeForReadyState = vi.hoisted(() => vi.fn(async () => null));
 const mockIssueService = vi.hoisted(() => ({
+  assertProofGateAllowsTransition: vi.fn(async () => undefined),
   getAncestors: vi.fn(),
   getById: vi.fn(),
   getByIdForUpdate: vi.fn(),

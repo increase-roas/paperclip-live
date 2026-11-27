@@ -15,6 +15,7 @@ vi.mock("../services/execution-blocker.js", () => ({
 }));
 
 const mockIssueService = vi.hoisted(() => ({
+  assertProofGateAllowsTransition: vi.fn(async () => undefined),
   getById: vi.fn(),
   getByIdForUpdate: vi.fn(),
   assertCheckoutOwner: vi.fn(),

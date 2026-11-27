@@ -17,6 +17,7 @@ const mockProjectService = vi.hoisted(() => ({
 }));
 
 const mockIssueService = vi.hoisted(() => ({
+  assertProofGateAllowsTransition: vi.fn(async () => undefined),
   create: vi.fn(),
   getById: vi.fn(),
   update: vi.fn(),

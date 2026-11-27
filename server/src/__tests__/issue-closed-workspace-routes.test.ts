@@ -14,6 +14,7 @@ const agentId = "22222222-2222-4222-8222-222222222222";
 const REOPEN_PENDING_WAIT_TIMEOUT_MS = 5_000;
 
 const mockIssueService = vi.hoisted(() => ({
+  assertProofGateAllowsTransition: vi.fn(async () => undefined),
   getById: vi.fn(),
   update: vi.fn(),
   checkout: vi.fn(),

@@ -18,6 +18,7 @@ const MENTIONED_AGENT_ID = "33333333-3333-4333-8333-333333333333";
 const SOURCE_RUN_ID = "44444444-4444-4444-8444-444444444444";
 
 const mockIssueService = vi.hoisted(() => ({
+  assertProofGateAllowsTransition: vi.fn(async () => undefined),
   getById: vi.fn(),
   getByIdentifier: vi.fn(),
   getByIdForUpdate: vi.fn(),
@@ -380,6 +381,32 @@ describe("issue update comment wakeups", () => {
       } })).toBe(true);
     expect(res.body).toMatchObject({ status, executionRunId: null });
     expect(mockHeartbeatService.wakeup).not.toHaveBeenCalled();
+  });
+
+  it("refuses a proof-gated close before stopping the native run or writing the update and comment", async () => {
+    const { unprocessable } = await import("../errors.js");
+    const existing = makeIssue({ status: "in_progress", assigneeAgentId: ASSIGNEE_AGENT_ID,
+      assigneeUserId: null, executionRunId: SOURCE_RUN_ID });
+    const labelIds = ["55555555-5555-4555-8555-555555555555"];
+    mockIssueService.getById.mockResolvedValue(existing);
+    mockHeartbeatService.getRun.mockResolvedValue({ id: SOURCE_RUN_ID, companyId: existing.companyId,
+      agentId: ASSIGNEE_AGENT_ID, runtimeMode: "native", status: "running",
+      nativeIssueId: existing.id, contextSnapshot: { issueId: existing.id } });
+    mockIssueService.assertProofGateAllowsTransition.mockRejectedValueOnce(unprocessable(
+      "The required proof check is failing.", { code: "ir_proof_check_not_passing" },
+    ));
+
+    const res = await request(await createApp()).patch(`/api/issues/${existing.id}`)
+      .send({ status: "done", labelIds, comment: "Closing after the fix.", interrupt: true });
+
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe("ir_proof_check_not_passing");
+    expect(mockIssueService.assertProofGateAllowsTransition).toHaveBeenCalledWith(existing, "done", labelIds);
+    expect(mockHeartbeatService.getRun).not.toHaveBeenCalled();
+    expect(mockHeartbeatService.cancelRun).not.toHaveBeenCalled();
+    expect(mockHeartbeatService.wakeup).not.toHaveBeenCalled();
+    expect(mockIssueService.update).not.toHaveBeenCalled();
+    expect(mockIssueService.addComment).not.toHaveBeenCalled();
   });
 
   it("keeps the task open when a goal-less native run cannot confirm its stop", async () => {
