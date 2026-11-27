@@ -18,10 +18,13 @@ import {
 } from "@/components/dashboards/lane3-shared/BoardPrimitives";
 
 const ATTENTION = new Set(["degraded", "failed", "error", "missing_secret"]);
+const INACTIVE = new Set(["archived", "uninstalled", "disabled"]);
 
 function healthTone(row: DashboardConnectorRow): "danger" | "warning" | "good" | "default" {
+  if (INACTIVE.has(row.status)) return "default";
   if (row.health && ATTENTION.has(row.health)) return "danger";
   if (row.status === "error" || row.status === "failed") return "danger";
+  if (row.kind === "adapter" && !row.health) return "good";
   if (!row.health || row.health === "unchecked" || row.health === "unknown" || row.status === "draft") {
     return "warning";
   }
@@ -61,7 +64,7 @@ export function ToolsConnectorsBoard({ companyId: companyIdProp }: { companyId?:
     <QueryView query={query} action="load the tools & connectors board">
       {(board: DashboardToolsConnectorsBoard) => {
         const expiringSoon = board.items.filter(
-          (row) => row.expiryDaysRemaining !== null && row.expiryDaysRemaining <= 14,
+          (row) => !INACTIVE.has(row.status) && row.expiryDaysRemaining !== null && row.expiryDaysRemaining <= 14,
         );
         return (
           <div className="space-y-8">
@@ -160,7 +163,10 @@ export function ToolsConnectorsBoard({ companyId: companyIdProp }: { companyId?:
                             <td className="px-4 py-3"><StatusBadge status={row.status} /></td>
                             <td className="px-4 py-3">
                               <div className="space-y-1">
-                                <StatusBadge status={row.health ?? "not reported"} tone={healthTone(row)} />
+                                <StatusBadge
+                                  status={row.health ?? (row.kind === "adapter" && row.status === "active" ? "active" : "not reported")}
+                                  tone={healthTone(row)}
+                                />
                                 {row.healthMessage ? (
                                   <p className="max-w-xs text-xs text-muted-foreground">{row.healthMessage}</p>
                                 ) : null}

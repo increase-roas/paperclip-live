@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import {
   agents,
@@ -30,6 +30,7 @@ function resolveMetaTokenExpiresAt(): string {
 }
 
 const ATTENTION_HEALTH = new Set(["degraded", "failed", "error", "missing_secret"]);
+const INACTIVE_STATUS = new Set(["archived", "uninstalled", "disabled"]);
 
 /** Root-level expiry keys that connectors and plugins are known to use. */
 const EXPIRY_KEYS = ["expiresAt", "expires_at", "expiry", "tokenExpiresAt", "credentialExpiresAt"] as const;
@@ -50,9 +51,11 @@ export function readExpiry(value: unknown): Date | null {
   return null;
 }
 
-function classify(row: DashboardConnectorRow): "healthy" | "attention" | "unchecked" {
+function classify(row: DashboardConnectorRow): "healthy" | "attention" | "unchecked" | "inactive" {
+  if (INACTIVE_STATUS.has(row.status)) return "inactive";
   if (row.health && ATTENTION_HEALTH.has(row.health)) return "attention";
   if (row.status === "error" || row.status === "failed") return "attention";
+  if (row.kind === "adapter" && !row.health) return "healthy";
   if (!row.health || row.health === "unchecked" || row.health === "unknown" || row.status === "draft") {
     return "unchecked";
   }
@@ -131,6 +134,7 @@ export function dashboardToolsConnectorsService(
                 updatedAt: plugins.updatedAt,
               })
               .from(plugins)
+              .where(ne(plugins.status, "uninstalled"))
               .orderBy(plugins.pluginKey),
           )
         : [];
@@ -153,7 +157,7 @@ export function dashboardToolsConnectorsService(
           })
           .from(toolConnections)
           .leftJoin(toolApplications, eq(toolConnections.applicationId, toolApplications.id))
-          .where(eq(toolConnections.companyId, companyId))
+          .where(and(eq(toolConnections.companyId, companyId), ne(toolConnections.status, "archived")))
           .orderBy(toolConnections.name),
       );
 
@@ -316,9 +320,14 @@ export function dashboardToolsConnectorsService(
           needsAttention: classified.filter((entry) => entry.state === "attention").length,
           unchecked: classified.filter((entry) => entry.state === "unchecked").length,
           expiringWithin14Days: items.filter(
-            (item) => item.expiryDaysRemaining !== null && item.expiryDaysRemaining <= EXPIRY_WARNING_DAYS,
+            (item) =>
+              !INACTIVE_STATUS.has(item.status) &&
+              item.expiryDaysRemaining !== null &&
+              item.expiryDaysRemaining <= EXPIRY_WARNING_DAYS,
           ).length,
-          expiryUnknown: items.filter((item) => item.expiresAt === null).length,
+          expiryUnknown: items.filter(
+            (item) => !INACTIVE_STATUS.has(item.status) && item.expiresAt === null,
+          ).length,
         },
         notConnected: [],
       };

@@ -429,6 +429,80 @@ describePostgres("lane 3 dashboard board routes", () => {
     expect(plugin.expiresAt).toBeNull();
   });
 
+  it("excludes archived connections, uninstalled or disabled plugins, and active adapters from attention and unchecked counts while keeping active failures loud", async () => {
+    await seed();
+
+    // Seed archived error connection, uninstalled plugin, and disabled plugin
+    const [archivedApp] = await db
+      .insert(toolApplications)
+      .values({
+        companyId,
+        name: "Retired AI",
+        type: "mcp_http",
+        status: "active",
+      })
+      .returning();
+
+    await db.insert(toolConnections).values([
+      {
+        companyId,
+        applicationId: archivedApp!.id,
+        name: "Archived Broken Claude",
+        uid: "archived-broken-claude",
+        connectionPurpose: "ai",
+        transport: "runtime_auth",
+        authKind: "oauth",
+        status: "archived",
+        healthStatus: "error",
+        healthMessage: "Sign in again to restore this AI connection.",
+        config: { expiresAt: new Date(Date.now() - DAY_MS).toISOString() },
+      },
+      {
+        companyId,
+        applicationId: archivedApp!.id,
+        name: "Active Healthy Drive",
+        uid: "active-healthy-drive",
+        transport: "mcp_remote",
+        authKind: "oauth",
+        status: "active",
+        healthStatus: "ok",
+      },
+    ]);
+
+    await db.insert(plugins).values([
+      {
+        pluginKey: "retired-uninstalled-plugin",
+        packageName: "@paperclipai/retired-uninstalled",
+        version: "0.1.0",
+        status: "uninstalled",
+        manifestJson: {} as never,
+      },
+      {
+        pluginKey: "retired-disabled-plugin",
+        packageName: "@paperclipai/retired-disabled",
+        version: "0.2.0",
+        status: "disabled",
+        manifestJson: {} as never,
+      },
+    ]);
+
+    const response = await request(app)
+      .get(`/api/companies/${companyId}/dashboards/tools-connectors`)
+      .expect(200);
+
+    const names = response.body.items.map((item: { name: string }) => item.name);
+    expect(names).not.toContain("Archived Broken Claude");
+    expect(names).not.toContain("retired-uninstalled-plugin");
+    expect(names).toContain("retired-disabled-plugin");
+    expect(names).toContain("Active Healthy Drive");
+
+    // Only the active degraded "Meta Ads MCP" from seed() should trigger Needs attention and expiringWithin14Days
+    expect(response.body.summary.needsAttention).toBe(1);
+    expect(response.body.summary.expiringWithin14Days).toBe(1);
+    // Only the ready plugin (health=null) from seed() is unchecked; disabled plugin and active adapters are NOT unchecked
+    expect(response.body.summary.unchecked).toBe(1);
+  });
+
   it("scopes fulfillment work by project and states what has no source", async () => {
     await seed();
     const response = await request(app)
