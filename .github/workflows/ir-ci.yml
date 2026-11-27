@@ -43,9 +43,12 @@ jobs:
       code: ${{ steps.filter.outputs.code }}
       ir: ${{ steps.filter.outputs.ir }}
       # Pull requests get build + typecheck, plus the IR tests when IR code
-      # changed. The full test suites run on master pushes, manual runs, and
-      # PRs with the full-ci label.
-      full: ${{ github.event_name != 'pull_request' || inputs.full_suite == true }}
+      # changed. Master pushes run build + typecheck + the IR suites on the
+      # single brain-vps runner so every master commit completes reliably for
+      # GHCR release gating; the 23-shard upstream regression matrix runs on
+      # workflow_dispatch (including upstream-sync.sh) and full-ci PRs.
+      full: ${{ github.event_name == 'workflow_dispatch' || inputs.full_suite == true }}
+      ir_tests: ${{ (steps.filter.outputs.ir == 'true' || (github.event_name == 'push' && steps.filter.outputs.code == 'true')) && github.event_name != 'workflow_dispatch' && inputs.full_suite != true }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -171,7 +174,7 @@ jobs:
   ir-tests:
     name: IR tests
     needs: changes
-    if: needs.changes.outputs.ir == 'true' && needs.changes.outputs.full != 'true'
+    if: needs.changes.outputs.ir_tests == 'true'
     runs-on: ${{ fromJSON(github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && '["self-hosted", "brain-vps"]' || '"ubuntu-latest"') }}
     timeout-minutes: 20
     steps:
@@ -229,7 +232,7 @@ jobs:
           set -euo pipefail
           [ "${{ needs.changes.result }}" = "success" ]
           [ "${{ needs.ir-scripts.result }}" = "success" ]
-          if [ "${{ needs.changes.outputs.ir }}" = "true" ] && [ "${{ needs.changes.outputs.full }}" != "true" ]; then
+          if [ "${{ needs.changes.outputs.ir_tests }}" = "true" ]; then
             [ "${{ needs.ir-tests.result }}" = "success" ]
           else
             [ "${{ needs.ir-tests.result }}" = "skipped" ]
@@ -239,7 +242,7 @@ jobs:
             if [ "${{ needs.changes.outputs.full }}" = "true" ]; then
               [ "${{ needs.test.result }}" = "success" ]
             else
-              echo "pull request without full-ci label: test suites run after merge"
+              echo "fast CI path (full 23-shard matrix runs on workflow_dispatch or full-ci label)"
               [ "${{ needs.test.result }}" = "skipped" ]
             fi
           else
