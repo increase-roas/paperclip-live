@@ -196,24 +196,24 @@ export function restoreHoldReleasedForCurrentOwnerPredicate() {
   const sourceRunId = sql`coalesce(${issueRecoveryActions.evidence}->>'runId', ${issueRecoveryActions.evidence}->>'sourceRunId')`;
   const operationIds = sql`case when jsonb_typeof(${issueRecoveryActions.evidence}#>'{systemRecovery,preservationOperationIds}') = 'array'
     then ${issueRecoveryActions.evidence}#>'{systemRecovery,preservationOperationIds}' else '[]'::jsonb end`;
-  // JSON reads are NULL for other holds. Callers negate this predicate, so it
-  // must be strictly true or false: NOT NULL would hide unrelated blockers.
-  return sql`coalesce((${and(
-    sql`${issueRecoveryActions.evidence}->'workspaceRestoreRecovery'->>'schema' = ${LEGACY_WORKSPACE_RECOVERY_SCHEMA}`,
-    sql`coalesce(${issueRecoveryActions.evidence}->>'workspaceRestoreFailure', '') <> 'restore_unsafe_archive'`,
-    sql`exists (select 1 from ${heartbeatRuns} stopped
+  const stoppedRunForTask = sql`from ${heartbeatRuns} stopped
       join ${issues} task on task.company_id = stopped.company_id and task.id = ${issueRecoveryActions.sourceIssueId}
       where stopped.company_id = ${issueRecoveryActions.companyId}
         and stopped.id::text = ${sourceRunId}
         and stopped.status in ('failed', 'timed_out', 'interrupted', 'cancelled')
         and stopped.finished_at is not null
-        and task.assignee_agent_id is not null
-        and ((task.assignee_agent_id <> stopped.agent_id
-          and not coalesce(task.status = 'in_review'
-            and task.execution_state->>'status' = 'pending'
-            and task.execution_state->'currentParticipant'->>'type' = 'agent'
-            and task.execution_state->'currentParticipant'->>'agentId' = stopped.agent_id::text, false))
-          or ${stoppedBeforeProviderTurnCondition()}))`,
+        and task.assignee_agent_id is not null`;
+  // A review that is still waiting on the stopped agent is that agent's turn.
+  const ownedByAnotherAgent = sql`(task.assignee_agent_id <> stopped.agent_id
+    and not coalesce(task.status = 'in_review'
+      and task.execution_state->>'status' = 'pending'
+      and task.execution_state->'currentParticipant'->>'type' = 'agent'
+      and task.execution_state->'currentParticipant'->>'agentId' = stopped.agent_id::text, false))`;
+  const workspaceRestoreReleased = and(
+    sql`${issueRecoveryActions.evidence}->'workspaceRestoreRecovery'->>'schema' = ${LEGACY_WORKSPACE_RECOVERY_SCHEMA}`,
+    sql`coalesce(${issueRecoveryActions.evidence}->>'workspaceRestoreFailure', '') <> 'restore_unsafe_archive'`,
+    sql`exists (select 1 ${stoppedRunForTask}
+        and (${ownedByAnotherAgent} or ${stoppedBeforeProviderTurnCondition()}))`,
     completedWorkspaceRecoveryCondition(sourceRunId),
     // Copyback put the files back into the task workspace that the new owner
     // reuses. A snapshot-only save needs an explicit fresh-workspace request
@@ -221,7 +221,23 @@ export function restoreHoldReleasedForCurrentOwnerPredicate() {
     sql`not exists (select 1 from jsonb_array_elements_text(${operationIds}) saved(id)
       join ${workspaceOperations} op on op.id::text = saved.id
       where op.company_id = ${issueRecoveryActions.companyId} and op.phase <> 'workspace_recovery')`,
-  )}), false)`;
+  );
+  // Automatic recovery settled a legacy run with unknown outcomes and no
+  // workspace to restore: the local workspace still holds its files. The hold
+  // forbids replaying that run, which only its own agent could do. A different
+  // owner's turn is a fresh assignment, so it binds the stopped agent alone and
+  // re-arms if the task returns to that agent.
+  const legacyNoReplayReleased = and(
+    eq(issueRecoveryActions.cause, "legacy_execution_requires_reconciliation"),
+    eq(issueRecoveryActions.status, "resolved"),
+    sql`${issueRecoveryActions.evidence}->'automaticRecovery'->>'replay' = 'blocked'`,
+    sql`${issueRecoveryActions.evidence}->'workspaceRestoreRecovery' is null`,
+    sql`${issueRecoveryActions.evidence}->'workspaceRestoreFailure' is null`,
+    sql`exists (select 1 ${stoppedRunForTask} and stopped.runtime_mode = 'legacy' and ${ownedByAnotherAgent})`,
+  );
+  // JSON reads are NULL for other holds. Callers negate this predicate, so it
+  // must be strictly true or false: NOT NULL would hide unrelated blockers.
+  return sql`coalesce((${or(workspaceRestoreReleased, legacyNoReplayReleased)}), false)`;
 }
 
 export async function getExecutionBlocker(db: Db, companyId: string, issueId: string, options?: { conversationResetCommentId?: string | null }): Promise<ExecutionBlocker | null> {

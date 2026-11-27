@@ -40,6 +40,7 @@ import { errorHandler } from "../middleware/index.js";
 import { issueRoutes } from "../routes/issues.js";
 import { buildPaperclipWakePayload, heartbeatService } from "../services/heartbeat.js";
 import { deliverReconciledExecutions, markExecutionReconciliation } from "../services/execution-recovery-resolution.js";
+import { getExecutionBlocker } from "../services/execution-blocker.js";
 import { workspaceOperationService, isNativeWorkspaceFinalizationOperationActive } from "../services/workspace-operations.js";
 import { issueRecoveryActionService } from "../services/issue-recovery-actions.js";
 import { recoveryService } from "../services/recovery/service.js";
@@ -2175,6 +2176,55 @@ describeEmbeddedPostgres("issue recovery actions", () => {
     const [saved] = await db.select().from(issueRecoveryActions)
       .where(eq(issueRecoveryActions.id, action!.id));
     expect(saved!.evidence.automaticRecovery).toMatchObject({ replay: "blocked" });
+  });
+
+  it("releases a settled legacy no-replay hold for a reviewer who now owns the task, but not for the stopped agent", async () => {
+    const { companyId, coderId, sourceIssueId } = await seedCompany();
+    const reviewerId = randomUUID();
+    await db.insert(agents).values({
+      id: reviewerId, companyId, name: "Reviewer", role: "qa", status: "idle", adapterType: "codex_local",
+      adapterConfig: {}, runtimeConfig: { heartbeat: { maxConcurrentRuns: 1 } }, permissions: {},
+    });
+    const runId = randomUUID();
+    await db.insert(heartbeatRuns).values({
+      id: runId, companyId, agentId: coderId, invocationSource: "manual", status: "timed_out",
+      runtimeMode: "legacy", errorCode: "timeout", issueId: sourceIssueId,
+      startedAt: new Date("2026-11-23T04:07:07.641Z"), finishedAt: new Date("2026-11-23T04:17:11.297Z"),
+      contextSnapshot: { issueId: sourceIssueId },
+    });
+    const [action] = await db.insert(issueRecoveryActions).values({
+      companyId, sourceIssueId, kind: "active_run_watchdog", status: "resolved", outcome: "blocked",
+      ownerType: "board", returnOwnerAgentId: coderId, cause: "legacy_execution_requires_reconciliation",
+      fingerprint: `legacy-execution:${runId}`, nextAction: "Preserve recorded work without replay.",
+      evidence: { runId, attempt: 1, originalFailureCode: "timeout", adapterRecovery: "unsupported_or_unknown",
+        automaticRecovery: { policy: "preserve_without_replay_v1", runId, replay: "blocked", actionOutcome: "unknown" } },
+    }).returning();
+    const held = { recoveryActionId: action!.id, runId, cause: "legacy_execution_requires_reconciliation" };
+    expect(await getExecutionBlocker(db, companyId, sourceIssueId)).toMatchObject(held);
+
+    // A review still waiting on the stopped agent keeps the hold.
+    await db.update(issues).set({ status: "in_review", assigneeAgentId: reviewerId, executionState: {
+      status: "pending", currentParticipant: { type: "agent", agentId: coderId } } as any,
+    }).where(eq(issues.id, sourceIssueId));
+    expect(await getExecutionBlocker(db, companyId, sourceIssueId)).toMatchObject(held);
+
+    await db.update(issues).set({ executionState: null }).where(eq(issues.id, sourceIssueId));
+    expect(await getExecutionBlocker(db, companyId, sourceIssueId)).toBeNull();
+    // Occupy the reviewer's only slot so admission queues without launching a provider.
+    await seedHeartbeatRun({ companyId, agentId: reviewerId, runId: randomUUID(), status: "running" });
+    const run = await heartbeatService(db, { runtimeEnv: {} }).wakeup(reviewerId, {
+      source: "on_demand", triggerDetail: "manual", reason: "manual", requestedByActorType: "user",
+      requestedByActorId: "board", payload: { issueId: sourceIssueId }, contextSnapshot: { issueId: sourceIssueId },
+    });
+    expect(run).toMatchObject({ agentId: reviewerId, status: "queued" });
+    const [wake] = await db.select().from(agentWakeupRequests).where(eq(agentWakeupRequests.agentId, reviewerId));
+    expect(wake).toMatchObject({ status: "queued", runId: run!.id });
+
+    // The stopped run's unknown outcome stays with its own agent.
+    await db.update(issues).set({ status: "in_progress", assigneeAgentId: coderId }).where(eq(issues.id, sourceIssueId));
+    expect(await getExecutionBlocker(db, companyId, sourceIssueId)).toMatchObject(held);
+    const [saved] = await db.select().from(issueRecoveryActions).where(eq(issueRecoveryActions.id, action!.id));
+    expect(saved).toEqual(action);
   });
 
   it("exposes the real skip reason in wake diagnostics", async () => {
