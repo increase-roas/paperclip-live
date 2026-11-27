@@ -120,7 +120,7 @@ export async function loadArtifactCsv(
   contentPath: string,
   signal?: AbortSignal,
 ) {
-  if (!/^\/api\/attachments\/[a-zA-Z0-9-]+\/content$/.test(contentPath))
+  if (!artifactPreviewUrl(contentPath))
     throw new Error(
       "CSV preview is unavailable. Download the file to view it.",
     );
