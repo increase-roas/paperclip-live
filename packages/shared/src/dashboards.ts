@@ -2,9 +2,11 @@
  * Contract for the Increase ROAS operating dashboards.
  *
  * Two rules this contract enforces:
- * 1. A tile either carries a live value with the time it was observed, or it
- *    carries no value at all and names the source that is missing. There is no
- *    third state, so a board cannot render a made-up number.
+ * 1. A tile carries a live value with the time it was observed, or it carries
+ *    no number at all and says honestly why: its source is not connected, the
+ *    connected source has no data for the period, or Paperclip does not map
+ *    that series yet. A board can never render a made-up number or a zero for
+ *    a missing reading.
  * 2. Anything per client or per team member carries the id of that client or
  *    member, so two scopes can never be summed by accident.
  */
@@ -49,12 +51,42 @@ export type DashboardUnit =
   | "days";
 
 /**
- * A tile value is either live or absent. `not_connected` carries no numeric
- * field by design: a missing source can never render as zero.
+ * A tile value. Only `live` carries a number.
+ * - `not_connected`: at least one of the tile's sources is disconnected; the
+ *   board's source list names the credential that is needed.
+ * - `no_data`: every source is connected, but the series is empty or the
+ *   denominator is zero for this period. `reason` says which inputs are empty.
+ * - `not_mapped`: every source is connected, but Paperclip does not read the
+ *   series this tile needs yet. `missing` names what is not read.
  */
 export type DashboardTileValue =
   | { kind: "not_connected" }
+  | { kind: "no_data"; reason: string }
+  | { kind: "not_mapped"; missing: string }
   | { kind: "live"; value: number; unit: DashboardUnit; observedAt: string };
+
+export type DashboardTileValueKind = DashboardTileValue["kind"];
+
+/**
+ * Keeps a tile honest about its sources: a non-live tile reads
+ * `not_connected` exactly when one of its sources is disconnected. A tile whose
+ * sources are all connected never says "not connected"; an unexplained miss
+ * becomes `not_mapped`.
+ */
+export function reconcileTileValue(
+  value: DashboardTileValue,
+  sourceIds: readonly DashboardSourceId[],
+  sources: readonly Pick<DashboardSource, "id" | "name" | "status">[],
+): DashboardTileValue {
+  if (value.kind === "live") return value;
+  const tileSources = sourceIds.map((id) => sources.find((source) => source.id === id));
+  if (tileSources.length === 0 || tileSources.some((source) => !source || source.status !== "connected")) {
+    return { kind: "not_connected" };
+  }
+  if (value.kind !== "not_connected") return value;
+  const names = tileSources.map((source) => source!.name).join(" + ");
+  return { kind: "not_mapped", missing: `Paperclip does not compute this number from ${names} yet.` };
+}
 
 export interface DashboardTile {
   id: string;

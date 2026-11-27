@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DASHBOARD_BOARD_IDS, type DashboardBoardId } from "@paperclipai/shared";
 import { dashboardBoardService } from "./dashboard-boards.js";
 import type { TeamRosterAdapter } from "./dashboard-team-roster.js";
+import type { AgencyMarketingSummary } from "../ir/agency-marketing-client.js";
+import type { AgencySalesSummary } from "../ir/agency-sales-client.js";
 
 const companyId = "11111111-1111-4111-8111-111111111111";
 const otherCompanyId = "22222222-2222-4222-8222-222222222222";
@@ -219,9 +221,11 @@ describe("dashboardBoardService", () => {
     expect(roster?.rows).toHaveLength(1);
     expect(roster?.rows[0]?.id).toBe("member-1");
     expect(roster?.rows[0]?.cells.judgedOn).toBe("NOT SET");
-    // The adapter supplies the roster only; every aggregate tile still has no
-    // source of its own and must not be derived from a partial read.
-    expect(payload.tiles.every((tile) => tile.value.kind === "not_connected")).toBe(true);
+    // The adapter supplies the roster only: no aggregate tile is derived from
+    // it, and because the roster source is connected none claims otherwise.
+    expect(payload.sources.find((source) => source.id === "team_capital")?.status).toBe("connected");
+    expect(payload.tiles.some((tile) => tile.value.kind === "live")).toBe(false);
+    expect(payload.tiles.some((tile) => tile.value.kind === "not_connected")).toBe(false);
   });
 
   it("returns fresh copies so one request cannot mutate another", async () => {
@@ -639,7 +643,8 @@ describe("dashboardBoardService", () => {
       // Human employees must NOT use Client A's $250,000 client sales for agency Revenue per FTE
       const humans = await svc.board("human-employees", companyId, "30d");
       const humanById = new Map(humans.tiles.map((t) => [t.id, t.value]));
-      expect(humanById.get("revenue-per-fte")).toEqual({ kind: "not_connected" });
+      expect(humanById.get("revenue-per-fte")).toMatchObject({ kind: "not_mapped" });
+      expect(JSON.stringify(humans.tiles)).not.toContain("250000");
       expect(humans.meta?.cashOnHandUsd).toBe(50000);
     } finally {
       if (prevKey === undefined) delete process.env.SALES_DASHBOARD_ADMIN_KEY;
@@ -715,7 +720,7 @@ describe("dashboardBoardService", () => {
     expect(sales.tables.find((t) => t.id === "sales-by-business")?.rows).toEqual([]);
   });
 
-  it("renders cash-collected-up-front as not_connected (never 0%) when agency transactions failed (cashCollectedUsd: null)", async () => {
+  it("renders cash-collected-up-front as no data (never 0%, never not connected) when agency transactions failed (cashCollectedUsd: null)", async () => {
     const svc = dashboardBoardService(pinnedNow, {
       agencySalesReader: async () => ({
         period: "30d",
@@ -744,7 +749,118 @@ describe("dashboardBoardService", () => {
 
     const sales = await svc.board("sales", companyId, "30d");
     const byId = new Map(sales.tiles.map((t) => [t.id, t.value]));
-    expect(byId.get("cash-collected-up-front")).toEqual({ kind: "not_connected" });
+    expect(byId.get("cash-collected-up-front")).toEqual({
+      kind: "no_data",
+      reason: "At least one connected GHL sub-account returned a partial read, so the agency total is withheld.",
+    });
     expect(byId.get("units-sold")).toMatchObject({ kind: "live", value: 1, unit: "count" });
+  });
+
+  describe("connected source with an empty series", () => {
+    const emptySales = (): AgencySalesSummary => ({
+      period: "30d",
+      observedAt: "2026-11-26T05:00:00.000Z",
+      liveAccountCount: 3,
+      totalAccountCount: 3,
+      hasGhl: true,
+      newLeads: 0,
+      activeOpportunities: 0,
+      booked: 0,
+      showed: 0,
+      noShows: 0,
+      pitched: 0,
+      wonDeals: 0,
+      lostDeals: 0,
+      pipelineWonUsd: 0,
+      cashCollectedUsd: 0,
+      showRate: null,
+      offerRate: null,
+      closeRate: null,
+      setRate: null,
+      leadToCustomerRate: null,
+      accounts: [],
+    });
+    const liveMarketing = (): AgencyMarketingSummary => ({
+      period: "30d",
+      since: "2026-10-27",
+      until: "2026-11-26",
+      observedAt: "2026-11-26T05:00:00.000Z",
+      liveAccountCount: 3,
+      totalAccountCount: 3,
+      hasMeta: true,
+      spend: 128.03,
+      impressions: 0,
+      clicks: 0,
+      linkClicks: 0,
+      leads: 7,
+      ctr: null,
+      cpl: 18.29,
+      zeroLeadDays: 0,
+      accounts: [],
+    });
+
+    it("never yields not_connected on Sales while GHL is connected", async () => {
+      const sales = await dashboardBoardService(pinnedNow, { agencySalesReader: async () => emptySales() }).board(
+        "sales",
+        companyId,
+      );
+      expect(sales.sources.find((source) => source.id === "ghl")?.status).toBe("connected");
+      const byId = new Map(sales.tiles.map((tile) => [tile.id, tile.value]));
+      for (const tile of sales.tiles) expect(tile.value.kind, tile.id).not.toBe("not_connected");
+      expect(byId.get("show-rate")).toEqual({
+        kind: "no_data",
+        reason: "Booked 0 · Showed 0 — no past-dated booked appointments in this period yet.",
+      });
+      expect(byId.get("close-rate")).toMatchObject({ kind: "no_data" });
+      expect(byId.get("offer-rate")).toMatchObject({ kind: "no_data" });
+      expect(byId.get("speed-to-lead")).toMatchObject({ kind: "not_mapped" });
+      // A real zero count stays a live zero.
+      expect(byId.get("new-leads")).toMatchObject({ kind: "live", value: 0 });
+    });
+
+    it("never yields not_connected on Marketing while Meta and GHL are connected", async () => {
+      const marketing = await dashboardBoardService(pinnedNow, {
+        agencyMarketingReader: async () => liveMarketing(),
+        agencySalesReader: async () => emptySales(),
+      }).board("marketing", companyId);
+      const byId = new Map(marketing.tiles.map((tile) => [tile.id, tile.value]));
+      for (const tile of marketing.tiles) expect(tile.value.kind, tile.id).not.toBe("not_connected");
+      expect(byId.get("ad-spend")).toMatchObject({ kind: "live", value: 128.03, unit: "usd" });
+      expect(byId.get("new-leads")).toMatchObject({ kind: "live", value: 7 });
+      expect(byId.get("cac-per-client")).toEqual({
+        kind: "no_data",
+        reason: "Spend $128.03 · Clients won 0 — no new agency clients won in this period yet.",
+      });
+      expect(byId.get("cost-per-held-appointment")).toMatchObject({ kind: "no_data" });
+      expect(byId.get("creative-budget-split")).toMatchObject({ kind: "not_mapped" });
+      expect(byId.get("spend-pacing")).toMatchObject({ kind: "not_mapped" });
+    });
+
+    it("wires live rates once the connected series has data", async () => {
+      const sales = await dashboardBoardService(pinnedNow, {
+        agencySalesReader: async () => ({ ...emptySales(), booked: 20, showed: 6, wonDeals: 2, pitched: 4, showRate: 30, closeRate: 33.3, offerRate: 66.7 }),
+        agencyMarketingReader: async () => liveMarketing(),
+      }).board("marketing", companyId);
+      const byId = new Map(sales.tiles.map((tile) => [tile.id, tile.value]));
+      expect(byId.get("cac-per-client")).toMatchObject({ kind: "live", value: 64.02, unit: "usd" });
+      expect(byId.get("cost-per-held-appointment")).toMatchObject({ kind: "live", value: 21.34, unit: "usd" });
+    });
+
+    it("still yields not_connected, with the needed key, when the source is disconnected", async () => {
+      const marketing = await dashboardBoardService(pinnedNow, {
+        agencyMarketingReader: async () => liveMarketing(),
+        agencySalesReader: async () => null,
+      }).board("marketing", companyId);
+      const ghl = marketing.sources.find((source) => source.id === "ghl");
+      expect(ghl?.status).toBe("not_connected");
+      expect(ghl?.needed).toContain("GATEWAY_PAPERCLIP_KEY");
+      const byId = new Map(marketing.tiles.map((tile) => [tile.id, tile.value]));
+      expect(byId.get("cac-per-client")).toEqual({ kind: "not_connected" });
+      expect(byId.get("cost-per-held-appointment")).toEqual({ kind: "not_connected" });
+      expect(byId.get("ad-spend")).toMatchObject({ kind: "live" });
+
+      const sales = await dashboardBoardService(pinnedNow, { agencySalesReader: async () => null }).board("sales", companyId);
+      for (const tile of sales.tiles) expect(tile.value).toEqual({ kind: "not_connected" });
+    });
   });
 });

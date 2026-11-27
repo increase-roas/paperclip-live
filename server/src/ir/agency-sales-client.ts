@@ -1,4 +1,17 @@
-import { closeRate, leadToCustomerRate, offerRate, setRate, showRate } from "@paperclipai/shared/ir-metrics";
+import {
+  appointmentStatus,
+  bookedCounts,
+  closeRate,
+  countLeads,
+  countShowed,
+  isClearedPayment,
+  leadToCustomerRate,
+  offerRate,
+  setRate,
+  showRate,
+  type AppointmentRecord,
+  type LeadCandidate,
+} from "@paperclipai/shared/ir-metrics";
 import { createHash } from "node:crypto";
 import type { DashboardPeriod } from "@paperclipai/shared";
 
@@ -90,6 +103,7 @@ interface RawGhlOpportunity {
 interface RawGhlContact {
   id?: string;
   dateAdded?: string;
+  tags?: unknown;
 }
 
 interface RawGhlCalendar {
@@ -101,6 +115,8 @@ interface RawGhlCalendarEvent {
   id?: string;
   appointmentStatus?: string;
   status?: string;
+  startTime?: string | number;
+  contactId?: string;
 }
 
 interface RawGhlTransaction {
@@ -350,12 +366,17 @@ function extractGhlNextCursor(body: Record<string, unknown>): {
   return { nextId, nextAfter };
 }
 
+function isApplicantContact(contact: RawGhlContact): boolean {
+  const tags = Array.isArray(contact.tags) ? contact.tags : [];
+  return tags.some((tag) => typeof tag === "string" && RECRUITING_RE.test(tag));
+}
+
 async function countRecentContacts(
   fetcher: LocationFetcher,
   win: PeriodWindow,
 ): Promise<{ ok: boolean; status: number; count: number; truncated: boolean }> {
-  const seenIds = new Set<string>();
-  let anonymousCount = 0;
+  // Certified Lead (definitions/lead): once per person, applicants excluded.
+  const candidates: LeadCandidate[] = [];
   let startAfterId: string | null = null;
   let startAfter: string | null = null;
   let firstStatus = 0;
@@ -375,11 +396,7 @@ async function countRecentContacts(
 
     for (const c of contacts) {
       if (isTimestampInWindow(c.dateAdded, win)) {
-        if (typeof c.id === "string" && c.id) {
-          seenIds.add(c.id);
-        } else {
-          anonymousCount += 1;
-        }
+        candidates.push({ personKey: c.id, applicant: isApplicantContact(c) });
       }
     }
 
@@ -394,7 +411,7 @@ async function countRecentContacts(
     startAfter = nextAfter;
   }
 
-  return { ok: firstStatus === 200, status: firstStatus, count: seenIds.size + anonymousCount, truncated };
+  return { ok: firstStatus === 200, status: firstStatus, count: countLeads(candidates), truncated };
 }
 
 async function fetchOpportunityPages(
@@ -450,10 +467,9 @@ async function readCalendarOutcomes(
     return { ok: true, booked: 0, showed: 0, noShows: 0, truncated: false };
   }
 
-  let booked = 0;
-  let showed = 0;
-  let noShows = 0;
-
+  // The request window ends now, so every returned event is past-dated; an
+  // event without a start time falls back to the window start.
+  const appointments: AppointmentRecord[] = [];
   for (let i = 0; i < calendars.length; i += 5) {
     const batch = calendars.slice(i, i + 5);
     const results = await Promise.all(
@@ -468,15 +484,19 @@ async function readCalendarOutcomes(
         return { ok: false, booked: 0, showed: 0, noShows: 0, truncated: false };
       }
       for (const rawEv of res.body.events as RawGhlCalendarEvent[]) {
-        const st = String(rawEv.appointmentStatus ?? rawEv.status ?? "").trim().toLowerCase();
-        if (st === "cancelled" || st === "canceled" || st === "invalid") continue;
-        booked += 1;
-        if (st === "showed") showed += 1;
-        else if (st === "noshow" || st === "no_show" || st === "no-show") noShows += 1;
+        appointments.push({
+          scheduledAt: rawEv.startTime ?? win.startMs,
+          status: rawEv.appointmentStatus ?? rawEv.status,
+          prospectKey: rawEv.contactId ?? null,
+        });
       }
     }
   }
 
+  // Certified Booked and Showed (definitions/booked, definitions/showed).
+  const booked = bookedCounts(appointments, win.endMs).booked;
+  const showed = countShowed(appointments, win);
+  const noShows = appointments.filter((appointment) => appointmentStatus(appointment.status) === "no_show").length;
   return { ok: true, booked, showed, noShows, truncated };
 }
 
@@ -626,7 +646,7 @@ async function fetchWindowTransactions(
       const currency = typeof rawTx.currency === "string" ? rawTx.currency.trim().toUpperCase() : "USD";
       if (currency && currency !== "USD") continue;
       const st = String(rawTx.status ?? "").trim().toLowerCase();
-      if (st && st !== "succeeded" && st !== "completed" && st !== "paid") continue;
+      if (st && !isClearedPayment(st)) continue;
       if (!isTimestampInWindow(rawTx.createdAt, win)) continue;
       const amount = parseMoney(rawTx.amount);
       const refunded = parseMoney(rawTx.amountRefunded);

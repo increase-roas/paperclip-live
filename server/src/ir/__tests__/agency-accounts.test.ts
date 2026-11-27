@@ -300,6 +300,48 @@ describe("readAgencySalesSummary", () => {
     expect(summary?.accounts.find((account) => account.id === "increase-roas-main")).toMatchObject({ offerRate, closeRate });
   });
 
+  it("counts certified leads (once per person, applicants excluded) and showed (once per prospect)", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async (input) => {
+      const path = new URL(String(input)).searchParams.get("path") ?? "";
+      if (path === "/opportunities/pipelines") return jsonRes({ pipelines: [] });
+      if (path.startsWith("/opportunities/search")) return jsonRes({ opportunities: [] });
+      if (path.startsWith("/contacts/")) {
+        return jsonRes({
+          contacts: [
+            { id: "c1", dateAdded: "2026-11-20T00:00:00Z" },
+            { id: "c2", dateAdded: "2026-11-21T00:00:00Z" },
+            { id: "c3", dateAdded: "2026-11-22T00:00:00Z", tags: ["Job Applicant"] },
+          ],
+        });
+      }
+      if (path === "/calendars/") return jsonRes({ calendars: [{ id: "calendar", name: "Sales" }] });
+      if (path.startsWith("/calendars/events")) {
+        return jsonRes({
+          events: [
+            { id: "e1", appointmentStatus: "noshow", contactId: "c1", startTime: "2026-11-20T15:00:00Z" },
+            { id: "e2", appointmentStatus: "showed", contactId: "c1", startTime: "2026-11-22T15:00:00Z" },
+            { id: "e3", appointmentStatus: "showed", contactId: "c1", startTime: "2026-11-23T15:00:00Z" },
+            { id: "e4", appointmentStatus: "showed", contactId: "c2", startTime: "2026-11-24T15:00:00Z" },
+            { id: "e5", appointmentStatus: "cancelled", contactId: "c2", startTime: "2026-11-24T16:00:00Z" },
+          ],
+        });
+      }
+      if (path.startsWith("/payments/transactions")) return jsonRes({ data: [] });
+      throw new Error(`Unexpected fixture path: ${path}`);
+    });
+    const summary = await readAgencySalesSummary("30d", {
+      gatewayBaseUrl: "https://gw.example",
+      gatewayToken: "agency-certified-test",
+      alexBloomfieldPitKey: "",
+      locationIds: { hotTubLaunchB2b: null },
+      fetchImpl: fetchMock,
+      now: () => PINNED_NOW,
+      bypassCache: true,
+    });
+    const main = summary?.accounts.find((account) => account.id === "increase-roas-main");
+    expect(main).toMatchObject({ newLeads: 2, booked: 4, showed: 2, noShows: 1, showRate: 50 });
+  });
+
   afterEach(() => {
     resetAgencySalesCache();
     vi.unstubAllEnvs();

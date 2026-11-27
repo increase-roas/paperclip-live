@@ -1,16 +1,17 @@
-import { costPerAcquisition, type OwnBrandCode } from "@paperclipai/shared/ir-metrics";
-import type {
-  DashboardBoard,
-  DashboardBoardId,
-  DashboardBoardMeta,
-  DashboardPeriod,
-  DashboardSource,
-  DashboardSourceId,
-  DashboardTable,
-  DashboardTableRow,
-  DashboardTile,
-  DashboardTileValue,
-  DashboardUnit,
+import { cashUpFrontPercent, costPerAcquisition, type OwnBrandCode } from "@paperclipai/shared/ir-metrics";
+import {
+  reconcileTileValue,
+  type DashboardBoard,
+  type DashboardBoardId,
+  type DashboardBoardMeta,
+  type DashboardPeriod,
+  type DashboardSource,
+  type DashboardSourceId,
+  type DashboardTable,
+  type DashboardTableRow,
+  type DashboardTile,
+  type DashboardTileValue,
+  type DashboardUnit,
 } from "@paperclipai/shared";
 import {
   readAgencyMarketingSummary,
@@ -433,10 +434,6 @@ function liveVal(
   return { kind: "live", value, unit, observedAt };
 }
 
-function round1(value: number): number {
-  return Math.round(value * 10) / 10;
-}
-
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
@@ -560,9 +557,75 @@ function resolveHumanEmployeesTile(
     if (salesUsd !== null && active.length > 0) {
       return liveVal(round2(salesUsd / active.length), "usd", observedAt);
     }
-    return notConnected();
+    return active.length === 0
+      ? noData("No active team members in the roster.")
+      : notMapped("No agency revenue source (QuickBooks or the capital API) answered for this period.");
+  }
+  if (tileId === "metrics-a-seat-can-name") {
+    return notMapped("The roster does not record how many numbers each seat can name yet.");
+  }
+  if (tileId === "utilization") {
+    return notMapped("Paperclip does not read billable or delivery hours per role yet.");
+  }
+  if (tileId === "regrettable-attrition") {
+    return notMapped("The roster does not mark A-players or departure dates yet.");
   }
   return null;
+}
+
+const GHL_PARTIAL =
+  "At least one connected GHL sub-account returned a partial read, so the agency total is withheld.";
+const META_PARTIAL =
+  "At least one connected Meta ad account returned a partial read, so the agency total is withheld.";
+
+function noData(reason: string): DashboardTileValue {
+  return { kind: "no_data", reason };
+}
+
+function notMapped(missing: string): DashboardTileValue {
+  return { kind: "not_mapped", missing };
+}
+
+/** "Booked 0 · Showed 0" — the real inputs behind an empty rate. */
+function inputsLabel(inputs: Record<string, number | null>): string {
+  return Object.entries(inputs)
+    .map(([label, value]) => {
+      const usd = label.endsWith(" $");
+      const name = usd ? label.slice(0, -2) : label;
+      if (value === null) return `${name} unknown`;
+      return usd ? `${name} ${formatUsdCell(value)}` : `${name} ${value.toLocaleString("en-US")}`;
+    })
+    .join(" · ");
+}
+
+/**
+ * A count from a connected source: a real zero is a live zero; a missing total
+ * is "no data" (partial read), never "not connected".
+ */
+function countVal(
+  value: number | null,
+  unit: DashboardUnit,
+  observedAt: string,
+  partialReason: string,
+): DashboardTileValue {
+  return typeof value === "number" && Number.isFinite(value) ? liveVal(value, unit, observedAt) : noData(partialReason);
+}
+
+/**
+ * A ratio from a connected source. Null means an input is missing (partial
+ * read) or the denominator is zero; the reason names which, with the numbers.
+ */
+function rateVal(
+  value: number | null,
+  unit: DashboardUnit,
+  observedAt: string,
+  inputs: Record<string, number | null>,
+  denominator: string,
+  partialReason: string,
+): DashboardTileValue {
+  if (typeof value === "number" && Number.isFinite(value)) return liveVal(value, unit, observedAt);
+  if (Object.values(inputs).some((input) => input === null)) return noData(partialReason);
+  return noData(`${inputsLabel(inputs)} — no ${denominator} in this period yet.`);
 }
 
 function resolveAgencySalesTile(tileId: string, sales: AgencySalesSummary | null): DashboardTileValue {
@@ -570,26 +633,34 @@ function resolveAgencySalesTile(tileId: string, sales: AgencySalesSummary | null
   const ts = sales.observedAt;
   switch (tileId) {
     case "show-rate":
-      return liveVal(sales.showRate, "percent", ts);
+      return rateVal(sales.showRate, "percent", ts, { Booked: sales.booked, Showed: sales.showed }, "past-dated booked appointments", GHL_PARTIAL);
+    case "speed-to-lead":
+      return notMapped(
+        "Paperclip does not read first outbound call times per new GHL lead yet (GHL conversations call log).",
+      );
     case "offer-rate":
-      return liveVal(sales.offerRate, "percent", ts);
+      return rateVal(sales.offerRate, "percent", ts, { Showed: sales.showed, Offers: sales.pitched }, "showed calls", GHL_PARTIAL);
     case "close-rate":
-      return liveVal(sales.closeRate, "percent", ts);
+      return rateVal(sales.closeRate, "percent", ts, { Showed: sales.showed, Sales: sales.wonDeals }, "showed calls", GHL_PARTIAL);
     case "cash-collected-up-front":
-      if (sales.pipelineWonUsd !== null && sales.pipelineWonUsd > 0 && sales.cashCollectedUsd !== null) {
-        return liveVal(round1((sales.cashCollectedUsd / sales.pipelineWonUsd) * 100), "percent", ts);
-      }
-      return notConnected();
+      return rateVal(
+        cashUpFrontPercent({ cashCollectedUsd: sales.cashCollectedUsd, wonDealValueUsd: sales.pipelineWonUsd }),
+        "percent",
+        ts,
+        { "Won deal value $": sales.pipelineWonUsd, "Cash collected $": sales.cashCollectedUsd },
+        "won deal value",
+        GHL_PARTIAL,
+      );
     case "units-sold":
-      return liveVal(sales.wonDeals, "count", ts);
+      return countVal(sales.wonDeals, "count", ts, GHL_PARTIAL);
     case "new-leads":
-      return liveVal(sales.newLeads, "count", ts);
+      return countVal(sales.newLeads, "count", ts, GHL_PARTIAL);
     case "active-opportunities":
-      return liveVal(sales.activeOpportunities, "count", ts);
+      return countVal(sales.activeOpportunities, "count", ts, GHL_PARTIAL);
     case "set-rate":
-      return liveVal(sales.setRate, "percent", ts);
+      return rateVal(sales.setRate, "percent", ts, { Leads: sales.newLeads, Booked: sales.booked }, "new leads", GHL_PARTIAL);
     case "lead-to-customer":
-      return liveVal(sales.leadToCustomerRate, "percent", ts);
+      return rateVal(sales.leadToCustomerRate, "percent", ts, { Leads: sales.newLeads, Sales: sales.wonDeals }, "new leads", GHL_PARTIAL);
     default:
       return notConnected();
   }
@@ -604,27 +675,41 @@ function resolveAgencyMarketingTile(
   const ts = marketing.observedAt;
   switch (tileId) {
     case "cac-per-client":
-      if (sales?.hasGhl) {
-        const cac = costPerAcquisition({ spend: marketing.spend, acquisitions: sales.wonDeals });
-        if (cac !== null) return liveVal(cac, "usd", ts);
-      }
-      return notConnected();
+      if (!sales?.hasGhl) return notConnected();
+      return rateVal(
+        costPerAcquisition({ spend: marketing.spend, acquisitions: sales.wonDeals }),
+        "usd",
+        ts,
+        { "Spend $": marketing.spend, "Clients won": sales.wonDeals },
+        "new agency clients won",
+        marketing.spend === null ? META_PARTIAL : GHL_PARTIAL,
+      );
+    case "creative-budget-split":
+      return notMapped(
+        "Agency ads are not tagged core / adjacent / new yet, so Meta spend cannot be split by creative type.",
+      );
     case "ad-spend":
-      return liveVal(marketing.spend, "usd", ts);
+      return countVal(marketing.spend, "usd", ts, META_PARTIAL);
     case "new-leads":
-      return liveVal(marketing.leads, "count", ts);
+      return countVal(marketing.leads, "count", ts, META_PARTIAL);
     case "cost-per-held-appointment":
-      if (sales?.hasGhl) {
-        const costPerHeld = costPerAcquisition({ spend: marketing.spend, acquisitions: sales.showed });
-        if (costPerHeld !== null) return liveVal(costPerHeld, "usd", ts);
-      }
-      return notConnected();
+      if (!sales?.hasGhl) return notConnected();
+      return rateVal(
+        costPerAcquisition({ spend: marketing.spend, acquisitions: sales.showed }),
+        "usd",
+        ts,
+        { "Spend $": marketing.spend, Showed: sales.showed },
+        "held agency appointments",
+        marketing.spend === null ? META_PARTIAL : GHL_PARTIAL,
+      );
     case "ctr":
-      return liveVal(marketing.ctr, "percent", ts);
+      return rateVal(marketing.ctr, "percent", ts, { Impressions: marketing.impressions, "Link clicks": marketing.linkClicks }, "impressions", META_PARTIAL);
     case "cost-per-lead":
-      return liveVal(marketing.cpl, "usd", ts);
+      return rateVal(marketing.cpl, "usd", ts, { "Spend $": marketing.spend, Leads: marketing.leads }, "Meta leads", META_PARTIAL);
     case "spend-with-zero-leads":
-      return liveVal(marketing.zeroLeadDays, "count", ts);
+      return countVal(marketing.zeroLeadDays, "count", ts, META_PARTIAL);
+    case "spend-pacing":
+      return notMapped("Paperclip does not read the daily budget of each agency Meta ad account yet.");
     default:
       return notConnected();
   }
@@ -798,7 +883,7 @@ export function dashboardBoardService(
         tiles: definition.tiles.map((item) => ({
           ...item,
           sourceIds: [...item.sourceIds],
-          value: resolveTile(item.id),
+          value: reconcileTileValue(resolveTile(item.id), item.sourceIds, sources),
         })),
         tables: definition.tables.map((item) => ({
           ...item,
