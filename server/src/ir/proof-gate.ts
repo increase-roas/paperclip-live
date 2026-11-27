@@ -2,7 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { issueLabels, labels } from "@paperclipai/db";
 import {
   proofCheckAllowsClosure,
-  requiredProofCheckFromLabels,
+  requiredProofChecksFromLabels,
 } from "@paperclipai/shared/ir-system-map";
 import { unprocessable } from "../errors.js";
 import { cachedProofCheckSnapshot, type ProofCheckSnapshot } from "./system-map.js";
@@ -51,18 +51,20 @@ export async function assertIrProofGateAllowsTransition(
         .where(and(inArray(labels.id, [...nextLabelIds]), eq(labels.companyId, existing.companyId)))),
     );
   }
-  const requiredProofCheck = requiredProofCheckFromLabels(rows);
-  if (!requiredProofCheck) return;
+  const requiredProofChecks = requiredProofChecksFromLabels(rows);
+  if (requiredProofChecks.length === 0) return;
   const snapshot = await readSnapshot();
-  const verdict = proofCheckAllowsClosure(requiredProofCheck, snapshot?.checks ?? null, snapshot?.freshness ?? null);
-  if (verdict.allowed) return;
-  throw unprocessable(
-    `This issue can close only after proof check "${requiredProofCheck}" passes (now: ${verdict.status}).`,
-    {
-      code: "ir_proof_check_not_passing",
-      requiredProofCheck,
-      proofStatus: verdict.status,
-      detail: verdict.detail,
-    },
-  );
+  for (const requiredProofCheck of requiredProofChecks) {
+    const verdict = proofCheckAllowsClosure(requiredProofCheck, snapshot?.checks ?? null, snapshot?.freshness ?? null);
+    if (verdict.allowed) continue;
+    throw unprocessable(
+      `This issue can close only after proof check "${requiredProofCheck}" passes (now: ${verdict.status}).`,
+      {
+        code: "ir_proof_check_not_passing",
+        requiredProofCheck,
+        proofStatus: verdict.status,
+        detail: verdict.detail,
+      },
+    );
+  }
 }

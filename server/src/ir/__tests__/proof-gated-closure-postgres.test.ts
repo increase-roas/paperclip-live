@@ -44,7 +44,7 @@ describePostgres("proof-gated issue closure", () => {
     await database?.cleanup();
   });
 
-  async function seedIssue(labelName: string | null) {
+  async function seedIssue(labelNames: string | string[] | null) {
     const companyId = randomUUID();
     const issueId = randomUUID();
     const prefix = `PRF${companyId.slice(0, 5).toUpperCase()}`;
@@ -52,7 +52,7 @@ describePostgres("proof-gated issue closure", () => {
     await db.insert(issues).values({
       id: issueId, companyId, title: "Fix gateway health", status: "in_progress", identifier: `${prefix}-1`, issueNumber: 1,
     });
-    if (labelName) {
+    for (const labelName of typeof labelNames === "string" ? [labelNames] : labelNames ?? []) {
       const labelId = randomUUID();
       await db.insert(labels).values({ id: labelId, companyId, name: labelName, color: "#888888" });
       await db.insert(issueLabels).values({ issueId, labelId, companyId });
@@ -102,6 +102,43 @@ describePostgres("proof-gated issue closure", () => {
     restoreReader = setProofSnapshotReaderForTests(snapshot([gateway("pass")]));
     const updated = await issueService(db).update(issueId, { status: "done" });
     expect(updated?.status).toBe("done");
+    expect(await statusOf(issueId)).toBe("done");
+  }, 30_000);
+
+  it.each([
+    ["passing first", ["proof:gateway", "proof:db_feeds"]],
+    ["failing first", ["proof:db_feeds", "proof:gateway"]],
+  ])("refuses closure if any proof label fails (%s)", async (_order, labelNames) => {
+    const issueId = await seedIssue(labelNames);
+    restoreReader = setProofSnapshotReaderForTests(snapshot([
+      gateway("pass"), { ...gateway("fail"), key: "db_feeds" },
+    ]));
+    await expect(issueService(db).update(issueId, { status: "done" })).rejects.toMatchObject({
+      status: 422, details: { requiredProofCheck: "db_feeds", proofStatus: "fail" },
+    });
+    expect(await statusOf(issueId)).toBe("in_progress");
+  }, 30_000);
+
+  it("checks a new proof label as well as an existing passing label", async () => {
+    const issueId = await seedIssue("proof:gateway");
+    const [issue] = await db.select({ companyId: issues.companyId }).from(issues).where(eq(issues.id, issueId));
+    const labelId = randomUUID();
+    await db.insert(labels).values({ id: labelId, companyId: issue!.companyId, name: "proof:db_feeds", color: "#888888" });
+    restoreReader = setProofSnapshotReaderForTests(snapshot([
+      gateway("pass"), { ...gateway("fail"), key: "db_feeds" },
+    ]));
+    await expect(issueService(db).update(issueId, { status: "done", labelIds: [labelId] })).rejects.toMatchObject({
+      status: 422, details: { requiredProofCheck: "db_feeds" },
+    });
+    expect(await statusOf(issueId)).toBe("in_progress");
+  }, 30_000);
+
+  it("closes once every proof label passes", async () => {
+    const issueId = await seedIssue(["proof:gateway", "proof:db_feeds"]);
+    restoreReader = setProofSnapshotReaderForTests(snapshot([
+      gateway("pass"), { ...gateway("pass"), key: "db_feeds" },
+    ]));
+    expect((await issueService(db).update(issueId, { status: "done" }))?.status).toBe("done");
     expect(await statusOf(issueId)).toBe("done");
   }, 30_000);
 

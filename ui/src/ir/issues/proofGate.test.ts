@@ -35,6 +35,21 @@ describe("proofGateState", () => {
     expect(proofGateDisabledStatuses(state)).toBeUndefined();
   });
 
+  it.each([false, true])("requires every proof label to pass, regardless of label order (%s)", (reverse) => {
+    const proofLabels = [{ name: "proof:gateway" }, { name: "proof:db_feeds" }];
+    const data = checks("pass");
+    data.checks.push({ key: "db_feeds", status: "fail", detail: "snapshot unavailable", observedAt: fresh.observedAt });
+    const state = proofGateState({ labels: reverse ? proofLabels.reverse() : proofLabels, data, loading: false, errorStatus: null });
+    expect(state).toMatchObject({ kind: "checked", key: "db_feeds", allowed: false, status: "fail" });
+    expect(proofGateDisabledStatuses(state)?.done).toContain("Databases and feeds");
+  });
+
+  it("disables Done after a failed refresh even with a cached passing result", () => {
+    const state = proofGateState({ labels, data: checks("pass"), loading: false, errorStatus: 502 });
+    expect(state).toMatchObject({ kind: "checked", allowed: false, status: "missing" });
+    expect(proofGateDisabledStatuses(state)?.done).toBeDefined();
+  });
+
   it("leaves the decision to the server for viewers who cannot read proof checks", () => {
     const state = proofGateState({ labels, data: undefined, loading: false, errorStatus: 403 });
     expect(state).toEqual({ kind: "hidden", key: "gateway" });

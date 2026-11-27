@@ -3,6 +3,7 @@ import {
   freshnessOf,
   proofCheckAllowsClosure,
   requiredProofCheckFromLabels,
+  requiredProofChecksFromLabels,
   SYSTEM_MAP_STALE_AFTER_SECONDS,
 } from "./ir-system-map.js";
 
@@ -32,6 +33,9 @@ describe("proof-gated closure", () => {
     expect(requiredProofCheckFromLabels([{ name: "ops" }, { name: "Proof: Gateway " }])).toBe("gateway");
     expect(requiredProofCheckFromLabels([{ name: "ops" }])).toBeNull();
     expect(requiredProofCheckFromLabels([{ name: "proof:" }])).toBeNull();
+    expect(requiredProofChecksFromLabels([
+      { name: "proof:gateway" }, { name: "Proof: Gateway " }, { name: "proof:db_feeds" }, { name: "ops" },
+    ])).toEqual(["gateway", "db_feeds"]);
   });
 
   it("allows closure only while the named check passes in a fresh snapshot", () => {
@@ -45,5 +49,10 @@ describe("proof-gated closure", () => {
   it("judges freshness by the gated check, not by the snapshot", () => {
     const mixed = [{ key: "gateway", status: "pass" as const, detail: null, observedAt: "2026-11-26T12:00:00Z" }];
     expect(proofCheckAllowsClosure("gateway", mixed, fresh, NOW)).toMatchObject({ allowed: false, status: "stale" });
+  });
+
+  it("refuses a passing check with no observation time", () => {
+    const undated = [{ ...checks[0]!, observedAt: null }];
+    expect(proofCheckAllowsClosure("gateway", undated, fresh, NOW)).toMatchObject({ allowed: false, status: "stale" });
   });
 });

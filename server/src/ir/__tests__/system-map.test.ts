@@ -1,10 +1,13 @@
 import express from "express";
 import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { proofCheckAllowsClosure, type GbrainSkeletonFeed } from "@paperclipai/shared/ir-system-map";
 import { errorHandler } from "../../middleware/error-handler.js";
 import {
+  cachedProofCheckSnapshot,
   readProofCheckSnapshot,
   resetProofCheckCache,
+  startProofCheckRefresher,
   systemMapRoutes,
   type SystemFeedOptions,
 } from "../system-map.js";
@@ -27,9 +30,32 @@ const SYSTEM_MAP = {
   },
   hosts: [{ key: "brain-vps", label: "brain-vps", role: "GBrain", services: ["gbrain_alert"] }],
   services: [{ key: "gbrain_alert", label: "GBrain", host: "brain-vps", status: "ok", detail: "rc=0", latencyMs: null }],
-  registers: [],
-  sources: [],
+  registers: [{ name: "tools", path: "registers/tools.yaml", entries: 1, updatedAt: "2026-11-26T17:58:00Z" }],
+  sources: [{ key: "ir-doctor", label: "Health checks", observedAt: "2026-11-26T17:58:00Z", detail: null }],
 };
+
+const SKELETON: GbrainSkeletonFeed = {
+  generatedAt: NOW.toISOString(),
+  pack: { name: "test", version: "1", identity: null, description: null },
+  requiredFieldsVersion: null,
+  requiredFolders: [{ prefix: "companies/", fields: ["title"], pages: 1, violations: 0 }],
+  totals: { totalPages: 1, typedPages: 1, undeclaredPages: 0, coverage: 1 },
+  pageTypes: [{ name: "company", primitive: "entity", pathPrefixes: ["companies/"], aliases: [], count: 1, violationCount: 0 }],
+  linkTypes: [{ name: "customer_of", inverse: "customers" }],
+  edges: [{ fromType: "company", toType: "brand", count: 1 }],
+  lint: { ok: true, errors: [], warningCount: 0 },
+  violations: {
+    brokenLinks: { count: 0, sample: [] }, missingRequired: { count: 0, sample: [] },
+    undeclaredTypes: { count: 0, sample: [] }, invalidBrands: { count: 0, sample: [] },
+  },
+  definitions: [{ slug: "definitions/show-rate", title: "Show rate", term: "Show rate", brands: ["IR"], calculation: "ir-metrics#showRate", certified: true }],
+  brands: [{ slug: "brands/increase-roas", code: "IR", title: "Increase ROAS", company: null }],
+  clients: [{ slug: "companies/example", title: "Example", aliases: ["example"], brands: ["IR"] }],
+};
+
+function proofFeed(status = "pass", generatedAt = NOW.toISOString()) {
+  return { generatedAt, checks: [{ key: "gateway", status, detail: null, observedAt: generatedAt }] };
+}
 
 function jsonRes(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -46,7 +72,10 @@ function makeApp(actor: Express.Request["actor"], opts: SystemFeedOptions) {
   return app;
 }
 
-afterEach(() => resetProofCheckCache());
+afterEach(() => {
+  resetProofCheckCache();
+  vi.useRealTimers();
+});
 
 describe("systemMapRoutes", () => {
   it("is instance-admin only and never calls the feed for members or agents", async () => {
@@ -84,6 +113,38 @@ describe("systemMapRoutes", () => {
     expect(res.body.code).toBe("ir_system_feed_bad_shape");
   });
 
+  it.each([
+    ["/api/ir/system-map", { ...SYSTEM_MAP, sources: null }],
+    ["/api/ir/system-map", { ...SYSTEM_MAP, hosts: [null] }],
+    ["/api/ir/system-map", { ...SYSTEM_MAP, doctor: { ...SYSTEM_MAP.doctor, checks: [{ key: "gateway" }] } }],
+    ["/api/ir/system-map/gbrain-skeleton", { pack: {}, pageTypes: [], violations: {}, edges: [] }],
+    ["/api/ir/system-map/gbrain-skeleton", { ...SKELETON, clients: [{ slug: "companies/test", title: "Test" }] }],
+    ["/api/ir/proof-checks", { generatedAt: NOW.toISOString(), checks: [null] }],
+    ["/api/ir/proof-checks", { generatedAt: NOW.toISOString(), checks: [{ key: "gateway", status: "pass" }] }],
+  ])("rejects incomplete nested feed data for %s", async (path, body) => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => jsonRes(body));
+    const res = await request(makeApp(ADMIN, { baseUrl: "https://feed.example", key: "k", fetchImpl })).get(path);
+    expect(res.status).toBe(502);
+    expect(res.body.code).toBe("ir_system_feed_bad_shape");
+  });
+
+  it("accepts the complete skeleton contract", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => jsonRes(SKELETON));
+    const res = await request(makeApp(ADMIN, { baseUrl: "https://feed.example", key: "k", fetchImpl })).get("/api/ir/system-map/gbrain-skeleton");
+    expect(res.status).toBe(200);
+    expect(res.body.skeleton).toEqual(SKELETON);
+  });
+
+  it("does not let an unrelated stale check block a fresh passing check", async () => {
+    const body = proofFeed();
+    body.checks.unshift({ key: "db_feeds", status: "fail", detail: null, observedAt: "2026-11-26T12:00:00Z" });
+    const fetchImpl = vi.fn<typeof fetch>(async () => jsonRes(body));
+    const res = await request(makeApp(ADMIN, { baseUrl: "https://feed.example", key: "k", fetchImpl })).get("/api/ir/proof-checks");
+    expect(res.status).toBe(200);
+    expect(proofCheckAllowsClosure("gateway", res.body.checks, res.body.freshness, NOW)).toMatchObject({ allowed: true });
+    expect(proofCheckAllowsClosure("db_feeds", res.body.checks, res.body.freshness, NOW)).toMatchObject({ allowed: false, status: "stale" });
+  });
+
   it("marks old doctor data stale", async () => {
     const old = { ...SYSTEM_MAP, doctor: { ...SYSTEM_MAP.doctor, observedAt: "2026-11-26T16:00:00Z" } };
     const fetchImpl = vi.fn<typeof fetch>(async () => jsonRes(old));
@@ -117,5 +178,37 @@ describe("readProofCheckSnapshot", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     resetProofCheckCache();
     expect(await readProofCheckSnapshot({ baseUrl: "", key: "" })).toBeNull();
+  });
+
+  it("keeps fresh cached proof available during a refresh and replaces it after the response", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    let finishRefresh!: (value: Response) => void;
+    const fetchImpl = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonRes(proofFeed()))
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => { finishRefresh = resolve; }));
+    startProofCheckRefresher({ baseUrl: "https://feed.example", key: "k", fetchImpl });
+    await vi.advanceTimersByTimeAsync(0);
+    const initial = cachedProofCheckSnapshot();
+    expect(initial?.checks[0]?.status).toBe("pass");
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(cachedProofCheckSnapshot()).toEqual(initial);
+    finishRefresh(jsonRes(proofFeed("fail", new Date().toISOString())));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(cachedProofCheckSnapshot()?.checks[0]?.status).toBe("fail");
+  });
+
+  it("clears cached proof after a failed refresh", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    const fetchImpl = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonRes(proofFeed()))
+      .mockRejectedValueOnce(new TypeError("fetch failed"));
+    startProofCheckRefresher({ baseUrl: "https://feed.example", key: "k", fetchImpl });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(cachedProofCheckSnapshot()).not.toBeNull();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(cachedProofCheckSnapshot()).toBeNull();
   });
 });

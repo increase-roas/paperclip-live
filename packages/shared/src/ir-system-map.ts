@@ -207,15 +207,20 @@ export interface ProofChecksResponse {
 /** An issue names its proof check with a label such as `proof:gateway`. */
 export const PROOF_LABEL_PREFIX = "proof:";
 
-export function requiredProofCheckFromLabels(labels: ReadonlyArray<{ name: string }>): string | null {
+export function requiredProofChecksFromLabels(labels: ReadonlyArray<{ name: string }>): string[] {
+  const keys = new Set<string>();
   for (const label of labels) {
     const name = label.name.trim();
     if (name.toLowerCase().startsWith(PROOF_LABEL_PREFIX)) {
       const key = name.slice(PROOF_LABEL_PREFIX.length).trim().toLowerCase();
-      if (key) return key;
+      if (key) keys.add(key);
     }
   }
-  return null;
+  return [...keys];
+}
+
+export function requiredProofCheckFromLabels(labels: ReadonlyArray<{ name: string }>): string | null {
+  return requiredProofChecksFromLabels(labels)[0] ?? null;
 }
 
 /**
@@ -232,7 +237,7 @@ export function proofCheckAllowsClosure(
   if (!checks || !freshness) return { allowed: false, status: "missing", detail: "Proof checks are not reachable." };
   const check = checks.find((candidate) => candidate.key === key);
   if (!check) return { allowed: false, status: "missing", detail: `No proof check named "${key}".` };
-  const checkStale = check.observedAt ? freshnessOf(check.observedAt, now).stale : freshness.stale;
+  const checkStale = freshnessOf(check.observedAt, now).stale;
   if (freshness.stale || checkStale) return { allowed: false, status: "stale", detail: "Proof check results are stale." };
   return { allowed: check.status === "pass", status: check.status, detail: check.detail };
 }
