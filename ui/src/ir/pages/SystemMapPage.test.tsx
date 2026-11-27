@@ -79,6 +79,8 @@ const SKELETON: GbrainSkeletonResponse = {
     definitions: [
       { slug: "definitions/show-rate", title: "Show rate", term: "Show rate", brands: ["IR"], calculation: "ir-metrics#showRate", certified: false },
       { slug: "definitions/priority", title: "Priority", term: "Priority", brands: [], calculation: "none", certified: false },
+      { slug: "definitions/lead", title: "Lead", term: "Lead", brands: ["IR"], calculation: "none", certified: true },
+      { slug: "definitions/mrr", title: "MRR", term: "MRR", brands: ["IR"], calculation: "ir-metrics#mrr", certified: true },
       { slug: "definitions/bad", title: "Bad", term: "Bad", brands: [], calculation: "ir-metrics#magicRoas", certified: false },
     ],
     brands: [
@@ -168,6 +170,9 @@ describe("SystemMapPage", () => {
     expect(text).toContain("526/526 pages missing fields");
     expect(container.querySelector('[data-testid="definition-definitions/show-rate"]')?.textContent).toContain("Pending owner sign-off");
     expect(container.querySelector('[data-testid="definition-definitions/priority"]')?.textContent).toContain("Not defined yet");
+    expect(container.querySelector('[data-testid="definition-definitions/lead"]')?.textContent).toContain("Certified");
+    expect(container.querySelector('[data-testid="definition-definitions/lead"]')?.textContent).toContain("Term definition (no formula)");
+    expect(container.querySelector('[data-testid="definition-definitions/mrr"]')?.textContent).toContain("Certified");
     expect(container.querySelector('[data-testid="definition-definitions/bad"]')?.textContent).toContain("Broken pointer");
     expect(text).toContain("Page missing");
     expect(text).toContain("Not an own brand: brands/revstead (REVSTEAD)");
