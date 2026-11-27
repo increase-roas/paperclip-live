@@ -53,19 +53,15 @@ export function filterIssueDescendants(rootId: string, items: Issue[]): Issue[] 
 
   const descendants: Issue[] = [];
   const seen = new Set<string>([rootId]);
-  let frontier = [rootId];
+  const parentIds = [rootId];
 
-  while (frontier.length > 0) {
-    const nextFrontier: string[] = [];
-    for (const parentId of frontier) {
-      for (const child of childrenByParentId.get(parentId) ?? []) {
-        if (seen.has(child.id)) continue;
-        seen.add(child.id);
-        descendants.push(child);
-        nextFrontier.push(child.id);
-      }
+  for (const parentId of parentIds) {
+    for (const child of childrenByParentId.get(parentId) ?? []) {
+      if (seen.has(child.id)) continue;
+      seen.add(child.id);
+      descendants.push(child);
+      parentIds.push(child.id);
     }
-    frontier = nextFrontier;
   }
 
   return descendants;
