@@ -56,10 +56,32 @@ describe("certified worked examples", () => {
     expect(clientLifecycleStatus("active", 3)).toBe("active");
     expect(clientLifecycleStatus("active", 15)).toBe("paused");
     expect(clientLifecycleStatus("active", 30)).toBe("cancelled");
+    expect(clientLifecycleStatus("cancelled", 3)).toBe("cancelled");
+    expect(clientLifecycleStatus("paused", 3)).toBe("paused");
+    expect(clientLifecycleStatus("paused", 20)).toBe("paused");
+    expect(clientLifecycleStatus("paused", 30)).toBe("cancelled");
+    expect(clientLifecycleStatus("cancelled", 20)).toBe("cancelled");
     expect(clientStatusCounts([{ status: "active", failedPaymentDays: 3 }, { status: "active" }])).toMatchObject({
       active: 2,
       pastDue: 1,
     });
+    expect(
+      clientStatusCounts([
+        { status: "cancelled", failedPaymentDays: 3 },
+        { status: "paused", failedPaymentDays: 3 },
+      ]),
+    ).toMatchObject({ active: 0, pastDue: 0, paused: 1, cancelled: 1 });
+  });
+
+  it("MRR never counts a cancelled or paused client because of a failed-payment day count", () => {
+    expect(mrr([{ status: "cancelled", failedPaymentDays: 3, monthlyFeeUsd: 1000 }])).toBeNull();
+    expect(
+      mrr([
+        { status: "active", failedPaymentDays: 3, monthlyFeeUsd: 1500 },
+        { status: "paused", failedPaymentDays: 3, monthlyFeeUsd: 750 },
+        { status: "cancelled", failedPaymentDays: 3, monthlyFeeUsd: 1000 },
+      ]),
+    ).toBe(1500);
   });
 });
 

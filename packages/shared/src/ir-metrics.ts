@@ -153,22 +153,26 @@ const ACTIVE_STATUSES = new Set(["active", "live", "healthy", "onboarding"]);
 const PAUSED_STATUSES = new Set(["paused", "on_hold", "on hold", "hold"]);
 const CANCELLED_STATUSES = new Set(["cancelled", "canceled", "churned", "inactive", "archived"]);
 
-/**
- * Maps a raw client status onto active / paused / cancelled. Failed-payment
- * rule: days 1 to 14 unresolved = Active (Past Due); day 15 = Paused; day 30 =
- * Cancelled.
- */
-export function clientLifecycleStatus(raw: unknown, failedPaymentDays?: Count): ClientLifecycleStatus {
-  if (known(failedPaymentDays) && failedPaymentDays >= 1) {
-    if (failedPaymentDays >= 30) return "cancelled";
-    if (failedPaymentDays >= 15) return "paused";
-    return "active";
-  }
+function rawLifecycleStatus(raw: unknown): ClientLifecycleStatus {
   const value = typeof raw === "string" ? raw.trim().toLowerCase() : "";
   if (ACTIVE_STATUSES.has(value)) return "active";
   if (PAUSED_STATUSES.has(value)) return "paused";
   if (CANCELLED_STATUSES.has(value)) return "cancelled";
   return "other";
+}
+
+/**
+ * Maps a raw client status onto active / paused / cancelled. Failed-payment
+ * rule: days 1 to 14 unresolved = Active (Past Due); day 15 = Paused; day 30 =
+ * Cancelled. The rule only escalates: it never turns a cancelled client into
+ * paused or a paused client into active.
+ */
+export function clientLifecycleStatus(raw: unknown, failedPaymentDays?: Count): ClientLifecycleStatus {
+  const base = rawLifecycleStatus(raw);
+  if (base === "cancelled" || !known(failedPaymentDays)) return base;
+  if (failedPaymentDays >= 30) return "cancelled";
+  if (failedPaymentDays >= 15) return "paused";
+  return base;
 }
 
 export interface ClientStatusCounts {
