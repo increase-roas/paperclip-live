@@ -16372,7 +16372,7 @@ export function issueRoutes(
         comment ??= actor.actorType === "user" && issue.assigneeAgentId && !["backlog", "done", "cancelled"].includes(issue.status)
           ? await db.transaction(tx => addCommentAndReceipt(tx as unknown as Db))
           : await addCommentAndReceipt(db);
-        commentActivityPublications.forEach(publishActivity);
+        for (const publication of commentActivityPublications) publishActivity(publication);
         await issueReferencesSvc.syncComment(comment.id);
         await externalObjectsSvc.syncCommentSafely(comment.id);
         if (
@@ -20066,7 +20066,7 @@ export function issueRoutes(
           }
           return saved;
         }) : await add();
-        commentActivityPublications.forEach(publishActivity);
+        for (const publication of commentActivityPublications) publishActivity(publication);
       }
 
       if (!fastResponseEnqueued && actor.actorType === "user" && currentIssue.assigneeAgentId && !["done", "cancelled", "backlog"].includes(currentIssue.status)) {

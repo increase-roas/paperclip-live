@@ -432,7 +432,7 @@ export function createChatPublicationRequests(db: Db, options: RequestOptions) {
       });
       return terminalPublication;
     });
-    commentActivityPublications.forEach(publishActivity);
+    for (const item of commentActivityPublications) publishActivity(item);
     if ("rejection" in publication) {
       throw conflict(
         "Selected attachments are already bound to another comment",

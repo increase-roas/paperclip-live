@@ -1608,6 +1608,7 @@ describe("issue comment reopen routes", () => {
         authorizationReason: "allow_board_actor",
         clientRequestId: undefined,
         mirrorToSlack: true,
+        postCommitActivityPublications: [],
         presentation: {
           kind: "system_notice",
           tone: "warning",

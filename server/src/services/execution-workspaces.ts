@@ -5467,7 +5467,7 @@ export function executionWorkspaceService(db: Db, opts: ExecutionWorkspaceServic
           sourceIssueStatusChanged,
         };
       });
-      commentActivityPublications.forEach(publishActivity);
+      for (const publication of commentActivityPublications) publishActivity(publication);
       return result;
     },
 

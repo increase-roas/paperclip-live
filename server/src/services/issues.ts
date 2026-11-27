@@ -13203,7 +13203,7 @@ export function issueService(db: Db) {
           if (options?.postCommitActivityPublications) {
             options.postCommitActivityPublications.push(...publications);
           } else {
-            publications.forEach(publishActivity);
+            for (const publication of publications) publishActivity(publication);
           }
           return comment;
         };
