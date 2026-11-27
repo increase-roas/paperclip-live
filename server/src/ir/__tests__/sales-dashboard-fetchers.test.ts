@@ -150,8 +150,8 @@ describe("fetchSalesSnapshots", () => {
             generatedAt: "2026-11-27T00:00:00.000Z",
             clients: [
               {
-                slug: "  paradise-spas ",
-                displayName: " Paradise Spas ",
+                slug: "  acme-spas ",
+                displayName: " Acme Spas ",
                 syncedAt: "2026-11-26T10:00:00.000Z",
                 lastSuccessfulSyncAt: "2026-11-25T10:00:00.000Z",
                 summary: {
@@ -162,7 +162,7 @@ describe("fetchSalesSnapshots", () => {
                 },
               },
               {
-                slug: "hot-tubs",
+                slug: "globex-pools",
                 lastSuccessfulSyncAt: "2026-11-25T10:00:00.000Z",
                 payload: { summary: { meta: { status: "LIVE", spend: 300 }, ghl: ["not", "a", "section"] } },
               },
@@ -179,8 +179,8 @@ describe("fetchSalesSnapshots", () => {
     expect(snapshots?.owner).toBeNull();
     expect(snapshots?.clients).toEqual([
       {
-        slug: "paradise-spas",
-        displayName: "Paradise Spas",
+        slug: "acme-spas",
+        displayName: "Acme Spas",
         observedAt: "2026-11-26T10:00:00.000Z",
         ghl: { newLeads: 40, wonDeals: 4 },
         meta: undefined,
@@ -188,8 +188,8 @@ describe("fetchSalesSnapshots", () => {
         financials: { totalSalesUsd: 5000 },
       },
       {
-        slug: "hot-tubs",
-        displayName: "hot-tubs",
+        slug: "globex-pools",
+        displayName: "globex-pools",
         observedAt: "2026-11-25T10:00:00.000Z",
         ghl: undefined,
         meta: { status: "LIVE", spend: 300 },
