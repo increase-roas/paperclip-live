@@ -13181,12 +13181,15 @@ export function issueService(db: Db) {
         proactiveChatMessage?: { sourceTaskId: string; userId: string };
         /** Server-only: authenticated Paperclip messages also belong in the Slack thread. */
         mirrorToSlack?: boolean;
+        /** Caller-owned transactions publish these only after their outer commit. */
+        postCommitActivityPublications?: ActivityPublication[];
       },
       dbOrTx: any = db,
     ): Promise<IssueComment> {
       if (dbOrTx === db) {
-        const append = () =>
-          measureRunTransaction(db, "response", async (tx) => {
+        const append = async () => {
+          const publications: ActivityPublication[] = [];
+          const comment = await measureRunTransaction(db, "response", async (tx) => {
             // Serialize run-authored comments on the issue so a provider retry
             // cannot publish the same visible result twice. This needs no schema
             // change: the issue row is the transaction fence, and the recursive
@@ -13196,8 +13199,15 @@ export function issueService(db: Db) {
               .from(issues)
               .where(eq(issues.id, issueId))
               .for("update"));
-            return addComment(issueId, body, actor, options, tx);
+            return addComment(issueId, body, actor, { ...options, postCommitActivityPublications: publications }, tx);
           });
+          if (options?.postCommitActivityPublications) {
+            options.postCommitActivityPublications.push(...publications);
+          } else {
+            publications.forEach(publishActivity);
+          }
+          return comment;
+        };
         return options?.authorizationReason ===
           CHAT_RUN_PRESENTATION_AUTHORIZATION_REASON
           ? retryNativeChatReviewPresentation(append)
@@ -13698,7 +13708,11 @@ export function issueService(db: Db) {
         await mirrorSlackBoardComment(dbOrTx, comment, { attachmentIds: options.attachmentIds });
       }
       if (authorType === "user" || actor.userId) {
-        await resumeSlackConversation(dbOrTx, issue.companyId, issueId);
+        const publications = options?.postCommitActivityPublications ?? [];
+        await resumeSlackConversation(dbOrTx, issue.companyId, issueId, publications);
+        if (publications.length > 0 && !options?.postCommitActivityPublications) {
+          throw new Error("Conversation resume in an external transaction requires a post-commit activity queue");
+        }
       }
       // Update issue's updatedAt so comment activity is reflected in recency sorting
       await dbOrTx

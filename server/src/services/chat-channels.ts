@@ -2292,6 +2292,7 @@ export function chatChannelService(db: Db, options: ChatChannelServiceOptions) {
           taskUserId ? { userId: taskUserId } : {},
           {
             authorType: taskUserId ? "user" : "system",
+            postCommitActivityPublications: inboundActivityPublications,
             metadata: {
               version: 1,
               sourceChannel: endpoint.provider,

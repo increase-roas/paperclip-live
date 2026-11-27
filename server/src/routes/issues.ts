@@ -15750,6 +15750,7 @@ export function issueRoutes(
                   mirrorToSlack: actor.actorType === "user",
                   authorizationReason: issueMutationAuthorizationReason,
                   sourceTrust: transactionalCommentSourceTrust,
+                  postCommitActivityPublications,
                 },
                 tx,
               );
@@ -16348,6 +16349,7 @@ export function issueRoutes(
         const commentReferenceSummaryBefore =
           updateReferenceSummaryAfter ??
           (await issueReferencesSvc.listIssueReferenceSummary(issue.id));
+        const commentActivityPublications: ActivityPublication[] = [];
         const addCommentAndReceipt = async (tx: Db) => {
           const saved = await svc.addComment(
           id,
@@ -16363,6 +16365,7 @@ export function issueRoutes(
             clientRequestId: actor.actorType === "user" ? commentClientRequestId : undefined,
             mirrorToSlack: actor.actorType === "user",
             sourceTrust: await sourceTrustForActorWrite(issue, actor),
+            postCommitActivityPublications: commentActivityPublications,
           },
           tx as unknown as Db,
         );
@@ -16375,6 +16378,7 @@ export function issueRoutes(
         comment ??= actor.actorType === "user" && issue.assigneeAgentId && !["backlog", "done", "cancelled"].includes(issue.status)
           ? await db.transaction(tx => addCommentAndReceipt(tx as unknown as Db))
           : await addCommentAndReceipt(db);
+        commentActivityPublications.forEach(publishActivity);
         await issueReferencesSvc.syncComment(comment.id);
         await externalObjectsSvc.syncCommentSafely(comment.id);
         if (
@@ -19503,6 +19507,7 @@ export function issueRoutes(
           ));
           const saved = await svc.addComment(issue.id, req.body.body, { userId }, {
             clientRequestId: req.body.clientRequestId, authorType: "user", attachmentIds: req.body.attachmentIds,
+            postCommitActivityPublications: publications,
           }, tx);
           if (!existing) await logActivity(tx as unknown as Db, {
             companyId: issue.companyId, actorType: actor.actorType, actorId: actor.actorId,
@@ -19953,6 +19958,7 @@ export function issueRoutes(
               {
                 ...commentOptions,
                 authorizationReason: commentAuthorizationReason,
+                postCommitActivityPublications,
               },
               tx,
             );
@@ -20035,7 +20041,9 @@ export function issueRoutes(
           requestedByActorId: actor.actorId,
         });
       } else {
+        const commentActivityPublications: ActivityPublication[] = [];
         const commentOptions = {
+          postCommitActivityPublications: commentActivityPublications,
           authorType:
             req.body.authorType ??
             (actor.actorType === "agent" ? "agent" : "user"),
@@ -20070,6 +20078,7 @@ export function issueRoutes(
           }
           return saved;
         }) : await add();
+        commentActivityPublications.forEach(publishActivity);
       }
 
       if (!fastResponseEnqueued && actor.actorType === "user" && currentIssue.assigneeAgentId && !["done", "cancelled", "backlog"].includes(currentIssue.status)) {
