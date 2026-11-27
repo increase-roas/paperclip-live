@@ -180,7 +180,7 @@ describePostgres("proof-gated closure through the agent issue route", () => {
 
   it.each([
     ["failing", snapshot([check("gateway", "fail")]), "fail"],
-    ["warning", snapshot([check("gateway", "warn")]), "warn"],
+    ["unknown", snapshot([check("gateway", "unknown")]), "unknown"],
     ["stale snapshot", snapshot([check("gateway", "pass")], { stale: true }), "stale"],
     ["stale check", snapshot([check("gateway", "pass", new Date(Date.now() - STALE_AGE_SECONDS * 1000))]), "stale"],
   ] as const)("refuses an agent close with 422 and full rollback when the check is %s", async (_name, reader, proofStatus) => {
