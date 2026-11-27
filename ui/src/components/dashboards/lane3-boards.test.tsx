@@ -526,6 +526,68 @@ describe("lane 3 dashboard boards", () => {
     expect(container.textContent).toContain("v1 spec, not Hormozi");
   });
 
+  it("Tools keeps inactive rows muted and out of expiry alerts while active adapters show healthy", async () => {
+    apiMocks.toolsConnectors.mockResolvedValue({
+      companyId: "company-1",
+      generatedAt: NOW,
+      items: [
+        {
+          id: "connection:archived",
+          name: "Old Archived Claude",
+          kind: "tool_connection",
+          detail: "Claude · runtime_auth · oauth",
+          status: "archived",
+          health: "error",
+          healthMessage: "Revoked",
+          lastCheckAt: null,
+          lastSuccessfulUseAt: null,
+          expiresAt: "2026-11-20T00:00:00.000Z",
+          expiryDaysRemaining: -3,
+        },
+        {
+          id: "plugin:disabled",
+          name: "increaseroas.system-map",
+          kind: "plugin",
+          detail: "Plugin 0.1.2",
+          status: "disabled",
+          health: null,
+          healthMessage: "Replaced by native page",
+          lastCheckAt: NOW,
+          lastSuccessfulUseAt: null,
+          expiresAt: null,
+          expiryDaysRemaining: null,
+        },
+        {
+          id: "adapter:hermes_gateway",
+          name: "hermes_gateway",
+          kind: "adapter",
+          detail: "11 agents",
+          status: "active",
+          health: null,
+          healthMessage: null,
+          lastCheckAt: null,
+          lastSuccessfulUseAt: null,
+          expiresAt: null,
+          expiryDaysRemaining: null,
+        },
+      ],
+      summary: {
+        total: 3,
+        healthy: 1,
+        needsAttention: 0,
+        unchecked: 0,
+        expiringWithin14Days: 0,
+        expiryUnknown: 1,
+      },
+      notConnected: [],
+    });
+    await render(<ToolsConnectorsBoard />);
+    await vi.waitFor(() => expect(container.textContent).toContain("hermes_gateway"));
+    expect(container.querySelector('[data-testid="tools-expiry-warning"]')).toBeNull();
+    expect(container.querySelector('[data-testid="tools-attention"]')?.textContent).toContain("0");
+    expect(container.querySelector('[data-testid="tools-unchecked"]')?.textContent).toContain("0");
+  });
+
   it("Fulfillment groups by client and states the missing sources", async () => {
     await render(<FulfillmentBoard />);
     await vi.waitFor(() => expect(container.textContent).toContain("Acme"));
