@@ -2355,7 +2355,8 @@ export function chatChannelService(db: Db, options: ChatChannelServiceOptions) {
           })
           .onConflictDoNothing();
         if (taskEndpoint.provider === "slack" || taskEndpoint.provider === "speko") {
-          await resumeExternalConversation(taskTx as unknown as Db, endpoint.companyId, conversation.issueId);
+          await resumeExternalConversation(taskTx as unknown as Db, endpoint.companyId, conversation.issueId,
+            inboundActivityPublications);
         }
         await taskTx
           .update(chatConversations)

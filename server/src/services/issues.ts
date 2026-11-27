@@ -12261,6 +12261,15 @@ export function issueService(db: Db) {
           }
           await notifyDeliveryWork(tx, DELIVERY_QUEUES.agentTimers);
           await notifyRoutineExecutionStatus(tx, id);
+          if (owner) {
+            // The delete unlinks the routine run, so status sync can no longer
+            // settle it. Settle it here or it stays in progress forever.
+            const now = new Date();
+            await tx.update(routineRuns)
+              .set({ status: "failed", failureReason: "Execution issue deleted", completedAt: now, updatedAt: now })
+              .where(and(eq(routineRuns.companyId, owner.companyId), eq(routineRuns.linkedIssueId, id),
+                eq(routineRuns.status, "issue_created")));
+          }
           removedIssue = await tx
             .delete(issues)
             .where(eq(issues.id, id))
