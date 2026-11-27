@@ -45,6 +45,7 @@ import { companySearchQuerySchema } from "@paperclipai/shared";
 import { companySearchService } from "../services/company-search.js";
 import { recoveryService } from "../services/recovery/service.js";
 import { issueService } from "../services/issues.js";
+import type { ActivityPublication } from "../services/activity-log.js";
 
 import { resolveExternalTestDatabaseUrl } from "./helpers/external-test-database.js";
 const external = resolveExternalTestDatabaseUrl("PAPERCLIP_EXTERNAL_CONVERSATION_TEST_DATABASE_URL");
@@ -574,6 +575,29 @@ const support = external ? { supported: true } : await getEmbeddedPostgresTestSu
     expect(await state(f)).toMatchObject({ status: "in_review", externalConversationState: "waiting" });
     await db.transaction(tx => resumeExternalConversation(tx as unknown as typeof db, f.companyId, f.issueId));
     expect(await state(f)).toMatchObject({ status: "todo", externalConversationState: "active" });
+  });
+
+  it("logs the automatic move from In Review back to To do when a conversation resumes", async () => {
+    const f = await fixture();
+    expect(await settle(f)).toBe(true);
+    const statusEvents = async () => (await db.select().from(activityLog).where(and(
+      eq(activityLog.entityId, f.issueId), eq(activityLog.action, "issue.updated"),
+    ))).map((event) => event.details as Record<string, unknown>);
+    expect(await statusEvents()).toEqual([expect.objectContaining({ status: "in_review" })]);
+
+    const publications: ActivityPublication[] = [];
+    await db.transaction(tx => resumeExternalConversation(tx as unknown as typeof db, f.companyId, f.issueId, publications));
+    expect(await state(f)).toMatchObject({ status: "todo", externalConversationState: "active" });
+    expect(publications).toHaveLength(1);
+    expect(await statusEvents()).toEqual([
+      expect.objectContaining({ status: "in_review" }),
+      expect.objectContaining({ status: "todo", source: "external_conversation_resumed", _previous: { status: "in_review" } }),
+    ]);
+
+    // A message for a conversation that is not waiting changes nothing and logs nothing.
+    await db.transaction(tx => resumeExternalConversation(tx as unknown as typeof db, f.companyId, f.issueId, publications));
+    expect(publications).toHaveLength(1);
+    expect(await statusEvents()).toHaveLength(2);
   });
 
   it("preserves waiting state in compact list responses used by the Inbox", async () => {

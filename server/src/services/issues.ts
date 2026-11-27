@@ -11204,6 +11204,16 @@ export function issueService(db: Db) {
       });
     },
 
+    /**
+     * Callers that stop or interrupt runs before `update` call this first, so a
+     * refused proof-gated close has no side effects. `update` checks again.
+     */
+    assertProofGateAllowsTransition: (
+      existing: { id: string; companyId: string; status: string },
+      nextStatus: string | null | undefined,
+      nextLabelIds?: readonly string[],
+    ) => assertIrProofGateAllowsTransition(db, existing, nextStatus, nextLabelIds),
+
     update: async (
       id: string,
       data: Partial<typeof issues.$inferInsert> & {
@@ -12261,6 +12271,15 @@ export function issueService(db: Db) {
           }
           await notifyDeliveryWork(tx, DELIVERY_QUEUES.agentTimers);
           await notifyRoutineExecutionStatus(tx, id);
+          if (owner) {
+            // The delete unlinks the routine run, so status sync can no longer
+            // settle it. Settle it here or it stays in progress forever.
+            const now = new Date();
+            await tx.update(routineRuns)
+              .set({ status: "failed", failureReason: "Execution issue deleted", completedAt: now, updatedAt: now })
+              .where(and(eq(routineRuns.companyId, owner.companyId), eq(routineRuns.linkedIssueId, id),
+                eq(routineRuns.status, "issue_created")));
+          }
           removedIssue = await tx
             .delete(issues)
             .where(eq(issues.id, id))

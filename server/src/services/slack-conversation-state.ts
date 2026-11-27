@@ -4,6 +4,7 @@ import { DELIVERY_QUEUES, notifyDeliveryWork } from "./delivery-work-notificatio
 import { notifyExternalConversationSettlement } from "./external-conversation-settlement-notifications.js";
 import { chatConversations, issues, type Db } from "@paperclipai/db";
 import { and, eq, sql } from "drizzle-orm";
+import { logActivity, type ActivityPublication } from "./activity-log.js";
 
 /** Read-only projection; External chat threads do not acquire Agent Chat identities. */
 export function externalConversationStateSql() {
@@ -45,17 +46,36 @@ export function nonIdleSlackIssueCondition() {
   return sql`${externalConversationStateSql()} is distinct from 'waiting'`;
 }
 
-/** Called inside message admission while its transaction owns the issue lock. */
-export async function resumeExternalConversation(tx: Db, companyId: string, issueId: string) {
+/**
+ * Called inside message admission while its transaction owns the issue lock.
+ * Pass `postCommitPublications` to publish the status activity after commit.
+ */
+export async function resumeExternalConversation(
+  tx: Db,
+  companyId: string,
+  issueId: string,
+  postCommitPublications?: ActivityPublication[],
+) {
   await notifyAttentionRetentionWork(tx, { companyId });
   await notifyDeliveryWork(tx, DELIVERY_QUEUES.agentTimers);
   await notifyExternalConversationSettlement(tx, { companyId, issueId });
   // Only the verified idle convention may leave In Review automatically.
   // A real decision or delivery problem keeps the existing review semantics.
   await notifyStatusCardIssueChange(tx, companyId);
-  await tx.update(issues).set({ status: "todo", updatedAt: new Date() })
+  const resumed = await tx.update(issues).set({ status: "todo", updatedAt: new Date() })
     .where(and(eq(issues.companyId, companyId), eq(issues.id, issueId),
-      sql`${externalConversationStateSql()} = 'waiting'`));
+      sql`${externalConversationStateSql()} = 'waiting'`))
+    .returning({ id: issues.id, title: issues.title, identifier: issues.identifier });
+  // Settlement logs the move into In Review; the move back must be logged too.
+  // The waiting state exists only while the task is In Review.
+  for (const issue of resumed) {
+    await logActivity(tx, {
+      companyId, actorType: "system", actorId: "external-conversation", action: "issue.updated",
+      entityType: "issue", entityId: issue.id,
+      details: { status: "todo", externalConversationState: "active", source: "external_conversation_resumed",
+        issueTitle: issue.title, issueIdentifier: issue.identifier, _previous: { status: "in_review" } },
+    }, postCommitPublications);
+  }
   await tx.update(chatConversations).set({ state: "active", updatedAt: new Date() })
     .where(and(eq(chatConversations.companyId, companyId), eq(chatConversations.issueId, issueId),
       eq(chatConversations.state, "waiting"), sql`exists (select 1 from chat_endpoints e

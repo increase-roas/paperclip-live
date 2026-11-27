@@ -14852,6 +14852,7 @@ export function issueRoutes(
           reviewPolicy: existing.reviewPolicy,
         });
       }
+      await svc.assertProofGateAllowsTransition(existing, updateFields.status, updateFields.labelIds);
       const shouldCancelActiveRunForCancelledStatus =
         req.actor.source !== "mcp_oauth" && existing.status !== "cancelled" && updateFields.status === "cancelled";
       if (resumeRequested === true && !commentBody) {
