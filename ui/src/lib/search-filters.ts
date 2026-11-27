@@ -158,46 +158,28 @@ export function buildFilterChips(filters: SearchFilters, lookups: FilterChipLook
     chips.push({
       id: "assignee",
       label: `Assignee: ${assigneeChipLabel(filters, lookups)}`,
-      remove: (current) => {
-        const next = { ...current };
-        delete next.assigneeAgentId;
-        delete next.assigneeUserId;
-        return next;
-      },
+      remove: (current) => clearFilterDimension(current, "assigneeAgentId"),
     });
   }
   if (filters.projectId) {
     chips.push({
       id: "project",
       label: `Project: ${lookups.projectName(filters.projectId) ?? "Project"}`,
-      remove: (current) => {
-        const next = { ...current };
-        delete next.projectId;
-        return next;
-      },
+      remove: (current) => clearFilterDimension(current, "projectId"),
     });
   }
   if (filters.labelId) {
     chips.push({
       id: "label",
       label: `Label: ${lookups.labelName(filters.labelId) ?? "Label"}`,
-      remove: (current) => {
-        const next = { ...current };
-        delete next.labelId;
-        return next;
-      },
+      remove: (current) => clearFilterDimension(current, "labelId"),
     });
   }
   if (filters.updatedWithin) {
     chips.push({
       id: "updated",
       label: `Updated: ${updatedWithinLabel(filters.updatedWithin)}`,
-      remove: (current) => {
-        const next = { ...current };
-        delete next.updatedWithin;
-        delete next.updatedAfter;
-        return next;
-      },
+      remove: (current) => clearFilterDimension(current, "updatedWithin"),
     });
   }
   return chips;

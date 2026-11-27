@@ -866,6 +866,12 @@ const discordApplicationPrefix = 1_400_000_000_000_000_000n +
   BigInt(`0x${randomUUID().replaceAll("-", "").slice(0, 12)}`) * 1000n;
 let discordApplicationSequence = 0n;
 
+// Node timers can fire about 1ms early against Date.now(), and the services
+// compare due times with Date.now(). Keep waiting until the wall clock is past.
+async function waitPastWallClock(at: number) {
+  while (Date.now() <= at) await new Promise(resolve => setTimeout(resolve, Math.max(1, at - Date.now() + 1)));
+}
+
 function uniqueDiscordApplicationId() {
   discordApplicationSequence += 1n;
   return (discordApplicationPrefix + discordApplicationSequence).toString();
@@ -64912,7 +64918,7 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
       await f.releaseIdentity();
       const wake = heartbeatService(db).wakeup;
       f.wakeup.mockImplementation(async (...args) => { await heldWake; return wake(...args); });
-      await new Promise(resolve => setTimeout(resolve, Math.max(0, Date.parse(String(waiting.result?.retryAt)) - Date.now()) + 1));
+      await waitPastWallClock(Date.parse(String(waiting.result?.retryAt)));
       processing = f.service.processFailedChatRunRetry(response.body.chatActionId);
       await vi.waitFor(() => expect(f.wakeup).toHaveBeenCalledOnce());
       const [prepared] = await db.select().from(chatActions).where(eq(chatActions.id, response.body.chatActionId));
@@ -65050,7 +65056,7 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
       expect(deadline).toBeLessThanOrEqual(Date.now() + 60_000);
       await f.service.shutdown();
       restarted = createService(new FakeChatSdkRuntime(), f.providerFetch, { wakeup: heartbeatService(db).wakeup });
-      await new Promise(resolve => setTimeout(resolve, Math.max(0, Date.parse(String(waiting.result?.retryAt)) - Date.now()) + 1));
+      await waitPastWallClock(Date.parse(String(waiting.result?.retryAt)));
       await restarted.service.processFailedChatRunRetries();
       const [again] = await db.select().from(chatActions).where(eq(chatActions.id, response.body.chatActionId));
       expect(again.result).toMatchObject({ attemptCount: 0, identityContentionCount: 2,
@@ -65074,7 +65080,7 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
       await f.service.processFailedChatRunRetry(response.body.chatActionId);
       const processDue = async () => {
         const [current] = await db.select().from(chatActions).where(eq(chatActions.id, response.body.chatActionId));
-        await new Promise(resolve => setTimeout(resolve, Math.max(0, Date.parse(String(current.result?.retryAt)) - Date.now()) + 1));
+        await waitPastWallClock(Date.parse(String(current.result?.retryAt)));
         await f.service.processFailedChatRunRetry(current.id);
       };
       await f.releaseIdentity();
@@ -65128,7 +65134,7 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
             where ${authorizationPid} = any(pg_blocking_pids(pid))) as blocked`);
           expect(blocked).toBe(true);
         }, { timeout: 5_000, interval: 25 });
-        await new Promise(resolve => setTimeout(resolve, Math.max(0, authorizationDeadline - Date.now()) + 1));
+        await waitPastWallClock(authorizationDeadline);
         releaseAuthorization(); await authorizationHolding;
         await processing;
       } else await processDue();
@@ -65206,7 +65212,7 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
       expect(authorized.payload.sourceAuthorizationPending).toBeUndefined();
       expect((await readAgentWakeupRequestsById(pending.id))[0]).toBeUndefined();
       oldShutdown = f.service.shutdown();
-      await new Promise(resolve => setTimeout(resolve, Math.max(0, Date.parse(deadline) - Date.now()) + 1));
+      await waitPastWallClock(Date.parse(deadline));
       await db.update(chatActions).set({ updatedAt: new Date(Date.now() - 60_001) }).where(eq(chatActions.id, pending.id));
       if (mode === "stopped") await heartbeatService(db).cancelInvocationsForAgents([f.fixture.assignedAgentId], "operator_stop");
       restarted = createService(new FakeChatSdkRuntime(), f.providerFetch, { wakeup: heartbeatService(db).wakeup });
@@ -65260,7 +65266,7 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
         if (current.status === "failed") break;
         const retryAt = Date.parse(String(current.result?.retryAt));
         expect(Number.isFinite(retryAt)).toBe(true);
-        await new Promise(resolve => setTimeout(resolve, Math.max(0, retryAt - Date.now()) + 1));
+        await waitPastWallClock(retryAt);
         await f.service.processFailedChatRunRetries();
       }
       const [failed] = await db.select().from(chatActions).where(eq(chatActions.id, response.body.chatActionId));
@@ -67146,7 +67152,7 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
                     if (input.companyId === companyId) {
                       expect(await database.select().from(activityLog).where(and(eq(activityLog.companyId, companyId),
                         eq(activityLog.runId, failed.id), eq(activityLog.action, "issue.retry_inputs_restored")))).toHaveLength(1);
-                      await new Promise(resolve => setTimeout(resolve, Math.max(0, deadline - Date.now()) + 1));
+                      await waitPastWallClock(deadline);
                     }
                     return allowed;
                   });
