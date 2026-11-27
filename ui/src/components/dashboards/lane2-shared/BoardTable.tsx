@@ -12,12 +12,14 @@ const WRAP_COLUMN_KEYS = new Set(["duties", "judgedOn", "responsibilities", "per
 
 /**
  * A per-client or per-member table. With no source it still shows the columns
- * and the explicit NotConnected state, so the reader knows what will appear.
+ * and either the NotConnected state (a source is disconnected) or an honest
+ * empty state (every source is connected but returned no rows).
  */
 export function BoardTable({ table, sources }: BoardTableProps) {
   const tableSources = table.sourceIds
     .map((id) => sources.find((source) => source.id === id))
     .filter((source): source is DashboardSource => Boolean(source));
+  const disconnected = tableSources.filter((source) => source.status !== "connected");
 
   return (
     <Card
@@ -48,7 +50,13 @@ export function BoardTable({ table, sources }: BoardTableProps) {
             {table.rows.length === 0 ? (
               <tr>
                 <td colSpan={table.columns.length} className="px-4 py-4 sm:px-5">
-                  <NotConnected sources={tableSources} />
+                  {disconnected.length > 0 || tableSources.length === 0 ? (
+                    <NotConnected sources={disconnected} />
+                  ) : (
+                    <p className="text-sm text-muted-foreground" data-testid="dashboard-table-no-data">
+                      No data yet: {tableSources.map((source) => source.name).join(", ")} returned no rows for this period.
+                    </p>
+                  )}
                 </td>
               </tr>
             ) : (

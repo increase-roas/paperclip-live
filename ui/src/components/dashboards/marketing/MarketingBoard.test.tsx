@@ -144,4 +144,41 @@ describe("MarketingBoardView", () => {
     expect(html).toContain("A GHL private-integration token");
     expect(html).toContain("Paperclip has no server-side Meta Ads read connector.");
   });
+
+  it("never says Not connected under a connected source, and names why a number is missing", () => {
+    const connected: DashboardBoard = {
+      ...board,
+      sources: board.sources.map((source) => ({ ...source, status: "connected" as const })),
+      tiles: board.tiles.map((tile, index) => ({
+        ...tile,
+        value:
+          index === 0
+            ? { kind: "no_data" as const, reason: "Spend $128.03 · Clients won 0 — no new agency clients won in this period yet." }
+            : index === 1
+              ? { kind: "not_mapped" as const, missing: "Agency ads are not tagged core / adjacent / new yet." }
+              : // A stale payload that still says not_connected is reconciled too.
+                { kind: "not_connected" as const },
+      })),
+    };
+    const html = renderToStaticMarkup(<MarketingBoardView data={connected} />);
+    expect(html).not.toContain("Not connected: ");
+    expect(html).not.toContain("Needed:");
+    expect(html).toContain("No data yet");
+    expect(html).toContain("Clients won 0");
+    expect(html).toContain("Not mapped yet");
+    expect(html).toContain("not tagged core / adjacent / new");
+    expect(html).not.toContain('data-connection-state="not-connected"');
+  });
+
+  it("lists only the disconnected source's needed key when one of two sources is connected", () => {
+    const half: DashboardBoard = {
+      ...board,
+      sources: board.sources.map((source) =>
+        source.id === "meta_ads" ? { ...source, status: "connected" as const } : source,
+      ),
+    };
+    const html = renderToStaticMarkup(<MarketingBoardView data={half} />);
+    expect(html).toContain("Not connected: GoHighLevel (GHL)");
+    expect(html).not.toContain("Not connected: Meta Marketing API");
+  });
 });
