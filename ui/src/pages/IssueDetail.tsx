@@ -277,6 +277,7 @@ import { FileViewerSheet } from "../components/FileViewerSheet";
 import { ArtifactFileChip } from "../components/ArtifactFileChip";
 import { ScrollToBottom } from "../components/ScrollToBottom";
 import { StatusIcon } from "../components/StatusIcon";
+import { IssueProofCheckBadge, useIssueProofGate } from "@/ir/issues/IssueProofCheckBadge";
 import { PriorityIcon } from "../components/PriorityIcon";
 import { SHOW_TASK_PRIORITY_UI } from "../lib/ui-flags";
 import { Identity } from "../components/Identity";
@@ -4260,6 +4261,8 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [breadcrumbStatusKey],
   );
+  // Operational issues with a `proof:<check>` label close only after that check passes.
+  const issueProofGate = useIssueProofGate(issue?.labels);
   const issueCacheRefs = useMemo(() => {
     const refs = new Set<string>();
     if (issueId) refs.add(issueId);
@@ -7613,6 +7616,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
       {...taskStatusIconProps(issue)}
       size={proposedTaskHeader ? "md" : "lg"}
       blockerAttention={issue.blockerAttention}
+      disabledStatuses={issueProofGate.disabledStatuses}
       commentable
       onChange={(status, comment) =>
         updateIssue.mutate(comment ? { status, comment } : { status })
@@ -7624,6 +7628,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
       } : null}
     />
   );
+  const issueProofBadge = <IssueProofCheckBadge state={issueProofGate.state} />;
 
   const issueHeaderBlock = issue.conversationAgentId ? null : (
     <div
@@ -7690,6 +7695,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
           </span>
         ) : null}
         {!streamlinedTaskDetailEnabled ? issueStatusControl : null}
+        {issueProofBadge}
         {/* PAP-411: priority UI hidden behind SHOW_TASK_PRIORITY_UI. */}
         {SHOW_TASK_PRIORITY_UI && (
           <PriorityIcon

@@ -1,3 +1,4 @@
+import { closeRate, costPerLead, ctrPercent, showRate } from "@paperclipai/shared/ir-metrics";
 import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { issueLabels, issues, labels, projects } from "@paperclipai/db";
@@ -34,9 +35,6 @@ export interface DashboardFulfillmentDeps {
   wavvReader?: (period: DashboardPeriod) => Promise<WavvSummary | null>;
 }
 
-function round1(value: number): number {
-  return Math.round(value * 10) / 10;
-}
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
@@ -114,10 +112,7 @@ function retentionWithoutSources(): DashboardFulfillmentRetention {
 }
 
 function buildClientDeliveryRow(client: MergedClientMetrics): DashboardFulfillmentClientDeliveryRow {
-  const ctr =
-    client.impressions !== null && client.impressions > 0 && client.clicks !== null
-      ? round2((client.clicks / client.impressions) * 100)
-      : null;
+  const ctr = ctrPercent(client);
   return {
     slug: client.slug,
     displayName: client.displayName,
@@ -177,8 +172,6 @@ function buildClientDelivery(
   let hasCompleteBooked = true;
   let showed = 0;
   let hasCompleteShowed = true;
-  let pitched = 0;
-  let hasCompletePitched = true;
   let wonDeals = 0;
   let hasCompleteWon = true;
   let zeroLeadDays = 0;
@@ -217,11 +210,6 @@ function buildClientDelivery(
     } else {
       hasCompleteShowed = false;
     }
-    if (c.pitched !== null) {
-      pitched += c.pitched;
-    } else {
-      hasCompletePitched = false;
-    }
     if (c.wonDeals !== null) {
       wonDeals += c.wonDeals;
     } else {
@@ -237,24 +225,18 @@ function buildClientDelivery(
   }
 
   const roundedSpend = hasCompleteSpend ? round2(spend) : null;
-  const costPerLeadUsd = hasCompleteSpend && hasCompleteLeads && newLeads > 0 ? round2(spend / newLeads) : null;
-  const ctrPercent =
-    hasCompleteImpressions && impressions > 0 && hasCompleteClicks ? round2((clicks / impressions) * 100) : null;
+  const costPerLeadUsd = hasCompleteSpend && hasCompleteLeads ? costPerLead({ spend, leads: newLeads }) : null;
+  const portfolioCtrPercent = hasCompleteImpressions && hasCompleteClicks ? ctrPercent({ clicks, impressions }) : null;
   const isSingleClient = clientOnly.length === 1;
+  const portfolioShowRate = hasCompleteBooked && hasCompleteShowed ? showRate({ pastDatedBooked: booked, showed }) : null;
   const showRatePercent =
-    hasCompleteBooked && booked > 0 && hasCompleteShowed
-      ? round1((showed / booked) * 100)
+    portfolioShowRate !== null
+      ? portfolioShowRate
       : isSingleClient
         ? fallbackShowRate
         : null;
-  const closeRatePercent =
-    hasCompletePitched && pitched > 0 && hasCompleteWon
-      ? round1((wonDeals / pitched) * 100)
-      : hasCompleteShowed && showed > 0 && hasCompleteWon
-        ? round1((wonDeals / showed) * 100)
-        : isSingleClient
-          ? fallbackCloseRate
-          : null;
+  const portfolioCloseRate = hasCompleteWon && hasCompleteShowed ? closeRate({ wonDeals, showed }) : null;
+  const closeRatePercent = portfolioCloseRate !== null ? portfolioCloseRate : isSingleClient ? fallbackCloseRate : null;
 
   return {
     period,
@@ -262,7 +244,7 @@ function buildClientDelivery(
     adSpendUsd: roundedSpend,
     newLeads: hasCompleteLeads ? newLeads : null,
     costPerLeadUsd,
-    ctrPercent,
+    ctrPercent: portfolioCtrPercent,
     appointmentsBooked: hasCompleteBooked ? booked : null,
     appointmentsShowed: hasCompleteShowed ? showed : null,
     showRatePercent,

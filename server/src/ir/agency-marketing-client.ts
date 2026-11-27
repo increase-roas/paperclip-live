@@ -1,3 +1,4 @@
+import { costPerLead, ctrPercent } from "@paperclipai/shared/ir-metrics";
 import { createHash } from "node:crypto";
 import type { DashboardPeriod } from "@paperclipai/shared";
 
@@ -53,8 +54,8 @@ interface AgencyMetaAccountSpec {
   id: string;
   key: "increaseRoas" | "alexBloomfield" | "hotTubLaunch";
   displayName: string;
+  /** The ad account ID is configuration, never code (register: brain/ops/agency-vs-client-accounts.md). */
   envVar: string;
-  defaultAccountId: string;
 }
 
 interface RawMetaAction {
@@ -90,21 +91,18 @@ export const AGENCY_META_ACCOUNTS: readonly AgencyMetaAccountSpec[] = [
     key: "increaseRoas",
     displayName: "Increase ROAS B2B",
     envVar: "META_AGENCY_INCREASE_ROAS_ACCOUNT_ID",
-    defaultAccountId: "act_1751702711685898",
   },
   {
     id: "alex-bloomfield-ssa",
     key: "alexBloomfield",
     displayName: "Alex Bloomfield (Start Scale Automate)",
     envVar: "META_AGENCY_ALEX_BLOOMFIELD_ACCOUNT_ID",
-    defaultAccountId: "act_735997837915750",
   },
   {
     id: "hot-tub-launch",
     key: "hotTubLaunch",
     displayName: "Hot Tub Launch",
     envVar: "META_AGENCY_HOT_TUB_LAUNCH_ACCOUNT_ID",
-    defaultAccountId: "act_931652032962948",
   },
 ];
 
@@ -176,11 +174,7 @@ function resolveAccountId(
   if (opts.accountIds && Object.prototype.hasOwnProperty.call(opts.accountIds, spec.key)) {
     return normalizeMetaAccountId(opts.accountIds[spec.key]);
   }
-  const fromEnv = process.env[spec.envVar];
-  if (fromEnv !== undefined) {
-    return normalizeMetaAccountId(fromEnv);
-  }
-  return spec.defaultAccountId;
+  return normalizeMetaAccountId(process.env[spec.envVar]);
 }
 
 function parseNonNegativeFloat(raw: unknown): number {
@@ -352,8 +346,8 @@ async function readSingleAgencyMetaAccount(
   }
 
   const roundedSpend = round2(spend);
-  const ctr = impressions > 0 ? round2((linkClicks / impressions) * 100) : null;
-  const cpl = leads > 0 ? round2(roundedSpend / leads) : null;
+  const ctr = ctrPercent({ clicks: linkClicks, impressions });
+  const cpl = costPerLead({ spend: roundedSpend, leads });
 
   return {
     id: spec.id,
@@ -431,8 +425,8 @@ function summarizeAgencyMeta(
     clicks,
     linkClicks,
     leads,
-    ctr: impressions > 0 ? round2((linkClicks / impressions) * 100) : null,
-    cpl: leads > 0 ? round2(roundedSpend / leads) : null,
+    ctr: ctrPercent({ clicks: linkClicks, impressions }),
+    cpl: costPerLead({ spend: roundedSpend, leads }),
     zeroLeadDays,
     accounts,
   };

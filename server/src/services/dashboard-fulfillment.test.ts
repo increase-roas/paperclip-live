@@ -144,7 +144,8 @@ describe("dashboardFulfillmentService client delivery", () => {
       appointmentsShowed: 30,
       showRatePercent: 75,
       wonDeals: 10,
-      closeRatePercent: 50,
+      // Certified close rate: sales ÷ showed = 10 / 30.
+      closeRatePercent: 33.3,
       zeroLeadDays: 2,
     });
     expect(board.clientDelivery!.accounts).toHaveLength(2);
@@ -175,7 +176,8 @@ describe("dashboardFulfillmentService client delivery", () => {
       spend: 0, newLeads: 10, impressions: 1000, clicks: 0, booked: 10, showed: 0, pitched: 5, wonDeals: 0,
     })]).board("company-1", now, { boardViewer: true });
 
-    expect(board.clientDelivery).toMatchObject({ costPerLeadUsd: 0, ctrPercent: 0, showRatePercent: 0, closeRatePercent: 0 });
+    // Close rate is sales ÷ showed, so 0 showed means no close rate (not 0%).
+    expect(board.clientDelivery).toMatchObject({ costPerLeadUsd: 0, ctrPercent: 0, showRatePercent: 0, closeRatePercent: null });
   });
 
   it("preserves single-client fallback rates when counts cannot be computed", async () => {
@@ -190,7 +192,7 @@ describe("dashboardFulfillmentService client delivery", () => {
       booked: 10, showed: 8, pitched: 4, wonDeals: 1, showRate: 99, closeRate: 99,
     })]).board("company-1", now, { boardViewer: true });
 
-    expect(board.clientDelivery).toMatchObject({ showRatePercent: 80, closeRatePercent: 25 });
+    expect(board.clientDelivery).toMatchObject({ showRatePercent: 80, closeRatePercent: 12.5 });
   });
 
   it.each([

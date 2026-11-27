@@ -3,7 +3,9 @@ import {
   buildTenantRequestBody,
   formatClientReportUrl,
   getTenantConnectionBadges,
+  matchGbrainClient,
   normalizeMetaAccountId,
+  partitionClientPortfolio,
   summarizeStoredHealth,
 } from "./clientHelpers";
 
@@ -86,5 +88,35 @@ describe("clientHelpers", () => {
     expect(payload.metaAdAccountId).toBe("act_123456");
     expect(payload.ga4PropertyId).toBe("");
     expect(payload.websiteTracking).toBe("not_applicable");
+  });
+});
+
+describe("partitionClientPortfolio", () => {
+  const gbrain = [
+    { slug: "companies/revstead-systems", title: "Revstead Systems", aliases: ["Revstead"], brands: ["SSA"] },
+    { slug: "companies/lakeside-spas", title: "Lakeside Spas", aliases: [], brands: ["HTL"] },
+    { slug: "companies/odd", title: "Odd Co", aliases: [], brands: ["REVSTEAD"] },
+  ];
+
+  it("splits live tenants by own brand from the GBrain customer list", () => {
+    const result = partitionClientPortfolio(
+      [
+        { slug: "revstead", displayName: "Revstead" },
+        { slug: "lakeside-spas", displayName: "Lakeside Spas" },
+        { slug: "odd-co", displayName: "Odd Co" },
+        { slug: "sun-pool", displayName: "Sun Pool" },
+      ],
+      gbrain,
+    );
+    expect(result.byBrand.find((row) => row.code === "SSA")?.count).toBe(1);
+    expect(result.byBrand.find((row) => row.code === "HTL")?.count).toBe(1);
+    expect(result.byBrand.map((row) => row.code)).toEqual(["IR", "HTL", "SSA", "PSL", "NS", "DYNAMITE"]);
+    expect(result.unclassified).toBe(2);
+  });
+
+  it("matches tenants by slug, title or alias", () => {
+    expect(matchGbrainClient({ slug: "x", displayName: "Revstead" }, gbrain)?.slug).toBe("companies/revstead-systems");
+    expect(matchGbrainClient({ slug: "revstead-systems", displayName: "?" }, gbrain)?.slug).toBe("companies/revstead-systems");
+    expect(matchGbrainClient({ slug: "nope", displayName: "Nope" }, gbrain)).toBeNull();
   });
 });

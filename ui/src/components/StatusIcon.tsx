@@ -34,6 +34,8 @@ interface StatusIconProps extends TaskStatusPresentationInput {
   commentable?: boolean;
   /** Stage verdict shortcuts for the viewer acting as the current participant. */
   reviewActions?: StatusDecisionActions | null;
+  /** Statuses the picker shows but refuses, mapped to the reason shown on hover. */
+  disabledStatuses?: Partial<Record<string, string>>;
 }
 
 /** Shared accessible/tooltip copy, including waiting and covered-blocker states. */
@@ -46,6 +48,7 @@ interface StatusPickerMenuProps {
   presentation: TaskStatusPresentationInput;
   commentable?: boolean;
   reviewActions?: StatusDecisionActions | null;
+  disabledStatuses?: Partial<Record<string, string>>;
   onSelect: (status: string, comment?: string) => void;
 }
 
@@ -59,6 +62,7 @@ export function StatusPickerMenu({
   presentation,
   commentable = false,
   reviewActions,
+  disabledStatuses,
   onSelect,
 }: StatusPickerMenuProps) {
   const commentId = useId();
@@ -131,6 +135,8 @@ export function StatusPickerMenu({
             size="sm"
             className={cn("w-full justify-start gap-2 text-xs", s === activeStatus && "bg-accent")}
             aria-pressed={withComment ? s === stagedStatus : undefined}
+            disabled={Boolean(disabledStatuses?.[s])}
+            title={disabledStatuses?.[s]}
             onClick={() => chooseStatus(s)}
           >
             {/* The current row is the task's state: draw it exactly like the trigger. */}
@@ -188,7 +194,7 @@ export function StatusPickerMenu({
  * glyph — the blocked shape recoloured blue — while the full blocked reason
  * still rides on the accessible label.
  */
-export function StatusIcon({ status, displayStatus: presentationStatus, externalConversationState, blockerAttention, onChange, className, glyphContainerClassName, showLabel, size = "md", commentable, reviewActions }: StatusIconProps) {
+export function StatusIcon({ status, displayStatus: presentationStatus, externalConversationState, blockerAttention, onChange, className, glyphContainerClassName, showLabel, size = "md", commentable, reviewActions, disabledStatuses }: StatusIconProps) {
   const [open, setOpen] = useState(false);
   const presentation = { status, displayStatus: presentationStatus, externalConversationState, blockerAttention };
   const { glyphStatus, label, ariaLabel } = resolveTaskStatusPresentation(presentation);
@@ -262,6 +268,7 @@ export function StatusIcon({ status, displayStatus: presentationStatus, external
           presentation={presentation}
           commentable={commentable}
           reviewActions={pickerReviewActions}
+          disabledStatuses={disabledStatuses}
           onSelect={(nextStatus, comment) => {
             onChange(nextStatus, comment);
             closePicker();

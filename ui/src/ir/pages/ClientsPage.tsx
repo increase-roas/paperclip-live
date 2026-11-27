@@ -74,6 +74,7 @@ import {
   withTenantDefaults,
   type ConnectionBadgeState,
 } from "./clients/clientHelpers";
+import { ClientPortfolioStrip } from "./clients/ClientPortfolioStrip";
 
 function ConnectionPill({ label, state }: { label: string; state: ConnectionBadgeState }) {
   if (state === "not_applicable") {
@@ -581,6 +582,8 @@ export function ClientsPage() {
           </Button>
         </div>
       </header>
+
+      <ClientPortfolioStrip tenants={tenants} loading={loading} />
 
       {loadError && (
         <Card className="border-destructive/40 bg-destructive/5 py-4">
@@ -1187,7 +1190,7 @@ export function ClientsPage() {
                               id="client-meta-id"
                               className="font-mono text-xs"
                               disabled={draft.metaTracking === "not_applicable"}
-                              placeholder="act_4013508225402510"
+                              placeholder="act_ followed by the ad account number"
                               value={draft.metaAdAccountId ?? ""}
                               onChange={(e) => editDraft("metaAdAccountId", e.target.value)}
                             />

@@ -171,6 +171,7 @@ import {
 } from "@paperclipai/shared";
 import { conflict, forbidden, HttpError, notFound, unprocessable } from "../errors.js";
 import { isForeignKeyViolation } from "../db-errors.js";
+import { assertIrProofGateAllowsTransition } from "../ir/proof-gate.js";
 import { logger } from "../middleware/logger.js";
 import { parseObject } from "../adapters/utils.js";
 import {
@@ -11252,6 +11253,7 @@ export function issueService(db: Db) {
         .where(idPredicate)
         .then((rows: Array<typeof issues.$inferSelect>) => rows[0] ?? null);
       if (!existing) return null;
+      await assertIrProofGateAllowsTransition(dbOrTx, existing, data.status, data.labelIds);
       let parentAdjustment: IssueParentAdjustment | null = null;
       // A move placed beside its requested parent still inherits that parent's privacy.
       let privacySourceParentId: string | null = null;

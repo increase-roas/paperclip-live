@@ -1,3 +1,4 @@
+import { closeRate, leadToCustomerRate, offerRate, setRate, showRate } from "@paperclipai/shared/ir-metrics";
 import { createHash } from "node:crypto";
 import type { DashboardPeriod } from "@paperclipai/shared";
 
@@ -123,10 +124,9 @@ type LocationFetcher = (ghlPath: string) => Promise<{ status: number; body: Reco
 
 const DEFAULT_GATEWAY_URL = "https://increase-roas-oauth-gateway.increase-roas.workers.dev";
 const DEFAULT_GHL_ORIGIN = "https://services.leadconnectorhq.com";
-const DEFAULT_AGENCY_COMPANY_ID = "uVK13CFqZs9TOBENvXSH";
-const DEFAULT_INCREASE_ROAS_MAIN_LOCATION_ID = "Sr90yJUmFoBTgBQuejtU";
-const DEFAULT_HOT_TUB_LAUNCH_B2B_LOCATION_ID = "AG47jEV5rVUrGLt5FlKO";
-const DEFAULT_ALEX_BLOOMFIELD_LOCATION_ID = "3uSZwndvL6yEo5syDV5m";
+// Agency GHL IDs are configuration, never code: GHL_AGENCY_COMPANY_ID,
+// GHL_AGENCY_INCREASE_ROAS_LOCATION_ID, GHL_AGENCY_HOT_TUB_LAUNCH_LOCATION_ID and
+// GHL_ALEX_BLOOMFIELD_LOCATION_ID (register: brain/ops/agency-vs-client-accounts.md).
 const DEFAULT_TIMEOUT_MS = 8_000;
 const CACHE_TTL_MS = 5 * 60 * 1_000;
 const MAX_CACHE_ENTRIES = 64;
@@ -170,9 +170,6 @@ function setCachedSummary(key: string, at: number, value: AgencySalesSummary): v
   }
 }
 
-function round1(value: number): number {
-  return Math.round(value * 10) / 10;
-}
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
@@ -659,26 +656,13 @@ function computeRates(m: {
   wonDeals: number | null;
   lostDeals: number | null;
 }) {
-  // Always use one consistent formula (showed / booked) across both per-account
-  // and aggregate totals so an account that logs no-shows never drops another
-  // account's bookings from the aggregate denominator.
-  const showRate =
-    m.showed !== null && m.booked !== null && m.booked > 0
-      ? round1(Math.min(100, (m.showed / m.booked) * 100))
-      : null;
-  const offerRate =
-    m.showed !== null && m.showed > 0 && m.pitched !== null
-      ? round1(Math.min(100, (m.pitched / m.showed) * 100))
-      : null;
-  const closeRate =
-    m.wonDeals !== null && m.lostDeals !== null && m.wonDeals + m.lostDeals > 0
-      ? round1((m.wonDeals / (m.wonDeals + m.lostDeals)) * 100)
-      : m.pitched !== null && m.pitched > 0 && m.wonDeals !== null
-        ? round1(Math.min(100, (m.wonDeals / m.pitched) * 100))
-        : m.showed !== null && m.showed > 0 && m.wonDeals !== null
-          ? round1(Math.min(100, (m.wonDeals / m.showed) * 100))
-          : null;
-  return { showRate, offerRate, closeRate };
+  // Certified formulas (ir-metrics). `booked` here counts only non-cancelled
+  // events scheduled inside [period start, now], i.e. past-dated booked.
+  return {
+    showRate: showRate({ pastDatedBooked: m.booked, showed: m.showed }),
+    offerRate: offerRate(m),
+    closeRate: closeRate({ wonDeals: m.wonDeals, showed: m.showed }),
+  };
 }
 
 interface AccountTruncationFlags {
@@ -942,9 +926,8 @@ function summarizeAgencySales(
     showRate: rates.showRate,
     offerRate: rates.offerRate,
     closeRate: rates.closeRate,
-    setRate: newLeads !== null && newLeads > 0 && booked !== null ? round1((booked / newLeads) * 100) : null,
-    leadToCustomerRate:
-      newLeads !== null && newLeads > 0 && wonDeals !== null ? round1((wonDeals / newLeads) * 100) : null,
+    setRate: setRate({ newLeads, booked }),
+    leadToCustomerRate: leadToCustomerRate({ newLeads, wonDeals }),
     accounts,
   };
 }
@@ -952,15 +935,12 @@ function summarizeAgencySales(
 function resolvePrimaryLocationId(
   key: "increaseRoasMain" | "hotTubLaunchB2b",
   envVar: string,
-  fallback: string,
   opts: AgencySalesClientOptions,
 ): string | null {
   if (opts.locationIds && Object.prototype.hasOwnProperty.call(opts.locationIds, key)) {
     return normalizeLocationId(opts.locationIds[key]);
   }
-  const fromEnv = process.env[envVar];
-  if (fromEnv !== undefined) return normalizeLocationId(fromEnv);
-  return fallback;
+  return normalizeLocationId(process.env[envVar]);
 }
 
 /**
@@ -992,7 +972,7 @@ export async function readAgencySalesSummary(
       ? normalizeLocationId(opts.alexBloomfieldLocationId)
       : process.env.GHL_ALEX_BLOOMFIELD_LOCATION_ID !== undefined
         ? normalizeLocationId(process.env.GHL_ALEX_BLOOMFIELD_LOCATION_ID)
-        : DEFAULT_ALEX_BLOOMFIELD_LOCATION_ID;
+        : null;
 
   if (!gatewayToken && !alexPitKey) return null;
 
@@ -1000,17 +980,15 @@ export async function readAgencySalesSummary(
     .trim()
     .replace(/\/+$/, "");
   const ghlOrigin = (opts.ghlDirectOrigin ?? DEFAULT_GHL_ORIGIN).trim().replace(/\/+$/, "");
-  const companyId = (opts.agencyCompanyId ?? process.env.GHL_AGENCY_COMPANY_ID ?? DEFAULT_AGENCY_COMPANY_ID).trim();
+  const companyId = (opts.agencyCompanyId ?? process.env.GHL_AGENCY_COMPANY_ID ?? "").trim();
   const irMainLoc = resolvePrimaryLocationId(
     "increaseRoasMain",
     "GHL_AGENCY_INCREASE_ROAS_LOCATION_ID",
-    DEFAULT_INCREASE_ROAS_MAIN_LOCATION_ID,
     opts,
   );
   const htlLoc = resolvePrimaryLocationId(
     "hotTubLaunchB2b",
     "GHL_AGENCY_HOT_TUB_LAUNCH_LOCATION_ID",
-    DEFAULT_HOT_TUB_LAUNCH_B2B_LOCATION_ID,
     opts,
   );
 
@@ -1037,7 +1015,7 @@ export async function readAgencySalesSummary(
   const observedAt = now.toISOString();
 
   const tasks: Array<Promise<SingleAccountRead>> = [
-    gatewayToken && irMainLoc
+    gatewayToken && companyId && irMainLoc
       ? readSingleGhlAccount(
           { id: "increase-roas-main", displayName: "Increase ROAS Main", locationId: irMainLoc, authMode: "gateway" },
           createGatewayLocationFetcher(gatewayBaseUrl, gatewayToken, companyId, irMainLoc, fetchImpl, timeoutMs),
@@ -1051,11 +1029,11 @@ export async function readAgencySalesSummary(
             irMainLoc,
             "gateway",
             "needs_config",
-            irMainLoc ? "Needs gateway token" : "Needs location ID",
+            !irMainLoc ? "Needs location ID" : !companyId ? "Needs agency company ID" : "Needs gateway token",
           ),
           truncated: NO_TRUNCATION,
         }),
-    gatewayToken && htlLoc
+    gatewayToken && companyId && htlLoc
       ? readSingleGhlAccount(
           { id: "hot-tub-launch-b2b", displayName: "Hot Tub Launch B2B", locationId: htlLoc, authMode: "gateway" },
           createGatewayLocationFetcher(gatewayBaseUrl, gatewayToken, companyId, htlLoc, fetchImpl, timeoutMs),
@@ -1069,7 +1047,7 @@ export async function readAgencySalesSummary(
             htlLoc,
             "gateway",
             "needs_config",
-            htlLoc ? "Needs gateway token" : "Needs location ID",
+            !htlLoc ? "Needs location ID" : !companyId ? "Needs agency company ID" : "Needs gateway token",
           ),
           truncated: NO_TRUNCATION,
         }),
