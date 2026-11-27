@@ -1,4 +1,3 @@
-import { assertIrProofGateAllowsTransition } from "../ir/proof-gate.js";
 import { listStalledDependencies } from "../services/recovery/blocker-stall-wakeups.js";
 import { confirmMcpAttachmentCleanup, recordMcpAttachmentCleanup, type McpAttachmentCleanup } from "../services/public-mcp/upload-cleanup.js";
 import { notifyDeferredExecutionWork } from "../services/deferred-execution-notifications.js";
@@ -14853,9 +14852,7 @@ export function issueRoutes(
           reviewPolicy: existing.reviewPolicy,
         });
       }
-      // Refuse a proof-gated close before this request interrupts or stops a
-      // run. The service repeats the check before it writes.
-      await assertIrProofGateAllowsTransition(db, existing, updateFields.status, updateFields.labelIds);
+      await svc.assertProofGateAllowsTransition(existing, updateFields.status, updateFields.labelIds);
       const shouldCancelActiveRunForCancelledStatus =
         req.actor.source !== "mcp_oauth" && existing.status !== "cancelled" && updateFields.status === "cancelled";
       if (resumeRequested === true && !commentBody) {

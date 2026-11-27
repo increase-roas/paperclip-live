@@ -11204,6 +11204,16 @@ export function issueService(db: Db) {
       });
     },
 
+    /**
+     * Callers that stop or interrupt runs before `update` call this first, so a
+     * refused proof-gated close has no side effects. `update` checks again.
+     */
+    assertProofGateAllowsTransition: (
+      existing: { id: string; companyId: string; status: string },
+      nextStatus: string | null | undefined,
+      nextLabelIds?: readonly string[],
+    ) => assertIrProofGateAllowsTransition(db, existing, nextStatus, nextLabelIds),
+
     update: async (
       id: string,
       data: Partial<typeof issues.$inferInsert> & {
