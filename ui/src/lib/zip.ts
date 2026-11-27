@@ -1,4 +1,5 @@
 import type { CompanyPortabilityFileEntry } from "@paperclipai/shared";
+import { getPortableFileContentType } from "./portable-files";
 
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
@@ -93,22 +94,6 @@ function sharedArchiveRoot(paths: string[]) {
     : null;
 }
 
-const binaryContentTypeByExtension: Record<string, string> = {
-  ".gif": "image/gif",
-  ".jpeg": "image/jpeg",
-  ".jpg": "image/jpeg",
-  ".png": "image/png",
-  ".svg": "image/svg+xml",
-  ".webp": "image/webp",
-};
-
-function inferBinaryContentType(pathValue: string) {
-  const normalized = normalizeArchivePath(pathValue);
-  const extensionIndex = normalized.lastIndexOf(".");
-  if (extensionIndex === -1) return null;
-  return binaryContentTypeByExtension[normalized.slice(extensionIndex).toLowerCase()] ?? null;
-}
-
 function bytesToBase64(bytes: Uint8Array) {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
@@ -148,7 +133,7 @@ function bytesToPortableFileEntry(pathValue: string, bytes: Uint8Array): Company
   if (isBlobStorePath(pathValue)) {
     return { encoding: "base64", data: bytesToBase64(bytes), contentType: "application/octet-stream" };
   }
-  const contentType = inferBinaryContentType(pathValue);
+  const contentType = getPortableFileContentType(normalizeArchivePath(pathValue), null);
   if (contentType) {
     return { encoding: "base64", data: bytesToBase64(bytes), contentType };
   }
