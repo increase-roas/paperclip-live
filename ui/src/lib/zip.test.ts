@@ -233,13 +233,22 @@ describe("createZipArchive", () => {
     });
   });
 
-  it("round-trips binary image files without coercing them to text", async () => {
+  it.each([
+    ["gif", "image/gif"],
+    ["jpeg", "image/jpeg"],
+    ["jpg", "image/jpeg"],
+    ["png", "image/png"],
+    ["svg", "image/svg+xml"],
+    ["webp", "image/webp"],
+    ["SVG", "image/svg+xml"],
+  ])("round-trips %s image files without coercing them to text", async (extension, contentType) => {
+    const path = `images/company-logo.${extension}`;
     const archive = createZipArchive(
       {
-        "images/company-logo.png": {
+        [path]: {
           encoding: "base64",
-          data: Buffer.from("png-bytes").toString("base64"),
-          contentType: "image/png",
+          data: Buffer.from("image-bytes").toString("base64"),
+          contentType,
         },
       },
       "paperclip-demo",
@@ -248,10 +257,10 @@ describe("createZipArchive", () => {
     await expect(readZipArchive(archive)).resolves.toEqual({
       rootPath: "paperclip-demo",
       files: {
-        "images/company-logo.png": {
+        [path]: {
           encoding: "base64",
-          data: Buffer.from("png-bytes").toString("base64"),
-          contentType: "image/png",
+          data: Buffer.from("image-bytes").toString("base64"),
+          contentType,
         },
       },
     });
