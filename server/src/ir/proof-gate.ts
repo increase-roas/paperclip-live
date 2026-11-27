@@ -12,7 +12,9 @@ import { cachedProofCheckSnapshot, type ProofCheckSnapshot } from "./system-map.
  * `proof:<check>` label (for example `proof:gateway`) cannot move to `done`
  * until that ir-doctor check reports `pass` in a fresh snapshot. A missing,
  * failing, unknown or stale check is refused with 422. Every path that closes
- * an issue goes through `issueService.update`, which calls this first.
+ * an issue goes through `issueService.update`, which calls this first. The
+ * issue PATCH route also calls it before it interrupts or stops a run, so a
+ * refused close has no side effects.
  */
 export type ProofSnapshotReader = () => Promise<ProofCheckSnapshot | null>;
 
