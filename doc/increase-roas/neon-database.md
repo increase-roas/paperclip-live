@@ -67,20 +67,20 @@ All three use the Neon CLI (`neon`). Commands come from Neon's CLI docs.
 
 ### 1. Build a feature against a copy of real data
 
-Task: "Add the Jarvis orb to the top of the left menu."
+Task: "Add a status chip to the top of the left menu."
 
 ```sh
 # make my own copy of production, named for the task
-neon branches create --name agent/jarvis-orb-20261121 --no-secrets
+neon branches create --name agent/status-chip-20261121 --no-secrets
 
 # get its connection string into an env var (never echo it)
-export DATABASE_URL="$(neon connection-string agent/jarvis-orb-20261121)"
+export DATABASE_URL="$(neon connection-string agent/status-chip-20261121)"
 
 # run Paperclip against the copy and build/QA the feature
 pnpm dev:once
 
 # done: delete the copy
-neon branches delete agent/jarvis-orb-20261121
+neon branches delete agent/status-chip-20261121
 ```
 
 The agent sees real companies, real tasks and Javar in the sidebar while it works. Nothing it does

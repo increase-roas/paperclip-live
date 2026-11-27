@@ -74,8 +74,8 @@ describe("clientHelpers", () => {
     expect(formatClientReportUrl("paradise-spas")).toBe(
       "https://dashboard.increaseai.tech/c/paradise-spas",
     );
-    expect(normalizeMetaAccountId("4013508225402510")).toBe("act_4013508225402510");
-    expect(normalizeMetaAccountId("act_4013508225402510")).toBe("act_4013508225402510");
+    expect(normalizeMetaAccountId("1000000000000042")).toBe("act_1000000000000042");
+    expect(normalizeMetaAccountId("act_1000000000000042")).toBe("act_1000000000000042");
 
     const payload = buildTenantRequestBody({
       slug: "paradise-spas",
