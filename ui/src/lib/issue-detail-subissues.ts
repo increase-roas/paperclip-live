@@ -44,10 +44,9 @@ export function buildSubIssueProgressSummary(issues: Issue[]): SubIssueProgressS
 
   const orderedIssues = workflowSort(progressIssues);
   const nextIssue = orderedIssues.find((issue) => isActionableStatus(issue.status)) ?? null;
-  const remainingIssues = orderedIssues.filter((issue) => !isTerminalStatus(issue.status));
   const blockedIssue =
-    nextIssue === null && remainingIssues.length > 0 && remainingIssues.every((issue) => issue.status === "blocked")
-      ? remainingIssues[0]
+    nextIssue === null
+      ? orderedIssues.find((issue) => issue.status === "blocked") ?? null
       : null;
 
   return {
@@ -117,8 +116,4 @@ export function buildIssueSiblingNavigation(
 
 function isActionableStatus(status: IssueStatus): boolean {
   return status !== "done" && status !== "cancelled" && status !== "blocked";
-}
-
-function isTerminalStatus(status: IssueStatus): boolean {
-  return status === "done" || status === "cancelled";
 }

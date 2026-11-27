@@ -85,14 +85,43 @@ describe("buildSubIssueProgressSummary", () => {
 
   it("waits on the first blocked issue when no remaining work is actionable", () => {
     const summary = buildSubIssueProgressSummary([
+      issue("3", "blocked", "2026-04-03T00:00:00.000Z", ["2"]),
       issue("1", "done", "2026-04-01T00:00:00.000Z"),
-      issue("2", "blocked", "2026-04-02T00:00:00.000Z"),
-      issue("3", "cancelled", "2026-04-03T00:00:00.000Z"),
+      issue("2", "blocked", "2026-04-02T00:00:00.000Z", ["1"]),
+      issue("4", "cancelled", "2026-04-04T00:00:00.000Z"),
     ]);
 
     expect(summary.target?.kind).toBe("blocked");
     expect(summary.target?.issue.id).toBe("2");
   });
+
+  it.each(["backlog", "todo", "in_progress", "in_review"] satisfies Issue["status"][])(
+    "prefers %s work over an earlier blocked issue",
+    (status) => {
+      const summary = buildSubIssueProgressSummary([
+        issue("1", "blocked", "2026-04-01T00:00:00.000Z"),
+        issue("2", status, "2026-04-02T00:00:00.000Z"),
+      ]);
+
+      expect(summary.target).toMatchObject({ kind: "next", issue: { id: "2" } });
+    },
+  );
+
+  it.each([
+    { statuses: [] },
+    { statuses: ["done"] },
+    { statuses: ["cancelled"] },
+    { statuses: ["done", "cancelled"] },
+  ] satisfies { statuses: Issue["status"][] }[])(
+    "has no target for terminal work: $statuses",
+    ({ statuses }) => {
+      const summary = buildSubIssueProgressSummary(
+        statuses.map((status, index) => issue(String(index), status, "2026-04-01T00:00:00.000Z")),
+      );
+
+      expect(summary.target).toBeNull();
+    },
+  );
 });
 
 describe("buildIssueSiblingNavigation", () => {
