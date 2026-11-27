@@ -2,15 +2,14 @@ import { Router, type Response } from "express";
 import {
   freshnessOf,
   type Freshness,
-  type GbrainSkeletonFeed,
   type GbrainSkeletonResponse,
   type ProofCheckResult,
   type ProofChecksFeed,
   type ProofChecksResponse,
-  type SystemMapFeed,
   type SystemMapResponse,
 } from "@paperclipai/shared/ir-system-map";
 import { assertInstanceAdmin } from "../routes/authz.js";
+import { isProofChecksFeed, isSkeletonFeed, isSystemMapFeed } from "./system-feed-validation.js";
 
 /**
  * Reads the brain-vps `ir-system-feed` (company-ops `tools/ir-system-feed`)
@@ -34,24 +33,6 @@ function resolveConfig(opts?: SystemFeedOptions) {
   const baseUrl = (opts?.baseUrl ?? process.env.IR_SYSTEM_FEED_URL ?? "").trim().replace(/\/+$/, "");
   const key = (opts?.key ?? process.env.IR_SYSTEM_FEED_KEY ?? "").trim();
   return { baseUrl, key };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function isSystemMapFeed(value: unknown): value is SystemMapFeed {
-  return isRecord(value) && isRecord(value.doctor) && Array.isArray(value.services) && Array.isArray(value.hosts)
-    && Array.isArray((value.doctor as Record<string, unknown>).checks);
-}
-
-function isSkeletonFeed(value: unknown): value is GbrainSkeletonFeed {
-  return isRecord(value) && isRecord(value.pack) && Array.isArray(value.pageTypes) && isRecord(value.violations)
-    && Array.isArray(value.edges);
-}
-
-function isProofChecksFeed(value: unknown): value is ProofChecksFeed {
-  return isRecord(value) && Array.isArray(value.checks);
 }
 
 export async function readSystemFeed<T>(
@@ -101,8 +82,7 @@ export interface ProofCheckSnapshot {
 }
 
 function proofFreshness(feed: ProofChecksFeed, now: Date): Freshness {
-  const observed = feed.checks.map((check) => check.observedAt).find(Boolean) ?? feed.generatedAt;
-  return freshnessOf(observed, now);
+  return freshnessOf(feed.generatedAt, now);
 }
 
 let proofCache: { at: number; snapshot: ProofCheckSnapshot } | null = null;
@@ -133,8 +113,9 @@ export function startProofCheckRefresher(opts?: SystemFeedOptions): void {
   const { baseUrl, key } = resolveConfig(opts);
   if (proofRefresher || !baseUrl || !key) return;
   const refresh = () => {
-    proofCache = null;
-    void readProofCheckSnapshot(opts).catch(() => null);
+    void readProofCheckSnapshot(opts).then((snapshot) => {
+      if (!snapshot) proofCache = null;
+    }).catch(() => { proofCache = null; });
   };
   refresh();
   proofRefresher = setInterval(refresh, PROOF_CACHE_MS);

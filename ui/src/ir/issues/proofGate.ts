@@ -1,6 +1,6 @@
 import {
   proofCheckAllowsClosure,
-  requiredProofCheckFromLabels,
+  requiredProofChecksFromLabels,
   type ProofChecksResponse,
 } from "@paperclipai/shared/ir-system-map";
 import { formatCheckName } from "../pages/system-map/systemMapHelpers";
@@ -23,12 +23,18 @@ export function proofGateState(input: {
   loading: boolean;
   errorStatus: number | null;
 }): ProofGateState {
-  const key = requiredProofCheckFromLabels(input.labels ?? []);
+  const keys = requiredProofChecksFromLabels(input.labels ?? []);
+  const key = keys[0];
   if (!key) return { kind: "none" };
   if (input.errorStatus === 403) return { kind: "hidden", key };
   if (input.loading && !input.data) return { kind: "loading", key };
-  const verdict = proofCheckAllowsClosure(key, input.data?.checks ?? null, input.data?.freshness ?? null);
-  return { kind: "checked", key, allowed: verdict.allowed, status: verdict.status, detail: verdict.detail };
+  const data = input.errorStatus === null ? input.data : undefined;
+  const verdicts = keys.map((checkKey) => ({
+    key: checkKey,
+    ...proofCheckAllowsClosure(checkKey, data?.checks ?? null, data?.freshness ?? null),
+  }));
+  const verdict = verdicts.find((candidate) => !candidate.allowed) ?? verdicts[0]!;
+  return { kind: "checked", ...verdict };
 }
 
 /** Status-picker entries to refuse while the gate is closed. */
