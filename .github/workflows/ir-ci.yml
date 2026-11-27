@@ -42,13 +42,16 @@ jobs:
     outputs:
       code: ${{ steps.filter.outputs.code }}
       ir: ${{ steps.filter.outputs.ir }}
+      ui: ${{ steps.filter.outputs.ui }}
       # Pull requests get build + typecheck, plus the IR tests when IR code
-      # changed. Master pushes run build + typecheck + the IR suites on the
-      # single brain-vps runner so every master commit completes reliably for
-      # GHCR release gating; the 23-shard upstream regression matrix runs on
-      # workflow_dispatch (including upstream-sync.sh) and full-ci PRs.
+      # changed and targeted UI tests when ui/src/** changed. Master pushes run
+      # build + typecheck + the IR suites on the single brain-vps runner so every
+      # master commit completes reliably for GHCR release gating; the 23-shard
+      # upstream regression matrix runs on workflow_dispatch (including
+      # upstream-sync.sh) and full-ci PRs.
       full: ${{ github.event_name == 'workflow_dispatch' || inputs.full_suite == true }}
       ir_tests: ${{ (steps.filter.outputs.ir == 'true' || (github.event_name == 'push' && steps.filter.outputs.code == 'true')) && github.event_name != 'workflow_dispatch' && inputs.full_suite != true }}
+      ui_tests: ${{ github.event_name == 'pull_request' && steps.filter.outputs.ui == 'true' && inputs.full_suite != true }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -78,6 +81,11 @@ jobs:
             ir=true
           fi
           echo "ir=$ir" >> "$GITHUB_OUTPUT"
+          ui=false
+          if printf '%s\n' "$files" | grep -qE '^ui/src/'; then
+            ui=true
+          fi
+          echo "ui=$ui" >> "$GITHUB_OUTPUT"
 
   build:
     name: build + typecheck
@@ -187,6 +195,37 @@ jobs:
         working-directory: ui
         run: pnpm exec vitest run src/ir
 
+  # Targeted UI unit tests run on pull requests whenever ui/src/** changes,
+  # exercising only tests related to the changed UI files without running the
+  # full 23-shard matrix (which runs on full-ci PRs).
+  ui-tests:
+    name: UI tests (targeted)
+    needs: changes
+    if: needs.changes.outputs.ui_tests == 'true'
+    runs-on: ${{ fromJSON(github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && '["self-hosted", "brain-vps"]' || '"ubuntu-latest"') }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/ir-setup
+      - name: Prepare workspace links and plugin SDK build deps
+        run: |
+          pnpm run preflight:workspace-links
+          pnpm --filter @paperclipai/plugin-sdk ensure-build-deps
+      - name: Targeted UI tests (ui/src/**)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t ui_files < <(git diff --name-only --diff-filter=ACMR "${{ github.event.pull_request.base.sha }}...HEAD" -- 'ui/src/' | sed 's|^ui/||')
+          if [ "${#ui_files[@]}" -eq 0 ]; then
+            echo "No added or modified ui/src/** files to test (deletions only)."
+            exit 0
+          fi
+          printf 'Targeted UI inputs (%d):\n' "${#ui_files[@]}"
+          printf '  %s\n' "${ui_files[@]}"
+          pnpm --dir ui exec vitest related --run --passWithNoTests "${ui_files[@]}"
+
   ir-scripts:
     name: IR files
     runs-on: ${{ fromJSON(github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && '["self-hosted", "brain-vps"]' || '"ubuntu-latest"') }}
@@ -223,7 +262,7 @@ jobs:
   ci-passed:
     name: IR CI passed
     if: always()
-    needs: [changes, build, test, ir-tests, ir-scripts]
+    needs: [changes, build, test, ir-tests, ui-tests, ir-scripts]
     runs-on: ${{ fromJSON(github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && '["self-hosted", "brain-vps"]' || '"ubuntu-latest"') }}
     steps:
       - name: Aggregate the required jobs
@@ -236,6 +275,11 @@ jobs:
             [ "${{ needs.ir-tests.result }}" = "success" ]
           else
             [ "${{ needs.ir-tests.result }}" = "skipped" ]
+          fi
+          if [ "${{ needs.changes.outputs.ui_tests }}" = "true" ]; then
+            [ "${{ needs.ui-tests.result }}" = "success" ]
+          else
+            [ "${{ needs.ui-tests.result }}" = "skipped" ]
           fi
           if [ "${{ needs.changes.outputs.code }}" = "true" ]; then
             [ "${{ needs.build.result }}" = "success" ]
