@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Issue } from "@paperclipai/shared";
+import type { Issue, IssueRelationIssueSummary } from "@paperclipai/shared";
 import { buildIssuePropertiesPanelKey } from "./issue-properties-panel-key";
 
 function createIssue(overrides: Partial<Issue> = {}) {
@@ -30,6 +30,64 @@ function createIssue(overrides: Partial<Issue> = {}) {
 }
 
 describe("buildIssuePropertiesPanelKey", () => {
+  describe.each(["blocks", "blockedBy"] as const)("%s relations", (relationField) => {
+    const relation: IssueRelationIssueSummary = {
+      id: "related-1",
+      identifier: null,
+      title: "Related task",
+      status: "todo",
+      priority: "medium",
+      assigneeAgentId: null,
+      assigneeUserId: null,
+    };
+
+    it("changes when a displayed relation property changes", () => {
+      const first = buildIssuePropertiesPanelKey(createIssue({ [relationField]: [relation] }), []);
+      const changes: Partial<IssueRelationIssueSummary>[] = [
+        { id: "related-2" },
+        { identifier: "PAP-2" },
+        { title: "Renamed task" },
+        { status: "done" },
+        { displayStatus: "monitoring" },
+      ];
+
+      for (const change of changes) {
+        const second = buildIssuePropertiesPanelKey(
+          createIssue({ [relationField]: [{ ...relation, ...change }] }),
+          [],
+        );
+        expect(second, Object.keys(change)[0]).not.toBe(first);
+      }
+    });
+
+    it("ignores relation fields that the panel does not use", () => {
+      const first = buildIssuePropertiesPanelKey(createIssue({ [relationField]: [relation] }), []);
+      const second = buildIssuePropertiesPanelKey(
+        createIssue({
+          [relationField]: [{ ...relation, priority: "high", assigneeAgentId: "agent-2", assigneeUserId: "user-2" }],
+        }),
+        [],
+      );
+
+      expect(second).toBe(first);
+    });
+
+    it("preserves relation order", () => {
+      const other = { ...relation, id: "related-2" };
+      const first = buildIssuePropertiesPanelKey(createIssue({ [relationField]: [relation, other] }), []);
+      const second = buildIssuePropertiesPanelKey(createIssue({ [relationField]: [other, relation] }), []);
+
+      expect(second).not.toBe(first);
+    });
+
+    it("treats an absent relation list as empty", () => {
+      const first = buildIssuePropertiesPanelKey(createIssue({ [relationField]: undefined }), []);
+      const second = buildIssuePropertiesPanelKey(createIssue({ [relationField]: [] }), []);
+
+      expect(second).toBe(first);
+    });
+  });
+
   it("ignores plain updatedAt churn", () => {
     const first = buildIssuePropertiesPanelKey(createIssue(), []);
     const second = buildIssuePropertiesPanelKey(

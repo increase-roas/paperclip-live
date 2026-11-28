@@ -1,4 +1,4 @@
-import type { Issue } from "@paperclipai/shared";
+import type { Issue, IssueRelationIssueSummary } from "@paperclipai/shared";
 
 type IssuePropertiesPanelKeyIssue = Pick<
   Issue,
@@ -27,6 +27,16 @@ type IssuePropertiesPanelKeyIssue = Pick<
 >;
 
 type IssuePropertiesPanelKeyChild = Pick<Issue, "id" | "updatedAt" | "identifier" | "title">;
+
+function issueRelationKey(relation: IssueRelationIssueSummary) {
+  return {
+    id: relation.id,
+    identifier: relation.identifier ?? null,
+    title: relation.title,
+    status: relation.status,
+    displayStatus: relation.displayStatus,
+  };
+}
 
 export function buildIssuePropertiesPanelKey(
   issue: IssuePropertiesPanelKeyIssue | null | undefined,
@@ -74,20 +84,8 @@ export function buildIssuePropertiesPanelKey(
           returnAssignee: issue.executionState.returnAssignee,
         }
       : null,
-    blocks: (issue.blocks ?? []).map((relation) => ({
-      id: relation.id,
-      identifier: relation.identifier ?? null,
-      title: relation.title,
-      status: relation.status,
-      displayStatus: relation.displayStatus,
-    })),
-    blockedBy: (issue.blockedBy ?? []).map((relation) => ({
-      id: relation.id,
-      identifier: relation.identifier ?? null,
-      title: relation.title,
-      status: relation.status,
-      displayStatus: relation.displayStatus,
-    })),
+    blocks: (issue.blocks ?? []).map(issueRelationKey),
+    blockedBy: (issue.blockedBy ?? []).map(issueRelationKey),
     watchdog: issue.watchdog
       ? {
           id: issue.watchdog.id,
