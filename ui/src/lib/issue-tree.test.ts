@@ -160,4 +160,41 @@ describe("filterIssueDescendants", () => {
       grandchild,
     ]).map((issue) => issue.id)).toEqual(["child", "grandchild"]);
   });
+
+  it("keeps breadth-first order when descendants appear before their parents", () => {
+    const firstChild = makeIssue("first-child", "root");
+    const secondChild = makeIssue("second-child", "root");
+    const firstGrandchild = makeIssue("first-grandchild", "first-child");
+    const secondGrandchild = makeIssue("second-grandchild", "second-child");
+    const greatGrandchild = makeIssue("great-grandchild", "first-grandchild");
+
+    expect(filterIssueDescendants("root", [
+      secondGrandchild,
+      firstChild,
+      greatGrandchild,
+      secondChild,
+      firstGrandchild,
+      makeIssue("unrelated"),
+    ])).toEqual([
+      firstChild,
+      secondChild,
+      firstGrandchild,
+      secondGrandchild,
+      greatGrandchild,
+    ]);
+  });
+
+  it("visits each descendant once and excludes the root when parent links form a cycle", () => {
+    const root = makeIssue("root", "grandchild");
+    const child = makeIssue("child", "root");
+    const grandchild = makeIssue("grandchild", "child");
+
+    expect(filterIssueDescendants("root", [
+      root,
+      child,
+      grandchild,
+      makeIssue("child", "root"),
+      makeIssue("grandchild", "child"),
+    ])).toEqual([child, grandchild]);
+  });
 });
