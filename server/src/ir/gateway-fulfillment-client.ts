@@ -86,7 +86,6 @@ interface MetaClientInsightRead {
   displayName: string;
   slug: string;
   ok: boolean;
-  transientError: boolean;
   spend: number;
   impressions: number;
   clicks: number;
@@ -312,13 +311,14 @@ async function fetchAllMetaAdAccounts(
       timeoutMs,
     );
     if (res.status !== 200 || !res.body || !Array.isArray(res.body.data)) {
-      return { ok: page > 0, accounts };
+      return { ok: false, accounts: [] };
     }
     for (const item of res.body.data) {
       if (isRecord(item)) accounts.push(item as RawMetaAdAccount);
     }
     const next = typeof res.body.next === "string" && res.body.next ? res.body.next : null;
     if (!next || next === after) break;
+    if (page === MAX_ADACCOUNT_PAGES - 1) return { ok: false, accounts: [] };
     after = next;
   }
   return { ok: true, accounts };
@@ -403,14 +403,13 @@ async function readClientMetaInsights(
     if (res.status === 0 || res.status >= 500) {
       res = await fetchGatewayJson(insightUrl, ctx.token, ctx.fetchImpl, ctx.timeoutMs);
     }
-    if (res.status === 400 || res.status === 401 || res.status === 403 || res.status === 404) {
+    if (res.status !== 200 || !res.body || !Array.isArray(res.body.data)) {
       return {
         adAccountId,
         rawName,
         displayName,
         slug,
         ok: false,
-        transientError: false,
         spend: 0,
         impressions: 0,
         clicks: 0,
@@ -418,24 +417,7 @@ async function readClientMetaInsights(
         zeroLeadDays: 0,
       };
     }
-    if (res.status !== 200 || !res.body) {
-      return {
-        adAccountId,
-        rawName,
-        displayName,
-        slug,
-        ok: false,
-        transientError: true,
-        spend: 0,
-        impressions: 0,
-        clicks: 0,
-        metaLeads: 0,
-        zeroLeadDays: 0,
-      };
-    }
-    if (Array.isArray(res.body.data)) {
-      rows.push(...(res.body.data as RawMetaInsightRow[]));
-    }
+    rows.push(...(res.body.data as RawMetaInsightRow[]));
     const next = typeof res.body.next === "string" && res.body.next ? res.body.next : null;
     if (!next || next === after) break;
     if (page === MAX_INSIGHT_PAGES - 1) {
@@ -445,7 +427,6 @@ async function readClientMetaInsights(
         displayName,
         slug,
         ok: false,
-        transientError: true,
         spend: 0,
         impressions: 0,
         clicks: 0,
@@ -486,7 +467,6 @@ async function readClientMetaInsights(
     displayName,
     slug,
     ok: true,
-    transientError: false,
     spend: round2(spend),
     impressions,
     clicks,
@@ -741,7 +721,7 @@ async function computeGatewayFulfillmentBundle(
     resolveAgencyCompanyId(opts, baseUrl, token, fetchImpl, timeoutMs),
   ]);
 
-  if (!adAccountsRes.ok && adAccountsRes.accounts.length === 0) {
+  if (!adAccountsRes.ok) {
     return { bundle: null, cacheable: false };
   }
 
@@ -771,17 +751,15 @@ async function computeGatewayFulfillmentBundle(
       }),
   );
 
-  const hasTransientMetaError = metaReads.some((r) => r.transientError);
-  if (hasTransientMetaError) {
-    // Fail closed so a transient Meta error on one account never silently under-reports portfolio spend.
+  if (metaReads.some((r) => !r.ok)) {
+    // Incomplete Meta reads must never silently under-report portfolio spend.
     return { bundle: null, cacheable: false };
   }
-  const okMetaReads = metaReads.filter((r) => r.ok);
-  okMetaReads.sort((a, b) => b.spend - a.spend || a.displayName.localeCompare(b.displayName));
+  metaReads.sort((a, b) => b.spend - a.spend || a.displayName.localeCompare(b.displayName));
 
   // Assign GHL locations one-to-one so no GHL sub-account is ever double-counted.
   const usedGhlIds = new Set<string>();
-  const paired = okMetaReads.map((meta) => {
+  const paired = metaReads.map((meta) => {
     const matchedLoc = matchGhlHealthLocation(meta.displayName, healthLocations, usedGhlIds);
     if (matchedLoc) usedGhlIds.add(matchedLoc.locationId);
     const healthLeads = selectHealthLeadsForPeriod(matchedLoc, period);
@@ -862,7 +840,7 @@ async function computeGatewayFulfillmentBundle(
       clients,
       observedAt,
     },
-    cacheable: !hasTransientMetaError,
+    cacheable: true,
   };
 }
 

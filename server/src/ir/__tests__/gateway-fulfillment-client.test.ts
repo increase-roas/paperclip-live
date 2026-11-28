@@ -391,4 +391,112 @@ describe("gateway-fulfillment-client", () => {
 
     expect(bundle).toBeNull();
   });
+
+  it.each(["failed page", "malformed page", "page limit"])(
+    "does not expose or cache a partial portfolio after an account listing issue (%s)",
+    async (failure) => {
+      let recovered = false;
+      const fetchMock = vi.fn(async (input: string | URL | Request) => {
+        const url = new URL(String(input));
+        if (url.pathname === "/api/meta/adaccounts") {
+          const after = url.searchParams.get("after");
+          if (after && failure === "failed page") return jsonRes({}, 502);
+          if (after && failure === "malformed page") return jsonRes({ error: "invalid_page" });
+          const page = after ? Number(after) : 1;
+          return jsonRes({
+            data: [{ id: `act_${600000000000000 + page}`, name: `Acme Pools ${page}` }],
+            next: recovered ? null : String(page + 1),
+          });
+        }
+        if (url.pathname === "/api/meta/insights") {
+          return jsonRes({ data: [{ spend: "100", impressions: "1000" }] });
+        }
+        return jsonRes({}, 404);
+      });
+      const opts = {
+        gatewayBaseUrl: "https://gw.example",
+        gatewayToken: "test-account-pages",
+        adminKey: "",
+        fetchImpl: fetchMock as unknown as typeof fetch,
+        now: () => PINNED_NOW,
+      };
+
+      expect((await readPortfolioSnapshotBundle("30d", opts)).clients).toEqual([]);
+
+      recovered = true;
+      const bundle = await readPortfolioSnapshotBundle("30d", opts);
+      expect(bundle.clients).toHaveLength(1);
+      expect(bundle.clients[0]?.spend).toBe(100);
+    },
+  );
+
+  it.each([400, 401, 403, 404, "missing data", "invalid data"])(
+    "does not expose or cache partial spend when an account insight read returns %s",
+    async (failure) => {
+      let recovered = false;
+      const fetchMock = vi.fn(async (input: string | URL | Request) => {
+        const url = new URL(String(input));
+        if (url.pathname === "/api/meta/adaccounts") {
+          return jsonRes({ data: [
+            { id: "act_700000000000001", name: "Acme Pools" },
+            { id: "act_700000000000002", name: "Globex Spas" },
+          ] });
+        }
+        if (url.pathname === "/api/meta/insights") {
+          if (!recovered && url.searchParams.get("adAccountId") === "act_700000000000002") {
+            if (typeof failure === "number") return jsonRes({}, failure);
+            return jsonRes(failure === "missing data" ? {} : { data: {} });
+          }
+          return jsonRes({ data: [{ spend: "100", impressions: "1000" }] });
+        }
+        return jsonRes({}, 404);
+      });
+      const opts = {
+        gatewayBaseUrl: "https://gw.example",
+        gatewayToken: "test-account-insights",
+        adminKey: "",
+        fetchImpl: fetchMock as unknown as typeof fetch,
+        now: () => PINNED_NOW,
+      };
+
+      expect((await readPortfolioSnapshotBundle("30d", opts)).clients).toEqual([]);
+
+      recovered = true;
+      const bundle = await readPortfolioSnapshotBundle("30d", opts);
+      expect(bundle.clients).toHaveLength(2);
+      expect(bundle.clients.reduce((sum, client) => sum + (client.spend ?? 0), 0)).toBe(200);
+    },
+  );
+
+  it("includes every account and insight page when pagination ends within the limits", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = new URL(String(input));
+      if (url.pathname === "/api/meta/adaccounts") {
+        const page = Number(url.searchParams.get("after") ?? "1");
+        return jsonRes({
+          data: [{ id: `act_${800000000000000 + page}`, name: `Acme Pools ${page}` }],
+          next: page < 5 ? String(page + 1) : null,
+        });
+      }
+      if (url.pathname === "/api/meta/insights") {
+        const lastPage = url.searchParams.has("after");
+        return jsonRes({
+          data: [{ spend: lastPage ? "50" : "100", impressions: "1000" }],
+          next: lastPage ? null : "insight-page-2",
+        });
+      }
+      return jsonRes({}, 404);
+    });
+
+    const bundle = await readPortfolioSnapshotBundle("30d", {
+      gatewayBaseUrl: "https://gw.example",
+      gatewayToken: "test-complete-pages",
+      adminKey: "",
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => PINNED_NOW,
+    });
+
+    expect(bundle.clients).toHaveLength(5);
+    expect(bundle.clients.every((client) => client.spend === 150)).toBe(true);
+  });
 });
