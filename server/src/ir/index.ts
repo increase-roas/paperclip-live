@@ -20,10 +20,16 @@ export {
   type QuickBooksDataSource,
 } from "./quickbooks-client.js";
 export {
+  readGatewayFulfillmentBundle,
+  resetGatewayFulfillmentCache,
+  type GatewayFulfillmentClientOptions,
+} from "./gateway-fulfillment-client.js";
+export {
   fetchNeonAdsAccounts,
   fetchNeonAdsPipeline,
   fetchSalesCapital,
   fetchSalesSnapshots,
+  filterClientOnlyPortfolio,
   readPortfolioSnapshotBundle,
   type CapitalApiPayload,
   type CapitalClientEntry,

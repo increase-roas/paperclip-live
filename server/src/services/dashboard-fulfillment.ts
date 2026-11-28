@@ -152,10 +152,10 @@ function buildClientDelivery(
       accounts: [],
       notConnected: {
         tile: "client-portfolio-delivery",
-        source: "Client Meta & GHL portfolio (Sales Dashboard)",
+        source: "Client Meta & GHL portfolio (OAuth Gateway)",
         reason:
           "No live client portfolio snapshot is available for this period (or viewer lacks instance-admin access).",
-        needed: "SALES_DASHBOARD_ADMIN_KEY configured on the server for live client Meta + GHL delivery reads.",
+        needed: "GATEWAY_PAPERCLIP_KEY configured on the server for live client Meta + GHL delivery reads.",
       },
     };
   }
@@ -330,7 +330,7 @@ export function dashboardFulfillmentService(db: Db, deps: DashboardFulfillmentDe
         allowInstanceData
           ? (deps.portfolioReader
               ? deps.portfolioReader(period)
-              : readPortfolioSnapshotBundle(period, { fetchImpl: deps.fetchImpl }))
+              : readPortfolioSnapshotBundle(period, { fetchImpl: deps.fetchImpl, now: () => now }))
           : Promise.resolve(null),
         allowInstanceData
           ? (deps.wavvReader

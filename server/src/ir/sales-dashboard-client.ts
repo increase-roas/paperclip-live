@@ -1,11 +1,17 @@
-import {
-  clientRoas,
-  closeRate,
-  costPerAcquisition,
-  costPerLead,
-  showRate,
-} from "@paperclipai/shared/ir-metrics";
 import { isDashboardPeriod, type DashboardPeriod } from "@paperclipai/shared";
+import { readGatewayFulfillmentBundle } from "./gateway-fulfillment-client.js";
+import {
+  deriveClientRatios,
+  filterClientOnlyPortfolio,
+  isExcludedClientSlug,
+  type FilterClientOnlyPortfolioOptions,
+} from "./portfolio-filter.js";
+
+export {
+  filterClientOnlyPortfolio,
+  isExcludedClientSlug,
+  type FilterClientOnlyPortfolioOptions,
+};
 
 const DEFAULT_SALES_DASHBOARD_URL = "https://dashboard.increaseai.tech";
 const DEFAULT_TIMEOUT_MS = 6_000;
@@ -14,8 +20,13 @@ const USER_AGENT = "paperclip-server/1.0";
 export interface SalesDashboardClientOptions {
   baseUrl?: string;
   adminKey?: string;
+  gatewayBaseUrl?: string;
+  gatewayToken?: string;
+  agencyCompanyId?: string;
   fetchImpl?: typeof fetch;
+  now?: () => Date;
   timeoutMs?: number;
+  bypassCache?: boolean;
 }
 
 export interface CapitalMetricsPayload {
@@ -51,6 +62,8 @@ export interface CapitalMetricsPayload {
 export interface CapitalClientEntry {
   slug: string;
   displayName: string;
+  status?: string | null;
+  archived?: boolean | null;
   syncedAt: string | null;
   syncStatus: string | null;
   marketing: CapitalMetricsPayload;
@@ -110,6 +123,8 @@ export interface SnapshotFinancialsData {
 export interface ParsedClientSnapshot {
   slug: string;
   displayName: string;
+  status?: string | null;
+  archived?: boolean | null;
   observedAt: string;
   ghl?: SnapshotGhlData;
   meta?: SnapshotMetaData;
@@ -163,6 +178,8 @@ export interface NeonAdsPipelinePayload {
 export interface MergedClientMetrics {
   slug: string;
   displayName: string;
+  status?: string | null;
+  archived?: boolean | null;
   observedAt: string | null;
   // Sales (GHL / pipeline)
   newLeads: number | null;
@@ -306,9 +323,14 @@ function parseSnapshotEntry(
         }
       : undefined;
 
+  const status = typeof raw.status === "string" && raw.status.trim() ? raw.status.trim() : undefined;
+  const archived = typeof raw.archived === "boolean" ? raw.archived : undefined;
+
   return {
     slug,
     displayName,
+    ...(status !== undefined ? { status } : {}),
+    ...(archived !== undefined ? { archived } : {}),
     observedAt,
     ghl: extractSummarySection<SnapshotGhlData>(summary, "ghl"),
     meta: mergedMeta,
@@ -568,6 +590,8 @@ function mergeSnapshots(ensure: ClientMergeIndex, snapshots: SnapshotsPayload | 
 
   for (const snap of snapshotEntries) {
     const entry = ensure(snap.slug, snap.displayName);
+    if (snap.status !== undefined && entry.status === undefined) entry.status = snap.status;
+    if (snap.archived !== undefined && entry.archived === undefined) entry.archived = snap.archived;
     entry.observedAt = latestIso([entry.observedAt, snap.observedAt]);
     if (snap.ghl) applySnapshotGhl(entry, snap.ghl);
     if (snap.meta) applySnapshotMeta(entry, snap.meta);
@@ -591,6 +615,8 @@ function mergeCapital(
     const metricWindow = typeof m.window === "string" ? m.window.trim() : "";
     if (metricWindow && metricWindow !== period) continue;
     const entry = ensure(cap.slug, cap.displayName);
+    if (cap.status !== undefined && entry.status === undefined) entry.status = cap.status;
+    if (cap.archived !== undefined && entry.archived === undefined) entry.archived = cap.archived;
     entry.observedAt = latestIso([entry.observedAt, cap.syncedAt, capital.generatedAt]);
     entry.newLeads = entry.newLeads ?? finite(m.newLeads);
     entry.wonDeals = entry.wonDeals ?? finite(m.wonDeals);
@@ -663,20 +689,6 @@ function mergeNeonPipeline(
   }
 }
 
-function deriveClientRatios(entry: MergedClientMetrics): void {
-  // Upstream `booked` must be past-dated (definitions/booked).
-  entry.showRate ??= showRate({ pastDatedBooked: entry.booked, showed: entry.showed });
-  entry.closeRate ??= closeRate({ wonDeals: entry.wonDeals, showed: entry.showed });
-  entry.cpl ??= costPerLead({ spend: entry.spend, leads: entry.newLeads });
-  entry.cac ??= costPerAcquisition({ spend: entry.spend, acquisitions: entry.wonDeals });
-  // Agency ROAS needs first-30-day cash per client won through agency ads,
-  // which the snapshot does not carry, so the owner row is never derived here.
-  if (entry.slug !== "__owner__") {
-    entry.roas ??= clientRoas({ scope: "client_fulfillment", crmWonRevenueUsd: entry.pipelineRevenueUsd, adSpendUsd: entry.spend });
-  }
-  entry.costPerHeldAppointment ??= costPerAcquisition({ spend: entry.spend, acquisitions: entry.showed });
-}
-
 /** Named clients sorted by spend desc then display name; `__owner__` always last. */
 function compareMergedClients(a: MergedClientMetrics, b: MergedClientMetrics): number {
   if (a.slug === "__owner__" && b.slug !== "__owner__") return 1;
@@ -686,17 +698,19 @@ function compareMergedClients(a: MergedClientMetrics, b: MergedClientMetrics): n
   return a.displayName.localeCompare(b.displayName);
 }
 
-/** Excludes the agency `__owner__` entry so Fulfillment strictly owns client accounts only. */
-export function filterClientOnlyPortfolio(
-  clients: readonly MergedClientMetrics[],
-): MergedClientMetrics[] {
-  return clients.filter((client) => client.slug.trim().toLowerCase() !== "__owner__");
+function resolveGatewayToken(opts?: SalesDashboardClientOptions): string {
+  return (
+    opts?.gatewayToken !== undefined
+      ? opts.gatewayToken
+      : (process.env.GATEWAY_PAPERCLIP_KEY ?? "")
+  ).trim();
 }
 
 /**
- * Fetches and merges multi-client portfolio metrics across `/api/pilot/admin/capital`,
- * `/api/pilot/admin/snapshots` (falling back to `/api/pilot/dashboard`), and
- * `/api/pilot/neon-ads` (`accounts` + `pipeline`).
+ * Reads live client portfolio metrics directly from the OAuth Gateway when
+ * `GATEWAY_PAPERCLIP_KEY` is configured (zero extra keys required), and falls
+ * back to the legacy Sales Dashboard API only when `SALES_DASHBOARD_ADMIN_KEY`
+ * is explicitly configured.
  *
  * Every client is keyed strictly by its canonical slug so two clients never collide.
  */
@@ -704,7 +718,30 @@ export async function readPortfolioSnapshotBundle(
   period: DashboardPeriod = "30d",
   opts?: SalesDashboardClientOptions,
 ): Promise<PortfolioSnapshotBundle> {
-  if (!resolveAdminKey(opts)) {
+  const gatewayToken = resolveGatewayToken(opts);
+  const adminKey = resolveAdminKey(opts);
+
+  if (gatewayToken) {
+    const gatewayBundle = await readGatewayFulfillmentBundle(period, {
+      baseUrl: opts?.gatewayBaseUrl,
+      token: gatewayToken,
+      agencyCompanyId: opts?.agencyCompanyId,
+      fetchImpl: opts?.fetchImpl,
+      now: opts?.now,
+      timeoutMs: opts?.timeoutMs,
+      bypassCache: opts?.bypassCache,
+    });
+    if (gatewayBundle && gatewayBundle.clients.length > 0) {
+      if (!adminKey) return gatewayBundle;
+      const capital = await fetchSalesCapital(period, opts);
+      return {
+        ...gatewayBundle,
+        capital,
+      };
+    }
+  }
+
+  if (!adminKey) {
     return {
       capital: null,
       snapshots: null,

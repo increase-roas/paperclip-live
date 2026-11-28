@@ -58,12 +58,12 @@ interface AgencyMetaAccountSpec {
   envVar: string;
 }
 
-interface RawMetaAction {
+export interface RawMetaAction {
   action_type?: string;
   value?: string | number;
 }
 
-interface RawMetaInsightRow {
+export interface RawMetaInsightRow {
   spend?: string | number;
   impressions?: string | number;
   clicks?: string | number;
@@ -158,7 +158,7 @@ export function agencyMetaPeriodRange(
   };
 }
 
-function normalizeMetaAccountId(raw: string | null | undefined): string | null {
+export function normalizeMetaAccountId(raw: string | null | undefined): string | null {
   if (raw === null || raw === undefined) return null;
   const trimmed = raw.trim();
   if (!trimmed || UNSET_SENTINELS.has(trimmed.toLowerCase())) return null;
@@ -186,7 +186,7 @@ function parseNonNegativeInt(raw: unknown): number {
   return Math.round(parseNonNegativeFloat(raw));
 }
 
-function extractActionValue(actions: readonly RawMetaAction[] | undefined, actionType: string): number | null {
+export function extractActionValue(actions: readonly RawMetaAction[] | undefined, actionType: string): number | null {
   if (!Array.isArray(actions)) return null;
   let total = 0;
   let found = false;
@@ -199,7 +199,7 @@ function extractActionValue(actions: readonly RawMetaAction[] | undefined, actio
   return found ? Math.round(total) : null;
 }
 
-function extractRowLeads(actions: readonly RawMetaAction[] | undefined): number {
+export function extractRowLeads(actions: readonly RawMetaAction[] | undefined): number {
   for (const actionType of LEAD_ACTION_PRIORITY) {
     const val = extractActionValue(actions, actionType);
     if (val !== null) return val;
@@ -207,7 +207,7 @@ function extractRowLeads(actions: readonly RawMetaAction[] | undefined): number 
   return 0;
 }
 
-function isWithinLast7Days(dayStr: string | undefined, now: Date): boolean {
+export function isWithinLast7Days(dayStr: string | undefined, now: Date): boolean {
   if (!dayStr || !/^\d{4}-\d{2}-\d{2}$/.test(dayStr)) return false;
   const cutoff = formatDayUtc(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000));
   return dayStr >= cutoff;

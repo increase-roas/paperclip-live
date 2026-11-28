@@ -637,6 +637,19 @@ describePostgres("lane 3 dashboard board routes", () => {
     expect(typeof metaRow.expiryDaysRemaining).toBe("number");
   });
 
+  it("surfaces Meta system user token Dec 13 expiry alarm for board viewers when only GATEWAY_PAPERCLIP_KEY is set", async () => {
+    await seed();
+    process.env.GATEWAY_PAPERCLIP_KEY = "test-gw";
+    const res = await request(app).get(`/api/companies/${companyId}/dashboards/tools-connectors`).expect(200);
+    const metaRow = res.body.items.find((item: { id: string }) => item.id === "ir:meta-marketing-system-user");
+    expect(metaRow).toMatchObject({
+      name: "Meta Marketing API (System User Token)",
+      kind: "tool_connection",
+      expiresAt: "2026-12-13T00:00:00.000Z",
+    });
+    expect(typeof metaRow.expiryDaysRemaining).toBe("number");
+  });
+
   it("surfaces client portfolio ad metrics & WAVV delivery on Fulfillment for board admins (excluding __owner__), forwards period, and gates them away from agent keys and non-admin board sessions without invoking readers", async () => {
     await seed();
     const portfolioPeriods: string[] = [];

@@ -151,6 +151,27 @@ describe("dashboardFulfillmentService client delivery", () => {
     expect(board.clientDelivery!.accounts).toHaveLength(2);
   });
 
+  it("excludes former, cancelled, and archived client rows from Fulfillment totals and account table", async () => {
+    const reader = service([
+      client("acme-spas", { spend: 500, newLeads: 10, impressions: 5000, clicks: 100, booked: 5, showed: 4, wonDeals: 2, zeroLeadDays: 0 }),
+      client("retired-spas", { status: "former", spend: 9000, newLeads: 90, impressions: 90000, clicks: 900, booked: 40, showed: 30, wonDeals: 10, zeroLeadDays: 3 }),
+      client("archived-pools", { archived: true, spend: 4000, newLeads: 40, impressions: 40000, clicks: 400, booked: 20, showed: 15, wonDeals: 5, zeroLeadDays: 1 }),
+    ]);
+    const board = await reader.board("company-1", now, { period: "30d", boardViewer: true });
+
+    expect(board.clientDelivery).toMatchObject({
+      adSpendUsd: 500,
+      newLeads: 10,
+      costPerLeadUsd: 50,
+      appointmentsBooked: 5,
+      appointmentsShowed: 4,
+      wonDeals: 2,
+      zeroLeadDays: 0,
+      notConnected: null,
+    });
+    expect(board.clientDelivery!.accounts.map((a) => a.slug)).toEqual(["acme-spas"]);
+  });
+
   it("uses the complete held population when pitched counts are incomplete", async () => {
     const board = await service([
       client("client-a", { showed: 10, pitched: 2, wonDeals: 2 }),
