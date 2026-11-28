@@ -1007,6 +1007,78 @@ describe("readAgencySalesSummary", () => {
     // while headline cashCollectedUsd stays null so truncated totals never masquerade as full!
     expect(summary?.cashCollectedUsd).toBeNull();
   });
+
+  it("reads 22 calendars without truncation, bounds status=all opportunities by window date, and stops cleanly on descending contacts past window start", async () => {
+    const oppPaths: string[] = [];
+    let contactPagesFetched = 0;
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const path = new URL(String(input)).searchParams.get("path") ?? "";
+      if (path === "/opportunities/pipelines") {
+        return jsonRes({ pipelines: [{ id: "p-sales", name: "Sales", stages: [{ id: "s-won", name: "Closed Won" }] }] });
+      }
+      if (path.startsWith("/opportunities/search")) {
+        oppPaths.push(path);
+        return jsonRes({
+          opportunities: path.includes("status=all")
+            ? [{ id: "opp-1", pipelineId: "p-sales", pipelineStageId: "s-won", status: "won", monetaryValue: 5000, createdAt: "2026-11-24T00:00:00Z", lastStatusChangeAt: "2026-11-24T00:00:00Z" }]
+            : path.includes("status=won")
+              ? [{ id: "opp-1", pipelineId: "p-sales", pipelineStageId: "s-won", status: "won", monetaryValue: 5000, createdAt: "2026-11-24T00:00:00Z", lastStatusChangeAt: "2026-11-24T00:00:00Z" }]
+              : [],
+        });
+      }
+      if (path.startsWith("/contacts/")) {
+        contactPagesFetched += 1;
+        if (!path.includes("startAfterId=c100")) {
+          return jsonRes({
+            contacts: Array.from({ length: 100 }, (_, i) => ({
+              id: `c${i + 1}`,
+              dateAdded: i < 5 ? "2026-11-24T00:00:00Z" : "2026-10-01T00:00:00Z",
+            })),
+            meta: { startAfterId: "c100", startAfter: 1759276800000 },
+          });
+        }
+        return jsonRes({
+          contacts: Array.from({ length: 100 }, (_, i) => ({
+            id: `old-${i + 1}`,
+            dateAdded: "2026-09-15T00:00:00Z",
+          })),
+          meta: { startAfterId: "old-100", startAfter: 1757894400000 },
+        });
+      }
+      if (path === "/calendars/") {
+        return jsonRes({
+          calendars: Array.from({ length: 22 }, (_, i) => ({ id: `cal-${i + 1}`, name: `Sales Cal ${i + 1}` })),
+        });
+      }
+      if (path.startsWith("/calendars/events")) {
+        return jsonRes({ events: path.includes("calendarId=cal-22") ? [{ id: "ev-22", appointmentStatus: "showed", contactId: "c1", startTime: "2026-11-24T12:00:00Z" }] : [] });
+      }
+      if (path.startsWith("/payments/transactions")) return jsonRes({ data: [] });
+      return jsonRes({}, 404);
+    });
+
+    const summary = await readAgencySalesSummary("30d", {
+      gatewayBaseUrl: "https://gw.example",
+      gatewayToken: "gw-bounded-test",
+      alexBloomfieldPitKey: "",
+      locationIds: { hotTubLaunchB2b: null },
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => PINNED_NOW,
+      bypassCache: true,
+    });
+
+    const irMain = summary?.accounts.find((a) => a.id === "increase-roas-main");
+    expect(irMain?.statusLabel).toBe("Live");
+    expect(irMain?.newLeads).toBe(5);
+    expect(irMain?.booked).toBe(1);
+    expect(irMain?.showed).toBe(1);
+    expect(summary?.newLeads).toBe(5);
+    expect(summary?.booked).toBe(1);
+    expect(summary?.wonDeals).toBe(1);
+    expect(contactPagesFetched).toBe(2);
+    expect(oppPaths.find((p) => p.includes("status=all"))).toContain("date=10-27-2026&endDate=11-26-2026");
+    expect(oppPaths.find((p) => p.includes("status=won"))).not.toContain("date=");
+  });
 });
 
 describe("filterClientOnlyPortfolio", () => {
