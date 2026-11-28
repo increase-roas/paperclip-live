@@ -49,10 +49,6 @@ export function workflowSort<T extends WorkflowSortIssue>(issues: T[]): T[] {
     }
   }
 
-  for (const ids of successors.values()) {
-    ids.sort((a, b) => tieBreakAsc(byId.get(a)!, byId.get(b)!));
-  }
-
   const ready: T[] = [];
   for (const issue of issues) {
     if (inDegree.get(issue.id) === 0) ready.push(issue);
