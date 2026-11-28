@@ -1047,14 +1047,4 @@ describe("filterClientOnlyPortfolio", () => {
     }
   });
 
-  it("excludes default former-client slugs even when status is omitted upstream", () => {
-    // Explicit regression guard ensuring the former client slug and regional variants never re-enter active totals.
-    const rows = [
-      { slug: "paradise-spas", displayName: "Former Client A" },
-      { slug: "paradise-spas-north-dakota", displayName: "Former Client B" },
-      { slug: "acme-spas", displayName: "Acme Spas" },
-    ] as MergedClientMetrics[];
-
-    expect(filterClientOnlyPortfolio(rows).map((c) => c.slug)).toEqual(["acme-spas"]);
-  });
 });

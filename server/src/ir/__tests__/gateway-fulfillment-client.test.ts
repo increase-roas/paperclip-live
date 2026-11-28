@@ -358,4 +358,37 @@ describe("gateway-fulfillment-client", () => {
     // Already-used location is never double-assigned
     expect(matchGhlHealthLocation("M&B Tree Service & Landscape LLC", locations, new Set(["loc-mb"]))).toBeNull();
   });
+
+  it("fails closed to null when a candidate Meta ad account suffers a persistent transient error so portfolio spend is never silently under-reported", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.endsWith("/api/meta/adaccounts")) {
+        return jsonRes({
+          data: [
+            { id: "act_500000000000001", name: "Acme Spas", account_status: 1 },
+            { id: "act_500000000000002", name: "Globex Pools", account_status: 1 },
+          ],
+        });
+      }
+      if (url.endsWith("/api/health")) return jsonRes({ locations: [] });
+      if (url.endsWith("/api/status")) return jsonRes({ companyId: "" });
+      if (url.includes("adAccountId=act_500000000000001")) {
+        return jsonRes({ data: [{ date_start: "2026-11-25", spend: "1000", impressions: "10000", actions: [{ action_type: "lead", value: "20" }] }] });
+      }
+      if (url.includes("adAccountId=act_500000000000002")) {
+        return jsonRes({ error: "meta_upstream_502" }, 502);
+      }
+      return jsonRes({}, 404);
+    });
+
+    const bundle = await readGatewayFulfillmentBundle("30d", {
+      baseUrl: "https://gw.example",
+      token: "test-fail-closed",
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => PINNED_NOW,
+      bypassCache: true,
+    });
+
+    expect(bundle).toBeNull();
+  });
 });

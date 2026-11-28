@@ -398,12 +398,11 @@ async function readClientMetaInsights(
       until: range.until,
     });
     if (after) qs.set("after", after);
-    const res = await fetchGatewayJson(
-      `${ctx.baseUrl}/api/meta/insights?${qs.toString()}`,
-      ctx.token,
-      ctx.fetchImpl,
-      ctx.timeoutMs,
-    );
+    const insightUrl = `${ctx.baseUrl}/api/meta/insights?${qs.toString()}`;
+    let res = await fetchGatewayJson(insightUrl, ctx.token, ctx.fetchImpl, ctx.timeoutMs);
+    if (res.status === 0 || res.status >= 500) {
+      res = await fetchGatewayJson(insightUrl, ctx.token, ctx.fetchImpl, ctx.timeoutMs);
+    }
     if (res.status === 400 || res.status === 401 || res.status === 403 || res.status === 404) {
       return {
         adAccountId,
@@ -773,6 +772,10 @@ async function computeGatewayFulfillmentBundle(
   );
 
   const hasTransientMetaError = metaReads.some((r) => r.transientError);
+  if (hasTransientMetaError) {
+    // Fail closed so a transient Meta error on one account never silently under-reports portfolio spend.
+    return { bundle: null, cacheable: false };
+  }
   const okMetaReads = metaReads.filter((r) => r.ok);
   okMetaReads.sort((a, b) => b.spend - a.spend || a.displayName.localeCompare(b.displayName));
 

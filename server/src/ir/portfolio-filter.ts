@@ -41,11 +41,9 @@ const OWN_BRAND_SLUGS: readonly string[] = [
 ];
 
 /**
- * Default former-client slugs excluded from active client fulfillment totals even when
- * historical spend or CRM contacts remain visible upstream. Additional slugs can be
- * configured via `FULFILLMENT_EXCLUDED_CLIENT_SLUGS` (comma-separated).
+ * Former/excluded client slugs are configuration, never hardcoded client names:
+ * set comma-separated slugs via `FULFILLMENT_EXCLUDED_CLIENT_SLUGS` (or `opts.excludedSlugs`).
  */
-const DEFAULT_EXCLUDED_CLIENT_SLUGS: readonly string[] = ["paradise-spas"];
 
 export function cleanClientDisplayName(raw: string): string {
   return raw
@@ -105,7 +103,6 @@ export function isExcludedClientSlug(
   if (isOwnBrandSlug(slug)) return true;
 
   const excluded = [
-    ...DEFAULT_EXCLUDED_CLIENT_SLUGS,
     ...parseEnvSlugList(process.env.FULFILLMENT_EXCLUDED_CLIENT_SLUGS),
     ...(extraExcludedSlugs ?? []).map((s) => s.trim().toLowerCase()).filter(Boolean),
   ];
