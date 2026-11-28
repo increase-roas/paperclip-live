@@ -1007,6 +1007,103 @@ describe("readAgencySalesSummary", () => {
     // while headline cashCollectedUsd stays null so truncated totals never masquerade as full!
     expect(summary?.cashCollectedUsd).toBeNull();
   });
+
+  it("reads 22 calendars without truncation, preserves older stage-moved opps, stops cleanly on sorted descending contacts, and does not drop unordered in-window -> old -> in-window contacts", async () => {
+    const contactPaths: string[] = [];
+    let irContactPages = 0;
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      const path = new URL(url).searchParams.get("path") ?? "";
+      if (url.includes("/LocIrMainFake0000001/")) {
+        if (path === "/opportunities/pipelines") {
+          return jsonRes({ pipelines: [{ id: "p-sales", name: "Sales", stages: [{ id: "s-booked", name: "Booked Call" }] }] });
+        }
+        if (path.startsWith("/opportunities/search")) {
+          expect(path).not.toContain("date=");
+          return jsonRes({
+            opportunities: path.includes("status=all")
+              ? [{ id: "opp-old-moved", pipelineId: "p-sales", pipelineStageId: "s-booked", status: "open", createdAt: "2026-09-01T00:00:00Z", updatedAt: "2026-11-20T00:00:00Z" }]
+              : [],
+          });
+        }
+        if (path.startsWith("/contacts/")) {
+          contactPaths.push(path);
+          irContactPages += 1;
+          if (!path.includes("startAfterId=c100")) {
+            return jsonRes({
+              contacts: Array.from({ length: 100 }, (_, i) => ({
+                id: `c${i + 1}`,
+                dateAdded: new Date(Date.parse("2026-11-25T00:00:00Z") - i * 12 * 3600 * 1000).toISOString(),
+              })),
+              meta: { startAfterId: "c100", startAfter: 1759276800000 },
+            });
+          }
+          return jsonRes({
+            contacts: Array.from({ length: 100 }, (_, i) => ({
+              id: `old-${i + 1}`,
+              dateAdded: new Date(Date.parse("2026-10-01T00:00:00Z") - i * 3600 * 1000).toISOString(),
+            })),
+            meta: { startAfterId: "old-100", startAfter: 1757894400000 },
+          });
+        }
+        if (path === "/calendars/") {
+          return jsonRes({
+            calendars: Array.from({ length: 22 }, (_, i) => ({ id: `cal-${i + 1}`, name: `Sales Cal ${i + 1}` })),
+          });
+        }
+        if (path.startsWith("/calendars/events")) {
+          return jsonRes({ events: path.includes("calendarId=cal-22") ? [{ id: "ev-22", appointmentStatus: "showed", contactId: "c1", startTime: "2026-11-24T12:00:00Z" }] : [] });
+        }
+        if (path.startsWith("/payments/transactions")) return jsonRes({ data: [] });
+      }
+      if (url.includes("/LocHtlB2bFake0000002/")) {
+        if (path === "/opportunities/pipelines") return jsonRes({ pipelines: [] });
+        if (path.startsWith("/opportunities/search")) return jsonRes({ opportunities: [] });
+        if (path === "/calendars/") return jsonRes({ calendars: [] });
+        if (path.startsWith("/payments/transactions")) return jsonRes({ data: [] });
+        if (path.startsWith("/contacts/")) {
+          // Unordered sequence: page 1 in-window (flat ts), page 2 old (flat ts), page 3 in-window (50 leads) -> must read all 150!
+          if (!path.includes("startAfterId=")) {
+            return jsonRes({
+              contacts: Array.from({ length: 100 }, (_, i) => ({ id: `u1-${i}`, dateAdded: "2026-11-20T00:00:00Z" })),
+              meta: { startAfterId: "p1", startAfter: 1763596800000 },
+            });
+          }
+          if (path.includes("startAfterId=p1")) {
+            return jsonRes({
+              contacts: Array.from({ length: 100 }, (_, i) => ({ id: `u2-${i}`, dateAdded: "2026-09-01T00:00:00Z" })),
+              meta: { startAfterId: "p2", startAfter: 1756684800000 },
+            });
+          }
+          return jsonRes({
+            contacts: Array.from({ length: 50 }, (_, i) => ({ id: `u3-${i}`, dateAdded: "2026-11-20T00:00:00Z" })),
+          });
+        }
+      }
+      return jsonRes({}, 404);
+    });
+
+    const summary = await readAgencySalesSummary("30d", {
+      gatewayBaseUrl: "https://gw.example",
+      gatewayToken: "gw-bounded-test",
+      alexBloomfieldPitKey: "",
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      now: () => PINNED_NOW,
+      bypassCache: true,
+    });
+
+    const irMain = summary?.accounts.find((a) => a.id === "increase-roas-main");
+    expect(irMain?.statusLabel).toBe("Live");
+    expect(irMain?.activeOpportunities).toBe(1);
+    expect(irMain?.booked).toBe(1);
+    expect(irMain?.showed).toBe(1);
+    expect(irContactPages).toBe(2);
+    expect(contactPaths[0]).toContain("order=desc&sortBy=date_added");
+
+    const htl = summary?.accounts.find((a) => a.id === "hot-tub-launch-b2b");
+    expect(htl?.newLeads).toBe(150);
+    expect(htl?.statusLabel).toBe("Live");
+  });
 });
 
 describe("filterClientOnlyPortfolio", () => {

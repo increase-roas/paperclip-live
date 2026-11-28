@@ -146,7 +146,7 @@ const DEFAULT_GHL_ORIGIN = "https://services.leadconnectorhq.com";
 const DEFAULT_TIMEOUT_MS = 8_000;
 const CACHE_TTL_MS = 5 * 60 * 1_000;
 const MAX_CACHE_ENTRIES = 64;
-const MAX_CALENDARS_PER_LOCATION = 10;
+const MAX_CALENDARS_PER_LOCATION = 40;
 const MAX_CONTACT_PAGES = 10;
 const MAX_OPP_PAGES = 10;
 const MAX_TX_PAGES = 10;
@@ -381,9 +381,12 @@ async function countRecentContacts(
   let startAfter: string | null = null;
   let firstStatus = 0;
   let truncated = false;
+  let streamOrderedDesc = true;
+  let sawStrictlyDescendingTimestamps = false;
+  let prevPageMinMs: number | null = null;
 
   for (let page = 0; page < MAX_CONTACT_PAGES; page += 1) {
-    const qs = new URLSearchParams({ limit: "100" });
+    const qs = new URLSearchParams({ limit: "100", order: "desc", sortBy: "date_added" });
     if (startAfterId) qs.set("startAfterId", startAfterId);
     if (startAfter) qs.set("startAfter", startAfter);
     const res = await fetcher(`/contacts/?${qs.toString()}`);
@@ -394,10 +397,39 @@ async function countRecentContacts(
     const contacts = Array.isArray(res.body.contacts) ? (res.body.contacts as RawGhlContact[]) : [];
     if (contacts.length === 0) break;
 
+    let allBeforeWindow = true;
+    let prevMs: number | null = null;
+    let pageMaxMs: number | null = null;
+    let pageMinMs: number | null = null;
     for (const c of contacts) {
-      if (isTimestampInWindow(c.dateAdded, win)) {
-        candidates.push({ personKey: c.id, applicant: isApplicantContact(c) });
+      const ms = c.dateAdded ? Date.parse(c.dateAdded) : NaN;
+      if (Number.isFinite(ms)) {
+        if (pageMaxMs === null || ms > pageMaxMs) pageMaxMs = ms;
+        if (pageMinMs === null || ms < pageMinMs) pageMinMs = ms;
+        if (prevMs !== null) {
+          if (ms > prevMs) streamOrderedDesc = false;
+          if (ms < prevMs) sawStrictlyDescendingTimestamps = true;
+        }
+        prevMs = ms;
+        if (ms >= win.startMs) {
+          allBeforeWindow = false;
+          if (ms <= win.endMs) {
+            candidates.push({ personKey: c.id, applicant: isApplicantContact(c) });
+          }
+        }
+      } else {
+        allBeforeWindow = false;
+        streamOrderedDesc = false;
       }
+    }
+
+    if (prevPageMinMs !== null && pageMaxMs !== null && pageMaxMs > prevPageMinMs) {
+      streamOrderedDesc = false;
+    }
+    if (pageMinMs !== null) prevPageMinMs = pageMinMs;
+
+    if (allBeforeWindow && streamOrderedDesc && sawStrictlyDescendingTimestamps) {
+      break;
     }
 
     if (contacts.length < 100) break;
