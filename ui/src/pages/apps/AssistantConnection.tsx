@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { assistantClientNames, mcpAuthorizationHandoffInstructions, mcpInvitation, mcpSetupSteps, type AssistantClient, type McpConnection } from "@paperclipai/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy, ExternalLink, Globe, Paperclip, Plug, Terminal } from "lucide-react";
+import { Check, Copy, ExternalLink, Globe, Plug, Terminal } from "lucide-react";
+import { BrandMark } from "@/components/BrandMark";
 import { publicMcpApi } from "@/api/publicMcp";
 import { QueryErrorState, useQueryView } from "@/components/QueryView";
 import { useCompany } from "@/context/CompanyContext";
@@ -57,7 +58,7 @@ export function AssistantConnectionCard({ onNavigate }: { onNavigate: (href: str
   const action = !connections.loaded || connections.unavailable ? "Open" : active.length ? "Manage" : "Set up";
   return <div role="listitem" data-app-slug="assistant-connection" data-connected={connections.loaded ? String(active.length > 0) : undefined} className="overflow-hidden rounded-xl border border-border">
     <div className="flex flex-wrap items-center gap-3 px-4 py-4">
-      <Paperclip className="size-9 shrink-0 p-1 text-foreground" aria-hidden="true" />
+      <BrandMark className="size-9 shrink-0 p-1 text-foreground" aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <h2 className="text-sm font-semibold text-foreground">Assistant Connection (MCP)</h2>
         <p className="mt-0.5 text-xs text-muted-foreground">Use your Paperclip organization from Codex, Claude, OpenCode, or another assistant.</p>
@@ -118,7 +119,7 @@ export function AssistantConnection({ initialAssistant = "codex" }: { initialAss
   const invitation = serverUrl ? mcpInvitation(serverUrl, { id: selectedCompanyId, name: selectedCompany.name }) : "";
   return <div className="max-w-3xl space-y-6 pb-8">
     <header className="space-y-4">
-      <div className="flex items-center gap-3"><Paperclip className="size-7 shrink-0" /><h1 className="text-xl font-semibold">Assistant Connection (MCP)</h1></div>
+      <div className="flex items-center gap-3"><BrandMark className="size-7 shrink-0 text-foreground" aria-hidden="true" /><h1 className="text-xl font-semibold">Assistant Connection (MCP)</h1></div>
       <div className="flex items-center gap-3">
         <CompanyPatternIcon companyName={selectedCompany.name} logoUrl={selectedCompany.logoUrl} className="size-12 shrink-0 rounded-lg" />
         <div className="space-y-1"><p className="font-medium">{selectedCompany.name}</p><p className="text-sm text-muted-foreground">Connect your assistant to Paperclip. Review work, create tasks, and follow up using your account’s access to this organization.</p></div>

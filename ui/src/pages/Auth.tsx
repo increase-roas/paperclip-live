@@ -127,7 +127,7 @@ export function AuthPage() {
       <div className="w-full md:w-1/2 flex flex-col overflow-y-auto">
         <div className="w-full max-w-md mx-auto my-auto px-8 py-12">
           <div className="mb-8">
-            <PaperclipLockup className="h-5 w-auto" />
+            <PaperclipLockup className="h-9 w-9" />
           </div>
 
           <h1 className="text-xl font-semibold">

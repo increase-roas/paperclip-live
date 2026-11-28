@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode, SVGProps } from "react";
 import { Lock, type LucideIcon } from "lucide-react";
 import { Link } from "@/lib/router";
 import { cn } from "@/lib/utils";
@@ -21,7 +21,7 @@ export interface AgentSkillRowData extends AgentSkillSearchFields {
   chip?: string | null;
   /** Formatted source/provenance text rendered without badge chrome. */
   sourceMeta?: {
-    icon: LucideIcon;
+    icon: LucideIcon | ComponentType<SVGProps<SVGSVGElement>>;
     label: string;
   } | null;
   /** Route to the skill detail page; null makes the row non-navigable. */
