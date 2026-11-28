@@ -371,11 +371,6 @@ function isApplicantContact(contact: RawGhlContact): boolean {
   return tags.some((tag) => typeof tag === "string" && RECRUITING_RE.test(tag));
 }
 
-function formatGhlDateParam(isoDay: string): string {
-  const [yyyy, mm, dd] = isoDay.split("-");
-  return yyyy && mm && dd ? `${mm}-${dd}-${yyyy}` : isoDay;
-}
-
 async function countRecentContacts(
   fetcher: LocationFetcher,
   win: PeriodWindow,
@@ -386,10 +381,12 @@ async function countRecentContacts(
   let startAfter: string | null = null;
   let firstStatus = 0;
   let truncated = false;
-  let sawInWindow = false;
+  let streamOrderedDesc = true;
+  let sawStrictlyDescendingTimestamps = false;
+  let prevPageMinMs: number | null = null;
 
   for (let page = 0; page < MAX_CONTACT_PAGES; page += 1) {
-    const qs = new URLSearchParams({ limit: "100" });
+    const qs = new URLSearchParams({ limit: "100", order: "desc", sortBy: "date_added" });
     if (startAfterId) qs.set("startAfterId", startAfterId);
     if (startAfter) qs.set("startAfter", startAfter);
     const res = await fetcher(`/contacts/?${qs.toString()}`);
@@ -402,29 +399,36 @@ async function countRecentContacts(
 
     let allBeforeWindow = true;
     let prevMs: number | null = null;
-    let strictlyDescending = false;
-    let nonIncreasing = true;
+    let pageMaxMs: number | null = null;
+    let pageMinMs: number | null = null;
     for (const c of contacts) {
       const ms = c.dateAdded ? Date.parse(c.dateAdded) : NaN;
       if (Number.isFinite(ms)) {
+        if (pageMaxMs === null || ms > pageMaxMs) pageMaxMs = ms;
+        if (pageMinMs === null || ms < pageMinMs) pageMinMs = ms;
         if (prevMs !== null) {
-          if (ms > prevMs) nonIncreasing = false;
-          if (ms < prevMs) strictlyDescending = true;
+          if (ms > prevMs) streamOrderedDesc = false;
+          if (ms < prevMs) sawStrictlyDescendingTimestamps = true;
         }
         prevMs = ms;
         if (ms >= win.startMs) {
           allBeforeWindow = false;
           if (ms <= win.endMs) {
-            sawInWindow = true;
             candidates.push({ personKey: c.id, applicant: isApplicantContact(c) });
           }
         }
       } else {
         allBeforeWindow = false;
+        streamOrderedDesc = false;
       }
     }
 
-    if (allBeforeWindow && (sawInWindow || (nonIncreasing && strictlyDescending))) {
+    if (prevPageMinMs !== null && pageMaxMs !== null && pageMaxMs > prevPageMinMs) {
+      streamOrderedDesc = false;
+    }
+    if (pageMinMs !== null) prevPageMinMs = pageMinMs;
+
+    if (allBeforeWindow && streamOrderedDesc && sawStrictlyDescendingTimestamps) {
       break;
     }
 
@@ -445,7 +449,6 @@ async function countRecentContacts(
 async function fetchOpportunityPages(
   fetcher: LocationFetcher,
   statusFilter: "all" | "won" | "lost",
-  win?: PeriodWindow,
 ): Promise<{ ok: boolean; status: number; pages: Record<string, unknown>[]; truncated: boolean }> {
   const pages: Record<string, unknown>[] = [];
   let startAfterId: string | null = null;
@@ -455,10 +458,6 @@ async function fetchOpportunityPages(
 
   for (let page = 0; page < MAX_OPP_PAGES; page += 1) {
     const qs = new URLSearchParams({ limit: "100", status: statusFilter });
-    if (statusFilter === "all" && win) {
-      qs.set("date", formatGhlDateParam(win.startDay));
-      qs.set("endDate", formatGhlDateParam(win.endDay));
-    }
     if (startAfterId) qs.set("startAfterId", startAfterId);
     if (startAfter) qs.set("startAfter", startAfter);
     const res = await fetcher(`/opportunities/search?${qs.toString()}`);
@@ -749,7 +748,7 @@ async function readSingleGhlAccount(
 ): Promise<SingleAccountRead> {
   const [pipelinesRes, oppsAllRes, oppsWonRes, oppsLostRes, contactsRes, calRes, txRes] = await Promise.all([
     fetcher("/opportunities/pipelines"),
-    fetchOpportunityPages(fetcher, "all", win),
+    fetchOpportunityPages(fetcher, "all"),
     fetchOpportunityPages(fetcher, "won"),
     fetchOpportunityPages(fetcher, "lost"),
     countRecentContacts(fetcher, win),
