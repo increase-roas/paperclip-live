@@ -67,10 +67,6 @@ function makeTrimmedOutputMarkerChunk(ts: string): RunLogChunk {
   return { ts, stream: "system", chunk: TRIMMED_OUTPUT_MARKER_TEXT };
 }
 
-function chunkRetainedSize(chunk: RunLogChunk): number {
-  return chunk.chunk.length;
-}
-
 function normalizeRetentionBudget(budget: number | ChunkRetentionBudget): ChunkRetentionBudget {
   return typeof budget === "number" ? { maxChunks: budget } : budget;
 }
@@ -99,22 +95,18 @@ export function applyRetentionBudget(
   }
   if (typeof maxBytes === "number") {
     let totalBytes = 0;
-    for (const chunk of real) totalBytes += chunkRetainedSize(chunk);
+    for (const chunk of real) totalBytes += chunk.chunk.length;
     let byteRemove = 0;
     // Always keep the newest chunk even if it alone exceeds the byte budget.
     while (byteRemove < real.length - 1 && totalBytes > maxBytes) {
-      totalBytes -= chunkRetainedSize(real[byteRemove]!);
+      totalBytes -= real[byteRemove]!.chunk.length;
       byteRemove += 1;
     }
     if (byteRemove > removeCount) removeCount = byteRemove;
   }
 
   if (removeCount <= 0) {
-    // Nothing new to trim. Preserve an existing marker so an earlier collapse
-    // keeps its trace; otherwise return the marker-stripped array only if we
-    // actually stripped one (we never had a real trim to justify keeping it).
-    if (hadMarker) return { chunks, trimmedSeq: null };
-    return { chunks: real, trimmedSeq: null };
+    return { chunks, trimmedSeq: null };
   }
 
   const removed = real.slice(0, removeCount);
