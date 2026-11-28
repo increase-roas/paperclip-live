@@ -1010,16 +1010,51 @@ describe("readAgencySalesSummary", () => {
 });
 
 describe("filterClientOnlyPortfolio", () => {
-  it("excludes __owner__ so Fulfillment never mixes Increase ROAS agency metrics into client delivery", () => {
+  it("excludes __owner__, own brands, and former/cancelled/archived clients while keeping active client accounts", () => {
     const rows = [
       { slug: "__owner__", displayName: "HTL" },
-      { slug: "client-a", displayName: "Client A" },
-      { slug: "client-b", displayName: "Client B" },
+      { slug: "dynamite-lights-michigan", displayName: "Dynamite Lights Michigan" },
+      { slug: "acme-former-spa", displayName: "Acme Former Spa", status: "former" },
+      { slug: "globex-cancelled-spa", displayName: "Globex Cancelled Spa", status: "cancelled" },
+      { slug: "initech-archived-pools", displayName: "Initech Archived Pools", archived: true },
+      { slug: "acme-spas", displayName: "Acme Spas", status: "active" },
+      { slug: "globex-pools", displayName: "Globex Pools" },
     ] as MergedClientMetrics[];
 
     expect(filterClientOnlyPortfolio(rows).map((c) => c.slug)).toEqual([
-      "client-a",
-      "client-b",
+      "acme-spas",
+      "globex-pools",
     ]);
+  });
+
+  it("excludes configured former-client slugs via options and FULFILLMENT_EXCLUDED_CLIENT_SLUGS", () => {
+    const prev = process.env.FULFILLMENT_EXCLUDED_CLIENT_SLUGS;
+    process.env.FULFILLMENT_EXCLUDED_CLIENT_SLUGS = "retired-north-spa";
+    try {
+      const rows = [
+        { slug: "retired-north-spa", displayName: "Retired North Spa" },
+        { slug: "retired-north-spa-west", displayName: "Retired North Spa West" },
+        { slug: "custom-excluded-co", displayName: "Custom Excluded Co" },
+        { slug: "acme-spas", displayName: "Acme Spas" },
+      ] as MergedClientMetrics[];
+
+      expect(
+        filterClientOnlyPortfolio(rows, { excludedSlugs: ["custom-excluded-co"] }).map((c) => c.slug),
+      ).toEqual(["acme-spas"]);
+    } finally {
+      if (prev === undefined) delete process.env.FULFILLMENT_EXCLUDED_CLIENT_SLUGS;
+      else process.env.FULFILLMENT_EXCLUDED_CLIENT_SLUGS = prev;
+    }
+  });
+
+  it("excludes default former-client slugs even when status is omitted upstream", () => {
+    // Explicit regression guard ensuring the former client slug and regional variants never re-enter active totals.
+    const rows = [
+      { slug: "paradise-spas", displayName: "Former Client A" },
+      { slug: "paradise-spas-north-dakota", displayName: "Former Client B" },
+      { slug: "acme-spas", displayName: "Acme Spas" },
+    ] as MergedClientMetrics[];
+
+    expect(filterClientOnlyPortfolio(rows).map((c) => c.slug)).toEqual(["acme-spas"]);
   });
 });

@@ -8,7 +8,7 @@ const pinnedNow = new Date("2026-11-23T12:00:00.000Z");
 
 describe("ceoBoardService & readingOrder", () => {
   it("returns honest not_connected CEO tiles and unknown readingOrder when offline", async () => {
-    const svc = ceoBoardService(() => pinnedNow, { adminKey: "" });
+    const svc = ceoBoardService(() => pinnedNow, { adminKey: "", gatewayToken: "" });
     const ceo = await svc.ceoBoard(companyId, "30d");
     expect(ceo.companyId).toBe(companyId);
     expect(ceo.period).toBe("30d");
@@ -77,8 +77,8 @@ describe("ceoBoardService & readingOrder", () => {
       neonPipeline: null,
       clients: [
         {
-          slug: "paradise-spas",
-          displayName: "Paradise Spas",
+          slug: "acme-spas",
+          displayName: "Acme Spas",
           observedAt: "2026-11-23T11:30:00.000Z",
           newLeads: 100,
           booked: 40,
@@ -109,11 +109,11 @@ describe("ceoBoardService & readingOrder", () => {
     expect(tiles.get("cash-collected")?.state).toBe("ok");
     expect(tiles.get("cash-collected")?.href).toBeUndefined();
 
-    // Agency-only: 50000 / (18000 + 2000) = 2.5 (never mixes Paradise Spas' $4,000 client ad spend)
+    // Agency-only: 50000 / (18000 + 2000) = 2.5 (never mixes Acme Spas' $4,000 client ad spend)
     expect(tiles.get("30-day-cash-multiple")?.value).toMatchObject({ kind: "live", value: 2.5, unit: "ratio" });
     expect(tiles.get("30-day-cash-multiple")?.state).toBe("ok");
 
-    // Agency-only: 8000 / 1000 = 8:1 (never divides by Paradise Spas' $500 client CPA)
+    // Agency-only: 8000 / 1000 = 8:1 (never divides by Acme Spas' $500 client CPA)
     expect(tiles.get("ltgp-cac")?.value).toMatchObject({ kind: "live", value: 8, unit: "ratio" });
     expect(tiles.get("ltgp-cac")?.state).toBe("ok");
 
@@ -224,8 +224,8 @@ describe("ceoBoardService & readingOrder", () => {
       neonPipeline: null,
       clients: [
         {
-          slug: "paradise-spas",
-          displayName: "Paradise Spas",
+          slug: "acme-spas",
+          displayName: "Acme Spas",
           observedAt: "2026-11-25T17:00:00.000Z",
           newLeads: 50,
           booked: 20,
@@ -268,7 +268,7 @@ describe("ceoBoardService & readingOrder", () => {
     });
 
     const tiles = new Map(ceo.moneyTiles.map((t) => [t.id, t]));
-    // Strictly agency QBO $60,000 (never mixes Paradise Spas' $250,000 client cash)
+    // Strictly agency QBO $60,000 (never mixes Acme Spas' $250,000 client cash)
     expect(tiles.get("cash-collected")?.value).toMatchObject({ kind: "live", value: 60000, unit: "usd" });
     expect(tiles.get("cash-collected")?.source).toBe("QuickBooks Online (Gateway)");
     expect(tiles.get("gross-margin")?.value).toMatchObject({ kind: "live", value: 75, unit: "percent" });
@@ -342,6 +342,133 @@ describe("ceoBoardService & readingOrder", () => {
     }
     expect(readingOrder.statuses.cash).toBe("unknown");
     expect(readingOrder.metrics.cash).toBeUndefined();
+  });
+
+  it("excludes __owner__ and former/cancelled/archived clients from CEO portfolio totals and fallbackShowRate", () => {
+    const bundle: PortfolioSnapshotBundle = {
+      observedAt: "2026-11-23T11:30:00.000Z",
+      capital: null,
+      snapshots: null,
+      neonAccounts: null,
+      neonPipeline: null,
+      clients: [
+        {
+          slug: "__owner__",
+          displayName: "IR / HTL owner",
+          observedAt: "2026-11-23T11:30:00.000Z",
+          newLeads: 500,
+          booked: 100,
+          showed: 10,
+          pitched: 10,
+          wonDeals: 50,
+          showRate: 10,
+          closeRate: 500,
+          pipelineRevenueUsd: 900000,
+          cashCollectedUsd: 900000,
+          speedToLeadSeconds: 999,
+          spend: 50000,
+          impressions: 100000,
+          clicks: 5000,
+          cpl: 100,
+          cac: 1000,
+          roas: null,
+          costPerHeldAppointment: 5000,
+          zeroLeadDays: 0,
+        },
+        {
+          slug: "acme-former-spa",
+          displayName: "Acme Former Spa",
+          status: "former",
+          observedAt: "2026-11-23T11:30:00.000Z",
+          newLeads: 200,
+          booked: 50,
+          showed: 5,
+          pitched: 5,
+          wonDeals: 10,
+          showRate: 10,
+          closeRate: 200,
+          pipelineRevenueUsd: 50000,
+          cashCollectedUsd: null,
+          speedToLeadSeconds: 600,
+          spend: 20000,
+          impressions: 50000,
+          clicks: 1000,
+          cpl: 100,
+          cac: 2000,
+          roas: 2.5,
+          costPerHeldAppointment: 4000,
+          zeroLeadDays: 0,
+        },
+        {
+          slug: "globex-archived-spa",
+          displayName: "Globex Archived Spa",
+          archived: true,
+          observedAt: "2026-11-23T11:30:00.000Z",
+          newLeads: 80,
+          booked: 20,
+          showed: 2,
+          pitched: 2,
+          wonDeals: 1,
+          showRate: 10,
+          closeRate: 50,
+          pipelineRevenueUsd: 10000,
+          cashCollectedUsd: null,
+          speedToLeadSeconds: 500,
+          spend: 10000,
+          impressions: 20000,
+          clicks: 200,
+          cpl: 125,
+          cac: 10000,
+          roas: 1,
+          costPerHeldAppointment: 5000,
+          zeroLeadDays: 0,
+        },
+        {
+          slug: "beacon-pools",
+          displayName: "Beacon Pools",
+          status: "active",
+          observedAt: "2026-11-23T11:30:00.000Z",
+          newLeads: 100,
+          booked: 40,
+          showed: 30,
+          pitched: 25,
+          wonDeals: 8,
+          showRate: 75,
+          closeRate: 26.7,
+          pipelineRevenueUsd: 40000,
+          cashCollectedUsd: null,
+          speedToLeadSeconds: 45,
+          spend: 4000,
+          impressions: 50000,
+          clicks: 1500,
+          cpl: 40,
+          cac: 500,
+          roas: 10,
+          costPerHeldAppointment: 133.33,
+          zeroLeadDays: 0,
+        },
+      ],
+    };
+
+    const { readingOrder } = buildCeoAndReadingOrder(companyId, "30d", bundle, pinnedNow);
+    // Strictly Beacon Pools only: 30/40 = 75%, 45s speed-to-lead, $4000 / 8 = $500 CAC
+    expect(readingOrder.statuses["show-rate"]).toBe("ok");
+    expect(readingOrder.metrics["show-rate"]?.displayValue).toBe("75%");
+    expect(readingOrder.statuses["speed-to-lead"]).toBe("ok");
+    expect(readingOrder.metrics["speed-to-lead"]?.displayValue).toBe("45s");
+    expect(readingOrder.metrics.cac?.displayValue).toBe("$500");
+
+    // When only __owner__ and cancelled/former entries have fallback showRate, Reading Order stays unknown
+    const excludedOnly: PortfolioSnapshotBundle = {
+      ...bundle,
+      clients: [
+        { ...bundle.clients[0]!, booked: null, showed: null, wonDeals: null, spend: null, speedToLeadSeconds: null, showRate: 92 },
+        { ...bundle.clients[1]!, status: "cancelled", booked: null, showed: null, wonDeals: null, spend: null, speedToLeadSeconds: null, showRate: 88 },
+      ],
+    };
+    const excludedOnlyRes = buildCeoAndReadingOrder(companyId, "30d", excludedOnly, pinnedNow);
+    expect(excludedOnlyRes.readingOrder.statuses["show-rate"]).toBe("unknown");
+    expect(excludedOnlyRes.readingOrder.metrics["show-rate"]).toBeUndefined();
   });
 });
 

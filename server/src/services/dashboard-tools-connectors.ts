@@ -283,7 +283,14 @@ export function dashboardToolsConnectorsService(
         items.push(await probeOAuthGatewayHealth(now, fetchImpl));
       }
 
-      if (boardViewer && (process.env.SALES_DASHBOARD_ADMIN_KEY ?? "").trim()) {
+      if (
+        boardViewer &&
+        Boolean(
+          (process.env.GATEWAY_PAPERCLIP_KEY ?? "").trim() ||
+          (process.env.GATEWAY_META_KEY ?? "").trim() ||
+          (process.env.SALES_DASHBOARD_ADMIN_KEY ?? "").trim(),
+        )
+      ) {
         const metaExpiresAt = resolveMetaTokenExpiresAt();
         const metaExpiry = new Date(metaExpiresAt);
         const expiryDateLabel = metaExpiresAt.slice(0, 10);

@@ -12,8 +12,10 @@ import {
 } from "@paperclipai/shared";
 import { assertCompanyAccess } from "../routes/authz.js";
 import {
+  filterClientOnlyPortfolio,
   readPortfolioSnapshotBundle,
   type CapitalMetricsPayload,
+  type MergedClientMetrics,
   type PortfolioSnapshotBundle,
   type SalesDashboardClientOptions,
 } from "./sales-dashboard-client.js";
@@ -90,7 +92,7 @@ interface ClientPortfolioTotals {
   speedToLeadSec: number | null;
 }
 
-function aggregateClientPortfolio(bundle: PortfolioSnapshotBundle): ClientPortfolioTotals {
+function aggregateClientPortfolio(clients: readonly MergedClientMetrics[]): ClientPortfolioTotals {
   let totalAdSpend = 0;
   let hasAdSpend = false;
   let totalBooked = 0;
@@ -102,7 +104,7 @@ function aggregateClientPortfolio(bundle: PortfolioSnapshotBundle): ClientPortfo
   let speedToLeadSum = 0;
   let speedToLeadCount = 0;
 
-  for (const client of bundle.clients) {
+  for (const client of filterClientOnlyPortfolio(clients)) {
     if (client.spend !== null) {
       totalAdSpend += client.spend;
       hasAdSpend = true;
@@ -295,7 +297,8 @@ export function buildCeoAndReadingOrder(
         ? "QuickBooks Online (Composio bridge)"
         : null;
 
-  const portfolio = aggregateClientPortfolio(bundle);
+  const clientOnly = filterClientOnlyPortfolio(bundle.clients);
+  const portfolio = aggregateClientPortfolio(clientOnly);
   const money = resolveAgencyMoneySummary(bundle, fin, qbo);
   const {
     cashCollectedUsd,
@@ -371,7 +374,7 @@ export function buildCeoAndReadingOrder(
     cacPaybackDeals === null ? "unknown" : cacPaybackDeals <= 1 ? "ok" : "red";
 
   // 7. Show rate (for reading order)
-  const fallbackShowRate = bundle.clients.find((c) => c.showRate !== null)?.showRate ?? null;
+  const fallbackShowRate = clientOnly.find((c) => c.showRate !== null)?.showRate ?? null;
   const portfolioShowRate =
     portfolio.hasBooked && portfolio.hasShowed
       ? showRate({ pastDatedBooked: portfolio.totalBooked, showed: portfolio.totalShowed })
@@ -547,7 +550,7 @@ export function ceoBoardService(
       const boardViewer = options.boardViewer ?? true;
       const [bundle, qbo] = boardViewer
         ? await Promise.all([
-            readPortfolioSnapshotBundle(period, clientOpts),
+            readPortfolioSnapshotBundle(period, { now, ...clientOpts }),
             readAgencyQuickBooksFinancials(period, { now, ...qboOpts }),
           ])
         : [EMPTY_BUNDLE, null];
@@ -561,7 +564,7 @@ export function ceoBoardService(
       const boardViewer = options.boardViewer ?? true;
       const [bundle, qbo] = boardViewer
         ? await Promise.all([
-            readPortfolioSnapshotBundle(period, clientOpts),
+            readPortfolioSnapshotBundle(period, { now, ...clientOpts }),
             readAgencyQuickBooksFinancials(period, { now, ...qboOpts }),
           ])
         : [EMPTY_BUNDLE, null];
