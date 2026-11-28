@@ -1,35 +1,48 @@
 import type { SVGProps } from "react";
 import { cn } from "../lib/utils";
+import { BRAND_ACCENT_GREEN, BRAND_ACCENT_TILE, BRAND_GRID_TILES } from "./BrandMark";
 
 export function AnimatedPaperclipIcon({ className, ...props }: SVGProps<SVGSVGElement>) {
   return (
     <svg
-      viewBox="-1 -1 26 26"
+      viewBox="0 0 100 100"
+      fill="none"
       className={cn("paperclip-thinking-icon", className)}
       aria-hidden="true"
       {...props}
     >
-      <path
-        className="paperclip-thinking-icon-path"
-        d="M16 6 l-8.414 8.586 a2.000 2.000 0 0 0 2.828 2.828 l8.414 -8.586 a4.000 4.000 0 1 0 -5.657 -5.657 l-8.379 8.551 a6.000 6.000 0 1 0 8.485 8.485 l8.379 -8.551"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+      {BRAND_GRID_TILES.map((tile, index) => (
+        <rect
+          key={index}
+          className="paperclip-thinking-tile"
+          style={{ animationDelay: `${index * 90}ms` }}
+          x={tile.x}
+          y={tile.y}
+          width={tile.width}
+          height={tile.height}
+          fill="currentColor"
+        />
+      ))}
+      <rect
+        className="paperclip-thinking-accent"
+        x={BRAND_ACCENT_TILE.x}
+        y={BRAND_ACCENT_TILE.y}
+        width={BRAND_ACCENT_TILE.width}
+        height={BRAND_ACCENT_TILE.height}
+        fill={BRAND_ACCENT_GREEN}
       />
     </svg>
   );
 }
 
-/** Full-page loading state: a large, centered, gray animated paperclip. */
+/** Full-page loading state: centered animated brand mark. */
 export function PaperclipLoading({ className }: { className?: string }) {
   return (
     <div
       role="status"
       className={cn("flex min-h-dvh w-full items-center justify-center", className)}
     >
-      <AnimatedPaperclipIcon className="h-24 w-24 text-muted-foreground" />
+      <AnimatedPaperclipIcon className="h-20 w-20 text-foreground" />
       <span className="sr-only">Loading…</span>
     </div>
   );

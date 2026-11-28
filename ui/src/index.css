@@ -1834,36 +1834,30 @@ html:has(.paperclip-app-shell[data-mobile="true"] [data-task-chat-shell]) #root 
   transform-origin: 50% 50%;
 }
 
-@keyframes paperclip-thinking-draw {
-  0% {
-    stroke-dasharray: 0 85.717;
-    stroke-dashoffset: -85.717;
+@keyframes paperclip-thinking-tile-pulse {
+  0%, 100% {
+    opacity: 0.32;
+  }
+  50% {
     opacity: 1;
-    animation-timing-function: cubic-bezier(0.455, 0.03, 0.515, 0.955);
-  }
-  39.0625% {
-    stroke-dasharray: 85.717 85.717;
-    stroke-dashoffset: 0;
-    opacity: 1;
-    animation-timing-function: cubic-bezier(0.55, 0.055, 0.675, 0.19);
-  }
-  78.125% {
-    stroke-dasharray: 0 85.717;
-    stroke-dashoffset: 0;
-    opacity: 1;
-  }
-  78.225% {
-    opacity: 0;
-  }
-  100% {
-    stroke-dasharray: 0 85.717;
-    stroke-dashoffset: 0;
-    opacity: 0;
   }
 }
 
-.paperclip-thinking-icon-path {
-  animation: paperclip-thinking-draw 1s linear infinite;
+@keyframes paperclip-thinking-accent-pulse {
+  0%, 100% {
+    opacity: 0.72;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.paperclip-thinking-tile {
+  animation: paperclip-thinking-tile-pulse 1.2s ease-in-out infinite;
+}
+
+.paperclip-thinking-accent {
+  animation: paperclip-thinking-accent-pulse 1.2s ease-in-out infinite;
 }
 
 /* Muted variant (task-chat v7 activity rows): the sweep runs over the
@@ -1919,11 +1913,10 @@ html:has(.paperclip-app-shell[data-mobile="true"] [data-task-chat-shell]) #root 
     background: none;
   }
 
-  .paperclip-thinking-icon-path {
+  .paperclip-thinking-tile,
+  .paperclip-thinking-accent {
     animation: none;
     opacity: 1;
-    stroke-dasharray: 85.717 85.717;
-    stroke-dashoffset: 0;
   }
 }
 

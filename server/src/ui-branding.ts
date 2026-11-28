@@ -139,9 +139,19 @@ function escapeHtmlAttribute(value: string): string {
 
 function createFaviconDataUrl(background: string, foreground: string): string {
   const svg = [
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">',
-    `<rect width="24" height="24" rx="6" fill="${background}"/>`,
-    `<path stroke="${foreground}" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.15" d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/>`,
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">',
+    `<rect width="100" height="100" rx="22" fill="${background}"/>`,
+    `<g transform="translate(10 10) scale(0.8)">`,
+    `<rect x="9" y="23.2" width="21" height="21" fill="${foreground}"/>`,
+    `<rect x="33.9" y="23.2" width="21" height="21" fill="${foreground}"/>`,
+    `<rect x="9" y="48.1" width="21" height="21" fill="${foreground}"/>`,
+    `<rect x="33.9" y="48.1" width="21" height="21" fill="${foreground}"/>`,
+    `<rect x="58.8" y="48.1" width="21" height="21" fill="${foreground}"/>`,
+    `<rect x="9" y="73" width="21" height="21" fill="${foreground}"/>`,
+    `<rect x="33.9" y="73" width="21" height="21" fill="${foreground}"/>`,
+    `<rect x="58.8" y="73" width="21" height="21" fill="${foreground}"/>`,
+    `<rect x="58.8" y="6" width="32.3" height="34.3" fill="#b5db24"/>`,
+    "</g>",
     "</svg>",
   ].join("");
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;

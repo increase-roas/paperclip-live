@@ -1,9 +1,11 @@
-import { Boxes, Folder, Link2, Paperclip, type LucideIcon } from "lucide-react";
+import type { ComponentType, SVGProps } from "react";
+import { Boxes, Folder, Link2, type LucideIcon } from "lucide-react";
+import { BrandMark } from "@/components/BrandMark";
 import { GithubIcon } from "@/components/icons/github-icon";
 import type { CompanySkillListItem } from "@paperclipai/shared";
 
 export interface AgentSkillSourceMeta {
-  icon: LucideIcon;
+  icon: LucideIcon | ComponentType<SVGProps<SVGSVGElement>>;
   label: string;
 }
 
@@ -104,7 +106,7 @@ export function buildAgentSkillSourceMeta(skill: SourceSkill): AgentSkillSourceM
   }
 
   if (skill.sourceBadge === "paperclip") {
-    return { icon: Paperclip, label: skill.sourceLabel?.trim() || "Paperclip managed" };
+    return { icon: BrandMark, label: skill.sourceLabel?.trim() || "Paperclip managed" };
   }
 
   if (skill.sourceBadge === "catalog" || skill.sourceType === "catalog") {
